@@ -69,6 +69,35 @@
     margin:36px 0 40px;
   }
 
+  .prefs-panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:18px 20px; margin-top:28px;
+  }
+  .prefs-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .prefs-title{
+    font-weight:600; font-size:0.92rem; color:var(--text-0);
+    display:flex; align-items:center; gap:8px;
+  }
+  .prefs-count{
+    font-family:var(--mono); font-size:0.7rem; font-weight:400; color:var(--text-2);
+    background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:2px 9px;
+  }
+  .btn-text{
+    background:none; border:none; color:var(--text-2); font-family:var(--sans);
+    font-size:0.78rem; font-weight:500; cursor:pointer; padding:4px 2px;
+    transition:color 0.15s ease;
+  }
+  .btn-text:hover{ color:var(--accent); }
+  .prefs-hint{ color:var(--text-1); font-size:0.82rem; line-height:1.5; margin:8px 0 14px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:7px; }
+  .chip{
+    font-family:var(--sans); font-size:0.8rem; font-weight:500; color:var(--text-1);
+    background:transparent; border:1px solid var(--border); border-radius:999px;
+    padding:6px 13px; cursor:pointer; transition:all 0.15s ease;
+  }
+  .chip:hover{ border-color:var(--border-hover); color:var(--text-0); }
+  .chip.active{ background:var(--accent-soft); border-color:var(--accent-border); color:var(--text-0); }
+
   .btn-generate{
     font-family:var(--sans); font-weight:600; font-size:0.95rem; color:#fff;
     background:var(--accent); border:none; border-radius:var(--radius-md);
@@ -226,6 +255,15 @@
 </header>
 
 <main>
+  <div class="prefs-panel">
+    <div class="prefs-head">
+      <span class="prefs-title">Styles préférés <span class="prefs-count" id="prefsCount">0 sélectionné</span></span>
+      <button class="btn-text" id="prefsClear">Tout effacer</button>
+    </div>
+    <p class="prefs-hint">Sélectionne un ou plusieurs styles : les propositions resteront proches d'eux, ou en mélangeront deux (ex. « Techno minimal × Ambient »). Aucune sélection = tous les styles sont possibles.</p>
+    <div class="chips" id="chipsGrid"></div>
+  </div>
+
   <div class="controls">
     <button class="btn-generate" id="generateBtn">Générer une inspiration</button>
     <div class="secondary-actions">
@@ -338,48 +376,48 @@
   "use strict";
 
   const STYLES = [
-    {name:"Synthwave", bpm:[80,118], desc:"Sonorités synthétiques rétro inspirées des films et jeux vidéo des années 80."},
-    {name:"Vaporwave", bpm:[60,90], desc:"Collage nostalgique et ralenti de musiques commerciales ou d'ascenseur, avec une esthétique ironique."},
-    {name:"Lo-fi Hip-Hop", bpm:[70,90], desc:"Beats hip-hop doux et volontairement imparfaits, pensés pour l'ambiance et la concentration."},
-    {name:"Trip-hop", bpm:[80,100], desc:"Hip-hop ralenti et cinématographique, mêlé à des textures électroniques sombres."},
-    {name:"Techno minimal", bpm:[122,132], desc:"Techno épurée à l'extrême, construite sur des boucles rythmiques hypnotiques et peu d'éléments."},
-    {name:"Deep house", bpm:[118,124], desc:"House chaleureuse et groovy, basses profondes et ambiance feutrée pour la danse relax."},
-    {name:"House", bpm:[120,128], desc:"Musique de danse à 4 temps née dans les clubs de Chicago, pulsation régulière et entêtante."},
-    {name:"Drum & Bass", bpm:[160,180], desc:"Breakbeats rapides et basses profondes, née de la scène jungle britannique des années 90."},
-    {name:"Jungle", bpm:[160,175], desc:"Ancêtre frénétique de la drum & bass : breakbeats accélérés et basses reggae/dub."},
-    {name:"Dubstep", bpm:[135,145], desc:"Rythme à moitié tempo et basses 'wobble' puissantes, souvent construit autour d'un drop."},
-    {name:"Breakbeat", bpm:[125,140], desc:"Groove basé sur des rythmes de batterie samplés et découpés, plutôt qu'une pulsation 4 temps classique."},
-    {name:"IDM", bpm:[80,160], desc:"Musique électronique expérimentale (Intelligent Dance Music) : rythmes complexes et sound design pointu."},
-    {name:"Glitch", bpm:[90,150], desc:"Musique qui transforme les erreurs numériques (clics, sauts, bugs) en matière musicale."},
-    {name:"Ambient", bpm:[50,80], desc:"Musique de fond immersive et sans rythme marqué, pensée pour l'atmosphère plutôt que la danse."},
-    {name:"Drone", bpm:[0,0], desc:"Sons continus et texturés qui évoluent très lentement, sans mélodie ni rythme apparent."},
-    {name:"Post-rock", bpm:[70,140], desc:"Rock instrumental aux structures longues, entre calme contemplatif et déferlantes saturées."},
-    {name:"Shoegaze", bpm:[100,140], desc:"Rock aux guitares saturées noyées de réverbe, voix étouffées, ambiance planante."},
-    {name:"Post-punk", bpm:[120,150], desc:"Héritier du punk, plus sombre et expérimental, basses proéminentes et rythmiques anguleuses."},
-    {name:"Darkwave", bpm:[100,130], desc:"Pop/rock sombre et mélancolique héritée du post-punk, synthés froids et ambiance gothique."},
-    {name:"Industrial", bpm:[110,140], desc:"Sons bruts et métalliques, souvent samplés de machines ou d'usines, ambiance dérangeante."},
-    {name:"EBM", bpm:[120,135], desc:"Electronic Body Music : rythmes de boîte à rythmes martiaux et répétitifs, basses séquencées, pensée pour un dancefloor sombre et énergique."},
-    {name:"Chiptune", bpm:[120,160], desc:"Musique composée avec les sons de puces de vieilles consoles ou ordinateurs 8-16 bits."},
-    {name:"Footwork", bpm:[155,165], desc:"Style de danse de Chicago à tempo très rapide, rythmes syncopés et samples vocaux hachés."},
-    {name:"Trap", bpm:[130,170], desc:"Hip-hop moderne aux hi-hats roulés très rapides et basses 808, souvent joué en demi-tempo."},
-    {name:"Cloud rap", bpm:[60,80], desc:"Trap onirique et planante, voix pitchées/réverbérées, production floue et atmosphérique."},
-    {name:"UK garage", bpm:[130,140], desc:"House/garage britannique syncopé et shufflé, ancêtre du dubstep et de la grime."},
-    {name:"Grime", bpm:[135,145], desc:"Rap électronique anglais énergique, aux rythmiques syncopées héritées du garage."},
-    {name:"Baile funk", bpm:[125,135], desc:"Musique de danse brésilienne née dans les favelas de Rio, percussions crues et basses puissantes."},
-    {name:"Gqom", bpm:[120,128], desc:"House brute et minimaliste originaire de Durban (Afrique du Sud), percussions lourdes et ambiance sombre."},
-    {name:"Jazz fusion", bpm:[90,160], desc:"Croisement du jazz avec le rock/funk électrique, improvisation virtuose et rythmiques complexes."},
-    {name:"Nu-jazz", bpm:[80,130], desc:"Jazz mêlé à l'électronique et aux beats club, entre improvisation et production moderne."},
-    {name:"Bossa nova électronique", bpm:[80,120], desc:"Douceur brésilienne de la bossa nova revisitée avec des textures et rythmiques électroniques."},
-    {name:"Funk psychédélique", bpm:[90,115], desc:"Funk groovy enrichi d'effets et de sonorités héritées du rock psychédélique des années 70."},
-    {name:"Krautrock", bpm:[110,130], desc:"Rock expérimental allemand des années 70, rythmiques hypnotiques et exploration sonore."},
-    {name:"Musique concrète", bpm:[0,0], desc:"Composition à partir de sons enregistrés du réel (objets, bruits), assemblés hors de la notation classique."},
-    {name:"Field recording", bpm:[0,0], desc:"Œuvre construite à partir de sons captés dans un environnement réel (rue, nature, machines)."},
-    {name:"Neoclassique", bpm:[50,90], desc:"Musique contemporaine pour instruments classiques (piano, cordes), souvent épurée et émotionnelle."},
-    {name:"Musique de film", bpm:[40,140], desc:"Composition au service d'une narration ou d'une image, très variée en style et en instrumentation."},
-    {name:"Afrobeat électronique", bpm:[100,125], desc:"Fusion des rythmiques afrobeat (héritage Fela Kuti) avec des productions et basses électroniques modernes."},
-    {name:"Cumbia digitale", bpm:[85,100], desc:"Cumbia latino-américaine traditionnelle réinventée avec des synthés et productions électroniques."},
-    {name:"Reggaeton expérimental", bpm:[85,100], desc:"Rythme reggaeton (dembow) détourné avec des productions électroniques non conventionnelles."},
-    {name:"Highlife électronique", bpm:[100,125], desc:"Highlife ouest-africain (guitares entrelacées, cuivres) fusionné avec des productions électroniques."}
+    {name:"Synthwave", bpm:[80,118], desc:"Sonorités synthétiques rétro inspirées des films et jeux vidéo des années 80.", tags:["retro-synth"]},
+    {name:"Vaporwave", bpm:[60,90], desc:"Collage nostalgique et ralenti de musiques commerciales ou d'ascenseur, avec une esthétique ironique.", tags:["retro-synth","chill-lofi"]},
+    {name:"Lo-fi Hip-Hop", bpm:[70,90], desc:"Beats hip-hop doux et volontairement imparfaits, pensés pour l'ambiance et la concentration.", tags:["chill-lofi"]},
+    {name:"Trip-hop", bpm:[80,100], desc:"Hip-hop ralenti et cinématographique, mêlé à des textures électroniques sombres.", tags:["chill-lofi","ambient-exp"]},
+    {name:"Techno minimal", bpm:[122,132], desc:"Techno épurée à l'extrême, construite sur des boucles rythmiques hypnotiques et peu d'éléments.", tags:["electro-club"]},
+    {name:"Deep house", bpm:[118,124], desc:"House chaleureuse et groovy, basses profondes et ambiance feutrée pour la danse relax.", tags:["electro-club"]},
+    {name:"House", bpm:[120,128], desc:"Musique de danse à 4 temps née dans les clubs de Chicago, pulsation régulière et entêtante.", tags:["electro-club"]},
+    {name:"Drum & Bass", bpm:[160,180], desc:"Breakbeats rapides et basses profondes, née de la scène jungle britannique des années 90.", tags:["bass-breaks"]},
+    {name:"Jungle", bpm:[160,175], desc:"Ancêtre frénétique de la drum & bass : breakbeats accélérés et basses reggae/dub.", tags:["bass-breaks","world-groove"]},
+    {name:"Dubstep", bpm:[135,145], desc:"Rythme à moitié tempo et basses 'wobble' puissantes, souvent construit autour d'un drop.", tags:["bass-breaks"]},
+    {name:"Breakbeat", bpm:[125,140], desc:"Groove basé sur des rythmes de batterie samplés et découpés, plutôt qu'une pulsation 4 temps classique.", tags:["bass-breaks"]},
+    {name:"IDM", bpm:[80,160], desc:"Musique électronique expérimentale (Intelligent Dance Music) : rythmes complexes et sound design pointu.", tags:["ambient-exp","bass-breaks"]},
+    {name:"Glitch", bpm:[90,150], desc:"Musique qui transforme les erreurs numériques (clics, sauts, bugs) en matière musicale.", tags:["ambient-exp"]},
+    {name:"Ambient", bpm:[50,80], desc:"Musique de fond immersive et sans rythme marqué, pensée pour l'atmosphère plutôt que la danse.", tags:["ambient-exp"]},
+    {name:"Drone", bpm:[0,0], desc:"Sons continus et texturés qui évoluent très lentement, sans mélodie ni rythme apparent.", tags:["ambient-exp"]},
+    {name:"Post-rock", bpm:[70,140], desc:"Rock instrumental aux structures longues, entre calme contemplatif et déferlantes saturées.", tags:["rock-guitar","ambient-exp"]},
+    {name:"Shoegaze", bpm:[100,140], desc:"Rock aux guitares saturées noyées de réverbe, voix étouffées, ambiance planante.", tags:["rock-guitar"]},
+    {name:"Post-punk", bpm:[120,150], desc:"Héritier du punk, plus sombre et expérimental, basses proéminentes et rythmiques anguleuses.", tags:["rock-guitar","industrial-dark"]},
+    {name:"Darkwave", bpm:[100,130], desc:"Pop/rock sombre et mélancolique héritée du post-punk, synthés froids et ambiance gothique.", tags:["industrial-dark","rock-guitar"]},
+    {name:"Industrial", bpm:[110,140], desc:"Sons bruts et métalliques, souvent samplés de machines ou d'usines, ambiance dérangeante.", tags:["industrial-dark"]},
+    {name:"EBM", bpm:[120,135], desc:"Electronic Body Music : rythmes de boîte à rythmes martiaux et répétitifs, basses séquencées, pensée pour un dancefloor sombre et énergique.", tags:["industrial-dark","electro-club"]},
+    {name:"Chiptune", bpm:[120,160], desc:"Musique composée avec les sons de puces de vieilles consoles ou ordinateurs 8-16 bits.", tags:["retro-synth"]},
+    {name:"Footwork", bpm:[155,165], desc:"Style de danse de Chicago à tempo très rapide, rythmes syncopés et samples vocaux hachés.", tags:["bass-breaks","urban-rap"]},
+    {name:"Trap", bpm:[130,170], desc:"Hip-hop moderne aux hi-hats roulés très rapides et basses 808, souvent joué en demi-tempo.", tags:["urban-rap"]},
+    {name:"Cloud rap", bpm:[60,80], desc:"Trap onirique et planante, voix pitchées/réverbérées, production floue et atmosphérique.", tags:["urban-rap","chill-lofi"]},
+    {name:"UK garage", bpm:[130,140], desc:"House/garage britannique syncopé et shufflé, ancêtre du dubstep et de la grime.", tags:["electro-club","bass-breaks"]},
+    {name:"Grime", bpm:[135,145], desc:"Rap électronique anglais énergique, aux rythmiques syncopées héritées du garage.", tags:["urban-rap","bass-breaks"]},
+    {name:"Baile funk", bpm:[125,135], desc:"Musique de danse brésilienne née dans les favelas de Rio, percussions crues et basses puissantes.", tags:["world-groove","urban-rap"]},
+    {name:"Gqom", bpm:[120,128], desc:"House brute et minimaliste originaire de Durban (Afrique du Sud), percussions lourdes et ambiance sombre.", tags:["world-groove","electro-club"]},
+    {name:"Jazz fusion", bpm:[90,160], desc:"Croisement du jazz avec le rock/funk électrique, improvisation virtuose et rythmiques complexes.", tags:["jazz-fusion"]},
+    {name:"Nu-jazz", bpm:[80,130], desc:"Jazz mêlé à l'électronique et aux beats club, entre improvisation et production moderne.", tags:["jazz-fusion","chill-lofi"]},
+    {name:"Bossa nova électronique", bpm:[80,120], desc:"Douceur brésilienne de la bossa nova revisitée avec des textures et rythmiques électroniques.", tags:["jazz-fusion","chill-lofi","world-groove"]},
+    {name:"Funk psychédélique", bpm:[90,115], desc:"Funk groovy enrichi d'effets et de sonorités héritées du rock psychédélique des années 70.", tags:["jazz-fusion","rock-guitar"]},
+    {name:"Krautrock", bpm:[110,130], desc:"Rock expérimental allemand des années 70, rythmiques hypnotiques et exploration sonore.", tags:["rock-guitar","ambient-exp"]},
+    {name:"Musique concrète", bpm:[0,0], desc:"Composition à partir de sons enregistrés du réel (objets, bruits), assemblés hors de la notation classique.", tags:["ambient-exp"]},
+    {name:"Field recording", bpm:[0,0], desc:"Œuvre construite à partir de sons captés dans un environnement réel (rue, nature, machines).", tags:["ambient-exp"]},
+    {name:"Neoclassique", bpm:[50,90], desc:"Musique contemporaine pour instruments classiques (piano, cordes), souvent épurée et émotionnelle.", tags:["ambient-exp"]},
+    {name:"Musique de film", bpm:[40,140], desc:"Composition au service d'une narration ou d'une image, très variée en style et en instrumentation.", tags:["ambient-exp"]},
+    {name:"Afrobeat électronique", bpm:[100,125], desc:"Fusion des rythmiques afrobeat (héritage Fela Kuti) avec des productions et basses électroniques modernes.", tags:["world-groove","electro-club"]},
+    {name:"Cumbia digitale", bpm:[85,100], desc:"Cumbia latino-américaine traditionnelle réinventée avec des synthés et productions électroniques.", tags:["world-groove"]},
+    {name:"Reggaeton expérimental", bpm:[85,100], desc:"Rythme reggaeton (dembow) détourné avec des productions électroniques non conventionnelles.", tags:["world-groove","urban-rap"]},
+    {name:"Highlife électronique", bpm:[100,125], desc:"Highlife ouest-africain (guitares entrelacées, cuivres) fusionné avec des productions électroniques.", tags:["world-groove"]}
   ];
 
   const MOODS = [
@@ -457,7 +495,10 @@
     historyCount: document.getElementById('historyCount'),
     favList: document.getElementById('favList'),
     favCount: document.getElementById('favCount'),
-    toast: document.getElementById('toast')
+    toast: document.getElementById('toast'),
+    chipsGrid: document.getElementById('chipsGrid'),
+    prefsCount: document.getElementById('prefsCount'),
+    prefsClear: document.getElementById('prefsClear')
   };
 
   const LOCKS = { style:false, bpm:false, key:false, mood:false, structure:false, instruments:false, constraint:false };
@@ -465,6 +506,8 @@
 
   const HISTORY_KEY = "glitch_inspi_history";
   const FAV_KEY = "glitch_inspi_favorites";
+  const PREFS_KEY = "glitch_inspi_prefs";
+  const PREFS = new Set();
 
   function randomItem(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
@@ -486,13 +529,81 @@
     return val + " BPM";
   }
 
+  function mergeBpmRanges(r1, r2){
+    const free1 = r1[0]===0 && r1[1]===0;
+    const free2 = r2[0]===0 && r2[1]===0;
+    if(free1 || free2) return [0,0];
+    const interLo = Math.max(r1[0], r2[0]);
+    const interHi = Math.min(r1[1], r2[1]);
+    if(interLo <= interHi) return [interLo, interHi];
+    return [Math.min(r1[0], r2[0]), Math.max(r1[1], r2[1])];
+  }
+
+  function lowerFirst(str){
+    return str.length ? str.charAt(0).toLowerCase() + str.slice(1) : str;
+  }
+
+  // Builds a weighted pool of candidate style names based on selected preferences:
+  // the chosen styles themselves (weighted higher) plus styles sharing at least one tag with them.
+  function buildStylePool(){
+    if(PREFS.size === 0) return null;
+    const selected = Array.from(PREFS);
+    const neighbors = new Set();
+    selected.forEach(name=>{
+      const obj = STYLES.find(s=>s.name===name);
+      if(!obj) return;
+      STYLES.forEach(s=>{
+        if(s.name===name || selected.includes(s.name)) return;
+        if(s.tags.some(t=>obj.tags.includes(t))) neighbors.add(s.name);
+      });
+    });
+    const weighted = [];
+    selected.forEach(n=>{ weighted.push(n,n,n); });
+    neighbors.forEach(n=>weighted.push(n));
+    return weighted;
+  }
+
+  function setSingleStyle(name){
+    const obj = STYLES.find(s=>s.name===name) || randomItem(STYLES);
+    state.styleObj = obj;
+    state.style = obj.name;
+    state.styleDesc = obj.desc;
+    if(!LOCKS.bpm) state.bpm = formatBpm(obj);
+  }
+
+  function setBlendStyle(nameA, nameB){
+    const a = STYLES.find(s=>s.name===nameA);
+    const b = STYLES.find(s=>s.name===nameB);
+    if(!a || !b || a.name===b.name){ setSingleStyle(nameA); return; }
+    const synthetic = { name: a.name+' × '+b.name, bpm: mergeBpmRanges(a.bpm, b.bpm) };
+    state.styleObj = synthetic;
+    state.style = synthetic.name;
+    state.styleDesc = 'Mélange entre '+a.name+' ('+lowerFirst(a.desc)+') et '+b.name+' ('+lowerFirst(b.desc)+')';
+    if(!LOCKS.bpm) state.bpm = formatBpm(synthetic);
+  }
+
+  function genStyleField(){
+    const pool = buildStylePool();
+    if(!pool){
+      setSingleStyle(randomItem(STYLES).name);
+      return;
+    }
+    const doBlend = pool.length >= 2 && Math.random() < 0.4;
+    if(doBlend){
+      const a = randomItem(pool);
+      let b = randomItem(pool);
+      let tries = 0;
+      while(b === a && tries < 8){ b = randomItem(pool); tries++; }
+      setBlendStyle(a, b);
+    } else {
+      setSingleStyle(randomItem(pool));
+    }
+  }
+
   function genField(key){
     switch(key){
       case 'style': {
-        state.styleObj = randomItem(STYLES);
-        state.style = state.styleObj.name;
-        state.styleDesc = state.styleObj.desc;
-        if(!LOCKS.bpm) state.bpm = formatBpm(state.styleObj);
+        genStyleField();
         break;
       }
       case 'bpm': {
@@ -588,11 +699,44 @@
     try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
   }
 
+  // ---- style preferences (chips) ----
+  function loadPrefs(){
+    const saved = loadJSON(PREFS_KEY);
+    saved.forEach(name=>{ if(STYLES.some(s=>s.name===name)) PREFS.add(name); });
+  }
+  function savePrefs(){
+    saveJSON(PREFS_KEY, Array.from(PREFS));
+  }
+  function updatePrefsCount(){
+    const n = PREFS.size;
+    els.prefsCount.textContent = n === 0 ? 'Aucun (tout est possible)' : (n + (n>1 ? ' sélectionnés' : ' sélectionné'));
+  }
+  function renderChips(){
+    els.chipsGrid.innerHTML = '';
+    STYLES.forEach(s=>{
+      const btn = document.createElement('button');
+      btn.className = 'chip' + (PREFS.has(s.name) ? ' active' : '');
+      btn.type = 'button';
+      btn.textContent = s.name;
+      btn.addEventListener('click', ()=>{
+        if(PREFS.has(s.name)) PREFS.delete(s.name); else PREFS.add(s.name);
+        btn.classList.toggle('active', PREFS.has(s.name));
+        savePrefs();
+        updatePrefsCount();
+        if(!LOCKS.style){ rerollSingle('style'); }
+      });
+      els.chipsGrid.appendChild(btn);
+    });
+    updatePrefsCount();
+  }
+
   function snapshot(){
     return {
       id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
       time: Date.now(),
-      style: state.style, bpm: state.bpm, key: state.key,
+      style: state.style, styleDesc: state.styleDesc,
+      styleBpmRange: state.styleObj ? state.styleObj.bpm : [70,160],
+      bpm: state.bpm, key: state.key,
       mood: state.mood, structure: state.structure,
       instruments: state.instruments.slice(), constraint: state.constraint
     };
@@ -607,8 +751,8 @@
   }
 
   function restoreSnapshot(snap){
-    state.styleObj = STYLES.find(s=>s.name===snap.style) || null;
-    state.style = snap.style; state.styleDesc = state.styleObj ? state.styleObj.desc : "";
+    state.styleObj = { name: snap.style, bpm: snap.styleBpmRange || (STYLES.find(s=>s.name===snap.style)||{bpm:[70,160]}).bpm };
+    state.style = snap.style; state.styleDesc = snap.styleDesc || (STYLES.find(s=>s.name===snap.style)||{desc:""}).desc;
     state.bpm = snap.bpm; state.key = snap.key;
     state.mood = snap.mood; state.structure = snap.structure;
     state.instruments = snap.instruments.slice(); state.constraint = snap.constraint;
@@ -725,6 +869,14 @@
     showToast('Ajouté aux favoris');
   });
 
+  els.prefsClear.addEventListener('click', ()=>{
+    if(PREFS.size === 0) return;
+    PREFS.clear();
+    savePrefs();
+    renderChips();
+    if(!LOCKS.style){ rerollSingle('style'); }
+  });
+
   document.addEventListener('keydown', (e)=>{
     if(e.code === 'Space' && document.activeElement === document.body){
       e.preventDefault();
@@ -734,6 +886,8 @@
 
   // ---- init ----
   function init(){
+    loadPrefs();
+    renderChips();
     genField('style'); genField('bpm'); genField('key');
     genField('mood'); genField('structure'); genField('instruments'); genField('constraint');
     renderAll(false);

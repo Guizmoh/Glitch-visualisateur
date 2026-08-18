@@ -401,7 +401,7 @@
       <button class="btn-text" id="prefsClear">Tout effacer</button>
     </div>
     <div class="prefs-body">
-      <p class="prefs-hint">Sélectionne un ou plusieurs styles : les propositions resteront proches d'eux, ou en mélangeront deux (ex. « Techno minimal × Ambient »). Aucune sélection = tous les styles sont possibles.</p>
+      <p class="prefs-hint">Sélectionne un ou plusieurs styles : les propositions resteront proches d'eux (y compris leurs sous-genres, ex. Drill, Ska, Amapiano...), ou en mélangeront deux (ex. « Techno × Reggae »). Aucune sélection = tous les styles sont possibles.</p>
       <div class="chips" id="chipsGrid"></div>
     </div>
   </div>
@@ -583,54 +583,112 @@
 (function(){
   "use strict";
 
+  // Deux niveaux : ~18 styles "parents" bien connus (seuls sélectionnables comme
+  // préférences), chacun avec des sous-genres plus précis piochés aléatoirement
+  // à la génération (affichés "Sous-genre (humeur)"). Les styles trop confidentiels
+  // vivent en sous-genre plutôt qu'en chip cliquable, pour garder la liste lisible.
   const STYLES = [
-    {name:"Synthwave", bpm:[80,118], desc:"Sonorités synthétiques rétro inspirées des films et jeux vidéo des années 80.", tags:["retro-synth"]},
-    {name:"Vaporwave", bpm:[60,90], desc:"Collage nostalgique et ralenti de musiques commerciales ou d'ascenseur, avec une esthétique ironique.", tags:["retro-synth","chill-lofi"]},
-    {name:"Lo-fi Hip-Hop", bpm:[70,90], desc:"Beats hip-hop doux et volontairement imparfaits, pensés pour l'ambiance et la concentration.", tags:["chill-lofi"]},
-    {name:"Trip-hop", bpm:[80,100], desc:"Hip-hop ralenti et cinématographique, mêlé à des textures électroniques sombres.", tags:["chill-lofi","ambient-exp"]},
-    {name:"Dub", bpm:[60,90], desc:"Reggae dépouillé et manipulé en studio : échos, réverbes tentaculaires et basse/batterie mises en avant.", tags:["world-groove","ambient-exp"]},
-    {name:"Reggae", bpm:[60,90], desc:"Genre jamaïcain fondateur au groove chaloupé, contretemps à la guitare/clavier (skank) et basse proéminente.", tags:["world-groove"]},
-    {name:"Hardcore", bpm:[150,200], desc:"Techno extrême et distordue, kicks saturés et tempo effréné, née des scènes gabber et rave.", tags:["hard-dance"]},
-    {name:"Hardtek", bpm:[150,175], desc:"Dérivé du hardcore plus rapide et mélodique, kicks tribaux distordus typiques des free parties françaises.", tags:["hard-dance"]},
-    {name:"Tribe", bpm:[150,180], desc:"Variante tribale et organique du hardtek : percussions martelées, ambiance sauvage de teknival.", tags:["hard-dance"]},
-    {name:"Techno minimal", bpm:[122,132], desc:"Techno épurée à l'extrême, construite sur des boucles rythmiques hypnotiques et peu d'éléments.", tags:["electro-club"]},
-    {name:"Deep house", bpm:[118,124], desc:"House chaleureuse et groovy, basses profondes et ambiance feutrée pour la danse relax.", tags:["electro-club"]},
-    {name:"House", bpm:[120,128], desc:"Musique de danse à 4 temps née dans les clubs de Chicago, pulsation régulière et entêtante.", tags:["electro-club"]},
-    {name:"Drum & Bass", bpm:[160,180], desc:"Breakbeats rapides et basses profondes, née de la scène jungle britannique des années 90.", tags:["bass-breaks"]},
-    {name:"Jungle", bpm:[160,175], desc:"Ancêtre frénétique de la drum & bass : breakbeats accélérés et basses reggae/dub.", tags:["bass-breaks","world-groove"]},
-    {name:"Dubstep", bpm:[135,145], desc:"Rythme à moitié tempo et basses 'wobble' puissantes, souvent construit autour d'un drop.", tags:["bass-breaks","world-groove"]},
-    {name:"Breakbeat", bpm:[125,140], desc:"Groove basé sur des rythmes de batterie samplés et découpés, plutôt qu'une pulsation 4 temps classique.", tags:["bass-breaks"]},
-    {name:"IDM", bpm:[80,160], desc:"Musique électronique expérimentale (Intelligent Dance Music) : rythmes complexes et sound design pointu.", tags:["ambient-exp","bass-breaks"]},
-    {name:"Glitch", bpm:[90,150], desc:"Musique qui transforme les erreurs numériques (clics, sauts, bugs) en matière musicale.", tags:["ambient-exp"]},
-    {name:"Ambient", bpm:[50,80], desc:"Musique de fond immersive et sans rythme marqué, pensée pour l'atmosphère plutôt que la danse.", tags:["ambient-exp"]},
-    {name:"Drone", bpm:[0,0], desc:"Sons continus et texturés qui évoluent très lentement, sans mélodie ni rythme apparent.", tags:["ambient-exp"]},
-    {name:"Post-rock", bpm:[70,140], desc:"Rock instrumental aux structures longues, entre calme contemplatif et déferlantes saturées.", tags:["rock-guitar","ambient-exp"]},
-    {name:"Shoegaze", bpm:[100,140], desc:"Rock aux guitares saturées noyées de réverbe, voix étouffées, ambiance planante.", tags:["rock-guitar"]},
-    {name:"Post-punk", bpm:[120,150], desc:"Héritier du punk, plus sombre et expérimental, basses proéminentes et rythmiques anguleuses.", tags:["rock-guitar","industrial-dark"]},
-    {name:"Darkwave", bpm:[100,130], desc:"Pop/rock sombre et mélancolique héritée du post-punk, synthés froids et ambiance gothique.", tags:["industrial-dark","rock-guitar"]},
-    {name:"Industrial", bpm:[110,140], desc:"Sons bruts et métalliques, souvent samplés de machines ou d'usines, ambiance dérangeante.", tags:["industrial-dark"]},
-    {name:"EBM", bpm:[120,135], desc:"Electronic Body Music : rythmes de boîte à rythmes martiaux et répétitifs, basses séquencées, pensée pour un dancefloor sombre et énergique.", tags:["industrial-dark","electro-club"]},
-    {name:"Chiptune", bpm:[120,160], desc:"Musique composée avec les sons de puces de vieilles consoles ou ordinateurs 8-16 bits.", tags:["retro-synth"]},
-    {name:"Footwork", bpm:[155,165], desc:"Style de danse de Chicago à tempo très rapide, rythmes syncopés et samples vocaux hachés.", tags:["bass-breaks","urban-rap"]},
-    {name:"Trap", bpm:[130,170], desc:"Hip-hop moderne aux hi-hats roulés très rapides et basses 808, souvent joué en demi-tempo.", tags:["urban-rap"]},
-    {name:"Cloud rap", bpm:[60,80], desc:"Trap onirique et planante, voix pitchées/réverbérées, production floue et atmosphérique.", tags:["urban-rap","chill-lofi"]},
-    {name:"UK garage", bpm:[130,140], desc:"House/garage britannique syncopé et shufflé, ancêtre du dubstep et de la grime.", tags:["electro-club","bass-breaks"]},
-    {name:"Grime", bpm:[135,145], desc:"Rap électronique anglais énergique, aux rythmiques syncopées héritées du garage.", tags:["urban-rap","bass-breaks"]},
-    {name:"Baile funk", bpm:[125,135], desc:"Musique de danse brésilienne née dans les favelas de Rio, percussions crues et basses puissantes.", tags:["world-groove","urban-rap"]},
-    {name:"Gqom", bpm:[120,128], desc:"House brute et minimaliste originaire de Durban (Afrique du Sud), percussions lourdes et ambiance sombre.", tags:["world-groove","electro-club"]},
-    {name:"Jazz fusion", bpm:[90,160], desc:"Croisement du jazz avec le rock/funk électrique, improvisation virtuose et rythmiques complexes.", tags:["jazz-fusion"]},
-    {name:"Nu-jazz", bpm:[80,130], desc:"Jazz mêlé à l'électronique et aux beats club, entre improvisation et production moderne.", tags:["jazz-fusion","chill-lofi"]},
-    {name:"Bossa nova électronique", bpm:[80,120], desc:"Douceur brésilienne de la bossa nova revisitée avec des textures et rythmiques électroniques.", tags:["jazz-fusion","chill-lofi","world-groove"]},
-    {name:"Funk psychédélique", bpm:[90,115], desc:"Funk groovy enrichi d'effets et de sonorités héritées du rock psychédélique des années 70.", tags:["jazz-fusion","rock-guitar"]},
-    {name:"Krautrock", bpm:[110,130], desc:"Rock expérimental allemand des années 70, rythmiques hypnotiques et exploration sonore.", tags:["rock-guitar"]},
-    {name:"Musique concrète", bpm:[0,0], desc:"Composition à partir de sons enregistrés du réel (objets, bruits), assemblés hors de la notation classique.", tags:["ambient-exp"]},
-    {name:"Field recording", bpm:[0,0], desc:"Œuvre construite à partir de sons captés dans un environnement réel (rue, nature, machines).", tags:["ambient-exp"]},
-    {name:"Neoclassique", bpm:[50,90], desc:"Musique contemporaine pour instruments classiques (piano, cordes), souvent épurée et émotionnelle.", tags:["ambient-exp"]},
-    {name:"Musique de film", bpm:[40,140], desc:"Composition au service d'une narration ou d'une image, très variée en style et en instrumentation.", tags:["ambient-exp"]},
-    {name:"Afrobeat électronique", bpm:[100,125], desc:"Fusion des rythmiques afrobeat (héritage Fela Kuti) avec des productions et basses électroniques modernes.", tags:["world-groove","electro-club"]},
-    {name:"Cumbia digitale", bpm:[85,100], desc:"Cumbia latino-américaine traditionnelle réinventée avec des synthés et productions électroniques.", tags:["world-groove"]},
-    {name:"Reggaeton expérimental", bpm:[85,100], desc:"Rythme reggaeton (dembow) détourné avec des productions électroniques non conventionnelles.", tags:["world-groove","urban-rap"]},
-    {name:"Highlife électronique", bpm:[100,125], desc:"Highlife ouest-africain (guitares entrelacées, cuivres) fusionné avec des productions électroniques.", tags:["world-groove"]}
+    {name:"House", bpm:[120,128], desc:"Musique de danse à 4 temps née dans les clubs de Chicago, pulsation régulière et entêtante.", tags:["club","groove"], subgenres:[
+      {name:"Deep house", mood:"chaleureux", bpm:[118,124], desc:"House feutrée et groovy, basses profondes et ambiance intimiste pour la danse relax."},
+      {name:"UK garage", mood:"groovy", bpm:[130,140], desc:"House/garage britannique syncopé et chaloupé, ancêtre du dubstep et de la grime."},
+      {name:"Gqom", mood:"brut", bpm:[120,128], desc:"House minimaliste et percussive de Durban (Afrique du Sud), ambiance sombre et physique."},
+      {name:"Tech house", mood:"hypnotique", bpm:[122,128], desc:"Croisement de la house et de la techno : groove répétitif, machinique et efficace."}
+    ]},
+    {name:"Techno", bpm:[125,135], desc:"Musique électronique répétitive et machinique née à Detroit, pensée pour la transe collective du dancefloor.", tags:["club"], subgenres:[
+      {name:"Techno minimale", mood:"hypnotique", bpm:[122,132], desc:"Techno épurée à l'extrême, boucles rythmiques presque vides et évolution très progressive."},
+      {name:"Techno acide", mood:"psychédélique", bpm:[125,140], desc:"Techno pilotée par la ligne de basse stridente et torturée du synthé TB-303."},
+      {name:"Techno industrielle", mood:"sombre", bpm:[130,145], desc:"Techno dure et métallique, empruntant les textures bruitistes de l'industrial."}
+    ]},
+    {name:"Drum & Bass", bpm:[160,180], desc:"Breakbeats rapides et basses profondes, née de la scène jungle britannique des années 90.", tags:["bass"], subgenres:[
+      {name:"Jungle", mood:"chaotique", bpm:[160,175], desc:"Ancêtre frénétique de la drum & bass : breakbeats accélérés et basses reggae/dub."},
+      {name:"Liquid funk", mood:"mélancolique", bpm:[168,176], desc:"Drum & bass mélodique et aérienne, nappes douces posées sur des breaks rapides."},
+      {name:"Neurofunk", mood:"agressif", bpm:[172,180], desc:"Drum & bass technique et sombre, basses grinçantes et production chirurgicale."},
+      {name:"Footwork", mood:"nerveux", bpm:[155,165], desc:"Breakbeat frénétique de Chicago, samples vocaux hachés pensés pour la battle de danse."}
+    ]},
+    {name:"Dubstep", bpm:[135,145], desc:"Rythme à moitié tempo et basses profondes, hérité du sound-system dub jamaïcain.", tags:["bass","groove"], subgenres:[
+      {name:"Riddim", mood:"agressif", bpm:[140,150], desc:"Dubstep minimaliste centré sur un motif de basse répété et percutant."},
+      {name:"Future garage", mood:"onirique", bpm:[130,140], desc:"Dubstep ralenti et brumeux, voix pitchées et ambiance nocturne."},
+      {name:"Brostep", mood:"brutal", bpm:[145,150], desc:"Dubstep saturé et agressif, basses 'wobble' extrêmes popularisées à l'international."}
+    ]},
+    {name:"Hip-Hop", bpm:[85,100], desc:"Culture et musique nées dans le Bronx, portées par le rap, le sample et le beat.", tags:["urban"], subgenres:[
+      {name:"Drill", mood:"hypnotique", bpm:[140,145], desc:"Rap sombre et syncopé né à Chicago puis Londres, basses glissantes et flow monocorde."},
+      {name:"Boom bap", mood:"nostalgique", bpm:[85,95], desc:"Hip-hop classique des années 90, samples de vinyle et batterie sèche et percutante."},
+      {name:"Cloud rap", mood:"onirique", bpm:[60,80], desc:"Rap planant et flou, voix pitchées/réverbérées, production atmosphérique."},
+      {name:"Grime", mood:"agressif", bpm:[135,145], desc:"Rap électronique anglais énergique, aux rythmiques syncopées héritées du garage."},
+      {name:"Lo-fi hip-hop", mood:"reposant", bpm:[70,90], desc:"Beats doux et volontairement imparfaits, pensés pour l'ambiance et la concentration."}
+    ]},
+    {name:"Trap", bpm:[130,145], desc:"Hip-hop moderne aux hi-hats roulés très rapides et basses 808, souvent joué en demi-tempo.", tags:["urban","bass"], subgenres:[
+      {name:"Phonk", mood:"sombre", bpm:[130,145], desc:"Trap saturé et lo-fi, samples de memphis rap vintage et basses distordues."},
+      {name:"Rage", mood:"excessif", bpm:[140,160], desc:"Trap maximaliste et saturé, synthés stridents et énergie de mosh pit."},
+      {name:"Trap latino", mood:"sensuel", bpm:[130,150], desc:"Trap hispanophone mêlé à des influences reggaeton, très populaire en Amérique latine."}
+    ]},
+    {name:"Reggae", bpm:[70,90], desc:"Genre jamaïcain fondateur au groove chaloupé, contretemps à la guitare/clavier (skank) et basse proéminente.", tags:["groove"], subgenres:[
+      {name:"Dub", mood:"hypnotique", bpm:[60,90], desc:"Reggae dépouillé et manipulé en studio : échos, réverbes tentaculaires et basse/batterie mises en avant."},
+      {name:"Ska", mood:"loufoque", bpm:[120,150], desc:"Ancêtre enjoué du reggae, cuivres entraînants et rythmique 'offbeat' rapide et dansante."},
+      {name:"Dancehall", mood:"festif", bpm:[90,110], desc:"Reggae électronique et percussif né en Jamaïque dans les années 80, rythmiques 'riddim' répétées."},
+      {name:"Reggaeton", mood:"sensuel", bpm:[85,100], desc:"Rythme latino-caribéen (dembow) omniprésent, fusion de reggae, hip-hop et musique latine."}
+    ]},
+    {name:"Rock", bpm:[110,140], desc:"Musique à guitares/basse/batterie, matrice de la plupart des scènes indépendantes occidentales depuis les années 60.", tags:["guitar"], subgenres:[
+      {name:"Shoegaze", mood:"planant", bpm:[100,140], desc:"Rock aux guitares saturées noyées de réverbe, voix étouffées, ambiance planante."},
+      {name:"Post-rock", mood:"épique", bpm:[70,140], desc:"Rock instrumental aux structures longues, entre calme contemplatif et déferlantes saturées."},
+      {name:"Krautrock", mood:"hypnotique", bpm:[110,130], desc:"Rock expérimental allemand des années 70, rythmiques hypnotiques et exploration sonore."},
+      {name:"Grunge", mood:"rageur", bpm:[110,140], desc:"Rock sale et abrasif de Seattle, entre mélancolie et explosions de distorsion."}
+    ]},
+    {name:"Punk", bpm:[150,180], desc:"Rock brut, rapide et rageur, joué vite et fort avec un minimum de moyens.", tags:["guitar"], subgenres:[
+      {name:"Punk californien", mood:"loufoque", bpm:[160,180], desc:"Punk-rock mélodique et énergique popularisé sur la côte ouest américaine dans les années 90."},
+      {name:"Post-punk", mood:"sombre", bpm:[120,150], desc:"Héritier plus sombre et expérimental du punk, basses proéminentes et rythmiques anguleuses."},
+      {name:"Hardcore punk", mood:"agressif", bpm:[170,220], desc:"Version accélérée et brutale du punk, morceaux très courts et intensité maximale."}
+    ]},
+    {name:"Pop", bpm:[100,120], desc:"Musique grand public soignée et mélodique, pensée pour l'efficacité immédiate du refrain.", tags:["song"], subgenres:[
+      {name:"K-pop", mood:"énergique", bpm:[110,130], desc:"Pop sud-coréenne ultra-produite, hybridation permanente de genres et chorégraphies synchronisées."},
+      {name:"Hyperpop", mood:"excessif", bpm:[150,180], desc:"Pop maximaliste et saturée, pitchs extrêmes et esthétique numérique assumée jusqu'à la caricature."},
+      {name:"Synthpop", mood:"rétro", bpm:[100,125], desc:"Pop des années 80 portée par les synthétiseurs, mélodies imparables et froideur élégante."},
+      {name:"Indie pop", mood:"doux", bpm:[100,130], desc:"Pop indépendante et mélodique, production plus artisanale que la pop mainstream."}
+    ]},
+    {name:"Folk / Chanson", bpm:[70,110], desc:"Musique acoustique centrée sur la voix et le texte, tradition du chanteur-compositeur.", tags:["song"], subgenres:[
+      {name:"Ballade française", mood:"nostalgique", bpm:[60,80], desc:"Chanson française tout en retenue, priorité au texte et à la mélodie, piano ou guitare en soutien."},
+      {name:"Americana", mood:"chaleureux", bpm:[80,110], desc:"Folk-rock américain aux racines country et blues, guitares organiques et sincérité brute."},
+      {name:"Folk psychédélique", mood:"onirique", bpm:[70,100], desc:"Folk acoustique enrichi de textures et d'effets hérités du rock psychédélique."}
+    ]},
+    {name:"Jazz", bpm:[100,140], desc:"Musique d'improvisation née à La Nouvelle-Orléans, harmonies riches et dialogue entre musiciens.", tags:["jazz"], subgenres:[
+      {name:"Jazz fusion", mood:"virtuose", bpm:[90,160], desc:"Croisement du jazz avec le rock/funk électrique, improvisation virtuose et rythmiques complexes."},
+      {name:"Nu-jazz", mood:"moderne", bpm:[80,130], desc:"Jazz mêlé à l'électronique et aux beats club, entre improvisation et production moderne."},
+      {name:"Bossa nova", mood:"doux", bpm:[80,120], desc:"Douceur brésilienne héritée de la samba et du jazz, guitare syncopée et voix chuchotée."},
+      {name:"Jazz manouche", mood:"joyeux", bpm:[140,220], desc:"Jazz tzigane virtuose à la guitare acoustique, hérité de Django Reinhardt."}
+    ]},
+    {name:"Funk / Disco", bpm:[100,120], desc:"Groove syncopé porté par la basse et les cuivres, matrice commune du disco et de la dance music.", tags:["jazz","groove","club"], subgenres:[
+      {name:"Funk psychédélique", mood:"psychédélique", bpm:[90,115], desc:"Funk groovy enrichi d'effets et de sonorités héritées du rock psychédélique des années 70."},
+      {name:"Disco", mood:"festif", bpm:[110,130], desc:"Groove 4 temps orchestral et sophistiqué né dans les clubs des années 70, ancêtre direct de la house."},
+      {name:"Baile funk", mood:"brut", bpm:[125,135], desc:"Musique de danse brésilienne née dans les favelas de Rio, percussions crues et basses puissantes."}
+    ]},
+    {name:"Ambient / Expérimental", bpm:[50,90], desc:"Musique de fond immersive et sans rythme marqué, pensée pour l'atmosphère plutôt que la danse.", tags:["texture"], subgenres:[
+      {name:"Drone", mood:"sombre", bpm:[0,0], desc:"Sons continus et texturés qui évoluent très lentement, sans mélodie ni rythme apparent."},
+      {name:"Musique concrète", mood:"abstrait", bpm:[0,0], desc:"Composition à partir de sons enregistrés du réel, assemblés hors de la notation classique."},
+      {name:"Field recording", mood:"brut", bpm:[0,0], desc:"Œuvre construite à partir de sons captés dans un environnement réel (rue, nature, machines)."},
+      {name:"Neoclassique", mood:"émotionnel", bpm:[50,90], desc:"Musique contemporaine pour instruments classiques, souvent épurée et émotionnelle."},
+      {name:"Glitch", mood:"chaotique", bpm:[90,150], desc:"Musique qui transforme les erreurs numériques (clics, sauts, bugs) en matière musicale."},
+      {name:"IDM", mood:"cérébral", bpm:[80,160], desc:"Musique électronique expérimentale, rythmes complexes et sound design pointu."},
+      {name:"Trip-hop", mood:"cinématographique", bpm:[80,100], desc:"Hip-hop ralenti et cinématographique, mêlé à des textures électroniques sombres."},
+      {name:"Musique de film", mood:"narratif", bpm:[40,140], desc:"Composition au service d'une narration ou d'une image, très variée en style et en instrumentation."}
+    ]},
+    {name:"Industrial", bpm:[120,135], desc:"Sons bruts et métalliques, souvent samplés de machines ou d'usines, ambiance dérangeante.", tags:["texture"], subgenres:[
+      {name:"EBM", mood:"martial", bpm:[120,135], desc:"Electronic Body Music : rythmes de boîte à rythmes martiaux et répétitifs, pensée pour un dancefloor sombre."},
+      {name:"Darkwave", mood:"gothique", bpm:[100,130], desc:"Pop/rock sombre et mélancolique héritée du post-punk, synthés froids et ambiance gothique."}
+    ]},
+    {name:"Synthwave", bpm:[85,110], desc:"Sonorités synthétiques rétro inspirées des films et jeux vidéo des années 80.", tags:["texture"], subgenres:[
+      {name:"Vaporwave", mood:"nostalgique", bpm:[60,90], desc:"Collage nostalgique et ralenti de musiques commerciales, esthétique ironique et datée à dessein."},
+      {name:"Chiptune", mood:"ludique", bpm:[120,160], desc:"Musique composée avec les sons de puces de vieilles consoles ou ordinateurs 8-16 bits."}
+    ]},
+    {name:"Afrobeat", bpm:[100,125], desc:"Fusion des rythmiques ouest-africaines (héritage Fela Kuti) avec le funk, le jazz et l'électronique.", tags:["groove"], subgenres:[
+      {name:"Highlife électronique", mood:"chaleureux", bpm:[100,125], desc:"Highlife ouest-africain (guitares entrelacées, cuivres) fusionné avec des productions électroniques."},
+      {name:"Amapiano", mood:"groovy", bpm:[110,115], desc:"Genre sud-africain explosé mondialement, basses profondes, percussions log-drum et pianos jazzy."},
+      {name:"Cumbia digitale", mood:"festif", bpm:[85,100], desc:"Cumbia latino-américaine traditionnelle réinventée avec des synthés et productions électroniques."}
+    ]},
+    {name:"Hardcore / Rave", bpm:[160,190], desc:"Techno extrême et distordue, kicks saturés et tempo effréné, née des scènes gabber et rave.", tags:["club"], subgenres:[
+      {name:"Hardtek", mood:"survolté", bpm:[150,175], desc:"Dérivé du hardcore plus rapide et mélodique, kicks tribaux distordus des free parties françaises."},
+      {name:"Tribe", mood:"sauvage", bpm:[150,180], desc:"Variante tribale et organique du hardtek : percussions martelées, ambiance de teknival."},
+      {name:"Gabber", mood:"extrême", bpm:[170,200], desc:"Version hollandaise originelle du hardcore, kicks distordus à l'extrême et énergie de warehouse rave."}
+    ]}
   ];
 
   const MOODS = [
@@ -968,12 +1026,23 @@
     return { selected, neighbors: Array.from(neighbors) };
   }
 
+  const SUBGENRE_CHANCE = 0.6;
+
   function setSingleStyle(name){
-    const obj = STYLES.find(s=>s.name===name) || randomItem(STYLES);
-    state.styleObj = obj;
-    state.style = obj.name;
-    state.styleDesc = obj.desc;
-    if(!LOCKS.bpm) state.bpm = formatBpm(obj);
+    const primary = STYLES.find(s=>s.name===name) || randomItem(STYLES);
+    let displayName = primary.name;
+    let desc = primary.desc;
+    let bpmRange = primary.bpm;
+    if(primary.subgenres && primary.subgenres.length && Math.random() < SUBGENRE_CHANCE){
+      const sub = randomItem(primary.subgenres);
+      displayName = sub.name + ' (' + sub.mood + ')';
+      desc = sub.desc;
+      bpmRange = sub.bpm || primary.bpm;
+    }
+    state.styleObj = { name: displayName, bpm: bpmRange };
+    state.style = displayName;
+    state.styleDesc = desc;
+    if(!LOCKS.bpm) state.bpm = formatBpm(state.styleObj);
   }
 
   function setBlendStyle(nameA, nameB){

@@ -165,19 +165,19 @@
   .icon-btn.lock.on{ color:var(--accent); }
 
   .card-value{
-    font-weight:600; font-size:1.08rem; color:var(--text-0); line-height:1.35; margin-top:auto;
+    font-weight:600; font-size:1.08rem; color:var(--text-0); line-height:1.35; margin-top:10px;
   }
   .card.full .card-value{ font-weight:500; font-size:1rem; }
   .card-value.small{ font-size:0.95rem; font-weight:500; }
   .card-value.updating{ animation:valueFade 0.32s ease; }
 
-  .card-body{ margin-top:auto; }
+  .card-body{ margin-top:10px; }
   .card-body .card-value{ margin-top:0; }
   .card-desc{ margin-top:6px; font-size:0.82rem; font-weight:400; color:var(--text-1); line-height:1.5; }
   .card-desc.updating{ animation:valueFade 0.32s ease; }
   @keyframes valueFade{ 0%{ opacity:0; transform:translateY(3px); } 100%{ opacity:1; transform:translateY(0); } }
 
-  .dual-stack{ display:flex; flex-direction:column; gap:8px; margin-top:auto; }
+  .dual-stack{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
   .mini-box{
     background:var(--bg); border:1px solid var(--border); border-radius:9px;
     padding:8px 10px 9px;
@@ -459,7 +459,7 @@
           </button>
           <div class="chrono-max-row">
             <label for="chronoMaxInput">Temps max (facultatif)</label>
-            <input type="number" id="chronoMaxInput" min="1" max="240" placeholder="min">
+            <input type="number" id="chronoMaxInput" min="15" max="240" step="5" value="15">
             <button type="button" class="icon-btn chrono-reset" id="chronoReset" title="Réinitialiser le chrono">
               <svg class="icon sm"><use href="#i-refresh"></use></svg>
             </button>
@@ -598,7 +598,7 @@
     {name:"House", bpm:[120,128], desc:"Musique de danse à 4 temps née dans les clubs de Chicago, pulsation régulière et entêtante.", tags:["electro-club"]},
     {name:"Drum & Bass", bpm:[160,180], desc:"Breakbeats rapides et basses profondes, née de la scène jungle britannique des années 90.", tags:["bass-breaks"]},
     {name:"Jungle", bpm:[160,175], desc:"Ancêtre frénétique de la drum & bass : breakbeats accélérés et basses reggae/dub.", tags:["bass-breaks","world-groove"]},
-    {name:"Dubstep", bpm:[135,145], desc:"Rythme à moitié tempo et basses 'wobble' puissantes, souvent construit autour d'un drop.", tags:["bass-breaks"]},
+    {name:"Dubstep", bpm:[135,145], desc:"Rythme à moitié tempo et basses 'wobble' puissantes, souvent construit autour d'un drop.", tags:["bass-breaks","world-groove"]},
     {name:"Breakbeat", bpm:[125,140], desc:"Groove basé sur des rythmes de batterie samplés et découpés, plutôt qu'une pulsation 4 temps classique.", tags:["bass-breaks"]},
     {name:"IDM", bpm:[80,160], desc:"Musique électronique expérimentale (Intelligent Dance Music) : rythmes complexes et sound design pointu.", tags:["ambient-exp","bass-breaks"]},
     {name:"Glitch", bpm:[90,150], desc:"Musique qui transforme les erreurs numériques (clics, sauts, bugs) en matière musicale.", tags:["ambient-exp"]},

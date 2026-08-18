@@ -177,25 +177,62 @@
   .card-desc.updating{ animation:valueFade 0.32s ease; }
   @keyframes valueFade{ 0%{ opacity:0; transform:translateY(3px); } 100%{ opacity:1; transform:translateY(0); } }
 
+  .dual-stack{ display:flex; flex-direction:column; gap:8px; margin-top:auto; }
+  .mini-box{
+    background:var(--bg); border:1px solid var(--border); border-radius:9px;
+    padding:8px 10px 9px;
+  }
+  .mini-label{
+    font-family:var(--mono); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--text-2); display:block; margin-bottom:4px;
+  }
+  .mini-row{ display:flex; align-items:center; justify-content:space-between; gap:6px; }
+
   .bpm-btn{
-    display:inline-flex; align-items:center; gap:10px; align-self:flex-start;
-    background:none; border:none; padding:6px 12px; margin:auto -12px 0 -12px;
-    cursor:pointer; border-radius:10px; color:var(--text-0);
+    display:inline-flex; align-items:center; gap:7px;
+    background:none; border:none; padding:2px 6px; margin:0 -6px;
+    cursor:pointer; border-radius:8px; color:var(--text-0); flex:1; min-width:0;
     font-family:var(--sans); font-weight:700; line-height:1.2;
     transition:background 0.15s ease, color 0.15s ease;
   }
   .bpm-btn:hover{ background:rgba(255,255,255,0.06); }
-  .bpm-btn .bpm-icon{ width:20px; height:20px; color:var(--text-2); flex-shrink:0; transition:color 0.15s ease; }
+  .bpm-btn .bpm-icon{ width:16px; height:16px; color:var(--text-2); flex-shrink:0; transition:color 0.15s ease; }
   .bpm-btn:hover .bpm-icon{ color:var(--accent); }
   .bpm-btn.playing{ color:var(--accent); }
   .bpm-btn.playing .bpm-icon{ color:var(--accent); }
-  .bpm-btn .bpm-text{ font-size:2rem; font-variant-numeric:tabular-nums; }
+  .bpm-btn .bpm-text{ font-size:1.5rem; font-variant-numeric:tabular-nums; }
   .bpm-btn.beat{ animation:beatPulse 0.14s ease; }
   @keyframes beatPulse{ 0%{ transform:scale(1.07); } 100%{ transform:scale(1); } }
-  .bpm-hint{
-    margin:6px 0 0; font-size:0.72rem; color:var(--text-2); font-family:var(--mono);
-  }
   .card[data-key="bpm"].metronome-active{ border-color:var(--accent-border); background:var(--accent-soft); }
+
+  .metro-sound{ flex-shrink:0; }
+  .metro-sound.on{ color:var(--accent); }
+
+  .chrono-btn{
+    display:inline-flex; align-items:center; gap:7px; width:100%;
+    background:none; border:none; padding:2px 6px; margin:0 -6px 4px;
+    cursor:pointer; border-radius:8px; color:var(--text-0);
+    font-family:var(--sans); font-weight:700; line-height:1.2;
+    transition:background 0.15s ease, color 0.15s ease;
+  }
+  .chrono-btn:hover{ background:rgba(255,255,255,0.06); }
+  .chrono-btn .chrono-icon{ width:16px; height:16px; color:var(--text-2); flex-shrink:0; transition:color 0.15s ease; }
+  .chrono-btn:hover .chrono-icon{ color:var(--accent); }
+  .chrono-btn.playing{ color:var(--accent); }
+  .chrono-btn.playing .chrono-icon{ color:var(--accent); }
+  .chrono-btn.chrono-done{ color:var(--accent); }
+  .chrono-btn.chrono-done .chrono-text{ animation:beatPulse 0.4s ease 2; }
+  .chrono-btn .chrono-text{ font-size:1.5rem; font-variant-numeric:tabular-nums; }
+
+  .chrono-max-row{ display:flex; align-items:center; gap:6px; }
+  .chrono-max-row label{ font-size:0.68rem; color:var(--text-2); flex:1; min-width:0; }
+  .chrono-max-row input{
+    width:44px; background:var(--surface); border:1px solid var(--border); border-radius:6px;
+    color:var(--text-0); font-family:var(--mono); font-size:0.75rem; padding:3px 5px;
+    text-align:center; font-variant-numeric:tabular-nums;
+  }
+  .chrono-max-row input:focus{ outline:none; border-color:var(--accent-border); }
+  .chrono-max-row .chrono-reset{ padding:3px; flex-shrink:0; }
 
   .card.constraint-card{
     border-left:3px solid var(--accent);
@@ -205,6 +242,33 @@
     font-family:var(--mono); font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase;
     color:var(--accent);
   }
+
+  .extra-panels{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+  @media (max-width:680px){ .extra-panels{ grid-template-columns:1fr; } }
+
+  .extra-panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 16px; }
+  .extra-head-left{ display:flex; align-items:center; gap:2px; }
+  .extra-toggle{
+    background:none; border:none; cursor:pointer; padding:6px; margin:-6px 2px -6px -6px;
+    border-radius:8px; color:var(--text-1); display:flex; align-items:center; justify-content:center;
+    transition:all 0.15s ease;
+  }
+  .extra-toggle:hover{ color:var(--accent); background:rgba(255,255,255,0.05); }
+  .extra-toggle .chevron{ transition:transform 0.2s ease; margin-left:1px; }
+  .extra-panel.expanded .extra-toggle .chevron{ transform:rotate(180deg); }
+  .extra-title{
+    font-weight:600; font-size:0.88rem; color:var(--text-0);
+    display:flex; align-items:center; gap:8px; cursor:pointer; user-select:none;
+  }
+  .extra-badge{
+    font-family:var(--mono); font-size:0.62rem; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--text-2); background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:2px 8px;
+  }
+  .extra-body{ max-height:0; opacity:0; overflow:hidden; transition:max-height 0.28s ease, opacity 0.22s ease; }
+  .extra-panel.expanded .extra-body{ max-height:400px; opacity:1; }
+  .extra-hint{ color:var(--text-1); font-size:0.78rem; line-height:1.5; margin:12px 0 10px; }
+  .extra-value{ color:var(--text-0); font-size:0.92rem; font-weight:500; line-height:1.5; margin-bottom:12px; min-height:2.6em; }
+  .extra-value.updating{ animation:valueFade 0.32s ease; }
 
   .panels{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:32px; }
   @media (max-width:680px){ .panels{ grid-template-columns:1fr; } }
@@ -298,6 +362,23 @@
     <rect x="6" y="4" width="4" height="16" rx="1"></rect>
     <rect x="14" y="4" width="4" height="16" rx="1"></rect>
   </symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24">
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"></path>
+  </symbol>
+  <symbol id="i-book" viewBox="0 0 24 24">
+    <path d="M12 7v14"></path>
+    <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path>
+  </symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24">
+    <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
+    <path d="M16 9a5 5 0 0 1 0 6"></path>
+    <path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
+  </symbol>
+  <symbol id="i-volume-x" viewBox="0 0 24 24">
+    <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
+    <line x1="22" x2="16" y1="9" y2="15"></line>
+    <line x1="16" x2="22" y1="9" y2="15"></line>
+  </symbol>
 </svg>
 
 <header>
@@ -351,17 +432,40 @@
 
     <div class="card" data-key="bpm">
       <div class="card-head">
-        <span class="card-label">Tempo</span>
+        <span class="card-label">Tempo &amp; Chrono</span>
         <div class="card-actions">
-          <button class="icon-btn dice" title="Relancer ce champ"><svg class="icon"><use href="#i-refresh"></use></svg></button>
-          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
+          <button class="icon-btn dice" title="Relancer le tempo"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+          <button class="icon-btn lock" title="Verrouiller le tempo"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
         </div>
       </div>
-      <button type="button" class="card-value bpm-btn" id="bpmToggle" data-field="bpm" title="Cliquer pour démarrer/arrêter le métronome">
-        <svg class="icon bpm-icon"><use href="#i-play"></use></svg>
-        <span class="bpm-text">—</span>
-      </button>
-      <p class="bpm-hint">Cliquer pour écouter le tempo</p>
+      <div class="dual-stack">
+        <div class="mini-box">
+          <span class="mini-label">BPM</span>
+          <div class="mini-row">
+            <button type="button" class="bpm-btn" id="bpmToggle" data-field="bpm" title="Cliquer pour démarrer/arrêter le métronome (visuel, silencieux par défaut)">
+              <svg class="icon bpm-icon"><use href="#i-play"></use></svg>
+              <span class="bpm-text">—</span>
+            </button>
+            <button type="button" class="icon-btn metro-sound" id="metroSoundToggle" title="Activer le son du métronome">
+              <svg class="icon sm"><use href="#i-volume-x"></use></svg>
+            </button>
+          </div>
+        </div>
+        <div class="mini-box">
+          <span class="mini-label">Chrono</span>
+          <button type="button" class="chrono-btn" id="chronoToggle" title="Cliquer pour démarrer/mettre en pause le chrono">
+            <svg class="icon chrono-icon"><use href="#i-play"></use></svg>
+            <span class="chrono-text">00:00</span>
+          </button>
+          <div class="chrono-max-row">
+            <label for="chronoMaxInput">Temps max (facultatif)</label>
+            <input type="number" id="chronoMaxInput" min="1" max="240" placeholder="min">
+            <button type="button" class="icon-btn chrono-reset" id="chronoReset" title="Réinitialiser le chrono">
+              <svg class="icon sm"><use href="#i-refresh"></use></svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card" data-key="key">
@@ -420,6 +524,42 @@
     </div>
   </div>
 
+  <div class="extra-panels">
+    <div class="extra-panel" id="techPanel">
+      <div class="extra-head">
+        <div class="extra-head-left">
+          <button class="extra-toggle" id="techToggle" title="Afficher/masquer">
+            <svg class="icon"><use href="#i-wrench"></use></svg>
+            <svg class="icon chevron"><use href="#i-chevron-down"></use></svg>
+          </button>
+          <span class="extra-title" id="techTitle">Contrainte technique <span class="extra-badge">optionnelle</span></span>
+        </div>
+      </div>
+      <div class="extra-body">
+        <p class="extra-hint">Un supplément côté production, à ajouter si tu veux pousser l'exercice plus loin — complémentaire à la contrainte principale.</p>
+        <div class="extra-value" id="techValue">—</div>
+        <button class="btn-ghost extra-reroll" id="techReroll"><svg class="icon sm"><use href="#i-refresh"></use></svg>Une autre</button>
+      </div>
+    </div>
+
+    <div class="extra-panel" id="narrPanel">
+      <div class="extra-head">
+        <div class="extra-head-left">
+          <button class="extra-toggle" id="narrToggle" title="Afficher/masquer">
+            <svg class="icon"><use href="#i-book"></use></svg>
+            <svg class="icon chevron"><use href="#i-chevron-down"></use></svg>
+          </button>
+          <span class="extra-title" id="narrTitle">Contrainte narrative <span class="extra-badge">optionnelle</span></span>
+        </div>
+      </div>
+      <div class="extra-body">
+        <p class="extra-hint">Un axe différent, autour du sens ou du récit — pensé pour ne pas contredire la contrainte principale ni la contrainte technique.</p>
+        <div class="extra-value" id="narrValue">—</div>
+        <button class="btn-ghost extra-reroll" id="narrReroll"><svg class="icon sm"><use href="#i-refresh"></use></svg>Une autre</button>
+      </div>
+    </div>
+  </div>
+
   <div class="panels">
     <div class="panel">
       <h2>Historique <span class="count" id="historyCount">0</span></h2>
@@ -449,6 +589,10 @@
     {name:"Lo-fi Hip-Hop", bpm:[70,90], desc:"Beats hip-hop doux et volontairement imparfaits, pensés pour l'ambiance et la concentration.", tags:["chill-lofi"]},
     {name:"Trip-hop", bpm:[80,100], desc:"Hip-hop ralenti et cinématographique, mêlé à des textures électroniques sombres.", tags:["chill-lofi","ambient-exp"]},
     {name:"Dub", bpm:[60,90], desc:"Reggae dépouillé et manipulé en studio : échos, réverbes tentaculaires et basse/batterie mises en avant.", tags:["world-groove","ambient-exp"]},
+    {name:"Reggae", bpm:[60,90], desc:"Genre jamaïcain fondateur au groove chaloupé, contretemps à la guitare/clavier (skank) et basse proéminente.", tags:["world-groove"]},
+    {name:"Hardcore", bpm:[150,200], desc:"Techno extrême et distordue, kicks saturés et tempo effréné, née des scènes gabber et rave.", tags:["hard-dance"]},
+    {name:"Hardtek", bpm:[150,175], desc:"Dérivé du hardcore plus rapide et mélodique, kicks tribaux distordus typiques des free parties françaises.", tags:["hard-dance"]},
+    {name:"Tribe", bpm:[150,180], desc:"Variante tribale et organique du hardtek : percussions martelées, ambiance sauvage de teknival.", tags:["hard-dance"]},
     {name:"Techno minimal", bpm:[122,132], desc:"Techno épurée à l'extrême, construite sur des boucles rythmiques hypnotiques et peu d'éléments.", tags:["electro-club"]},
     {name:"Deep house", bpm:[118,124], desc:"House chaleureuse et groovy, basses profondes et ambiance feutrée pour la danse relax.", tags:["electro-club"]},
     {name:"House", bpm:[120,128], desc:"Musique de danse à 4 temps née dans les clubs de Chicago, pulsation régulière et entêtante.", tags:["electro-club"]},
@@ -478,7 +622,7 @@
     {name:"Nu-jazz", bpm:[80,130], desc:"Jazz mêlé à l'électronique et aux beats club, entre improvisation et production moderne.", tags:["jazz-fusion","chill-lofi"]},
     {name:"Bossa nova électronique", bpm:[80,120], desc:"Douceur brésilienne de la bossa nova revisitée avec des textures et rythmiques électroniques.", tags:["jazz-fusion","chill-lofi","world-groove"]},
     {name:"Funk psychédélique", bpm:[90,115], desc:"Funk groovy enrichi d'effets et de sonorités héritées du rock psychédélique des années 70.", tags:["jazz-fusion","rock-guitar"]},
-    {name:"Krautrock", bpm:[110,130], desc:"Rock expérimental allemand des années 70, rythmiques hypnotiques et exploration sonore.", tags:["rock-guitar","ambient-exp"]},
+    {name:"Krautrock", bpm:[110,130], desc:"Rock expérimental allemand des années 70, rythmiques hypnotiques et exploration sonore.", tags:["rock-guitar"]},
     {name:"Musique concrète", bpm:[0,0], desc:"Composition à partir de sons enregistrés du réel (objets, bruits), assemblés hors de la notation classique.", tags:["ambient-exp"]},
     {name:"Field recording", bpm:[0,0], desc:"Œuvre construite à partir de sons captés dans un environnement réel (rue, nature, machines).", tags:["ambient-exp"]},
     {name:"Neoclassique", bpm:[50,90], desc:"Musique contemporaine pour instruments classiques (piano, cordes), souvent épurée et émotionnelle.", tags:["ambient-exp"]},
@@ -554,6 +698,44 @@
     "Écris le titre avant la musique, et laisse-le guider chaque choix."
   ];
 
+  // Contraintes optionnelles, axées production/technique — pensées pour ne pas
+  // contredire la contrainte principale ni les contraintes narratives ci-dessous.
+  const CONSTRAINTS_TECH = [
+    "Mixe le morceau uniquement au casque, jamais sur enceintes.",
+    "N'utilise aucun égaliseur (EQ) sur aucune piste.",
+    "Toutes les pistes doivent partager le même effet de reverb.",
+    "Exporte et réimporte chaque son en basse qualité avant de l'utiliser.",
+    "Aucune automation : tout doit être joué ou réglé en temps réel.",
+    "Limite-toi à un seul plugin ou une seule pédale d'effet pour tout le morceau.",
+    "Enregistre chaque piste en une seule prise, sans annuler (undo).",
+    "Utilise le même micro pour capter tous les sons, même les synthés, en repiquage.",
+    "Le morceau doit pouvoir être joué en live par une seule personne.",
+    "Inverse la balance stéréo à mi-parcours du morceau.",
+    "Découpe le morceau en boucles de 2 minutes maximum, même s'il dure plus longtemps.",
+    "Fais tout le mixage à un volume très bas, du début à la fin.",
+    "N'utilise que des presets d'usine, jamais réglés ni personnalisés.",
+    "Exporte aussi une version mono, et vérifie qu'elle fonctionne aussi bien."
+  ];
+
+  // Contraintes optionnelles, axées récit/concept — un axe différent des
+  // contraintes techniques, pensé pour rester complémentaire, pas contradictoire.
+  const CONSTRAINTS_NARRATIVE = [
+    "Le morceau raconte une journée précise dont tu te souviens clairement.",
+    "Compose comme la bande originale d'un lieu que tu n'as jamais visité.",
+    "Le morceau doit donner l'impression de commencer au milieu d'une histoire.",
+    "Imagine que ce morceau est entendu par quelqu'un dans 50 ans : que doit-il comprendre ?",
+    "Structure le morceau comme un souvenir en trois temps : avant / pendant / après.",
+    "Le morceau est un dialogue imaginaire entre deux personnes qui ne s'accordent pas.",
+    "Compose comme si tu décrivais une couleur à quelqu'un qui ne voit pas.",
+    "Le titre doit être une phrase entendue par hasard dans la rue.",
+    "Le morceau doit sembler inachevé, comme interrompu.",
+    "Imagine la version de ce morceau qu'écouterait ton toi du futur, dans 10 ans.",
+    "Compose pour le lieu précis où tu te trouves en ce moment.",
+    "Le morceau doit pouvoir accompagner un générique de fin, même si ce n'en est pas un.",
+    "Raconte une transformation : le morceau doit sonner différemment à la fin qu'au début.",
+    "Compose comme un souvenir qu'on essaie de retenir avant qu'il ne s'efface."
+  ];
+
   const els = {
     generateBtn: document.getElementById('generateBtn'),
     copyBtn: document.getElementById('copyBtn'),
@@ -572,7 +754,22 @@
     prefsToggle: document.getElementById('prefsToggle'),
     prefsTitle: document.getElementById('prefsTitle'),
     bpmToggle: document.getElementById('bpmToggle'),
-    bpmCard: document.querySelector('.card[data-key="bpm"]')
+    bpmCard: document.querySelector('.card[data-key="bpm"]'),
+    metroSoundToggle: document.getElementById('metroSoundToggle'),
+    chronoToggle: document.getElementById('chronoToggle'),
+    chronoText: document.querySelector('.chrono-text'),
+    chronoMaxInput: document.getElementById('chronoMaxInput'),
+    chronoReset: document.getElementById('chronoReset'),
+    techPanel: document.getElementById('techPanel'),
+    techToggle: document.getElementById('techToggle'),
+    techTitle: document.getElementById('techTitle'),
+    techValue: document.getElementById('techValue'),
+    techReroll: document.getElementById('techReroll'),
+    narrPanel: document.getElementById('narrPanel'),
+    narrToggle: document.getElementById('narrToggle'),
+    narrTitle: document.getElementById('narrTitle'),
+    narrValue: document.getElementById('narrValue'),
+    narrReroll: document.getElementById('narrReroll')
   };
 
   const LOCKS = { style:false, bpm:false, key:false, mood:false, structure:false, instruments:false, constraint:false };
@@ -664,13 +861,15 @@
     els.bpmToggle.classList.add('beat');
   }
 
+  let metronomeSoundOn = false;
+
   function startMetronome(){
     const bpmVal = parseBpmValue();
     if(!bpmVal){ showToast('Pas de tempo fixe pour ce style'); return; }
     const intervalMs = 60000 / bpmVal;
     metronome.beatCount = 0;
     const tick = ()=>{
-      playClick(metronome.beatCount % 4 === 0);
+      if(metronomeSoundOn) playClick(metronome.beatCount % 4 === 0);
       pulseBeat();
       metronome.beatCount++;
     };
@@ -691,6 +890,66 @@
       setBpmIcon(true);
     }
     if(els.bpmCard) els.bpmCard.classList.remove('metronome-active');
+  }
+
+  // ---- chrono (independent work-session timer, unaffected by regeneration) ----
+  const chrono = { intervalId: null, elapsedSec: 0, running: false };
+
+  function getChronoMaxSeconds(){
+    const val = parseInt(els.chronoMaxInput.value, 10);
+    if(!val || val <= 0) return null;
+    return val * 60;
+  }
+
+  function formatChronoTime(sec){
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(Math.floor(sec % 60)).padStart(2, '0');
+    return m + ':' + s;
+  }
+
+  function setChronoIcon(showPlay){
+    const use = els.chronoToggle.querySelector('.chrono-icon use');
+    use.setAttribute('href', showPlay ? '#i-play' : '#i-pause');
+  }
+
+  function updateChronoDisplay(){
+    const maxSec = getChronoMaxSeconds();
+    let displaySec = maxSec != null ? Math.max(0, maxSec - chrono.elapsedSec) : chrono.elapsedSec;
+    els.chronoText.textContent = formatChronoTime(displaySec);
+    if(maxSec != null && displaySec === 0 && chrono.running){
+      stopChrono();
+      els.chronoToggle.classList.add('chrono-done');
+      showToast('Temps écoulé !');
+    }
+  }
+
+  function startChrono(){
+    const maxSec = getChronoMaxSeconds();
+    if(maxSec != null && chrono.elapsedSec >= maxSec) chrono.elapsedSec = 0;
+    chrono.running = true;
+    els.chronoToggle.classList.add('playing');
+    els.chronoToggle.classList.remove('chrono-done');
+    setChronoIcon(false);
+    chrono.intervalId = setInterval(()=>{
+      chrono.elapsedSec += 1;
+      updateChronoDisplay();
+    }, 1000);
+  }
+
+  function stopChrono(){
+    if(chrono.intervalId){ clearInterval(chrono.intervalId); chrono.intervalId = null; }
+    chrono.running = false;
+    if(els.chronoToggle){
+      els.chronoToggle.classList.remove('playing');
+      setChronoIcon(true);
+    }
+  }
+
+  function resetChrono(){
+    stopChrono();
+    chrono.elapsedSec = 0;
+    els.chronoToggle.classList.remove('chrono-done');
+    updateChronoDisplay();
   }
 
   // Selected styles plus every style sharing at least one tag with any of them.
@@ -842,6 +1101,24 @@
     els.toast.classList.add('show');
     clearTimeout(showToast._t);
     showToast._t = setTimeout(()=>els.toast.classList.remove('show'), 2200);
+  }
+
+  // ---- optional extra-constraint panels (technique / narrative) ----
+  const TECH_OPEN_KEY = "glitch_inspi_tech_open";
+  const NARR_OPEN_KEY = "glitch_inspi_narr_open";
+
+  function setExtraPanelOpen(panelEl, storageKey, open){
+    panelEl.classList.toggle('expanded', open);
+    try{ localStorage.setItem(storageKey, open ? '1' : '0'); }catch(e){}
+  }
+  function toggleExtraPanelOpen(panelEl, storageKey){
+    setExtraPanelOpen(panelEl, storageKey, !panelEl.classList.contains('expanded'));
+  }
+  function rerollExtra(valueEl, pool){
+    valueEl.textContent = randomItem(pool);
+    valueEl.classList.remove('updating');
+    void valueEl.offsetWidth;
+    valueEl.classList.add('updating');
   }
 
   // ---- persistence ----
@@ -1005,6 +1282,19 @@
     if(metronome.timerId) stopMetronome(); else startMetronome();
   });
 
+  els.metroSoundToggle.addEventListener('click', ()=>{
+    metronomeSoundOn = !metronomeSoundOn;
+    els.metroSoundToggle.classList.toggle('on', metronomeSoundOn);
+    els.metroSoundToggle.querySelector('use').setAttribute('href', metronomeSoundOn ? '#i-volume' : '#i-volume-x');
+    showToast(metronomeSoundOn ? 'Son du métronome activé' : 'Métronome silencieux');
+  });
+
+  els.chronoToggle.addEventListener('click', ()=>{
+    if(chrono.running) stopChrono(); else startChrono();
+  });
+  els.chronoMaxInput.addEventListener('input', resetChrono);
+  els.chronoReset.addEventListener('click', resetChrono);
+
   els.copyBtn.addEventListener('click', ()=>{
     const text = formatText();
     if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1047,6 +1337,14 @@
     if(!LOCKS.style){ rerollSingle('style'); }
   });
 
+  els.techToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.techPanel, TECH_OPEN_KEY));
+  els.techTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.techPanel, TECH_OPEN_KEY));
+  els.techReroll.addEventListener('click', ()=>rerollExtra(els.techValue, CONSTRAINTS_TECH));
+
+  els.narrToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY));
+  els.narrTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY));
+  els.narrReroll.addEventListener('click', ()=>rerollExtra(els.narrValue, CONSTRAINTS_NARRATIVE));
+
   document.addEventListener('keydown', (e)=>{
     if(e.code === 'Space' && document.activeElement === document.body){
       e.preventDefault();
@@ -1061,6 +1359,15 @@
     let savedOpen = null;
     try{ savedOpen = localStorage.getItem(PREFS_OPEN_KEY); }catch(e){}
     setPrefsOpen(savedOpen === '1');
+
+    let techOpen = null, narrOpen = null;
+    try{ techOpen = localStorage.getItem(TECH_OPEN_KEY); narrOpen = localStorage.getItem(NARR_OPEN_KEY); }catch(e){}
+    setExtraPanelOpen(els.techPanel, TECH_OPEN_KEY, techOpen === '1');
+    setExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY, narrOpen === '1');
+    els.techValue.textContent = randomItem(CONSTRAINTS_TECH);
+    els.narrValue.textContent = randomItem(CONSTRAINTS_NARRATIVE);
+    updateChronoDisplay();
+
     genField('style'); genField('bpm'); genField('key');
     genField('mood'); genField('structure'); genField('instruments'); genField('constraint');
     renderAll(false);

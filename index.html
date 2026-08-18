@@ -177,6 +177,19 @@
   .card-desc.updating{ animation:valueFade 0.32s ease; }
   @keyframes valueFade{ 0%{ opacity:0; transform:translateY(3px); } 100%{ opacity:1; transform:translateY(0); } }
 
+  .chord-btn{
+    display:block; width:100%; text-align:left;
+    background:none; border:none; padding:5px 8px; margin:8px -8px 0;
+    cursor:pointer; border-radius:8px; color:var(--text-1);
+    font-family:var(--mono); font-size:0.82rem; font-weight:500; line-height:1.4;
+    transition:background 0.15s ease, color 0.15s ease;
+  }
+  .chord-btn:hover{ color:var(--text-0); background:rgba(255,255,255,0.06); }
+  .chord-btn .chord-text.updating{ animation:valueFade 0.28s ease; }
+  .chord-dots{ display:flex; gap:5px; margin:6px 2px 0; }
+  .chord-dot{ width:5px; height:5px; border-radius:50%; background:var(--border-hover); transition:background 0.15s ease, transform 0.15s ease; }
+  .chord-dot.active{ background:var(--accent); transform:scale(1.3); }
+
   .dual-stack{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
   .mini-box{
     background:var(--bg); border:1px solid var(--border); border-radius:9px;
@@ -476,7 +489,13 @@
           <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
         </div>
       </div>
-      <div class="card-value" data-field="key">—</div>
+      <div class="card-body">
+        <div class="card-value" data-field="key">—</div>
+        <button type="button" class="chord-btn" id="chordToggle" data-field="chords" title="Cliquer pour l'autre suite d'accords possible">
+          <span class="chord-text">—</span>
+        </button>
+        <div class="chord-dots" id="chordDots"></div>
+      </div>
     </div>
 
     <div class="card" data-key="mood">
@@ -698,12 +717,27 @@
     "Ludique", "Solennel", "Flottant", "Urgent", "Introspectif"
   ];
 
+  // Suites d'accords diatoniques réelles (pas aléatoires) pour chaque gamme,
+  // dérivées des degrés propres à chaque mode pour rester harmoniquement justes.
   const KEYS = [
-    "Do mineur", "Ré dorien", "Mi phrygien", "Fa lydien", "Sol mixolydien",
-    "La mineur naturel", "Si locrien", "Do# mineur harmonique", "Mib majeur",
-    "Fa# mineur mélodique", "Sol# phrygien dominant", "Sib majeur pentatonique",
-    "Do mineur pentatonique (blues)", "Ré majeur harmonique", "Gamme par tons (whole tone)",
-    "Gamme chromatique libre", "Microtonalité (quarts de ton)", "Mode octatonique (diminué)"
+    {name:"Do mineur", chords:["Cm → Ab → Eb → Bb", "Cm → Fm → Gm → Cm"]},
+    {name:"Ré dorien", chords:["Dm → G → Dm → C", "Dm → C → G → Dm"]},
+    {name:"Mi phrygien", chords:["Em → F → Em → F", "Em → F → G → Em"]},
+    {name:"Fa lydien", chords:["F → G → F → G", "F → G → C → F"]},
+    {name:"Sol mixolydien", chords:["G → F → C → G", "G → C → F → G"]},
+    {name:"La mineur naturel", chords:["Am → F → C → G", "Am → Dm → Em → Am"]},
+    {name:"Si locrien", chords:["C → Bdim → C → Bdim", "Bdim → F → C → Bdim"]},
+    {name:"Do# mineur harmonique", chords:["C#m → G# → C#m → A", "C#m → F#m → G# → C#m"]},
+    {name:"Mib majeur", chords:["Eb → Ab → Bb → Eb", "Eb → Cm → Ab → Bb"]},
+    {name:"Fa# mineur mélodique", chords:["F#m → B → C# → F#m", "F#m → G#m → C# → F#m"]},
+    {name:"Sol# phrygien dominant", chords:["G# → A → G# → A", "G# → F#m → A → G#"]},
+    {name:"Sib majeur pentatonique", chords:["Bb → F → Bb → F", "Bb → Dm → F → Gm"]},
+    {name:"Do mineur pentatonique (blues)", chords:["Cm → Fm → Cm → Gm", "Cm7 → Fm7 → Gm7 → Cm7"]},
+    {name:"Ré majeur harmonique", chords:["D → Gm → D → A", "D → Bb → A → D"]},
+    {name:"Gamme par tons (whole tone)", chords:["Caug → Daug → Caug → Daug", "Caug → Ebaug → Faug → Caug"]},
+    {name:"Gamme chromatique libre", chords:["Libre — mouvement chromatique par demi-tons, hors fonction tonale", "C → C#dim → D → D#dim (planage chromatique d'accords diminués)"]},
+    {name:"Microtonalité (quarts de ton)", chords:["Hors du tempérament occidental — pas d'accords fixes, joue sur les battements entre quarts de ton", "Privilégie les intervalles de quart de ton autour d'une note pivot plutôt qu'un accord"]},
+    {name:"Mode octatonique (diminué)", chords:["Cdim7 → Ebdim7 → Cdim7 → Ebdim7", "C7(b9) → Ebdim7 → C7(b9)"]}
   ];
 
   const STRUCTURES = [
@@ -772,7 +806,57 @@
     "Découpe le morceau en boucles de 2 minutes maximum, même s'il dure plus longtemps.",
     "Fais tout le mixage à un volume très bas, du début à la fin.",
     "N'utilise que des presets d'usine, jamais réglés ni personnalisés.",
-    "Exporte aussi une version mono, et vérifie qu'elle fonctionne aussi bien."
+    "Exporte aussi une version mono, et vérifie qu'elle fonctionne aussi bien.",
+    "N'utilise qu'un seul micro pour tout l'enregistrement, jamais deux en même temps.",
+    "Toute réverbération doit provenir d'une vraie pièce, jamais d'un plugin.",
+    "Limite le morceau à 8 pistes maximum, tout instrument confondu.",
+    "N'utilise que des sons enregistrés par toi-même, aucun sample extérieur.",
+    "Mixe uniquement sur des enceintes, jamais au casque.",
+    "Chaque piste doit être enregistrée d'une traite, sans montage ni coupe.",
+    "Utilise la même réverbération sur absolument toutes les pistes, sans exception.",
+    "N'ajoute aucune compression sur le mixage final.",
+    "Travaille exclusivement avec des instruments virtuels, aucun son capté en réel.",
+    "Joue toutes les notes avec un vrai contrôleur ou instrument, jamais à la souris.",
+    "N'utilise pas de métronome : cale-toi uniquement à l'oreille.",
+    "Exporte le morceau, puis remixe-le uniquement à partir de cet export.",
+    "Travaille avec un seul haut-parleur, jamais en stéréo, jusqu'au mixage final.",
+    "Limite-toi à trois automations maximum sur tout le morceau.",
+    "N'utilise aucune fréquence en dessous de 80 Hz.",
+    "Chaque instrument doit occuper une bande de fréquence bien distincte, sans chevauchement.",
+    "Programme la batterie à la main, note par note, sans quantification.",
+    "Quantifie tout à la croche la plus proche, sans exception ni nuance.",
+    "N'utilise pas de fondu (fade in/out) : les sons commencent et s'arrêtent net.",
+    "Limite le mixage à trois plugins au total, tous instruments confondus.",
+    "Enregistre chaque prise dans une pièce différente.",
+    "N'utilise que des sons trouvés en une seule journée, rien de plus ancien.",
+    "Applique le même effet de saturation sur chaque piste, à des degrés différents.",
+    "Compose sans jamais écouter le morceau dans son intégralité avant la fin.",
+    "Chaque instrument ne peut être utilisé qu'une seule fois dans le morceau.",
+    "Utilise un seul type de synthé (analogique, virtuel ou logiciel) pour tout le morceau.",
+    "Le morceau doit tenir sur une seule piste stéréo exportée, sans repasser dessus.",
+    "N'utilise aucun effet stéréo : tout doit rester mono jusqu'à l'export final.",
+    "Travaille avec un budget de trois prises maximum par instrument, pas plus.",
+    "Compose dans le désordre : termine le morceau avant d'en écrire le début.",
+    "Change de logiciel ou d'outil à mi-parcours de la composition.",
+    "Utilise uniquement des presets, sans jamais toucher un seul paramètre.",
+    "Enregistre le morceau dans le noir complet, sans repère visuel.",
+    "Limite chaque piste à une durée de vie de 16 mesures maximum avant qu'elle change.",
+    "N'utilise aucun instrument que tu connais déjà : improvise avec quelque chose de nouveau.",
+    "Grave une prise 'brouillon' complète avant toute retouche, et garde-la telle quelle.",
+    "Mixe le morceau les yeux fermés, en te fiant uniquement à l'oreille.",
+    "Chaque son doit passer par un appareil ou un objet non musical à la base (téléphone, jouet, objet du quotidien).",
+    "Limite le field recording ou l'enregistrement extérieur à un seul son central du morceau.",
+    "N'utilise aucun retour (monitoring) en temps réel : enregistre à l'aveugle et écoute seulement après.",
+    "Compose entièrement sur un temps limité de 10 minutes, chronométré.",
+    "Réutilise un son déjà présent dans un de tes anciens morceaux.",
+    "Exporte le morceau en basse résolution très compressée, et retravaille à partir de cet export dégradé.",
+    "Enregistre une prise témoin à la voix ou en chantant, même si tu ne l'utilises pas dans le morceau final.",
+    "Utilise uniquement des sons libres de droits que tu ne connais pas encore.",
+    "Ne dépasse jamais deux prises par instrument : la meilleure des deux tranche.",
+    "Le morceau ne doit contenir aucune piste de plus de 30 secondes, montées en boucle ou juxtaposées.",
+    "Compose sans repère de mesure ni de grille, au feeling uniquement.",
+    "Chaque effet ajouté doit être réévalué une fois le morceau terminé : garde seulement l'essentiel.",
+    "Enregistre le morceau dans un lieu inhabituel, différent de ton espace de travail habituel."
   ];
 
   // Contraintes optionnelles, axées récit/concept — un axe différent des
@@ -791,7 +875,57 @@
     "Compose pour le lieu précis où tu te trouves en ce moment.",
     "Le morceau doit pouvoir accompagner un générique de fin, même si ce n'en est pas un.",
     "Raconte une transformation : le morceau doit sonner différemment à la fin qu'au début.",
-    "Compose comme un souvenir qu'on essaie de retenir avant qu'il ne s'efface."
+    "Compose comme un souvenir qu'on essaie de retenir avant qu'il ne s'efface.",
+    "Le morceau doit ressembler à un lieu que tu as quitté et que tu ne reverras jamais.",
+    "Imagine que ce morceau est le dernier son qu'on entend avant de s'endormir.",
+    "Compose comme si tu racontais un secret que tu n'as jamais dit à personne.",
+    "Le morceau doit donner l'impression d'un dialogue entre ton toi d'enfant et ton toi actuel.",
+    "Écris la musique d'un lieu imaginaire que tu aimerais visiter un jour.",
+    "Le morceau doit sonner comme une lettre qu'on n'a jamais envoyée.",
+    "Imagine que ce morceau accompagne quelqu'un qui apprend une bonne nouvelle.",
+    "Compose comme si la pièce se terminait par un aveu.",
+    "Le morceau raconte un trajet précis, un chemin que tu connais par cœur.",
+    "Imagine ce morceau joué au moment exact où quelqu'un change d'avis.",
+    "Compose comme la bande-son d'un rêve que tu as vraiment fait.",
+    "Le morceau doit ressembler à une conversation qu'on entend à travers un mur.",
+    "Imagine que ce morceau raconte une attente, sans dire ce qu'on attend.",
+    "Compose comme si tu décrivais un objet auquel tu tiens, sans jamais le nommer.",
+    "Le morceau doit sonner comme un début d'histoire dont on n'aura jamais la fin.",
+    "Imagine ce morceau comme la dernière chose qu'un lieu se souvient avant de disparaître.",
+    "Compose une musique qui pourrait accompagner un aveu qu'on n'ose pas faire.",
+    "Le morceau raconte une hésitation : partir ou rester.",
+    "Imagine que ce morceau est entendu par quelqu'un qui ne comprend pas la langue du titre.",
+    "Compose comme si le morceau essayait de convaincre quelqu'un de revenir.",
+    "Le morceau raconte ce qu'on ressent juste avant que quelque chose change pour toujours.",
+    "Imagine une pièce vide qui vient d'être quittée : compose ce silence-là.",
+    "Compose la musique d'un souvenir que tu sais en train de s'effacer.",
+    "Le morceau doit ressembler à une promesse qu'on n'est pas sûr de pouvoir tenir.",
+    "Imagine ce morceau comme la première pensée du matin, avant que tout revienne.",
+    "Compose comme si tu racontais une ville la nuit, vue d'une fenêtre.",
+    "Le morceau doit donner l'impression de suivre quelqu'un sans se faire remarquer.",
+    "Imagine la musique d'un objet qui a traversé plusieurs générations d'une famille.",
+    "Compose comme le dernier souvenir commun de deux personnes qui se perdent de vue.",
+    "Le morceau raconte un 'peut-être' plutôt qu'un 'oui' ou un 'non'.",
+    "Imagine ce morceau comme la traduction d'une odeur familière.",
+    "Compose comme si le morceau essayait de retenir le temps qui passe trop vite.",
+    "Le morceau doit ressembler à une pièce qu'on retrouve après très longtemps.",
+    "Imagine que ce morceau est composé par quelqu'un qui n'a plus l'usage de la parole.",
+    "Compose la musique d'un lieu qui n'existe que dans tes souvenirs d'enfance.",
+    "Le morceau doit raconter ce qu'on ne dit jamais à voix haute.",
+    "Imagine ce morceau comme un pont entre deux idées qui ne devraient pas se toucher.",
+    "Compose comme la dernière danse d'une soirée qui touche à sa fin.",
+    "Le morceau doit sonner comme une excuse sincère, mais tardive.",
+    "Imagine que ce morceau raconte une décision prise en une fraction de seconde.",
+    "Compose comme si tu décrivais quelqu'un que tu admires sans jamais le lui dire.",
+    "Le morceau doit ressembler au vide qui suit une bonne nouvelle inattendue.",
+    "Imagine la musique d'un lieu que tu ne visiteras qu'en pensée.",
+    "Compose comme la première fois qu'on se sent vraiment chez soi quelque part.",
+    "Le morceau raconte ce qui reste quand tout le reste a été dit.",
+    "Imagine ce morceau comme une carte postale qu'on n'enverra jamais.",
+    "Compose la musique d'un instant où tout aurait pu basculer autrement.",
+    "Le morceau doit ressembler à un au revoir qu'on espère provisoire.",
+    "Imagine que ce morceau est la dernière chose que quelqu'un entend avant un grand changement.",
+    "Compose comme un lieu qui se souvient de tous ceux qui y sont passés."
   ];
 
   const els = {
@@ -827,11 +961,14 @@
     narrToggle: document.getElementById('narrToggle'),
     narrTitle: document.getElementById('narrTitle'),
     narrValue: document.getElementById('narrValue'),
-    narrReroll: document.getElementById('narrReroll')
+    narrReroll: document.getElementById('narrReroll'),
+    chordToggle: document.getElementById('chordToggle'),
+    chordText: document.querySelector('.chord-text'),
+    chordDots: document.getElementById('chordDots')
   };
 
   const LOCKS = { style:false, bpm:false, key:false, mood:false, structure:false, instruments:false, constraint:false };
-  let state = { styleObj:null, style:"", styleDesc:"", bpm:"", key:"", mood:"", structure:"", instruments:[], constraint:"" };
+  let state = { styleObj:null, style:"", styleDesc:"", bpm:"", key:"", keyObj:null, chordIndex:0, mood:"", structure:"", instruments:[], constraint:"" };
 
   const HISTORY_KEY = "glitch_inspi_history";
   const FAV_KEY = "glitch_inspi_favorites";
@@ -1092,7 +1229,12 @@
         state.bpm = formatBpm(so);
         break;
       }
-      case 'key': state.key = randomItem(KEYS); break;
+      case 'key': {
+        state.keyObj = randomItem(KEYS);
+        state.key = state.keyObj.name;
+        state.chordIndex = Math.floor(Math.random() * state.keyObj.chords.length);
+        break;
+      }
       case 'mood': state.mood = randomItem(MOODS); break;
       case 'structure': state.structure = randomItem(STRUCTURES); break;
       case 'instruments': state.instruments = randomInstrumentsList(); break;
@@ -1115,8 +1257,31 @@
     }
   }
 
+  function renderChords(animate){
+    if(!state.keyObj) return;
+    els.chordText.textContent = state.keyObj.chords[state.chordIndex];
+    els.chordDots.innerHTML = '';
+    state.keyObj.chords.forEach((_, i)=>{
+      const dot = document.createElement('span');
+      dot.className = 'chord-dot' + (i === state.chordIndex ? ' active' : '');
+      els.chordDots.appendChild(dot);
+    });
+    if(animate){
+      els.chordText.classList.remove('updating');
+      void els.chordText.offsetWidth;
+      els.chordText.classList.add('updating');
+    }
+  }
+
+  function toggleChords(){
+    if(!state.keyObj || state.keyObj.chords.length < 2) return;
+    state.chordIndex = (state.chordIndex + 1) % state.keyObj.chords.length;
+    renderChords(true);
+  }
+
   function renderAll(animate){
     ['style','styleDesc','bpm','key','mood','structure','instruments','constraint'].forEach(k=>renderField(k, animate));
+    renderChords(animate);
   }
 
   function generateAll(){
@@ -1131,6 +1296,8 @@
     if(!LOCKS.instruments) genField('instruments');
     if(!LOCKS.constraint) genField('constraint');
     renderAll(true);
+    rerollExtra(els.techValue, CONSTRAINTS_TECH);
+    rerollExtra(els.narrValue, CONSTRAINTS_NARRATIVE);
     pulseButton();
     pushHistory();
   }
@@ -1142,6 +1309,9 @@
     if(key === 'style'){
       renderField('styleDesc', true);
       renderField('bpm', true);
+    }
+    if(key === 'key'){
+      renderChords(true);
     }
   }
 
@@ -1157,7 +1327,7 @@
       "---------------------",
       "Style        : " + state.style + " (" + state.styleDesc + ")",
       "Tempo        : " + state.bpm,
-      "Tonalité     : " + state.key,
+      "Tonalité     : " + state.key + " — " + (state.keyObj ? state.keyObj.chords[state.chordIndex] : ''),
       "Ambiance     : " + state.mood,
       "Structure    : " + state.structure,
       "Instruments  : " + state.instruments.join(', '),
@@ -1245,7 +1415,7 @@
       time: Date.now(),
       style: state.style, styleDesc: state.styleDesc,
       styleBpmRange: state.styleObj ? state.styleObj.bpm : [70,160],
-      bpm: state.bpm, key: state.key,
+      bpm: state.bpm, key: state.key, chordIndex: state.chordIndex,
       mood: state.mood, structure: state.structure,
       instruments: state.instruments.slice(), constraint: state.constraint
     };
@@ -1263,6 +1433,8 @@
     state.styleObj = { name: snap.style, bpm: snap.styleBpmRange || (STYLES.find(s=>s.name===snap.style)||{bpm:[70,160]}).bpm };
     state.style = snap.style; state.styleDesc = snap.styleDesc || (STYLES.find(s=>s.name===snap.style)||{desc:""}).desc;
     state.bpm = snap.bpm; state.key = snap.key;
+    state.keyObj = KEYS.find(k=>k.name===snap.key) || { name: snap.key, chords: [""] };
+    state.chordIndex = (typeof snap.chordIndex === 'number' && snap.chordIndex < state.keyObj.chords.length) ? snap.chordIndex : 0;
     state.mood = snap.mood; state.structure = snap.structure;
     state.instruments = snap.instruments.slice(); state.constraint = snap.constraint;
     renderAll(true);
@@ -1350,6 +1522,8 @@
   els.bpmToggle.addEventListener('click', ()=>{
     if(metronome.timerId) stopMetronome(); else startMetronome();
   });
+
+  els.chordToggle.addEventListener('click', toggleChords);
 
   els.metroSoundToggle.addEventListener('click', ()=>{
     metronomeSoundOn = !metronomeSoundOn;

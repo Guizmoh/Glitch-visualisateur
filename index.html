@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glitch // Inspiration Musicale</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎛️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#07070c;
+    --bg-1:#0d0d17;
+    --panel: rgba(255,255,255,0.035);
+    --panel-border: rgba(0,255,240,0.16);
+    --panel-border-locked: rgba(255,45,180,0.55);
+    --cyan:#3ef4ea;
+    --magenta:#ff2bd6;
+    --purple:#8b5cff;
+    --text-0:#eef2f6;
+    --text-1:#9aa3b2;
+    --text-dim:#5c6373;
+    --radius:14px;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --display: 'Orbitron', 'Space Grotesk', sans-serif;
+    --body-font: 'Space Grotesk', system-ui, sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse 80% 60% at 15% -10%, rgba(139,95,255,0.20), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 100% 0%, rgba(62,244,234,0.14), transparent 60%),
+      radial-gradient(ellipse 60% 60% at 50% 110%, rgba(255,43,214,0.10), transparent 60%),
+      linear-gradient(180deg, var(--bg-0), var(--bg-1));
+    color:var(--text-0);
+    font-family:var(--body-font);
+    position:relative;
+    overflow-x:hidden;
+    padding-bottom:60px;
+  }
+
+  /* subtle grain */
+  .noise-overlay{
+    position:fixed; inset:0; pointer-events:none; z-index:1;
+    opacity:0.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .scanlines{
+    position:fixed; inset:0; pointer-events:none; z-index:2;
+    background:repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 3px);
+    opacity:0.5;
+  }
+
+  main, header, footer{ position:relative; z-index:3; }
+
+  header{
+    max-width:1000px; margin:0 auto; padding:56px 24px 24px;
+    text-align:center;
+  }
+
+  h1.glitch{
+    font-family:var(--display);
+    font-weight:800;
+    font-size:clamp(1.6rem, 5vw, 3rem);
+    letter-spacing:0.04em;
+    margin:0 0 10px;
+    position:relative;
+    color:var(--text-0);
+    text-shadow: 0 0 18px rgba(62,244,234,0.35);
+  }
+  h1.glitch::before, h1.glitch::after{
+    content: attr(data-text);
+    position:absolute; left:0; top:0; width:100%;
+    overflow:hidden; background:transparent;
+    clip-path: inset(0 0 0 0);
+  }
+  h1.glitch::before{ color:var(--cyan); left:2px; text-shadow:-1px 0 var(--cyan); }
+  h1.glitch::after{ color:var(--magenta); left:-2px; text-shadow:1px 0 var(--magenta); }
+  h1.glitch.active::before{ animation: glitchTop 0.5s steps(2,end); }
+  h1.glitch.active::after{ animation: glitchBottom 0.5s steps(2,end); }
+
+  @keyframes glitchTop{
+    0%{ clip-path: inset(0 0 85% 0); transform:translate(0,0); }
+    20%{ clip-path: inset(10% 0 60% 0); transform:translate(-3px,-1px); }
+    40%{ clip-path: inset(40% 0 20% 0); transform:translate(3px,1px); }
+    60%{ clip-path: inset(60% 0 5% 0); transform:translate(-2px,0); }
+    80%{ clip-path: inset(20% 0 50% 0); transform:translate(2px,1px); }
+    100%{ clip-path: inset(0 0 0 0); transform:translate(0,0); }
+  }
+  @keyframes glitchBottom{
+    0%{ clip-path: inset(85% 0 0 0); transform:translate(0,0); }
+    20%{ clip-path: inset(55% 0 15% 0); transform:translate(3px,1px); }
+    40%{ clip-path: inset(15% 0 55% 0); transform:translate(-3px,-1px); }
+    60%{ clip-path: inset(0 0 70% 0); transform:translate(2px,0); }
+    80%{ clip-path: inset(45% 0 25% 0); transform:translate(-2px,-1px); }
+    100%{ clip-path: inset(0 0 0 0); transform:translate(0,0); }
+  }
+
+  .subtitle{
+    color:var(--text-1); font-size:0.95rem; max-width:560px; margin:0 auto;
+    line-height:1.5;
+  }
+  .hint{ color:var(--text-dim); font-size:0.78rem; margin-top:10px; font-family:var(--mono); }
+  .hint kbd{
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15);
+    border-radius:4px; padding:1px 6px; font-family:var(--mono);
+  }
+
+  main{ max-width:1000px; margin:0 auto; padding:0 20px; }
+
+  .controls{
+    display:flex; flex-direction:column; align-items:center; gap:16px;
+    margin:20px 0 32px;
+  }
+
+  .btn-generate{
+    font-family:var(--display); font-weight:800; font-size:1.05rem;
+    letter-spacing:0.08em; color:var(--bg-0);
+    background:linear-gradient(120deg, var(--cyan), var(--purple) 55%, var(--magenta));
+    border:none; border-radius:999px; padding:16px 40px; cursor:pointer;
+    box-shadow:0 0 0 1px rgba(255,255,255,0.08), 0 10px 30px -8px rgba(139,95,255,0.6);
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+    background-size:180% 180%;
+  }
+  .btn-generate:hover{ transform:translateY(-2px) scale(1.02); box-shadow:0 0 0 1px rgba(255,255,255,0.15), 0 14px 34px -6px rgba(255,43,214,0.55); }
+  .btn-generate:active{ transform:translateY(0) scale(0.98); }
+  .btn-generate.pulse{ animation:genPulse 0.5s ease; }
+  @keyframes genPulse{ 0%{filter:brightness(1);} 40%{filter:brightness(1.6);} 100%{filter:brightness(1);} }
+
+  .secondary-actions{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+  .btn-ghost{
+    font-family:var(--mono); font-size:0.8rem; letter-spacing:0.03em;
+    background:var(--panel); color:var(--text-1);
+    border:1px solid var(--panel-border); border-radius:8px;
+    padding:9px 14px; cursor:pointer; transition:all 0.15s ease;
+  }
+  .btn-ghost:hover{ color:var(--text-0); border-color:var(--cyan); box-shadow:0 0 12px -2px rgba(62,244,234,0.5); }
+  .btn-ghost.active{ color:var(--magenta); border-color:var(--magenta); }
+
+  .cards-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr));
+    gap:14px; margin-bottom:20px;
+  }
+
+  .card{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
+    padding:16px 16px 14px; backdrop-filter:blur(10px);
+    position:relative; overflow:hidden; transition:border-color 0.2s ease, box-shadow 0.2s ease;
+    min-height:118px; display:flex; flex-direction:column;
+  }
+  .card::before{
+    content:""; position:absolute; inset:0; border-radius:var(--radius); padding:1px;
+    background:linear-gradient(135deg, rgba(62,244,234,0.25), transparent 40%, rgba(255,43,214,0.2));
+    -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none;
+  }
+  .card.locked{ border-color:var(--panel-border-locked); box-shadow:0 0 18px -6px rgba(255,43,214,0.45); }
+  .card.full{ grid-column:1/-1; }
+
+  .card-head{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
+  }
+  .card-label{
+    font-family:var(--mono); font-size:0.68rem; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--cyan); opacity:0.85;
+  }
+  .card-actions{ display:flex; gap:4px; }
+  .icon-btn{
+    background:none; border:none; cursor:pointer; font-size:0.95rem; line-height:1;
+    color:var(--text-dim); padding:3px 5px; border-radius:6px; transition:all 0.15s ease;
+  }
+  .icon-btn:hover{ color:var(--text-0); background:rgba(255,255,255,0.08); }
+  .icon-btn.locked-on{ color:var(--magenta); }
+
+  .card-value{
+    font-family:var(--display); font-weight:700; font-size:1.15rem; color:var(--text-0);
+    line-height:1.3; margin-top:auto; word-break:break-word;
+  }
+  .card.full .card-value{ font-family:var(--body-font); font-weight:500; font-size:1.05rem; }
+  .card-value.small{ font-size:0.95rem; font-family:var(--body-font); font-weight:500; }
+  .card-value.glitching{ animation:textGlitch 0.35s steps(3,end); }
+  @keyframes textGlitch{
+    0%{ transform:translate(0,0); opacity:1; }
+    25%{ transform:translate(-2px,1px); opacity:0.6; text-shadow:2px 0 var(--magenta), -2px 0 var(--cyan); }
+    50%{ transform:translate(2px,-1px); opacity:0.8; text-shadow:-2px 0 var(--magenta), 2px 0 var(--cyan); }
+    75%{ transform:translate(-1px,0); opacity:0.7; }
+    100%{ transform:translate(0,0); opacity:1; text-shadow:none; }
+  }
+
+  .card.constraint-card{
+    background:linear-gradient(120deg, rgba(255,43,214,0.08), rgba(139,95,255,0.08));
+    border-color:rgba(255,43,214,0.3);
+  }
+  .constraint-tag{
+    font-family:var(--mono); font-size:0.68rem; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--magenta);
+  }
+
+  .panels{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:28px; }
+  @media (max-width:680px){ .panels{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:var(--radius);
+    padding:14px 16px;
+  }
+  .panel h2{
+    font-family:var(--mono); font-size:0.75rem; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--text-1); margin:0 0 10px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel h2 span.count{ color:var(--text-dim); font-weight:400; }
+  .list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto; }
+  .list::-webkit-scrollbar{ width:6px; }
+  .list::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.15); border-radius:4px; }
+  .list-item{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
+    border-radius:8px; padding:8px 10px; font-size:0.78rem; cursor:pointer;
+    transition:border-color 0.15s ease;
+  }
+  .list-item:hover{ border-color:var(--cyan); }
+  .list-item .li-main{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-1); }
+  .list-item .li-main b{ color:var(--text-0); font-weight:600; }
+  .list-item .li-time{ font-family:var(--mono); color:var(--text-dim); font-size:0.68rem; flex-shrink:0; }
+  .list-item .li-del{ background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.9rem;flex-shrink:0; }
+  .list-item .li-del:hover{ color:var(--magenta); }
+  .empty-msg{ color:var(--text-dim); font-size:0.78rem; font-style:italic; padding:6px 2px; }
+
+  .toast{
+    position:fixed; bottom:22px; left:50%; transform:translate(-50%, 20px);
+    background:rgba(15,15,25,0.95); border:1px solid var(--cyan); color:var(--text-0);
+    font-family:var(--mono); font-size:0.8rem; padding:10px 18px; border-radius:999px;
+    box-shadow:0 8px 24px -6px rgba(0,0,0,0.6); opacity:0; pointer-events:none;
+    transition:all 0.25s ease; z-index:10;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+  footer{ text-align:center; color:var(--text-dim); font-family:var(--mono); font-size:0.72rem; margin-top:40px; }
+</style>
+</head>
+<body>
+
+<div class="noise-overlay"></div>
+<div class="scanlines"></div>
+
+<header>
+  <h1 class="glitch" id="title" data-text="INSPIRATION // MUSICALE">INSPIRATION // MUSICALE</h1>
+  <p class="subtitle">Un point de départ pour composer : style, tempo, gamme, ambiance et une contrainte créative. Verrouille ce qui te plaît, relance le reste.</p>
+  <p class="hint">Astuce : appuie sur <kbd>Espace</kbd> pour tout régénérer</p>
+</header>
+
+<main>
+  <div class="controls">
+    <button class="btn-generate" id="generateBtn">✦ GÉNÉRER UNE INSPIRATION ✦</button>
+    <div class="secondary-actions">
+      <button class="btn-ghost" id="copyBtn">⧉ Copier</button>
+      <button class="btn-ghost" id="downloadBtn">⬇ Télécharger .txt</button>
+      <button class="btn-ghost" id="favBtn">☆ Ajouter aux favoris</button>
+    </div>
+  </div>
+
+  <div class="cards-grid" id="cardsGrid">
+    <div class="card" data-key="style">
+      <div class="card-head">
+        <span class="card-label">Style</span>
+        <div class="card-actions">
+          <button class="icon-btn dice" title="Relancer ce champ">🎲</button>
+          <button class="icon-btn lock" title="Verrouiller">🔓</button>
+        </div>
+      </div>
+      <div class="card-value" data-field="style">—</div>
+    </div>
+
+    <div class="card" data-key="bpm">
+      <div class="card-head">
+        <span class="card-label">Tempo</span>
+        <div class="card-actions">
+          <button class="icon-btn dice" title="Relancer ce champ">🎲</button>
+          <button class="icon-btn lock" title="Verrouiller">🔓</button>
+        </div>
+      </div>
+      <div class="card-value" data-field="bpm">—</div>
+    </div>
+
+    <div class="card" data-key="key">
+      <div class="card-head">
+        <span class="card-label">Tonalité / Gamme</span>
+        <div class="card-actions">
+          <button class="icon-btn dice" title="Relancer ce champ">🎲</button>
+          <button class="icon-btn lock" title="Verrouiller">🔓</button>
+        </div>
+      </div>
+      <div class="card-value" data-field="key">—</div>
+    </div>
+
+    <div class="card" data-key="timeSig">
+      <div class="card-head">
+        <span class="card-label">Mesure</span>
+        <div class="card-actions">
+          <button class="icon-btn dice" title="Relancer ce champ">🎲</button>
+          <button class="icon-btn lock" title="Verrouiller">🔓</button>
+        </div>
+      </div>
+      <div class="card-value" data-field="timeSig">—</div>
+    </div>
+
+    <div class="card" data-key="mood">
+      <div class="card-head">
+        <span class="card-label">Ambiance</span>
+        <div class="card-actions">
+          <button class="icon-btn dice" title="Relancer ce champ">🎲</button>
+          <button class="icon-btn lock" title="Verrouiller">🔓</button>
+        </div>
+      </div>
+      <div class="card-value" data-field="mood">—</div>
+    </div>
+
+    <div class="card" data-key="structure">
+      <div class="card-head">
+        <span class="card-label">Structure</span>
+        <div class="card-actions">
+          <button class="icon-btn dice" title="Relancer ce champ">🎲</button>
+          <button class="icon-btn lock" title="Verrouiller">🔓</button>
+        </div>
+      </div>
+      <div class="card-value small" data-field="structure">—</div>
+    </div>
+
+    <div class="card full" data-key="instruments">
+      <div class="card-head">
+        <span class="card-label">Instrumentation suggérée</span>
+        <div class="card-actions">
+          <button class="icon-btn dice" title="Relancer ce champ">🎲</button>
+          <button class="icon-btn lock" title="Verrouiller">🔓</button>
+        </div>
+      </div>
+      <div class="card-value small" data-field="instruments">—</div>
+    </div>
+
+    <div class="card full constraint-card" data-key="constraint">
+      <div class="card-head">
+        <span class="constraint-tag">⚡ Contrainte créative</span>
+        <div class="card-actions">
+          <button class="icon-btn dice" title="Relancer ce champ">🎲</button>
+          <button class="icon-btn lock" title="Verrouiller">🔓</button>
+        </div>
+      </div>
+      <div class="card-value" data-field="constraint">—</div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div class="panel">
+      <h2>Historique <span class="count" id="historyCount">0</span></h2>
+      <ul class="list" id="historyList"></ul>
+    </div>
+    <div class="panel">
+      <h2>Favoris <span class="count" id="favCount">0</span></h2>
+      <ul class="list" id="favList"></ul>
+    </div>
+  </div>
+</main>
+
+<footer>glitch-visualisateur · inspiration générée localement, rien n'est envoyé nulle part</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const STYLES = [
+    {name:"Synthwave", bpm:[80,118]},
+    {name:"Vaporwave", bpm:[60,90]},
+    {name:"Lo-fi Hip-Hop", bpm:[70,90]},
+    {name:"Trip-hop", bpm:[80,100]},
+    {name:"Techno minimal", bpm:[122,132]},
+    {name:"Deep house", bpm:[118,124]},
+    {name:"House", bpm:[120,128]},
+    {name:"Drum & Bass", bpm:[160,180]},
+    {name:"Jungle", bpm:[160,175]},
+    {name:"Dubstep", bpm:[135,145]},
+    {name:"Breakbeat", bpm:[125,140]},
+    {name:"IDM", bpm:[80,160]},
+    {name:"Glitch", bpm:[90,150]},
+    {name:"Ambient", bpm:[50,80]},
+    {name:"Drone", bpm:[0,0]},
+    {name:"Post-rock", bpm:[70,140]},
+    {name:"Shoegaze", bpm:[100,140]},
+    {name:"Post-punk", bpm:[120,150]},
+    {name:"Darkwave", bpm:[100,130]},
+    {name:"Industrial", bpm:[110,140]},
+    {name:"EBM", bpm:[120,135]},
+    {name:"Chiptune", bpm:[120,160]},
+    {name:"Footwork", bpm:[155,165]},
+    {name:"Trap", bpm:[130,170]},
+    {name:"Cloud rap", bpm:[60,80]},
+    {name:"UK garage", bpm:[130,140]},
+    {name:"Grime", bpm:[135,145]},
+    {name:"Baile funk", bpm:[125,135]},
+    {name:"Gqom", bpm:[120,128]},
+    {name:"Jazz fusion", bpm:[90,160]},
+    {name:"Nu-jazz", bpm:[80,130]},
+    {name:"Bossa nova électronique", bpm:[80,120]},
+    {name:"Funk psychédélique", bpm:[90,115]},
+    {name:"Krautrock", bpm:[110,130]},
+    {name:"Musique concrète", bpm:[0,0]},
+    {name:"Field recording", bpm:[0,0]},
+    {name:"Neoclassique", bpm:[50,90]},
+    {name:"Musique de film", bpm:[40,140]},
+    {name:"Afrobeat électronique", bpm:[100,125]},
+    {name:"Cumbia digitale", bpm:[85,100]},
+    {name:"Reggaeton expérimental", bpm:[85,100]},
+    {name:"Highlife électronique", bpm:[100,125]}
+  ];
+
+  const MOODS = [
+    "Mélancolique", "Euphorique", "Hypnotique", "Anxieux", "Onirique",
+    "Agressif", "Nostalgique", "Méditatif", "Chaotique", "Sensuel",
+    "Épique", "Minimaliste", "Claustrophobe", "Lumineux", "Menaçant",
+    "Ludique", "Solennel", "Flottant", "Urgent", "Introspectif"
+  ];
+
+  const KEYS = [
+    "Do mineur", "Ré dorien", "Mi phrygien", "Fa lydien", "Sol mixolydien",
+    "La mineur naturel", "Si locrien", "Do# mineur harmonique", "Mib majeur",
+    "Fa# mineur mélodique", "Sol# phrygien dominant", "Sib majeur pentatonique",
+    "Do mineur pentatonique (blues)", "Ré majeur harmonique", "Gamme par tons (whole tone)",
+    "Gamme chromatique libre", "Microtonalité (quarts de ton)", "Mode octatonique (diminué)"
+  ];
+
+  const TIME_SIGS = ["4/4", "3/4", "6/8", "5/4", "7/8", "9/8", "12/8", "Mesure libre / changeante"];
+
+  const STRUCTURES = [
+    "Boucle hypnotique qui évolue lentement, sans section marquée",
+    "Intro atmosphérique → montée progressive → chute brutale",
+    "Couplet / refrain classique, mais détourné",
+    "Un seul crescendo continu du début à la fin",
+    "Collage de fragments courts (30 secondes maximum chacun)",
+    "Appel-réponse entre deux textures opposées",
+    "Rondo : un thème revient entre des sections contrastées",
+    "Décroissance progressive vers le silence total",
+    "Boucle qui se déphase lentement (process music, à la Steve Reich)",
+    "Tension qui monte mais n'est jamais totalement résolue"
+  ];
+
+  const INSTRUMENTS = [
+    "synthé analogique", "boîte à rythmes 808", "sample vinyle", "voix chuchotée",
+    "field recording urbain", "guitare saturée", "piano préparé", "basse sub",
+    "cordes pizzicato", "cuivres samplés", "percussions trouvées (objets du quotidien)",
+    "texture granulaire", "orgue Hammond", "thérémine", "kalimba", "boîte à musique",
+    "bruit blanc filtré", "cloches tubulaires", "batterie acoustique feutrée",
+    "chœurs pitchés", "clics et glitchs numériques", "souffle de bande (tape hiss)",
+    "patch de synthé modulaire", "vocodeur", "bols tibétains"
+  ];
+
+  const CONSTRAINTS = [
+    "N'utilise que 3 sons ou instruments maximum, pas un de plus.",
+    "Aucune batterie ni percussion classique n'est autorisée.",
+    "Le morceau doit tenir en une seule prise, sans coupe ni retouche.",
+    "Utilise un instrument que tu ne maîtrises pas encore.",
+    "Toute la rythmique doit venir d'objets du quotidien.",
+    "Interdiction de reverb et de delay.",
+    "La basse ne doit jamais jouer la fondamentale de l'accord.",
+    "Compose le morceau à l'envers : écris la fin en premier.",
+    "Une seule note peut être répétée à l'infini, construis tout autour.",
+    "Le silence doit occuper au moins 20% de la durée totale.",
+    "Utilise un sample vocal détourné de son sens d'origine.",
+    "Change de tempo au moins une fois, sans transition.",
+    "Tout doit être écrit et enregistré en moins de 20 minutes.",
+    "Aucun instrument ne doit sonner comme il le devrait (détourne-le).",
+    "La mélodie principale doit pouvoir être fredonnée a cappella.",
+    "Utilise un bug, une erreur ou un accident comme élément central.",
+    "Pas d'intro ni d'outro : seulement une boucle qui commence déjà en cours.",
+    "Chaque son doit passer par un effet de distorsion, même léger.",
+    "Emprunte le rythme d'une phrase parlée (prosodie) pour la mélodie.",
+    "Un seul accord pour tout le morceau.",
+    "Enregistre au moins un son à l'extérieur, tel quel.",
+    "La durée des sections doit suivre une suite de Fibonacci.",
+    "Aucun ordinateur : tout doit être analogique ou acoustique.",
+    "Écris le titre avant la musique, et laisse-le guider chaque choix."
+  ];
+
+  const els = {
+    title: document.getElementById('title'),
+    generateBtn: document.getElementById('generateBtn'),
+    copyBtn: document.getElementById('copyBtn'),
+    downloadBtn: document.getElementById('downloadBtn'),
+    favBtn: document.getElementById('favBtn'),
+    grid: document.getElementById('cardsGrid'),
+    historyList: document.getElementById('historyList'),
+    historyCount: document.getElementById('historyCount'),
+    favList: document.getElementById('favList'),
+    favCount: document.getElementById('favCount'),
+    toast: document.getElementById('toast')
+  };
+
+  const LOCKS = { style:false, bpm:false, key:false, timeSig:false, mood:false, structure:false, instruments:false, constraint:false };
+  let state = { styleObj:null, style:"", bpm:"", key:"", timeSig:"", mood:"", structure:"", instruments:[], constraint:"" };
+
+  const HISTORY_KEY = "glitch_inspi_history";
+  const FAV_KEY = "glitch_inspi_favorites";
+
+  function randomItem(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  function randomInstrumentsList(){
+    const pool = INSTRUMENTS.slice();
+    const picked = [];
+    const n = 3;
+    for(let i=0;i<n;i++){
+      const idx = Math.floor(Math.random()*pool.length);
+      picked.push(pool.splice(idx,1)[0]);
+    }
+    return picked;
+  }
+
+  function formatBpm(styleObj){
+    const range = styleObj.bpm;
+    if(range[0]===0 && range[1]===0) return "Libre / rubato (sans tempo fixe)";
+    const val = Math.floor(Math.random()*(range[1]-range[0]+1))+range[0];
+    return val + " BPM";
+  }
+
+  function genField(key){
+    switch(key){
+      case 'style': {
+        state.styleObj = randomItem(STYLES);
+        state.style = state.styleObj.name;
+        if(!LOCKS.bpm) state.bpm = formatBpm(state.styleObj);
+        break;
+      }
+      case 'bpm': {
+        const so = state.styleObj || randomItem(STYLES);
+        state.bpm = formatBpm(so);
+        break;
+      }
+      case 'key': state.key = randomItem(KEYS); break;
+      case 'timeSig': state.timeSig = randomItem(TIME_SIGS); break;
+      case 'mood': state.mood = randomItem(MOODS); break;
+      case 'structure': state.structure = randomItem(STRUCTURES); break;
+      case 'instruments': state.instruments = randomInstrumentsList(); break;
+      case 'constraint': state.constraint = randomItem(CONSTRAINTS); break;
+    }
+  }
+
+  function renderField(key, glitch){
+    const el = document.querySelector('[data-field="'+key+'"]');
+    if(!el) return;
+    let text;
+    if(key === 'instruments') text = state.instruments.join(', ');
+    else text = state[key];
+    el.textContent = text || '—';
+    if(glitch){
+      el.classList.remove('glitching');
+      void el.offsetWidth;
+      el.classList.add('glitching');
+    }
+  }
+
+  function renderAll(glitch){
+    ['style','bpm','key','timeSig','mood','structure','instruments','constraint'].forEach(k=>renderField(k, glitch));
+  }
+
+  function generateAll(){
+    if(!LOCKS.style){
+      genField('style'); // also regenerates bpm internally when bpm is unlocked
+    } else if(!LOCKS.bpm){
+      genField('bpm');
+    }
+    if(!LOCKS.key) genField('key');
+    if(!LOCKS.timeSig) genField('timeSig');
+    if(!LOCKS.mood) genField('mood');
+    if(!LOCKS.structure) genField('structure');
+    if(!LOCKS.instruments) genField('instruments');
+    if(!LOCKS.constraint) genField('constraint');
+    renderAll(true);
+    triggerTitleGlitch();
+    pushHistory();
+  }
+
+  function rerollSingle(key){
+    genField(key);
+    renderAll(false);
+    renderField(key, true);
+    if(key === 'style') renderField('bpm', true);
+  }
+
+  function triggerTitleGlitch(){
+    els.title.classList.remove('active');
+    void els.title.offsetWidth;
+    els.title.classList.add('active');
+    els.generateBtn.classList.remove('pulse');
+    void els.generateBtn.offsetWidth;
+    els.generateBtn.classList.add('pulse');
+  }
+
+  function formatText(){
+    return [
+      "INSPIRATION MUSICALE",
+      "---------------------",
+      "Style        : " + state.style,
+      "Tempo        : " + state.bpm,
+      "Tonalité     : " + state.key,
+      "Mesure       : " + state.timeSig,
+      "Ambiance     : " + state.mood,
+      "Structure    : " + state.structure,
+      "Instruments  : " + state.instruments.join(', '),
+      "Contrainte   : " + state.constraint
+    ].join("\n");
+  }
+
+  function showToast(msg){
+    els.toast.textContent = msg;
+    els.toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>els.toast.classList.remove('show'), 2200);
+  }
+
+  // ---- persistence ----
+  function loadJSON(key){
+    try{ return JSON.parse(localStorage.getItem(key)) || []; }
+    catch(e){ return []; }
+  }
+  function saveJSON(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+  }
+
+  function snapshot(){
+    return {
+      id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      time: Date.now(),
+      style: state.style, bpm: state.bpm, key: state.key, timeSig: state.timeSig,
+      mood: state.mood, structure: state.structure,
+      instruments: state.instruments.slice(), constraint: state.constraint
+    };
+  }
+
+  function pushHistory(){
+    const list = loadJSON(HISTORY_KEY);
+    list.unshift(snapshot());
+    while(list.length > 20) list.pop();
+    saveJSON(HISTORY_KEY, list);
+    renderHistory();
+  }
+
+  function restoreSnapshot(snap){
+    state.styleObj = STYLES.find(s=>s.name===snap.style) || null;
+    state.style = snap.style; state.bpm = snap.bpm; state.key = snap.key;
+    state.timeSig = snap.timeSig; state.mood = snap.mood; state.structure = snap.structure;
+    state.instruments = snap.instruments.slice(); state.constraint = snap.constraint;
+    renderAll(true);
+    triggerTitleGlitch();
+  }
+
+  function timeAgo(ts){
+    const s = Math.floor((Date.now()-ts)/1000);
+    if(s<60) return 'à l\'instant';
+    const m = Math.floor(s/60); if(m<60) return m+'min';
+    const h = Math.floor(m/60); if(h<24) return h+'h';
+    const d = Math.floor(h/24); return d+'j';
+  }
+
+  function renderHistory(){
+    const list = loadJSON(HISTORY_KEY);
+    els.historyCount.textContent = list.length;
+    els.historyList.innerHTML = '';
+    if(list.length === 0){
+      els.historyList.innerHTML = '<li class="empty-msg">Aucune génération pour le moment.</li>';
+      return;
+    }
+    list.forEach(snap=>{
+      const li = document.createElement('li');
+      li.className = 'list-item';
+      li.innerHTML = '<span class="li-main"><b>'+escapeHtml(snap.style)+'</b> · '+escapeHtml(snap.bpm)+' · '+escapeHtml(snap.mood)+'</span>'+
+        '<span class="li-time">'+timeAgo(snap.time)+'</span>';
+      li.addEventListener('click', ()=>restoreSnapshot(snap));
+      els.historyList.appendChild(li);
+    });
+  }
+
+  function renderFavorites(){
+    const list = loadJSON(FAV_KEY);
+    els.favCount.textContent = list.length;
+    els.favList.innerHTML = '';
+    if(list.length === 0){
+      els.favList.innerHTML = '<li class="empty-msg">Aucun favori enregistré.</li>';
+      return;
+    }
+    list.forEach(snap=>{
+      const li = document.createElement('li');
+      li.className = 'list-item';
+      const main = document.createElement('span');
+      main.className = 'li-main';
+      main.innerHTML = '<b>'+escapeHtml(snap.style)+'</b> · '+escapeHtml(snap.bpm)+' · '+escapeHtml(snap.mood);
+      main.addEventListener('click', ()=>restoreSnapshot(snap));
+      const del = document.createElement('button');
+      del.className = 'li-del'; del.title = 'Retirer des favoris'; del.textContent = '✕';
+      del.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const updated = loadJSON(FAV_KEY).filter(x=>x.id !== snap.id);
+        saveJSON(FAV_KEY, updated);
+        renderFavorites();
+      });
+      li.appendChild(main); li.appendChild(del);
+      els.favList.appendChild(li);
+    });
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str == null ? '' : str;
+    return d.innerHTML;
+  }
+
+  // ---- wiring ----
+  els.grid.querySelectorAll('.card').forEach(card=>{
+    const key = card.dataset.key;
+    const diceBtn = card.querySelector('.dice');
+    const lockBtn = card.querySelector('.lock');
+    diceBtn.addEventListener('click', ()=>rerollSingle(key));
+    lockBtn.addEventListener('click', ()=>{
+      LOCKS[key] = !LOCKS[key];
+      lockBtn.textContent = LOCKS[key] ? '🔒' : '🔓';
+      lockBtn.classList.toggle('locked-on', LOCKS[key]);
+      card.classList.toggle('locked', LOCKS[key]);
+    });
+  });
+
+  els.generateBtn.addEventListener('click', generateAll);
+
+  els.copyBtn.addEventListener('click', ()=>{
+    const text = formatText();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(()=>showToast('Copié dans le presse-papiers')).catch(()=>showToast('Impossible de copier'));
+    } else {
+      showToast('Copie non supportée par ce navigateur');
+    }
+  });
+
+  els.downloadBtn.addEventListener('click', ()=>{
+    const blob = new Blob([formatText()], {type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inspiration-' + Date.now() + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Fichier téléchargé');
+  });
+
+  els.favBtn.addEventListener('click', ()=>{
+    const list = loadJSON(FAV_KEY);
+    list.unshift(snapshot());
+    while(list.length > 30) list.pop();
+    saveJSON(FAV_KEY, list);
+    renderFavorites();
+    showToast('Ajouté aux favoris ☆');
+  });
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.code === 'Space' && document.activeElement === document.body){
+      e.preventDefault();
+      generateAll();
+    }
+  });
+
+  // ---- init ----
+  function init(){
+    genField('style'); genField('bpm'); genField('key'); genField('timeSig');
+    genField('mood'); genField('structure'); genField('instruments'); genField('constraint');
+    renderAll(false);
+    renderHistory();
+    renderFavorites();
+    pushHistory();
+  }
+  init();
+
+})();
+</script>
+</body>
+</html>

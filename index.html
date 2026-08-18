@@ -177,6 +177,26 @@
   .card-desc.updating{ animation:valueFade 0.32s ease; }
   @keyframes valueFade{ 0%{ opacity:0; transform:translateY(3px); } 100%{ opacity:1; transform:translateY(0); } }
 
+  .bpm-btn{
+    display:inline-flex; align-items:center; gap:10px; align-self:flex-start;
+    background:none; border:none; padding:6px 12px; margin:auto -12px 0 -12px;
+    cursor:pointer; border-radius:10px; color:var(--text-0);
+    font-family:var(--sans); font-weight:700; line-height:1.2;
+    transition:background 0.15s ease, color 0.15s ease;
+  }
+  .bpm-btn:hover{ background:rgba(255,255,255,0.06); }
+  .bpm-btn .bpm-icon{ width:20px; height:20px; color:var(--text-2); flex-shrink:0; transition:color 0.15s ease; }
+  .bpm-btn:hover .bpm-icon{ color:var(--accent); }
+  .bpm-btn.playing{ color:var(--accent); }
+  .bpm-btn.playing .bpm-icon{ color:var(--accent); }
+  .bpm-btn .bpm-text{ font-size:2rem; font-variant-numeric:tabular-nums; }
+  .bpm-btn.beat{ animation:beatPulse 0.14s ease; }
+  @keyframes beatPulse{ 0%{ transform:scale(1.07); } 100%{ transform:scale(1); } }
+  .bpm-hint{
+    margin:6px 0 0; font-size:0.72rem; color:var(--text-2); font-family:var(--mono);
+  }
+  .card[data-key="bpm"].metronome-active{ border-color:var(--accent-border); background:var(--accent-soft); }
+
   .card.constraint-card{
     border-left:3px solid var(--accent);
     background:linear-gradient(90deg, var(--accent-soft), transparent 45%);
@@ -224,7 +244,10 @@
   }
   .toast.show{ opacity:1; transform:translate(-50%, 0); }
 
-  footer{ text-align:center; color:var(--text-2); font-family:var(--mono); font-size:0.72rem; margin-top:48px; }
+  footer{ text-align:center; color:var(--text-2); font-family:var(--mono); font-size:0.72rem; margin-top:48px; padding:0 20px; }
+  footer p{ margin:0 0 6px; }
+  footer p:last-child{ margin-bottom:0; }
+  footer .credit b{ color:var(--text-1); font-weight:600; }
 </style>
 </head>
 <body>
@@ -267,6 +290,13 @@
   </symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24">
     <path d="m6 9 6 6 6-6"></path>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 24 24">
+    <polygon points="6 3 20 12 6 21 6 3"></polygon>
+  </symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24">
+    <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+    <rect x="14" y="4" width="4" height="16" rx="1"></rect>
   </symbol>
 </svg>
 
@@ -327,7 +357,11 @@
           <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
         </div>
       </div>
-      <div class="card-value" data-field="bpm">—</div>
+      <button type="button" class="card-value bpm-btn" id="bpmToggle" data-field="bpm" title="Cliquer pour démarrer/arrêter le métronome">
+        <svg class="icon bpm-icon"><use href="#i-play"></use></svg>
+        <span class="bpm-text">—</span>
+      </button>
+      <p class="bpm-hint">Cliquer pour écouter le tempo</p>
     </div>
 
     <div class="card" data-key="key">
@@ -398,7 +432,10 @@
   </div>
 </main>
 
-<footer>glitch-visualisateur · inspiration générée localement, rien n'est envoyé nulle part</footer>
+<footer>
+  <p>glitch-visualisateur · inspiration générée localement, rien n'est envoyé nulle part</p>
+  <p class="credit">Générateur créé par <b>omnipotard</b> — si vous voulez m'aider à améliorer le modèle, vous pouvez me payer un café</p>
+</footer>
 
 <div class="toast" id="toast"></div>
 
@@ -533,7 +570,9 @@
     prefsClear: document.getElementById('prefsClear'),
     prefsPanel: document.getElementById('prefsPanel'),
     prefsToggle: document.getElementById('prefsToggle'),
-    prefsTitle: document.getElementById('prefsTitle')
+    prefsTitle: document.getElementById('prefsTitle'),
+    bpmToggle: document.getElementById('bpmToggle'),
+    bpmCard: document.querySelector('.card[data-key="bpm"]')
   };
 
   const LOCKS = { style:false, bpm:false, key:false, mood:false, structure:false, instruments:false, constraint:false };
@@ -579,9 +618,83 @@
     return str.length ? str.charAt(0).toLowerCase() + str.slice(1) : str;
   }
 
-  // Builds a weighted pool of candidate style names based on selected preferences:
-  // the chosen styles themselves (weighted higher) plus styles sharing at least one tag with them.
-  function buildStylePool(){
+  // ---- metronome ----
+  let audioCtx = null;
+  const metronome = { timerId: null, beatCount: 0 };
+
+  function ensureAudioCtx(){
+    if(!audioCtx){
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if(!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playClick(accent){
+    const ctx = ensureAudioCtx();
+    if(!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = accent ? 1500 : 950;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.07);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.08);
+  }
+
+  function parseBpmValue(){
+    const m = /(\d+)\s*BPM/.exec(state.bpm);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function setBpmIcon(showPlay){
+    const use = els.bpmToggle.querySelector('.bpm-icon use');
+    use.setAttribute('href', showPlay ? '#i-play' : '#i-pause');
+  }
+
+  function pulseBeat(){
+    els.bpmToggle.classList.remove('beat');
+    void els.bpmToggle.offsetWidth;
+    els.bpmToggle.classList.add('beat');
+  }
+
+  function startMetronome(){
+    const bpmVal = parseBpmValue();
+    if(!bpmVal){ showToast('Pas de tempo fixe pour ce style'); return; }
+    const intervalMs = 60000 / bpmVal;
+    metronome.beatCount = 0;
+    const tick = ()=>{
+      playClick(metronome.beatCount % 4 === 0);
+      pulseBeat();
+      metronome.beatCount++;
+    };
+    tick();
+    metronome.timerId = setInterval(tick, intervalMs);
+    els.bpmToggle.classList.add('playing');
+    els.bpmCard.classList.add('metronome-active');
+    setBpmIcon(false);
+  }
+
+  function stopMetronome(){
+    if(metronome.timerId){
+      clearInterval(metronome.timerId);
+      metronome.timerId = null;
+    }
+    if(els.bpmToggle){
+      els.bpmToggle.classList.remove('playing');
+      setBpmIcon(true);
+    }
+    if(els.bpmCard) els.bpmCard.classList.remove('metronome-active');
+  }
+
+  // Selected styles plus every style sharing at least one tag with any of them.
+  function computeSelectedAndNeighbors(){
     if(PREFS.size === 0) return null;
     const selected = Array.from(PREFS);
     const neighbors = new Set();
@@ -593,10 +706,7 @@
         if(s.tags.some(t=>obj.tags.includes(t))) neighbors.add(s.name);
       });
     });
-    const weighted = [];
-    selected.forEach(n=>{ weighted.push(n,n,n); });
-    neighbors.forEach(n=>weighted.push(n));
-    return weighted;
+    return { selected, neighbors: Array.from(neighbors) };
   }
 
   function setSingleStyle(name){
@@ -619,24 +729,31 @@
   }
 
   function genStyleField(){
-    const pool = buildStylePool();
-    if(!pool){
+    const groups = computeSelectedAndNeighbors();
+    if(!groups){
       setSingleStyle(randomItem(STYLES).name);
       return;
     }
-    const doBlend = pool.length >= 2 && Math.random() < 0.4;
+    const { selected, neighbors } = groups;
+    const hasSecondCandidate = selected.length > 1 || neighbors.length > 0;
+    const doBlend = hasSecondCandidate && Math.random() < 0.4;
     if(doBlend){
-      const a = randomItem(pool);
-      let b = randomItem(pool);
-      let tries = 0;
-      while(b === a && tries < 8){ b = randomItem(pool); tries++; }
-      setBlendStyle(a, b);
+      // Anchor the blend on one of the user's actual picks, never two neighbors alone.
+      const a = randomItem(selected);
+      const candidatesForB = [];
+      selected.forEach(n=>{ if(n !== a) candidatesForB.push(n, n); });
+      neighbors.forEach(n=>candidatesForB.push(n));
+      setBlendStyle(a, randomItem(candidatesForB));
     } else {
-      setSingleStyle(randomItem(pool));
+      const weighted = [];
+      selected.forEach(n=>weighted.push(n,n,n));
+      neighbors.forEach(n=>weighted.push(n));
+      setSingleStyle(randomItem(weighted));
     }
   }
 
   function genField(key){
+    if(key === 'style' || key === 'bpm') stopMetronome();
     switch(key){
       case 'style': {
         genStyleField();
@@ -661,7 +778,8 @@
     let text;
     if(key === 'instruments') text = state.instruments.join(', ');
     else text = state[key];
-    el.textContent = text || '—';
+    const textTarget = key === 'bpm' ? el.querySelector('.bpm-text') : el;
+    textTarget.textContent = text || '—';
     if(animate){
       el.classList.remove('updating');
       void el.offsetWidth;
@@ -882,6 +1000,10 @@
   });
 
   els.generateBtn.addEventListener('click', generateAll);
+
+  els.bpmToggle.addEventListener('click', ()=>{
+    if(metronome.timerId) stopMetronome(); else startMetronome();
+  });
 
   els.copyBtn.addEventListener('click', ()=>{
     const text = formatText();

@@ -126,6 +126,11 @@
   .card.full .card-value{ font-weight:500; font-size:1rem; }
   .card-value.small{ font-size:0.95rem; font-weight:500; }
   .card-value.updating{ animation:valueFade 0.32s ease; }
+
+  .card-body{ margin-top:auto; }
+  .card-body .card-value{ margin-top:0; }
+  .card-desc{ margin-top:6px; font-size:0.82rem; font-weight:400; color:var(--text-1); line-height:1.5; }
+  .card-desc.updating{ animation:valueFade 0.32s ease; }
   @keyframes valueFade{ 0%{ opacity:0; transform:translateY(3px); } 100%{ opacity:1; transform:translateY(0); } }
 
   .card.constraint-card{
@@ -239,7 +244,10 @@
           <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
         </div>
       </div>
-      <div class="card-value" data-field="style">—</div>
+      <div class="card-body">
+        <div class="card-value" data-field="style">—</div>
+        <div class="card-desc" data-field="styleDesc">—</div>
+      </div>
     </div>
 
     <div class="card" data-key="bpm">
@@ -262,17 +270,6 @@
         </div>
       </div>
       <div class="card-value" data-field="key">—</div>
-    </div>
-
-    <div class="card" data-key="timeSig">
-      <div class="card-head">
-        <span class="card-label">Mesure</span>
-        <div class="card-actions">
-          <button class="icon-btn dice" title="Relancer ce champ"><svg class="icon"><use href="#i-refresh"></use></svg></button>
-          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
-        </div>
-      </div>
-      <div class="card-value" data-field="timeSig">—</div>
     </div>
 
     <div class="card" data-key="mood">
@@ -341,48 +338,48 @@
   "use strict";
 
   const STYLES = [
-    {name:"Synthwave", bpm:[80,118]},
-    {name:"Vaporwave", bpm:[60,90]},
-    {name:"Lo-fi Hip-Hop", bpm:[70,90]},
-    {name:"Trip-hop", bpm:[80,100]},
-    {name:"Techno minimal", bpm:[122,132]},
-    {name:"Deep house", bpm:[118,124]},
-    {name:"House", bpm:[120,128]},
-    {name:"Drum & Bass", bpm:[160,180]},
-    {name:"Jungle", bpm:[160,175]},
-    {name:"Dubstep", bpm:[135,145]},
-    {name:"Breakbeat", bpm:[125,140]},
-    {name:"IDM", bpm:[80,160]},
-    {name:"Glitch", bpm:[90,150]},
-    {name:"Ambient", bpm:[50,80]},
-    {name:"Drone", bpm:[0,0]},
-    {name:"Post-rock", bpm:[70,140]},
-    {name:"Shoegaze", bpm:[100,140]},
-    {name:"Post-punk", bpm:[120,150]},
-    {name:"Darkwave", bpm:[100,130]},
-    {name:"Industrial", bpm:[110,140]},
-    {name:"EBM", bpm:[120,135]},
-    {name:"Chiptune", bpm:[120,160]},
-    {name:"Footwork", bpm:[155,165]},
-    {name:"Trap", bpm:[130,170]},
-    {name:"Cloud rap", bpm:[60,80]},
-    {name:"UK garage", bpm:[130,140]},
-    {name:"Grime", bpm:[135,145]},
-    {name:"Baile funk", bpm:[125,135]},
-    {name:"Gqom", bpm:[120,128]},
-    {name:"Jazz fusion", bpm:[90,160]},
-    {name:"Nu-jazz", bpm:[80,130]},
-    {name:"Bossa nova électronique", bpm:[80,120]},
-    {name:"Funk psychédélique", bpm:[90,115]},
-    {name:"Krautrock", bpm:[110,130]},
-    {name:"Musique concrète", bpm:[0,0]},
-    {name:"Field recording", bpm:[0,0]},
-    {name:"Neoclassique", bpm:[50,90]},
-    {name:"Musique de film", bpm:[40,140]},
-    {name:"Afrobeat électronique", bpm:[100,125]},
-    {name:"Cumbia digitale", bpm:[85,100]},
-    {name:"Reggaeton expérimental", bpm:[85,100]},
-    {name:"Highlife électronique", bpm:[100,125]}
+    {name:"Synthwave", bpm:[80,118], desc:"Sonorités synthétiques rétro inspirées des films et jeux vidéo des années 80."},
+    {name:"Vaporwave", bpm:[60,90], desc:"Collage nostalgique et ralenti de musiques commerciales ou d'ascenseur, avec une esthétique ironique."},
+    {name:"Lo-fi Hip-Hop", bpm:[70,90], desc:"Beats hip-hop doux et volontairement imparfaits, pensés pour l'ambiance et la concentration."},
+    {name:"Trip-hop", bpm:[80,100], desc:"Hip-hop ralenti et cinématographique, mêlé à des textures électroniques sombres."},
+    {name:"Techno minimal", bpm:[122,132], desc:"Techno épurée à l'extrême, construite sur des boucles rythmiques hypnotiques et peu d'éléments."},
+    {name:"Deep house", bpm:[118,124], desc:"House chaleureuse et groovy, basses profondes et ambiance feutrée pour la danse relax."},
+    {name:"House", bpm:[120,128], desc:"Musique de danse à 4 temps née dans les clubs de Chicago, pulsation régulière et entêtante."},
+    {name:"Drum & Bass", bpm:[160,180], desc:"Breakbeats rapides et basses profondes, née de la scène jungle britannique des années 90."},
+    {name:"Jungle", bpm:[160,175], desc:"Ancêtre frénétique de la drum & bass : breakbeats accélérés et basses reggae/dub."},
+    {name:"Dubstep", bpm:[135,145], desc:"Rythme à moitié tempo et basses 'wobble' puissantes, souvent construit autour d'un drop."},
+    {name:"Breakbeat", bpm:[125,140], desc:"Groove basé sur des rythmes de batterie samplés et découpés, plutôt qu'une pulsation 4 temps classique."},
+    {name:"IDM", bpm:[80,160], desc:"Musique électronique expérimentale (Intelligent Dance Music) : rythmes complexes et sound design pointu."},
+    {name:"Glitch", bpm:[90,150], desc:"Musique qui transforme les erreurs numériques (clics, sauts, bugs) en matière musicale."},
+    {name:"Ambient", bpm:[50,80], desc:"Musique de fond immersive et sans rythme marqué, pensée pour l'atmosphère plutôt que la danse."},
+    {name:"Drone", bpm:[0,0], desc:"Sons continus et texturés qui évoluent très lentement, sans mélodie ni rythme apparent."},
+    {name:"Post-rock", bpm:[70,140], desc:"Rock instrumental aux structures longues, entre calme contemplatif et déferlantes saturées."},
+    {name:"Shoegaze", bpm:[100,140], desc:"Rock aux guitares saturées noyées de réverbe, voix étouffées, ambiance planante."},
+    {name:"Post-punk", bpm:[120,150], desc:"Héritier du punk, plus sombre et expérimental, basses proéminentes et rythmiques anguleuses."},
+    {name:"Darkwave", bpm:[100,130], desc:"Pop/rock sombre et mélancolique héritée du post-punk, synthés froids et ambiance gothique."},
+    {name:"Industrial", bpm:[110,140], desc:"Sons bruts et métalliques, souvent samplés de machines ou d'usines, ambiance dérangeante."},
+    {name:"EBM", bpm:[120,135], desc:"Electronic Body Music : rythmes de boîte à rythmes martiaux et répétitifs, basses séquencées, pensée pour un dancefloor sombre et énergique."},
+    {name:"Chiptune", bpm:[120,160], desc:"Musique composée avec les sons de puces de vieilles consoles ou ordinateurs 8-16 bits."},
+    {name:"Footwork", bpm:[155,165], desc:"Style de danse de Chicago à tempo très rapide, rythmes syncopés et samples vocaux hachés."},
+    {name:"Trap", bpm:[130,170], desc:"Hip-hop moderne aux hi-hats roulés très rapides et basses 808, souvent joué en demi-tempo."},
+    {name:"Cloud rap", bpm:[60,80], desc:"Trap onirique et planante, voix pitchées/réverbérées, production floue et atmosphérique."},
+    {name:"UK garage", bpm:[130,140], desc:"House/garage britannique syncopé et shufflé, ancêtre du dubstep et de la grime."},
+    {name:"Grime", bpm:[135,145], desc:"Rap électronique anglais énergique, aux rythmiques syncopées héritées du garage."},
+    {name:"Baile funk", bpm:[125,135], desc:"Musique de danse brésilienne née dans les favelas de Rio, percussions crues et basses puissantes."},
+    {name:"Gqom", bpm:[120,128], desc:"House brute et minimaliste originaire de Durban (Afrique du Sud), percussions lourdes et ambiance sombre."},
+    {name:"Jazz fusion", bpm:[90,160], desc:"Croisement du jazz avec le rock/funk électrique, improvisation virtuose et rythmiques complexes."},
+    {name:"Nu-jazz", bpm:[80,130], desc:"Jazz mêlé à l'électronique et aux beats club, entre improvisation et production moderne."},
+    {name:"Bossa nova électronique", bpm:[80,120], desc:"Douceur brésilienne de la bossa nova revisitée avec des textures et rythmiques électroniques."},
+    {name:"Funk psychédélique", bpm:[90,115], desc:"Funk groovy enrichi d'effets et de sonorités héritées du rock psychédélique des années 70."},
+    {name:"Krautrock", bpm:[110,130], desc:"Rock expérimental allemand des années 70, rythmiques hypnotiques et exploration sonore."},
+    {name:"Musique concrète", bpm:[0,0], desc:"Composition à partir de sons enregistrés du réel (objets, bruits), assemblés hors de la notation classique."},
+    {name:"Field recording", bpm:[0,0], desc:"Œuvre construite à partir de sons captés dans un environnement réel (rue, nature, machines)."},
+    {name:"Neoclassique", bpm:[50,90], desc:"Musique contemporaine pour instruments classiques (piano, cordes), souvent épurée et émotionnelle."},
+    {name:"Musique de film", bpm:[40,140], desc:"Composition au service d'une narration ou d'une image, très variée en style et en instrumentation."},
+    {name:"Afrobeat électronique", bpm:[100,125], desc:"Fusion des rythmiques afrobeat (héritage Fela Kuti) avec des productions et basses électroniques modernes."},
+    {name:"Cumbia digitale", bpm:[85,100], desc:"Cumbia latino-américaine traditionnelle réinventée avec des synthés et productions électroniques."},
+    {name:"Reggaeton expérimental", bpm:[85,100], desc:"Rythme reggaeton (dembow) détourné avec des productions électroniques non conventionnelles."},
+    {name:"Highlife électronique", bpm:[100,125], desc:"Highlife ouest-africain (guitares entrelacées, cuivres) fusionné avec des productions électroniques."}
   ];
 
   const MOODS = [
@@ -399,8 +396,6 @@
     "Do mineur pentatonique (blues)", "Ré majeur harmonique", "Gamme par tons (whole tone)",
     "Gamme chromatique libre", "Microtonalité (quarts de ton)", "Mode octatonique (diminué)"
   ];
-
-  const TIME_SIGS = ["4/4", "3/4", "6/8", "5/4", "7/8", "9/8", "12/8", "Mesure libre / changeante"];
 
   const STRUCTURES = [
     "Boucle hypnotique qui évolue lentement, sans section marquée",
@@ -465,8 +460,8 @@
     toast: document.getElementById('toast')
   };
 
-  const LOCKS = { style:false, bpm:false, key:false, timeSig:false, mood:false, structure:false, instruments:false, constraint:false };
-  let state = { styleObj:null, style:"", bpm:"", key:"", timeSig:"", mood:"", structure:"", instruments:[], constraint:"" };
+  const LOCKS = { style:false, bpm:false, key:false, mood:false, structure:false, instruments:false, constraint:false };
+  let state = { styleObj:null, style:"", styleDesc:"", bpm:"", key:"", mood:"", structure:"", instruments:[], constraint:"" };
 
   const HISTORY_KEY = "glitch_inspi_history";
   const FAV_KEY = "glitch_inspi_favorites";
@@ -496,6 +491,7 @@
       case 'style': {
         state.styleObj = randomItem(STYLES);
         state.style = state.styleObj.name;
+        state.styleDesc = state.styleObj.desc;
         if(!LOCKS.bpm) state.bpm = formatBpm(state.styleObj);
         break;
       }
@@ -505,7 +501,6 @@
         break;
       }
       case 'key': state.key = randomItem(KEYS); break;
-      case 'timeSig': state.timeSig = randomItem(TIME_SIGS); break;
       case 'mood': state.mood = randomItem(MOODS); break;
       case 'structure': state.structure = randomItem(STRUCTURES); break;
       case 'instruments': state.instruments = randomInstrumentsList(); break;
@@ -528,7 +523,7 @@
   }
 
   function renderAll(animate){
-    ['style','bpm','key','timeSig','mood','structure','instruments','constraint'].forEach(k=>renderField(k, animate));
+    ['style','styleDesc','bpm','key','mood','structure','instruments','constraint'].forEach(k=>renderField(k, animate));
   }
 
   function generateAll(){
@@ -538,7 +533,6 @@
       genField('bpm');
     }
     if(!LOCKS.key) genField('key');
-    if(!LOCKS.timeSig) genField('timeSig');
     if(!LOCKS.mood) genField('mood');
     if(!LOCKS.structure) genField('structure');
     if(!LOCKS.instruments) genField('instruments');
@@ -552,7 +546,10 @@
     genField(key);
     renderAll(false);
     renderField(key, true);
-    if(key === 'style') renderField('bpm', true);
+    if(key === 'style'){
+      renderField('styleDesc', true);
+      renderField('bpm', true);
+    }
   }
 
   function pulseButton(){
@@ -565,10 +562,9 @@
     return [
       "INSPIRATION MUSICALE",
       "---------------------",
-      "Style        : " + state.style,
+      "Style        : " + state.style + " (" + state.styleDesc + ")",
       "Tempo        : " + state.bpm,
       "Tonalité     : " + state.key,
-      "Mesure       : " + state.timeSig,
       "Ambiance     : " + state.mood,
       "Structure    : " + state.structure,
       "Instruments  : " + state.instruments.join(', '),
@@ -596,7 +592,7 @@
     return {
       id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
       time: Date.now(),
-      style: state.style, bpm: state.bpm, key: state.key, timeSig: state.timeSig,
+      style: state.style, bpm: state.bpm, key: state.key,
       mood: state.mood, structure: state.structure,
       instruments: state.instruments.slice(), constraint: state.constraint
     };
@@ -612,8 +608,9 @@
 
   function restoreSnapshot(snap){
     state.styleObj = STYLES.find(s=>s.name===snap.style) || null;
-    state.style = snap.style; state.bpm = snap.bpm; state.key = snap.key;
-    state.timeSig = snap.timeSig; state.mood = snap.mood; state.structure = snap.structure;
+    state.style = snap.style; state.styleDesc = state.styleObj ? state.styleObj.desc : "";
+    state.bpm = snap.bpm; state.key = snap.key;
+    state.mood = snap.mood; state.structure = snap.structure;
     state.instruments = snap.instruments.slice(); state.constraint = snap.constraint;
     renderAll(true);
   }
@@ -737,7 +734,7 @@
 
   // ---- init ----
   function init(){
-    genField('style'); genField('bpm'); genField('key'); genField('timeSig');
+    genField('style'); genField('bpm'); genField('key');
     genField('mood'); genField('structure'); genField('instruments'); genField('constraint');
     renderAll(false);
     renderHistory();

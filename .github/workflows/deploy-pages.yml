@@ -1,9 +1,6 @@
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches:
-      - claude/inspiration-musicale-6kua9g
   workflow_dispatch:
 
 permissions:

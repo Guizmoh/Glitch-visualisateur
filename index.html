@@ -291,6 +291,50 @@
     color:var(--accent);
   }
 
+  .style-refs{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .style-refs:empty{ display:none; }
+  .ref-label{
+    font-family:var(--mono); font-size:0.6rem; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--text-2); width:100%; margin-bottom:-1px;
+  }
+  .ref-link{
+    display:flex; align-items:flex-start; gap:6px; width:100%;
+    font-size:0.74rem; line-height:1.35; color:var(--text-1); text-decoration:none;
+    background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 9px;
+    transition:color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .ref-link:hover{ color:var(--accent); border-color:var(--accent-border); background:var(--accent-soft); }
+  .ref-link .icon{ width:12px; height:12px; opacity:0.75; margin-top:2px; }
+  .ref-link span{ min-width:0; }
+
+  .groove-panel{ margin-bottom:14px; }
+  .groove-panel .extra-body{ max-height:0; }
+  .groove-panel.expanded .extra-body{ max-height:520px; }
+  .groove-grid{ display:flex; flex-direction:column; gap:6px; padding-bottom:4px; overflow-x:auto; }
+  .groove-row{ display:flex; align-items:center; gap:10px; }
+  .groove-name{
+    font-family:var(--mono); font-size:0.66rem; letter-spacing:0.04em;
+    color:var(--text-1); width:74px; flex-shrink:0; text-align:right;
+  }
+  .groove-steps{ display:flex; gap:3px; }
+  .groove-step{
+    width:19px; height:19px; border-radius:4px; flex-shrink:0;
+    background:var(--bg); border:1px solid var(--border);
+  }
+  .groove-step.downbeat{ border-color:var(--border-hover); }
+  .groove-step.on{ background:var(--accent); border-color:var(--accent); }
+  .groove-step.on.downbeat{ background:var(--accent-hover); }
+  .groove-ruler .groove-step{
+    background:none; border:none; width:19px; height:auto;
+    font-family:var(--mono); font-size:0.6rem; color:var(--text-2); text-align:center;
+  }
+  .groove-empty{ color:var(--text-1); font-size:0.85rem; line-height:1.5; }
+  @media (max-width:560px){
+    .groove-step{ width:15px; height:15px; }
+    .groove-ruler .groove-step{ width:15px; }
+    .groove-name{ width:60px; font-size:0.6rem; }
+  }
+
   .extra-panels{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
   @media (max-width:680px){ .extra-panels{ grid-template-columns:1fr; } }
 
@@ -431,6 +475,17 @@
     <line x1="22" x2="16" y1="9" y2="15"></line>
     <line x1="16" x2="22" y1="9" y2="15"></line>
   </symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24">
+    <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+    <line x1="9" x2="9" y1="5" y2="19"></line>
+    <line x1="15" x2="15" y1="5" y2="19"></line>
+    <line x1="3" x2="21" y1="12" y2="12"></line>
+  </symbol>
+  <symbol id="i-headphones" viewBox="0 0 24 24">
+    <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+    <path d="M16 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2z"></path>
+    <path d="M3 14a9 9 0 0 1 18 0"></path>
+  </symbol>
 </svg>
 
 <header>
@@ -481,6 +536,7 @@
       <div class="card-body">
         <div class="card-value" data-field="style">—</div>
         <div class="card-desc" data-field="styleDesc">—</div>
+        <div class="style-refs" id="styleRefs"></div>
       </div>
     </div>
 
@@ -593,6 +649,22 @@
     </div>
   </div>
 
+  <div class="extra-panel groove-panel" id="groovePanel">
+    <div class="extra-head">
+      <div class="extra-head-left">
+        <button class="extra-toggle" id="grooveToggle" title="Afficher/masquer le pattern rythmique">
+          <svg class="icon"><use href="#i-grid"></use></svg>
+          <svg class="icon chevron"><use href="#i-chevron-down"></use></svg>
+        </button>
+        <span class="extra-title" id="grooveTitle">Pattern rythmique <span class="extra-badge" id="grooveBadge">—</span></span>
+      </div>
+    </div>
+    <div class="extra-body">
+      <p class="extra-hint">Une grille de départ typique du style, sur 16 pas (une mesure en doubles-croches). À déformer, pas à recopier.</p>
+      <div class="groove-grid" id="grooveGrid"></div>
+    </div>
+  </div>
+
   <div class="extra-panels">
     <div class="extra-panel" id="techPanel">
       <div class="extra-head">
@@ -642,7 +714,7 @@
 </main>
 
 <footer>
-  <p>glitch-visualisateur · inspiration générée localement, rien n'est envoyé nulle part</p>
+  <p>Inspiration musical v1.4.1 · inspiration générée localement, rien n'est envoyé nulle part</p>
   <p class="credit">Générateur créé par <b>omnipotard</b> — si vous voulez m'aider à améliorer le modèle, vous pouvez me payer un café</p>
 </footer>
 
@@ -783,6 +855,319 @@
       {name:"Gabber", moodPool:"extreme", bpm:[170,200], desc:"Version hollandaise originelle du hardcore, kicks distordus à l'extrême et énergie de warehouse rave."}
     ]}
   ];
+
+  // Morceaux de référence réels par style et sous-genre : la description explique,
+  // mais seule l'écoute débloque vraiment. Chaque entrée devient un lien de
+  // recherche YouTube (aucune API, aucun tracking).
+  const REFS = {
+    "House": ["Frankie Knuckles — Your Love", "Marshall Jefferson — Move Your Body", "Daft Punk — Da Funk"],
+    "Deep house": ["Mr. Fingers — Can You Feel It", "Kerri Chandler — Rain"],
+    "UK garage": ["MJ Cole — Sincere", "Artful Dodger — Re-Rewind"],
+    "Gqom": ["DJ Lag — Ice Drop", "Rudeboyz — Gqom"],
+    "Tech house": ["Green Velvet — La La Land", "Hot Since 82 — Buggin'"],
+
+    "Techno": ["Jeff Mills — The Bells", "Underground Resistance — Jaguar", "Robert Hood — Minus"],
+    "Techno minimale": ["Plastikman — Spastik", "Ricardo Villalobos — Dexter"],
+    "Techno acide": ["Hardfloor — Acperience 1", "Josh Wink — Higher State of Consciousness"],
+    "Techno industrielle": ["Perc — Look What Your Love Has Done to Me", "Surgeon — Badger Bite"],
+
+    "Drum & Bass": ["Goldie — Inner City Life", "Roni Size — Brown Paper Bag", "Pendulum — Blood Sugar"],
+    "Jungle": ["Shy FX — Original Nuttah", "Remarc — R.I.P."],
+    "Liquid funk": ["High Contrast — Global Love", "Calibre — Mystique"],
+    "Neurofunk": ["Noisia — Machine Gun", "Ed Rush & Optical — Funktion"],
+    "Footwork": ["DJ Rashad — Feelin'", "RP Boo — Baby Come On"],
+
+    "Dubstep": ["Skream — Midnight Request Line", "Digital Mystikz — Anti War Dub", "Burial — Archangel"],
+    "Riddim": ["Virtual Riot — Energy Drink", "Getter — Rip N Dip"],
+    "Future garage": ["Burial — Untrue", "Mount Kimbie — Maybes"],
+    "Brostep": ["Skrillex — Scary Monsters and Nice Sprites", "Excision — X Rated"],
+
+    "Hip-Hop": ["Nas — N.Y. State of Mind", "Wu-Tang Clan — C.R.E.A.M.", "A Tribe Called Quest — Can I Kick It?"],
+    "Drill": ["Pop Smoke — Dior", "Headie One — Both"],
+    "Boom bap": ["Gang Starr — Mass Appeal", "Mobb Deep — Shook Ones Pt. II"],
+    "Cloud rap": ["Clams Casino — I'm God", "A$AP Rocky — Purple Swag"],
+    "Grime": ["Dizzee Rascal — I Luv U", "Skepta — Shutdown"],
+    "Lo-fi hip-hop": ["Nujabes — Feather", "J Dilla — Donuts"],
+
+    "Trip-hop": ["Portishead — Glory Box", "Massive Attack — Teardrop", "Tricky — Hell Is Round the Corner"],
+
+    "Trap": ["Migos — Bad and Boujee", "Future — Mask Off", "Gucci Mane — Lemonade"],
+    "Phonk": ["Three 6 Mafia — Late Nite Tip", "Kordhell — Murder In My Mind"],
+    "Rage": ["Playboi Carti — Stop Breathing", "Yeat — Gët Busy"],
+    "Trap latino": ["Bad Bunny — Soy Peor", "Anuel AA — China"],
+
+    "Reggae": ["Bob Marley — Exodus", "Toots & the Maytals — Pressure Drop", "Burning Spear — Marcus Garvey"],
+    "Ska": ["The Skatalites — Guns of Navarone", "Desmond Dekker — Israelites"],
+    "Dancehall": ["Sean Paul — Get Busy", "Shabba Ranks — Ting-A-Ling"],
+    "Reggaeton": ["Daddy Yankee — Gasolina", "Tego Calderón — Pa' Que Retozen"],
+
+    "Dub": ["King Tubby — King Tubby Meets Rockers Uptown", "Lee \"Scratch\" Perry — Blackboard Jungle Dub", "Augustus Pablo — King Tubby Meets Rockers Uptown"],
+    "Dub techno": ["Basic Channel — Phylyps Trak", "Rhythm & Sound — Never Tell You"],
+
+    "Rock": ["The Rolling Stones — Gimme Shelter", "Led Zeppelin — Kashmir", "Pixies — Where Is My Mind?"],
+    "Shoegaze": ["My Bloody Valentine — Only Shallow", "Slowdive — Alison"],
+    "Post-rock": ["Explosions in the Sky — Your Hand in Mine", "Mogwai — Mogwai Fear Satan"],
+    "Krautrock": ["Neu! — Hallogallo", "Can — Vitamin C"],
+    "Grunge": ["Nirvana — Smells Like Teen Spirit", "Alice in Chains — Would?"],
+
+    "Punk": ["Ramones — Blitzkrieg Bop", "Sex Pistols — Anarchy in the U.K.", "The Clash — White Riot"],
+    "Punk californien": ["Green Day — Basket Case", "The Offspring — Self Esteem"],
+    "Post-punk": ["Joy Division — Disorder", "The Cure — A Forest"],
+    "Hardcore punk": ["Minor Threat — Straight Edge", "Bad Brains — Banned in D.C."],
+
+    "Pop": ["Michael Jackson — Billie Jean", "ABBA — Dancing Queen", "Dua Lipa — Don't Start Now"],
+    "K-pop": ["BLACKPINK — DDU-DU DDU-DU", "NewJeans — Ditto"],
+    "Hyperpop": ["SOPHIE — Immaterial", "100 gecs — money machine"],
+    "Synthpop": ["New Order — Blue Monday", "Depeche Mode — Just Can't Get Enough"],
+    "Indie pop": ["Beach House — Space Song", "Alvvays — Archie, Marry Me"],
+
+    "Folk / Chanson": ["Bob Dylan — Blowin' in the Wind", "Georges Brassens — Les Copains d'abord", "Nick Drake — Pink Moon"],
+    "Ballade française": ["Jacques Brel — Ne me quitte pas", "Barbara — L'Aigle noir"],
+    "Americana": ["Johnny Cash — Hurt", "Gillian Welch — Time (The Revelator)"],
+    "Folk psychédélique": ["The Incredible String Band — A Very Cellular Song", "Vashti Bunyan — Diamond Day"],
+
+    "Jazz": ["Miles Davis — So What", "John Coltrane — Giant Steps", "Dave Brubeck — Take Five"],
+    "Jazz fusion": ["Weather Report — Birdland", "Herbie Hancock — Chameleon"],
+    "Nu-jazz": ["St Germain — Rose Rouge", "Yussef Kamaal — Strings of Light"],
+    "Bossa nova": ["Stan Getz & João Gilberto — The Girl from Ipanema", "Antônio Carlos Jobim — Corcovado"],
+    "Jazz manouche": ["Django Reinhardt — Minor Swing", "Biréli Lagrène — Nuages"],
+
+    "Funk / Disco": ["James Brown — Funky Drummer", "Chic — Good Times", "Parliament — Flash Light"],
+    "Funk psychédélique": ["Funkadelic — Maggot Brain", "Sly & the Family Stone — Thank You"],
+    "Disco": ["Donna Summer — I Feel Love", "Sister Sledge — He's the Greatest Dancer"],
+    "Baile funk": ["MC Fioti — Bum Bum Tam Tam", "Anitta — Vai Malandra"],
+
+    "Ambient / Expérimental": ["Brian Eno — Music for Airports", "Aphex Twin — Selected Ambient Works Vol. II", "Stars of the Lid — Requiem for Dying Mothers"],
+    "Drone": ["Sunn O))) — Aghartha", "Éliane Radigue — Trilogie de la Mort"],
+    "Musique concrète": ["Pierre Schaeffer — Étude aux chemins de fer", "Pierre Henry — Variations pour une porte et un soupir"],
+    "Field recording": ["Chris Watson — El Tren Fantasma", "Francisco López — La Selva"],
+    "Neoclassique": ["Nils Frahm — Says", "Max Richter — On the Nature of Daylight"],
+    "Glitch": ["Oval — Do While", "Alva Noto — Xerrox"],
+    "IDM": ["Aphex Twin — Windowlicker", "Boards of Canada — Roygbiv"],
+    "Musique de film": ["Ennio Morricone — The Ecstasy of Gold", "Vangelis — Blade Runner Blues"],
+
+    "Industrial": ["Throbbing Gristle — Hamburger Lady", "Einstürzende Neubauten — Halber Mensch", "Nine Inch Nails — Head Like a Hole"],
+    "EBM": ["Front 242 — Headhunter", "Nitzer Ebb — Join in the Chant"],
+    "Darkwave": ["The Sisters of Mercy — Lucretia My Reflection", "Dead Can Dance — Severance"],
+
+    "Synthwave": ["Kavinsky — Nightcall", "Com Truise — Brokendate", "Carpenter Brut — Turbo Killer"],
+    "Vaporwave": ["Macintosh Plus — リサフランク420 / 現代のコンピュー", "Saint Pepsi — Enjoy Yourself"],
+    "Chiptune": ["Anamanaguchi — Meow", "Chipzel — Focus"],
+
+    "Afrobeat": ["Fela Kuti — Water No Get Enemy", "Tony Allen — Asiko", "Antibalas — Dirty Money"],
+    "Highlife électronique": ["Ebo Taylor — Love and Death", "Pat Thomas — Yamona"],
+    "Amapiano": ["Kabza De Small & DJ Maphorisa — Sponono", "Focalistic — Ke Star"],
+    "Cumbia digitale": ["Bomba Estéreo — Fuego", "Chancha Vía Circuito — Quimey Neuquén"],
+
+    "Hardcore / Rave": ["Rotterdam Termination Source — Poing", "The Prodigy — Charly", "Lenny Dee — Forgotten Moments"],
+    "Hardtek": ["Dr Peacock — Trip to Paris", "Radium — Bad Trip"],
+    "Tribe": ["Micropoint — Neurotoxine", "Le Bask — Tribalizer"],
+    "Gabber": ["Neophyte — Braincrackin'", "Angerfist — Raise Your Fist"]
+  };
+
+  // Grilles rythmiques de départ sur 16 pas (1 mesure en doubles-croches).
+  // 'x' = frappe, '-' = silence. Volontairement simples : c'est un point de
+  // départ à déformer, pas une transcription.
+  const GROOVES = {
+    four_floor: {label:"Four-on-the-floor", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Clap",   steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    techno_drive: {label:"Techno droite", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Clap",   steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    two_step: {label:"2-step garage", rows:[
+      {name:"Kick",   steps:"x-----x-x-------"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    gqom_broken: {label:"Gqom cassé", rows:[
+      {name:"Kick",   steps:"x--x--x---x-----"},
+      {name:"Snare",  steps:"--------x-------"},
+      {name:"Perc",   steps:"----x-------x---"}
+    ]},
+    dnb_two_step: {label:"Drum & bass 2-step", rows:[
+      {name:"Kick",   steps:"x---------x-----"},
+      {name:"Snare",  steps:"--------x-------"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    footwork_triplet: {label:"Footwork", rows:[
+      {name:"Kick",   steps:"x--x--x--x--x--x"},
+      {name:"Clap",   steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    half_time: {label:"Demi-tempo (dubstep)", rows:[
+      {name:"Kick",   steps:"x-------x--x----"},
+      {name:"Snare",  steps:"--------x-------"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    boom_bap: {label:"Boom bap", rows:[
+      {name:"Kick",   steps:"x------x-x------"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    trap_rolls: {label:"Trap (hats roulés)", rows:[
+      {name:"808",    steps:"x-----x---x-----"},
+      {name:"Clap",   steps:"--------x-------"},
+      {name:"Hi-hat", steps:"x-x-x-xxx-x-x-xx"}
+    ]},
+    one_drop: {label:"One drop (reggae)", rows:[
+      {name:"Kick",   steps:"--------x-------"},
+      {name:"Rimshot",steps:"--------x-------"},
+      {name:"Skank",  steps:"--x---x---x---x-"}
+    ]},
+    ska_offbeat: {label:"Ska (contretemps)", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Skank",  steps:"--x---x---x---x-"}
+    ]},
+    dembow: {label:"Dembow", rows:[
+      {name:"Kick",   steps:"x-------x-------"},
+      {name:"Snare",  steps:"---x--x----x--x-"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    rock_backbeat: {label:"Backbeat rock", rows:[
+      {name:"Kick",   steps:"x---------x-----"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    punk_fast: {label:"Punk (rapide)", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    pop_gated: {label:"Pop (backbeat large)", rows:[
+      {name:"Kick",   steps:"x-------x-------"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    funk_syncope: {label:"Funk syncopé", rows:[
+      {name:"Kick",   steps:"x--x--x---x-x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    disco_four: {label:"Disco", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Open hat",steps:"--x---x---x---x-"}
+    ]},
+    baile_funk: {label:"Baile funk", rows:[
+      {name:"Kick",   steps:"x--x----x--x----"},
+      {name:"Snare",  steps:"---x--x----x--x-"},
+      {name:"Perc",   steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    jazz_swing: {label:"Swing (ternaire)", rows:[
+      {name:"Kick",   steps:"x-------x-------"},
+      {name:"Balais", steps:"----x-------x---"},
+      {name:"Ride",   steps:"x--xx-x--xx-x--x"}
+    ]},
+    bossa: {label:"Bossa nova", rows:[
+      {name:"Kick",   steps:"x--x--x---x--x--"},
+      {name:"Clave",  steps:"--x-x---x-x-x---"},
+      {name:"Balais", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    afrobeat: {label:"Afrobeat", rows:[
+      {name:"Kick",   steps:"x--x----x--x----"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Shaker", steps:"x-xx-x-xx-x-xx-x"}
+    ]},
+    amapiano: {label:"Amapiano", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Log drum",steps:"------x-----x-x-"},
+      {name:"Shaker", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    cumbia: {label:"Cumbia", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Guacharaca",steps:"x-xx-x-xx-x-xx-x"},
+      {name:"Clave",  steps:"--x---x-x-------"}
+    ]},
+    industrial_ebm: {label:"EBM / industriel", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Métal",  steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    gabber: {label:"Gabber / hardcore", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Kick off",steps:"--x---x---x---x-"},
+      {name:"Crash",  steps:"x---------------"}
+    ]},
+    hardtek_tribe: {label:"Hardtek / tribe", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Tribal", steps:"--xx--x---xx--x-"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    chiptune: {label:"Chiptune", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Noise",  steps:"----x-------x---"},
+      {name:"Arp",    steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    ambient_none: {label:"Sans batterie", rows:[]}
+  };
+
+  // Style → grille rythmique. Les sous-genres n'apparaissent que s'ils
+  // s'écartent vraiment du groove de leur style parent.
+  const GROOVE_OF = {
+    "House":"four_floor", "Deep house":"four_floor", "UK garage":"two_step", "Gqom":"gqom_broken", "Tech house":"four_floor",
+    "Techno":"techno_drive", "Techno minimale":"techno_drive", "Techno acide":"techno_drive", "Techno industrielle":"industrial_ebm",
+    "Drum & Bass":"dnb_two_step", "Jungle":"dnb_two_step", "Liquid funk":"dnb_two_step", "Neurofunk":"dnb_two_step", "Footwork":"footwork_triplet",
+    "Dubstep":"half_time", "Riddim":"half_time", "Future garage":"two_step", "Brostep":"half_time",
+    "Hip-Hop":"boom_bap", "Drill":"trap_rolls", "Boom bap":"boom_bap", "Cloud rap":"trap_rolls", "Grime":"two_step", "Lo-fi hip-hop":"boom_bap",
+    "Trip-hop":"boom_bap",
+    "Trap":"trap_rolls", "Phonk":"trap_rolls", "Rage":"trap_rolls", "Trap latino":"dembow",
+    "Reggae":"one_drop", "Ska":"ska_offbeat", "Dancehall":"dembow", "Reggaeton":"dembow",
+    "Dub":"one_drop", "Dub techno":"four_floor",
+    "Rock":"rock_backbeat", "Shoegaze":"rock_backbeat", "Post-rock":"rock_backbeat", "Krautrock":"techno_drive", "Grunge":"rock_backbeat",
+    "Punk":"punk_fast", "Punk californien":"punk_fast", "Post-punk":"rock_backbeat", "Hardcore punk":"punk_fast",
+    "Pop":"pop_gated", "K-pop":"pop_gated", "Hyperpop":"trap_rolls", "Synthpop":"pop_gated", "Indie pop":"rock_backbeat",
+    "Folk / Chanson":"pop_gated", "Ballade française":"pop_gated", "Americana":"rock_backbeat", "Folk psychédélique":"pop_gated",
+    "Jazz":"jazz_swing", "Jazz fusion":"funk_syncope", "Nu-jazz":"funk_syncope", "Bossa nova":"bossa", "Jazz manouche":"jazz_swing",
+    "Funk / Disco":"funk_syncope", "Funk psychédélique":"funk_syncope", "Disco":"disco_four", "Baile funk":"baile_funk",
+    "Ambient / Expérimental":"ambient_none", "Drone":"ambient_none", "Musique concrète":"ambient_none", "Field recording":"ambient_none",
+    "Neoclassique":"ambient_none", "Glitch":"footwork_triplet", "IDM":"footwork_triplet", "Musique de film":"ambient_none",
+    "Industrial":"industrial_ebm", "EBM":"industrial_ebm", "Darkwave":"pop_gated",
+    "Synthwave":"pop_gated", "Vaporwave":"pop_gated", "Chiptune":"chiptune",
+    "Afrobeat":"afrobeat", "Highlife électronique":"afrobeat", "Amapiano":"amapiano", "Cumbia digitale":"cumbia",
+    "Hardcore / Rave":"gabber", "Hardtek":"hardtek_tribe", "Tribe":"hardtek_tribe", "Gabber":"gabber"
+  };
+
+  // Familles de tonalités, pour que la gamme tirée reste crédible avec le style
+  // (avant, un « Phonk » pouvait tomber en lydien, ce qui n'a aucun sens).
+  const KEY_POOLS = {
+    clubMinor: ["Do mineur", "La mineur naturel", "Fa# mineur mélodique", "Ré dorien", "Do# mineur harmonique"],
+    darkModal: ["Mi phrygien", "Sol# phrygien dominant", "Do# mineur harmonique", "Mode octatonique (diminué)", "Do mineur"],
+    grooveModal: ["Ré dorien", "Sol mixolydien", "Do mineur pentatonique (blues)", "Sib majeur pentatonique", "Mib majeur"],
+    songMajor: ["Mib majeur", "Sib majeur pentatonique", "La mineur naturel", "Fa lydien", "Do mineur"],
+    jazzRich: ["Ré dorien", "Sol mixolydien", "Mib majeur", "Fa# mineur mélodique", "Ré majeur harmonique"],
+    experimental: ["Gamme par tons (whole tone)", "Gamme chromatique libre", "Microtonalité (quarts de ton)", "Mode octatonique (diminué)", "Fa lydien"],
+    cinematic: ["Do mineur", "La mineur naturel", "Fa lydien", "Ré majeur harmonique", "Mib majeur"]
+  };
+
+  const KEYPOOL_OF = {
+    "House":"clubMinor", "Deep house":"jazzRich", "UK garage":"clubMinor", "Gqom":"darkModal", "Tech house":"clubMinor",
+    "Techno":"clubMinor", "Techno minimale":"clubMinor", "Techno acide":"darkModal", "Techno industrielle":"darkModal",
+    "Drum & Bass":"clubMinor", "Jungle":"clubMinor", "Liquid funk":"jazzRich", "Neurofunk":"darkModal", "Footwork":"clubMinor",
+    "Dubstep":"darkModal", "Riddim":"darkModal", "Future garage":"clubMinor", "Brostep":"darkModal",
+    "Hip-Hop":"grooveModal", "Drill":"darkModal", "Boom bap":"grooveModal", "Cloud rap":"clubMinor", "Grime":"darkModal", "Lo-fi hip-hop":"jazzRich",
+    "Trip-hop":"clubMinor",
+    "Trap":"darkModal", "Phonk":"darkModal", "Rage":"darkModal", "Trap latino":"clubMinor",
+    "Reggae":"grooveModal", "Ska":"songMajor", "Dancehall":"grooveModal", "Reggaeton":"clubMinor",
+    "Dub":"grooveModal", "Dub techno":"clubMinor",
+    "Rock":"grooveModal", "Shoegaze":"songMajor", "Post-rock":"cinematic", "Krautrock":"grooveModal", "Grunge":"grooveModal",
+    "Punk":"songMajor", "Punk californien":"songMajor", "Post-punk":"clubMinor", "Hardcore punk":"darkModal",
+    "Pop":"songMajor", "K-pop":"songMajor", "Hyperpop":"songMajor", "Synthpop":"clubMinor", "Indie pop":"songMajor",
+    "Folk / Chanson":"songMajor", "Ballade française":"songMajor", "Americana":"grooveModal", "Folk psychédélique":"grooveModal",
+    "Jazz":"jazzRich", "Jazz fusion":"jazzRich", "Nu-jazz":"jazzRich", "Bossa nova":"jazzRich", "Jazz manouche":"jazzRich",
+    "Funk / Disco":"grooveModal", "Funk psychédélique":"grooveModal", "Disco":"songMajor", "Baile funk":"clubMinor",
+    "Ambient / Expérimental":"experimental", "Drone":"experimental", "Musique concrète":"experimental", "Field recording":"experimental",
+    "Neoclassique":"cinematic", "Glitch":"experimental", "IDM":"experimental", "Musique de film":"cinematic",
+    "Industrial":"darkModal", "EBM":"darkModal", "Darkwave":"clubMinor",
+    "Synthwave":"clubMinor", "Vaporwave":"jazzRich", "Chiptune":"songMajor",
+    "Afrobeat":"grooveModal", "Highlife électronique":"grooveModal", "Amapiano":"jazzRich", "Cumbia digitale":"songMajor",
+    "Hardcore / Rave":"darkModal", "Hardtek":"darkModal", "Tribe":"darkModal", "Gabber":"darkModal"
+  };
 
   const MOODS = [
     "Mélancolique", "Euphorique", "Hypnotique", "Anxieux", "Onirique",
@@ -1029,6 +1414,12 @@
     chronoText: document.querySelector('.chrono-text'),
     chronoMaxInput: document.getElementById('chronoMaxInput'),
     chronoReset: document.getElementById('chronoReset'),
+    styleRefs: document.getElementById('styleRefs'),
+    groovePanel: document.getElementById('groovePanel'),
+    grooveToggle: document.getElementById('grooveToggle'),
+    grooveTitle: document.getElementById('grooveTitle'),
+    grooveBadge: document.getElementById('grooveBadge'),
+    grooveGrid: document.getElementById('grooveGrid'),
     chronoModeToggle: document.getElementById('chronoModeToggle'),
     chronoMaxSimple: document.getElementById('chronoMaxSimple'),
     chronoMaxStaged: document.getElementById('chronoMaxStaged'),
@@ -1050,7 +1441,7 @@
   };
 
   const LOCKS = { style:false, bpm:false, key:false, mood:false, structure:false, instruments:false, constraint:false };
-  let state = { styleObj:null, style:"", styleDesc:"", bpm:"", key:"", keyObj:null, chordIndex:0, mood:"", structure:"", instruments:[], constraint:"" };
+  let state = { styleObj:null, style:"", styleDesc:"", bpm:"", key:"", keyObj:null, chordIndex:0, mood:"", structure:"", instruments:[], constraint:"", styleRefs:[], grooveKey:"four_floor", keyPool:null };
 
   const HISTORY_KEY = "glitch_inspi_history";
   const FAV_KEY = "glitch_inspi_favorites";
@@ -1356,10 +1747,36 @@
   }
 
   const SUBGENRE_CHANCE = 0.6;
+  const KEY_AFFINITY_CHANCE = 0.8;
 
   function pickMood(entry){
     const pool = entry.moodPool && MOOD_POOLS[entry.moodPool];
     return pool ? drawFrom('mood:'+entry.moodPool, pool) : null;
+  }
+
+  // ---- extras dérivés du style (références, groove, famille de gammes) ----
+  // On repart toujours du nom affiché plutôt que d'une variable d'état : un même
+  // chemin sert pour une génération fraîche et pour un permalien restauré, et
+  // les liens partagés restent compatibles avec les anciennes versions.
+  function baseStyleNames(displayName){
+    if(!displayName) return [];
+    return displayName.split(' × ').map(part=>part.replace(/\s*\([^()]*\)\s*$/, '').trim());
+  }
+
+  function applyStyleExtras(displayName){
+    const parts = baseStyleNames(displayName);
+    const refs = [];
+    parts.forEach(name=>{
+      const list = REFS[name];
+      if(!list) return;
+      // Sur un mélange, on prend moins de titres par style pour ne pas noyer la carte.
+      list.slice(0, parts.length > 1 ? 2 : 3).forEach(r=>{
+        if(!refs.some(x=>x.track === r)) refs.push({ track: r, style: name });
+      });
+    });
+    state.styleRefs = refs;
+    state.grooveKey = parts.map(n=>GROOVE_OF[n]).find(Boolean) || 'four_floor';
+    state.keyPool = parts.map(n=>KEYPOOL_OF[n]).find(Boolean) || null;
   }
 
   function setSingleStyle(name){
@@ -1375,6 +1792,7 @@
     state.styleObj = { name: displayName, bpm: bpmRange };
     state.style = displayName;
     state.styleDesc = chosen.desc;
+    applyStyleExtras(displayName);
     if(!LOCKS.bpm) state.bpm = formatBpm(state.styleObj);
   }
 
@@ -1386,6 +1804,7 @@
     state.styleObj = synthetic;
     state.style = synthetic.name;
     state.styleDesc = 'Mélange entre '+a.name+' ('+lowerFirst(a.desc)+') et '+b.name+' ('+lowerFirst(b.desc)+')';
+    applyStyleExtras(synthetic.name);
     if(!LOCKS.bpm) state.bpm = formatBpm(synthetic);
   }
 
@@ -1426,7 +1845,16 @@
         break;
       }
       case 'key': {
-        state.keyObj = drawFrom('key', KEYS);
+        // La gamme suit la famille du style dans la plupart des cas, mais on
+        // laisse une part de hasard pour garder des rapprochements inattendus.
+        const pool = state.keyPool && KEY_POOLS[state.keyPool];
+        const useAffinity = pool && Math.random() < KEY_AFFINITY_CHANCE;
+        if(useAffinity){
+          const name = drawFrom('key:'+state.keyPool, pool);
+          state.keyObj = KEYS.find(k=>k.name===name) || drawFrom('key', KEYS);
+        } else {
+          state.keyObj = drawFrom('key', KEYS);
+        }
         state.key = state.keyObj.name;
         state.chordIndex = Math.floor(Math.random() * state.keyObj.chords.length);
         break;
@@ -1451,6 +1879,77 @@
       void el.offsetWidth;
       el.classList.add('updating');
     }
+  }
+
+  function renderRefs(){
+    const refs = state.styleRefs || [];
+    els.styleRefs.innerHTML = '';
+    if(!refs.length) return;
+    const label = document.createElement('span');
+    label.className = 'ref-label';
+    label.textContent = 'À écouter';
+    els.styleRefs.appendChild(label);
+    refs.forEach(ref=>{
+      const a = document.createElement('a');
+      a.className = 'ref-link';
+      a.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(ref.track.replace(/\s*—\s*/g, ' '));
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = 'Chercher « ' + ref.track +' » sur YouTube';
+      a.innerHTML = '<svg class="icon"><use href="#i-headphones"></use></svg>';
+      const span = document.createElement('span');
+      span.textContent = ref.track;
+      a.appendChild(span);
+      els.styleRefs.appendChild(a);
+    });
+  }
+
+  function renderGroove(){
+    const groove = GROOVES[state.grooveKey] || GROOVES.four_floor;
+    els.grooveBadge.textContent = groove.label;
+    els.grooveGrid.innerHTML = '';
+    if(!groove.rows.length){
+      const p = document.createElement('p');
+      p.className = 'groove-empty';
+      p.textContent = "Pas de batterie ici : le rythme vient de la texture, des nappes et de leurs mouvements. Travaille l'évolution plutôt que la grille.";
+      els.grooveGrid.appendChild(p);
+      return;
+    }
+    groove.rows.forEach(row=>{
+      const line = document.createElement('div');
+      line.className = 'groove-row';
+      const name = document.createElement('span');
+      name.className = 'groove-name';
+      name.textContent = row.name;
+      const steps = document.createElement('div');
+      steps.className = 'groove-steps';
+      for(let i=0;i<16;i++){
+        const cell = document.createElement('span');
+        cell.className = 'groove-step'
+          + (row.steps[i] === 'x' ? ' on' : '')
+          + (i % 4 === 0 ? ' downbeat' : '');
+        steps.appendChild(cell);
+      }
+      line.appendChild(name);
+      line.appendChild(steps);
+      els.grooveGrid.appendChild(line);
+    });
+    const ruler = document.createElement('div');
+    ruler.className = 'groove-row groove-ruler';
+    const rulerName = document.createElement('span');
+    rulerName.className = 'groove-name';
+    rulerName.textContent = '';
+    const rulerSteps = document.createElement('div');
+    rulerSteps.className = 'groove-steps';
+    for(let i=0;i<16;i++){
+      const cell = document.createElement('span');
+      cell.className = 'groove-step';
+      cell.textContent = i % 4 === 0 ? String(i / 4 + 1) : '';
+      rulerSteps.appendChild(cell);
+    }
+    ruler.appendChild(rulerName);
+    ruler.appendChild(rulerSteps);
+    els.grooveGrid.appendChild(ruler);
   }
 
   function renderChords(animate){
@@ -1478,6 +1977,8 @@
   function renderAll(animate){
     ['style','styleDesc','bpm','key','mood','structure','instruments','constraint'].forEach(k=>renderField(k, animate));
     renderChords(animate);
+    renderRefs();
+    renderGroove();
   }
 
   function generateAll(){
@@ -1520,7 +2021,7 @@
   }
 
   function formatText(){
-    return [
+    const lines = [
       "INSPIRATION MUSICALE",
       "---------------------",
       "Style        : " + state.style + " (" + state.styleDesc + ")",
@@ -1530,7 +2031,18 @@
       "Structure    : " + state.structure,
       "Instruments  : " + state.instruments.join(', '),
       "Contrainte   : " + state.constraint
-    ].join("\n");
+    ];
+    if(state.styleRefs && state.styleRefs.length){
+      lines.push("À écouter    : " + state.styleRefs.map(r=>r.track).join(' · '));
+    }
+    const groove = GROOVES[state.grooveKey];
+    if(groove && groove.rows.length){
+      lines.push("", "Pattern rythmique — " + groove.label + " (16 pas)");
+      groove.rows.forEach(row=>{
+        lines.push("  " + row.name.padEnd(9) + " |" + row.steps.replace(/x/g, 'X') + "|");
+      });
+    }
+    return lines.join("\n");
   }
 
   function showToast(msg){
@@ -1543,6 +2055,7 @@
   // ---- optional extra-constraint panels (technique / narrative) ----
   const TECH_OPEN_KEY = "glitch_inspi_tech_open";
   const NARR_OPEN_KEY = "glitch_inspi_narr_open";
+  const GROOVE_OPEN_KEY = "glitch_inspi_groove_open";
 
   function setExtraPanelOpen(panelEl, storageKey, open){
     panelEl.classList.toggle('expanded', open);
@@ -1694,6 +2207,7 @@
     state.chordIndex = (typeof snap.chordIndex === 'number' && snap.chordIndex < state.keyObj.chords.length) ? snap.chordIndex : 0;
     state.mood = snap.mood; state.structure = snap.structure;
     state.instruments = snap.instruments.slice(); state.constraint = snap.constraint;
+    applyStyleExtras(snap.style);
     renderAll(true);
     stopMetronome();
     updateSeedDisplay();
@@ -1856,6 +2370,9 @@
   els.techTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.techPanel, TECH_OPEN_KEY));
   els.techReroll.addEventListener('click', ()=>rerollExtra(els.techValue, CONSTRAINTS_TECH));
 
+  els.grooveToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY));
+  els.grooveTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY));
+
   els.narrToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY));
   els.narrTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY));
   els.narrReroll.addEventListener('click', ()=>rerollExtra(els.narrValue, CONSTRAINTS_NARRATIVE));
@@ -1875,10 +2392,15 @@
     try{ savedOpen = localStorage.getItem(PREFS_OPEN_KEY); }catch(e){}
     setPrefsOpen(savedOpen === '1');
 
-    let techOpen = null, narrOpen = null;
-    try{ techOpen = localStorage.getItem(TECH_OPEN_KEY); narrOpen = localStorage.getItem(NARR_OPEN_KEY); }catch(e){}
+    let techOpen = null, narrOpen = null, grooveOpen = null;
+    try{
+      techOpen = localStorage.getItem(TECH_OPEN_KEY);
+      narrOpen = localStorage.getItem(NARR_OPEN_KEY);
+      grooveOpen = localStorage.getItem(GROOVE_OPEN_KEY);
+    }catch(e){}
     setExtraPanelOpen(els.techPanel, TECH_OPEN_KEY, techOpen === '1');
     setExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY, narrOpen === '1');
+    setExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY, grooveOpen === '1');
     els.techValue.textContent = drawFrom('techValue', CONSTRAINTS_TECH);
     els.narrValue.textContent = drawFrom('narrValue', CONSTRAINTS_NARRATIVE);
 

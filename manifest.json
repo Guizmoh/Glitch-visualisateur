@@ -1,7 +1,7 @@
 {
   "name": "Inspiration Musicale",
   "short_name": "Inspiration",
-  "description": "Générateur d'inspiration musicale : style, BPM, gamme, ambiance, structure et contraintes.",
+  "description": "Générateur d'inspiration musicale (v1.4.1) : style, morceaux de référence, BPM, pattern rythmique, gamme, ambiance, structure et contraintes.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

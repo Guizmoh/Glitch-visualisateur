@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Inspiration Musicale</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎹</text></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#1a1815">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Inspiration">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -126,6 +133,11 @@
   @keyframes pressPulse{ 0%{ transform:scale(1); } 40%{ transform:scale(0.965); } 100%{ transform:scale(1); } }
 
   .secondary-actions{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .seed-line{
+    margin:2px 0 0; font-size:0.74rem; color:var(--text-2); font-family:var(--mono);
+    text-align:center; line-height:1.5;
+  }
+  .seed-value{ color:var(--accent); font-weight:500; }
   .btn-ghost{
     display:inline-flex; align-items:center; gap:7px;
     font-family:var(--sans); font-size:0.82rem; font-weight:500; color:var(--text-1);
@@ -237,6 +249,17 @@
   .chrono-btn.chrono-done .chrono-text{ animation:beatPulse 0.4s ease 2; }
   .chrono-btn .chrono-text{ font-size:1.5rem; font-variant-numeric:tabular-nums; }
 
+  .chrono-head{ display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:4px; }
+  .chrono-head .mini-label{ margin-bottom:0; }
+  .chrono-mode-btn{
+    font-family:var(--mono); font-size:0.6rem; letter-spacing:0.04em; text-transform:uppercase;
+    color:var(--text-2); background:transparent; border:1px solid var(--border); border-radius:20px;
+    padding:2px 8px; cursor:pointer; flex-shrink:0;
+    transition:color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .chrono-mode-btn:hover{ color:var(--text-0); border-color:var(--border-hover); }
+  .chrono-mode-btn.on{ color:var(--accent); border-color:var(--accent-border); background:var(--accent-soft); }
+
   .chrono-max-row{ display:flex; align-items:center; gap:6px; }
   .chrono-max-row label{ font-size:0.68rem; color:var(--text-2); flex:1; min-width:0; }
   .chrono-max-row input{
@@ -246,6 +269,14 @@
   }
   .chrono-max-row input:focus{ outline:none; border-color:var(--accent-border); }
   .chrono-max-row .chrono-reset{ padding:3px; flex-shrink:0; }
+  .chrono-max-simple{ display:flex; align-items:center; gap:6px; flex:1; min-width:0; }
+  .chrono-max-staged{ display:flex; align-items:center; justify-content:space-between; gap:6px; flex:1; min-width:0; }
+  .chrono-max-simple[hidden], .chrono-max-staged[hidden]{ display:none; }
+  .chrono-stage-label{
+    font-size:0.68rem; color:var(--text-1); flex:1; min-width:0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .chrono-max-staged .chord-dots{ margin:0; flex-shrink:0; }
 
   .card.constraint-card{
     border-left:3px solid var(--accent);
@@ -387,6 +418,10 @@
     <path d="M16 9a5 5 0 0 1 0 6"></path>
     <path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
   </symbol>
+  <symbol id="i-link" viewBox="0 0 24 24">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+  </symbol>
   <symbol id="i-volume-x" viewBox="0 0 24 24">
     <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
     <line x1="22" x2="16" y1="9" y2="15"></line>
@@ -423,9 +458,11 @@
     <button class="btn-generate" id="generateBtn">Générer une inspiration</button>
     <div class="secondary-actions">
       <button class="btn-ghost" id="copyBtn"><svg class="icon sm"><use href="#i-copy"></use></svg>Copier</button>
+      <button class="btn-ghost" id="linkBtn"><svg class="icon sm"><use href="#i-link"></use></svg>Copier le lien</button>
       <button class="btn-ghost" id="downloadBtn"><svg class="icon sm"><use href="#i-download"></use></svg>Télécharger .txt</button>
       <button class="btn-ghost" id="favBtn"><svg class="icon sm"><use href="#i-star"></use></svg>Ajouter aux favoris</button>
     </div>
+    <p class="seed-line">Seed <span class="seed-value" id="seedValue">#0000</span> — cette inspiration est dans l'URL, copie-la pour la retrouver ou la partager</p>
   </div>
 
   <div class="cards-grid" id="cardsGrid">
@@ -465,14 +502,23 @@
           </div>
         </div>
         <div class="mini-box">
-          <span class="mini-label">Chrono</span>
+          <div class="chrono-head">
+            <span class="mini-label">Chrono</span>
+            <button type="button" class="chrono-mode-btn" id="chronoModeToggle" title="Basculer entre chrono simple et chrono à paliers (sound design → beat → arrangement)">Paliers</button>
+          </div>
           <button type="button" class="chrono-btn" id="chronoToggle" title="Cliquer pour démarrer/mettre en pause le chrono">
             <svg class="icon chrono-icon"><use href="#i-play"></use></svg>
             <span class="chrono-text">00:00</span>
           </button>
           <div class="chrono-max-row">
-            <label for="chronoMaxInput">Temps max (facultatif)</label>
-            <input type="number" id="chronoMaxInput" min="15" max="240" step="5" value="15">
+            <div class="chrono-max-simple" id="chronoMaxSimple">
+              <label for="chronoMaxInput">Temps max (facultatif)</label>
+              <input type="number" id="chronoMaxInput" min="15" max="240" step="5" value="15">
+            </div>
+            <div class="chrono-max-staged" id="chronoMaxStaged" hidden>
+              <span class="chrono-stage-label" id="chronoStageLabel">—</span>
+              <div class="chord-dots" id="chronoStageDots"></div>
+            </div>
             <button type="button" class="icon-btn chrono-reset" id="chronoReset" title="Réinitialiser le chrono">
               <svg class="icon sm"><use href="#i-refresh"></use></svg>
             </button>
@@ -956,6 +1002,8 @@
   const els = {
     generateBtn: document.getElementById('generateBtn'),
     copyBtn: document.getElementById('copyBtn'),
+    linkBtn: document.getElementById('linkBtn'),
+    seedValue: document.getElementById('seedValue'),
     downloadBtn: document.getElementById('downloadBtn'),
     favBtn: document.getElementById('favBtn'),
     grid: document.getElementById('cardsGrid'),
@@ -977,6 +1025,11 @@
     chronoText: document.querySelector('.chrono-text'),
     chronoMaxInput: document.getElementById('chronoMaxInput'),
     chronoReset: document.getElementById('chronoReset'),
+    chronoModeToggle: document.getElementById('chronoModeToggle'),
+    chronoMaxSimple: document.getElementById('chronoMaxSimple'),
+    chronoMaxStaged: document.getElementById('chronoMaxStaged'),
+    chronoStageLabel: document.getElementById('chronoStageLabel'),
+    chronoStageDots: document.getElementById('chronoStageDots'),
     techPanel: document.getElementById('techPanel'),
     techToggle: document.getElementById('techToggle'),
     techTitle: document.getElementById('techTitle'),
@@ -1003,13 +1056,46 @@
 
   function randomItem(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
+  // ---- tirage sans remise (bag shuffle) ----
+  // Chaque liste garde un "sac" mélangé : on pioche dedans jusqu'à épuisement
+  // avant de le regarnir, pour ne pas retomber trois fois sur la même entrée
+  // dans une session. Le remélange évite qu'un même élément se répète sur la
+  // charnière entre deux sacs.
+  const BAGS = new Map();
+
+  function shuffled(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function drawFrom(key, pool){
+    if(!pool.length) return undefined;
+    let bag = BAGS.get(key);
+    if(!bag || !bag.items.length || bag.size !== pool.length){
+      const fresh = shuffled(pool);
+      if(bag && bag.last !== undefined && fresh.length > 1 && fresh[0] === bag.last){
+        [fresh[0], fresh[fresh.length-1]] = [fresh[fresh.length-1], fresh[0]];
+      }
+      bag = { items: fresh, size: pool.length, last: bag ? bag.last : undefined };
+      BAGS.set(key, bag);
+    }
+    const picked = bag.items.pop();
+    bag.last = picked;
+    return picked;
+  }
+
   function randomInstrumentsList(){
-    const pool = INSTRUMENTS.slice();
     const picked = [];
-    const n = 3;
-    for(let i=0;i<n;i++){
-      const idx = Math.floor(Math.random()*pool.length);
-      picked.push(pool.splice(idx,1)[0]);
+    const seen = new Set();
+    let guard = 0;
+    while(picked.length < 3 && guard < 50){
+      const item = drawFrom('instruments', INSTRUMENTS);
+      if(!seen.has(item)){ seen.add(item); picked.push(item); }
+      guard++;
     }
     return picked;
   }
@@ -1113,12 +1199,23 @@
   }
 
   // ---- chrono (independent work-session timer, unaffected by regeneration) ----
-  const chrono = { intervalId: null, elapsedSec: 0, running: false };
+  const CHRONO_STAGES_PRESET = [
+    { label: 'Sound design', min: 10 },
+    { label: 'Beat', min: 15 },
+    { label: 'Arrangement', min: 10 }
+  ];
+  const CHRONO_STAGED_KEY = "glitch_inspi_chrono_staged";
+  const chrono = { intervalId: null, elapsedSec: 0, running: false, staged: false, stageIndex: 0 };
 
   function getChronoMaxSeconds(){
     const val = parseInt(els.chronoMaxInput.value, 10);
     if(!val || val <= 0) return null;
     return val * 60;
+  }
+
+  function stageBoundaries(){
+    let acc = 0;
+    return CHRONO_STAGES_PRESET.map(st=>{ acc += st.min * 60; return acc; });
   }
 
   function formatChronoTime(sec){
@@ -1132,7 +1229,66 @@
     use.setAttribute('href', showPlay ? '#i-play' : '#i-pause');
   }
 
+  function playStageBeep(){
+    const ctx = ensureAudioCtx();
+    if(!ctx) return;
+    [0, 0.18].forEach((delay, i)=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = i === 0 ? 880 : 1320;
+      const t = ctx.currentTime + delay;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.4, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.16);
+    });
+  }
+
+  function renderStageDots(){
+    if(!els.chronoStageDots) return;
+    els.chronoStageDots.innerHTML = '';
+    CHRONO_STAGES_PRESET.forEach((st, i)=>{
+      const dot = document.createElement('span');
+      dot.className = 'chord-dot' + (i === chrono.stageIndex ? ' active' : '');
+      els.chronoStageDots.appendChild(dot);
+    });
+  }
+
+  function setChronoStaged(staged){
+    chrono.staged = staged;
+    els.chronoModeToggle.classList.toggle('on', staged);
+    els.chronoMaxSimple.hidden = staged;
+    els.chronoMaxStaged.hidden = !staged;
+    try{ localStorage.setItem(CHRONO_STAGED_KEY, staged ? '1' : '0'); }catch(e){}
+    resetChrono();
+  }
+
   function updateChronoDisplay(){
+    if(chrono.staged){
+      const bounds = stageBoundaries();
+      const total = bounds[bounds.length - 1];
+      const clampedElapsed = Math.min(chrono.elapsedSec, total);
+      let idx = bounds.findIndex(b=>clampedElapsed < b);
+      if(idx === -1) idx = CHRONO_STAGES_PRESET.length - 1;
+      if(idx !== chrono.stageIndex){
+        chrono.stageIndex = idx;
+        renderStageDots();
+        if(chrono.running) playStageBeep();
+      }
+      els.chronoStageLabel.textContent = CHRONO_STAGES_PRESET[idx].label;
+      const displaySec = Math.max(0, bounds[idx] - clampedElapsed);
+      els.chronoText.textContent = formatChronoTime(displaySec);
+      if(chrono.elapsedSec >= total && chrono.running){
+        stopChrono();
+        els.chronoToggle.classList.add('chrono-done');
+        showToast('Séance terminée !');
+      }
+      return;
+    }
     const maxSec = getChronoMaxSeconds();
     let displaySec = maxSec != null ? Math.max(0, maxSec - chrono.elapsedSec) : chrono.elapsedSec;
     els.chronoText.textContent = formatChronoTime(displaySec);
@@ -1144,8 +1300,13 @@
   }
 
   function startChrono(){
-    const maxSec = getChronoMaxSeconds();
-    if(maxSec != null && chrono.elapsedSec >= maxSec) chrono.elapsedSec = 0;
+    if(chrono.staged){
+      const total = stageBoundaries().pop();
+      if(chrono.elapsedSec >= total){ chrono.elapsedSec = 0; chrono.stageIndex = 0; renderStageDots(); }
+    } else {
+      const maxSec = getChronoMaxSeconds();
+      if(maxSec != null && chrono.elapsedSec >= maxSec) chrono.elapsedSec = 0;
+    }
     chrono.running = true;
     els.chronoToggle.classList.add('playing');
     els.chronoToggle.classList.remove('chrono-done');
@@ -1168,7 +1329,9 @@
   function resetChrono(){
     stopChrono();
     chrono.elapsedSec = 0;
+    chrono.stageIndex = 0;
     els.chronoToggle.classList.remove('chrono-done');
+    renderStageDots();
     updateChronoDisplay();
   }
 
@@ -1192,7 +1355,7 @@
 
   function pickMood(entry){
     const pool = entry.moodPool && MOOD_POOLS[entry.moodPool];
-    return pool ? randomItem(pool) : null;
+    return pool ? drawFrom('mood:'+entry.moodPool, pool) : null;
   }
 
   function setSingleStyle(name){
@@ -1200,7 +1363,7 @@
     let chosen = primary;
     let bpmRange = primary.bpm;
     if(primary.subgenres && primary.subgenres.length && Math.random() < SUBGENRE_CHANCE){
-      chosen = randomItem(primary.subgenres);
+      chosen = drawFrom('sub:'+primary.name, primary.subgenres);
       bpmRange = chosen.bpm || primary.bpm;
     }
     const mood = pickMood(chosen);
@@ -1225,7 +1388,7 @@
   function genStyleField(){
     const groups = computeSelectedAndNeighbors();
     if(!groups){
-      setSingleStyle(randomItem(STYLES).name);
+      setSingleStyle(drawFrom('style', STYLES).name);
       return;
     }
     const { selected, neighbors } = groups;
@@ -1233,16 +1396,16 @@
     const doBlend = hasSecondCandidate && Math.random() < 0.4;
     if(doBlend){
       // Anchor the blend on one of the user's actual picks, never two neighbors alone.
-      const a = randomItem(selected);
+      const a = drawFrom('style:anchor', selected);
       const candidatesForB = [];
       selected.forEach(n=>{ if(n !== a) candidatesForB.push(n, n); });
       neighbors.forEach(n=>candidatesForB.push(n));
-      setBlendStyle(a, randomItem(candidatesForB));
+      setBlendStyle(a, drawFrom('style:blend', candidatesForB));
     } else {
       const weighted = [];
       selected.forEach(n=>weighted.push(n,n,n));
       neighbors.forEach(n=>weighted.push(n));
-      setSingleStyle(randomItem(weighted));
+      setSingleStyle(drawFrom('style:weighted', weighted));
     }
   }
 
@@ -1259,15 +1422,15 @@
         break;
       }
       case 'key': {
-        state.keyObj = randomItem(KEYS);
+        state.keyObj = drawFrom('key', KEYS);
         state.key = state.keyObj.name;
         state.chordIndex = Math.floor(Math.random() * state.keyObj.chords.length);
         break;
       }
-      case 'mood': state.mood = randomItem(MOODS); break;
-      case 'structure': state.structure = randomItem(STRUCTURES); break;
+      case 'mood': state.mood = drawFrom('ambiance', MOODS); break;
+      case 'structure': state.structure = drawFrom('structure', STRUCTURES); break;
       case 'instruments': state.instruments = randomInstrumentsList(); break;
-      case 'constraint': state.constraint = randomItem(CONSTRAINTS); break;
+      case 'constraint': state.constraint = drawFrom('constraint', CONSTRAINTS); break;
     }
   }
 
@@ -1327,6 +1490,7 @@
     renderAll(true);
     rerollExtra(els.techValue, CONSTRAINTS_TECH);
     rerollExtra(els.narrValue, CONSTRAINTS_NARRATIVE);
+    updateSeedDisplay();
     pulseButton();
     pushHistory();
   }
@@ -1335,6 +1499,7 @@
     genField(key);
     renderAll(false);
     renderField(key, true);
+    updateSeedDisplay();
     if(key === 'style'){
       renderField('styleDesc', true);
       renderField('bpm', true);
@@ -1383,7 +1548,7 @@
     setExtraPanelOpen(panelEl, storageKey, !panelEl.classList.contains('expanded'));
   }
   function rerollExtra(valueEl, pool){
-    valueEl.textContent = randomItem(pool);
+    valueEl.textContent = drawFrom(valueEl.id, pool);
     valueEl.classList.remove('updating');
     void valueEl.offsetWidth;
     valueEl.classList.add('updating');
@@ -1450,6 +1615,65 @@
     };
   }
 
+  // ---- seed & permalien ----
+  // L'état complet est encodé dans le hash de l'URL (base64 d'un JSON compact),
+  // ce qui rend chaque inspiration reproductible et partageable telle quelle.
+  // La "seed" affichée est un condensé court de cet état, pour l'identifier d'un
+  // coup d'œil et la retrouver dans l'historique.
+  function encodeState(snap){
+    const compact = [
+      snap.style, snap.styleDesc, snap.styleBpmRange,
+      snap.bpm, snap.key, snap.chordIndex,
+      snap.mood, snap.structure, snap.instruments, snap.constraint
+    ];
+    const bytes = new TextEncoder().encode(JSON.stringify(compact));
+    let bin = '';
+    bytes.forEach(b=>{ bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+
+  function decodeState(encoded){
+    try{
+      const b64 = encoded.replace(/-/g,'+').replace(/_/g,'/');
+      const bin = atob(b64);
+      const bytes = Uint8Array.from(bin, c=>c.charCodeAt(0));
+      const c = JSON.parse(new TextDecoder().decode(bytes));
+      if(!Array.isArray(c) || c.length < 10) return null;
+      return {
+        id: 'shared_' + Math.random().toString(36).slice(2,7),
+        time: Date.now(),
+        style: c[0], styleDesc: c[1], styleBpmRange: c[2],
+        bpm: c[3], key: c[4], chordIndex: c[5],
+        mood: c[6], structure: c[7], instruments: c[8] || [], constraint: c[9]
+      };
+    }catch(e){ return null; }
+  }
+
+  function seedLabel(encoded){
+    let h = 0x811c9dc5;
+    for(let i=0;i<encoded.length;i++){
+      h ^= encoded.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return '#' + h.toString(16).toUpperCase().padStart(8,'0').slice(0,4);
+  }
+
+  function currentPermalink(){
+    const encoded = encodeState(snapshot());
+    return { encoded, url: location.origin + location.pathname + '#i=' + encoded };
+  }
+
+  function updateSeedDisplay(){
+    const { encoded } = currentPermalink();
+    els.seedValue.textContent = seedLabel(encoded);
+    try{ history.replaceState(null, '', '#i=' + encoded); }catch(e){}
+  }
+
+  function readStateFromHash(){
+    const m = /^#i=(.+)$/.exec(location.hash || '');
+    return m ? decodeState(m[1]) : null;
+  }
+
   function pushHistory(){
     const list = loadJSON(HISTORY_KEY);
     list.unshift(snapshot());
@@ -1467,6 +1691,8 @@
     state.mood = snap.mood; state.structure = snap.structure;
     state.instruments = snap.instruments.slice(); state.constraint = snap.constraint;
     renderAll(true);
+    stopMetronome();
+    updateSeedDisplay();
   }
 
   function timeAgo(ts){
@@ -1489,7 +1715,7 @@
       const li = document.createElement('li');
       li.className = 'list-item';
       li.innerHTML = '<span class="li-main"><b>'+escapeHtml(snap.style)+'</b> · '+escapeHtml(snap.bpm)+' · '+escapeHtml(snap.mood)+'</span>'+
-        '<span class="li-time">'+timeAgo(snap.time)+'</span>';
+        '<span class="li-time">'+escapeHtml(seedLabel(encodeState(snap)))+'</span>';
       li.addEventListener('click', ()=>restoreSnapshot(snap));
       els.historyList.appendChild(li);
     });
@@ -1510,6 +1736,9 @@
       main.className = 'li-main';
       main.innerHTML = '<b>'+escapeHtml(snap.style)+'</b> · '+escapeHtml(snap.bpm)+' · '+escapeHtml(snap.mood);
       main.addEventListener('click', ()=>restoreSnapshot(snap));
+      const seed = document.createElement('span');
+      seed.className = 'li-time';
+      seed.textContent = seedLabel(encodeState(snap));
       const del = document.createElement('button');
       del.className = 'li-del'; del.title = 'Retirer des favoris';
       del.innerHTML = '<svg class="icon sm"><use href="#i-x"></use></svg>';
@@ -1519,7 +1748,7 @@
         saveJSON(FAV_KEY, updated);
         renderFavorites();
       });
-      li.appendChild(main); li.appendChild(del);
+      li.appendChild(main); li.appendChild(seed); li.appendChild(del);
       els.favList.appendChild(li);
     });
   }
@@ -1566,11 +1795,21 @@
   });
   els.chronoMaxInput.addEventListener('input', resetChrono);
   els.chronoReset.addEventListener('click', resetChrono);
+  els.chronoModeToggle.addEventListener('click', ()=>setChronoStaged(!chrono.staged));
 
   els.copyBtn.addEventListener('click', ()=>{
     const text = formatText();
     if(navigator.clipboard && navigator.clipboard.writeText){
       navigator.clipboard.writeText(text).then(()=>showToast('Copié dans le presse-papiers')).catch(()=>showToast('Impossible de copier'));
+    } else {
+      showToast('Copie non supportée par ce navigateur');
+    }
+  });
+
+  els.linkBtn.addEventListener('click', ()=>{
+    const url = currentPermalink().url;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(()=>showToast('Lien copié dans le presse-papiers')).catch(()=>showToast('Impossible de copier'));
     } else {
       showToast('Copie non supportée par ce navigateur');
     }
@@ -1636,18 +1875,36 @@
     try{ techOpen = localStorage.getItem(TECH_OPEN_KEY); narrOpen = localStorage.getItem(NARR_OPEN_KEY); }catch(e){}
     setExtraPanelOpen(els.techPanel, TECH_OPEN_KEY, techOpen === '1');
     setExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY, narrOpen === '1');
-    els.techValue.textContent = randomItem(CONSTRAINTS_TECH);
-    els.narrValue.textContent = randomItem(CONSTRAINTS_NARRATIVE);
-    updateChronoDisplay();
+    els.techValue.textContent = drawFrom('techValue', CONSTRAINTS_TECH);
+    els.narrValue.textContent = drawFrom('narrValue', CONSTRAINTS_NARRATIVE);
+
+    let chronoStagedSaved = null;
+    try{ chronoStagedSaved = localStorage.getItem(CHRONO_STAGED_KEY); }catch(e){}
+    setChronoStaged(chronoStagedSaved === '1');
+
+    const shared = readStateFromHash();
+    if(shared){
+      restoreSnapshot(shared);
+      renderHistory();
+      renderFavorites();
+      return;
+    }
 
     genField('style'); genField('bpm'); genField('key');
     genField('mood'); genField('structure'); genField('instruments'); genField('constraint');
     renderAll(false);
+    updateSeedDisplay();
     renderHistory();
     renderFavorites();
     pushHistory();
   }
   init();
+
+  if('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    });
+  }
 
 })();
 </script>

@@ -1,0 +1,2467 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Page Noir — Essai UI n2</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎛️</text></svg>">
+<meta name="theme-color" content="#17171a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --deck:#141416;
+    --metal-1:#33333a;
+    --metal-2:#232329;
+    --metal-3:#1b1b20;
+    --screw:#0e0e11;
+    --edge-hi:rgba(255,255,255,0.07);
+    --edge-lo:rgba(0,0,0,0.55);
+    --silk:#c7c0b4;
+    --silk-2:#8c867c;
+    --silk-3:#615c55;
+    --txt:#f4f1ec;
+    --orange:#ff6a1a;
+    --orange-2:#ffab5c;
+    --orange-deep:#c2410c;
+    --led:#ff7a26;
+    --glow:rgba(255,122,38,0.55);
+    --mono:'JetBrains Mono', ui-monospace, monospace;
+    --sans:'Inter', system-ui, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; min-height:100vh; background:var(--deck); color:var(--txt); font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(1000px 600px at 50% -10%, rgba(255,106,26,0.05), transparent 70%);
+    padding:22px 16px 40px;
+  }
+  .icon{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+  .icon.sm{ width:13px; height:13px; }
+
+  /* ---------- la machine ---------- */
+  .machine{
+    max-width:1180px; margin:0 auto; border-radius:14px; padding:18px;
+    background:linear-gradient(180deg, var(--metal-1) 0%, var(--metal-2) 8%, var(--metal-2) 92%, var(--metal-3) 100%);
+    border:1px solid #3d3d46;
+    box-shadow:0 1px 0 var(--edge-hi) inset, 0 -2px 0 var(--edge-lo) inset, 0 40px 90px -30px rgba(0,0,0,0.9);
+  }
+  .screws{ position:relative; }
+  .screw{ position:absolute; width:9px; height:9px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #4a4a54, var(--screw)); box-shadow:0 1px 0 var(--edge-hi); }
+  .screw.tl{ top:-6px; left:-6px; } .screw.tr{ top:-6px; right:-6px; }
+  .screw.bl{ bottom:-6px; left:-6px; } .screw.br{ bottom:-6px; right:-6px; }
+
+  /* ---------- bandeau de tête ---------- */
+  .head{ display:flex; align-items:flex-end; justify-content:space-between; gap:18px; flex-wrap:wrap; padding-bottom:14px; border-bottom:2px solid #101013; }
+  .logo b{ display:block; font-size:1.5rem; font-weight:800; letter-spacing:0.2em; text-transform:uppercase; color:var(--txt); }
+  .logo span{ display:block; font-family:var(--mono); font-size:0.6rem; letter-spacing:0.28em; text-transform:uppercase; color:var(--orange); margin-top:3px; }
+  .model{ font-family:var(--mono); font-size:0.58rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--silk-3); text-align:right; line-height:1.9; }
+
+  /* ---------- afficheur LED ---------- */
+  .lcd{
+    display:flex; align-items:stretch; gap:2px; background:#0a0a0c; border-radius:5px; padding:9px 12px;
+    border:1px solid #08080a; box-shadow:0 2px 6px rgba(0,0,0,0.6) inset;
+  }
+  .lcd-cell{ padding:0 14px; display:flex; flex-direction:column; justify-content:center; min-width:118px; }
+  .lcd-cell + .lcd-cell{ border-left:1px solid #1d1d22; }
+  .lcd-k{ font-family:var(--mono); font-size:0.5rem; letter-spacing:0.24em; text-transform:uppercase; color:#6b5340; margin-bottom:3px; }
+  .bpm-btn, .chrono-btn{
+    display:inline-flex; align-items:center; gap:8px; background:none; border:none; padding:0; cursor:pointer;
+    font-family:var(--mono); font-size:1.7rem; font-weight:700; color:var(--led);
+    text-shadow:0 0 16px var(--glow); font-variant-numeric:tabular-nums;
+  }
+  .bpm-btn .icon, .chrono-btn .icon{ width:14px; height:14px; color:#7a4b25; }
+  .bpm-btn:hover .icon, .chrono-btn:hover .icon{ color:var(--orange); }
+  .bpm-btn.playing, .chrono-btn.playing, .chrono-btn.chrono-done{ color:#ffc389; }
+  .beat{ animation:beat .16s ease; }
+  @keyframes beat{ 0%{ text-shadow:0 0 34px var(--glow), 0 0 60px var(--glow); } 100%{ text-shadow:0 0 16px var(--glow); } }
+
+  /* ---------- rangée de boutons pas ---------- */
+  .seq{ margin-top:16px; background:#101013; border-radius:8px; padding:14px; border:1px solid #0b0b0d; box-shadow:0 2px 8px rgba(0,0,0,0.5) inset; }
+  .seq-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .seq-title{ display:flex; align-items:center; gap:9px; cursor:pointer; user-select:none; font-family:var(--mono); font-size:0.6rem; letter-spacing:0.22em; text-transform:uppercase; color:var(--silk-2); }
+  .extra-badge{ font-family:var(--mono); font-size:0.55rem; letter-spacing:0.1em; text-transform:uppercase; color:#140b04; background:var(--orange); border-radius:3px; padding:3px 8px; font-weight:700; }
+  .groove-grid{ display:flex; flex-direction:column; gap:9px; overflow-x:auto; padding-bottom:2px; }
+  .groove-row{ display:flex; align-items:center; gap:12px; }
+  .groove-name{
+    width:88px; flex-shrink:0; text-align:right; font-family:var(--mono); font-size:0.58rem;
+    letter-spacing:0.12em; text-transform:uppercase; color:var(--silk-2);
+  }
+  .groove-steps{ display:flex; gap:5px; }
+  .groove-step{
+    width:30px; height:30px; border-radius:4px; flex-shrink:0;
+    background:linear-gradient(180deg, #3a3a42, #24242a);
+    border:1px solid #14141a;
+    box-shadow:0 1px 0 rgba(255,255,255,0.08) inset, 0 2px 3px rgba(0,0,0,0.5);
+  }
+  .groove-step.downbeat{ background:linear-gradient(180deg, #45454f, #2b2b33); }
+  .groove-step.on{
+    background:linear-gradient(180deg, var(--orange-2), var(--orange));
+    border-color:var(--orange-deep);
+    box-shadow:0 1px 0 rgba(255,255,255,0.4) inset, 0 0 16px var(--glow), 0 2px 3px rgba(0,0,0,0.5);
+  }
+  .groove-step.on.downbeat{ background:linear-gradient(180deg, #ffd0a0, var(--orange-2)); }
+  .groove-ruler .groove-step{
+    background:none; border:none; box-shadow:none; height:auto;
+    font-family:var(--mono); font-size:0.58rem; font-weight:700; color:var(--silk-3); text-align:center;
+  }
+  .groove-empty{ color:var(--silk-2); font-size:0.84rem; line-height:1.6; margin:0; }
+  @media (max-width:640px){
+    .groove-step{ width:20px; height:20px; }
+    .groove-name{ width:64px; font-size:0.5rem; }
+  }
+
+  /* ---------- transport ---------- */
+  .transport{ display:flex; align-items:center; gap:12px; margin-top:16px; flex-wrap:wrap; }
+  .fire{
+    flex:1; min-width:220px; cursor:pointer; border:1px solid var(--orange-deep); border-radius:6px;
+    background:linear-gradient(180deg, var(--orange-2), var(--orange) 45%, var(--orange-deep));
+    color:#180c03; font-family:var(--mono); font-size:0.82rem; font-weight:700;
+    letter-spacing:0.2em; text-transform:uppercase; padding:16px 12px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.45) inset, 0 4px 0 #7c2d0c, 0 12px 24px -10px var(--glow);
+    transition:transform .08s, box-shadow .12s;
+  }
+  .fire:active{ transform:translateY(3px); box-shadow:0 1px 0 rgba(255,255,255,0.35) inset, 0 1px 0 #7c2d0c; }
+  .fire.pulse{ animation:hit .32s ease; }
+  @keyframes hit{ 0%{ transform:translateY(3px); } 100%{ transform:none; } }
+  .pad{
+    cursor:pointer; border-radius:6px; border:1px solid #14141a; color:var(--silk);
+    background:linear-gradient(180deg, #3a3a42, #24242a);
+    box-shadow:0 1px 0 rgba(255,255,255,0.08) inset, 0 3px 0 #101014;
+    font-family:var(--mono); font-size:0.58rem; letter-spacing:0.12em; text-transform:uppercase;
+    padding:12px 14px; display:inline-flex; align-items:center; gap:7px; transition:transform .08s;
+  }
+  .pad:active{ transform:translateY(2px); box-shadow:0 1px 0 rgba(255,255,255,0.08) inset, 0 1px 0 #101014; }
+  .pad:hover{ color:var(--orange-2); }
+  .pad.on, .icon-btn.on{ color:var(--orange); }
+
+  /* ---------- modules ---------- */
+  .modules{ display:grid; grid-template-columns:repeat(12,1fr); gap:12px; margin-top:16px; }
+  .card{
+    grid-column:span 4; border-radius:7px; padding:13px;
+    background:linear-gradient(180deg, #2c2c33, #212127);
+    border:1px solid #15151a; box-shadow:0 1px 0 var(--edge-hi) inset, 0 3px 8px rgba(0,0,0,0.4);
+  }
+  .card[data-key="style"]{ grid-column:span 5; }
+  .card[data-key="bpm"]{ grid-column:span 3; }
+  .card[data-key="key"]{ grid-column:span 4; }
+  .card[data-key="constraint"]{ grid-column:1 / -1; background:linear-gradient(100deg, rgba(255,106,26,0.16), #232329 55%); border-color:var(--orange-deep); }
+  @media (max-width:900px){ .card, .card[data-key="style"], .card[data-key="bpm"], .card[data-key="key"]{ grid-column:1 / -1; } }
+  .card.locked{ border-color:var(--orange-deep); box-shadow:0 0 0 1px rgba(255,106,26,0.25), 0 1px 0 var(--edge-hi) inset; }
+
+  .mod-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; padding-bottom:7px; border-bottom:1px solid #15151a; }
+  .mod-label{ font-family:var(--mono); font-size:0.55rem; letter-spacing:0.24em; text-transform:uppercase; color:var(--silk-2); }
+  .card[data-key="constraint"] .mod-label{ color:var(--orange-2); }
+  .actions{ display:flex; gap:1px; }
+  .icon-btn{ background:none; border:none; cursor:pointer; padding:5px; border-radius:3px; color:var(--silk-3); display:flex; transition:color .15s; }
+  .icon-btn:hover{ color:var(--orange); }
+
+  .val{ font-size:1.14rem; font-weight:700; line-height:1.3; }
+  .val.sm{ font-size:0.9rem; font-weight:500; line-height:1.5; }
+  .val.updating, .desc.updating{ animation:fade .34s ease; }
+  @keyframes fade{ from{ opacity:0; transform:translateY(3px); } to{ opacity:1; transform:none; } }
+  .desc{ color:var(--silk-2); font-size:0.78rem; line-height:1.55; margin-top:7px; }
+
+  /* ---------- references ---------- */
+  .style-refs{ display:flex; flex-direction:column; gap:4px; margin-top:10px; }
+  .style-refs:empty{ display:none; }
+  .ref-label{ font-family:var(--mono); font-size:0.52rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--silk-3); }
+  .ref-link{
+    display:flex; align-items:flex-start; gap:7px; text-decoration:none; color:var(--silk);
+    font-size:0.73rem; line-height:1.35; padding:6px 9px; border-radius:4px;
+    background:#1a1a1f; border:1px solid #14141a; transition:all .14s;
+  }
+  .ref-link:hover{ color:var(--orange-2); border-color:var(--orange-deep); }
+  .ref-link .icon{ width:12px; height:12px; margin-top:2px; opacity:.8; }
+
+  /* ---------- chrono ---------- */
+  .chrono-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px; }
+  .chrono-mode-btn{
+    cursor:pointer; border:1px solid #14141a; border-radius:20px; color:var(--silk-2);
+    background:linear-gradient(180deg,#35353d,#25252b);
+    font-family:var(--mono); font-size:0.52rem; letter-spacing:0.12em; text-transform:uppercase; padding:3px 9px;
+  }
+  .chrono-mode-btn.on{ color:#180c03; background:linear-gradient(180deg,var(--orange-2),var(--orange)); border-color:var(--orange-deep); font-weight:700; }
+  .chrono-max-row{ display:flex; align-items:center; gap:7px; margin-top:8px; }
+  .chrono-max-simple{ display:flex; align-items:center; gap:7px; flex:1; min-width:0; }
+  .chrono-max-staged{ display:flex; align-items:center; justify-content:space-between; gap:7px; flex:1; min-width:0; }
+  .chrono-max-simple[hidden], .chrono-max-staged[hidden]{ display:none; }
+  .chrono-max-row label{ font-size:0.62rem; color:var(--silk-3); flex:1; }
+  .chrono-max-row input{
+    width:44px; background:#0a0a0c; border:1px solid #08080a; border-radius:3px; color:var(--led);
+    font-family:var(--mono); font-size:0.72rem; padding:3px 5px; text-align:center;
+  }
+  .chrono-max-row input:focus{ outline:none; border-color:var(--orange-deep); }
+  .chrono-stage-label{ font-size:0.64rem; color:var(--silk-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* ---------- LED rondes ---------- */
+  .chord-dots{ display:flex; gap:6px; margin:8px 2px 0; }
+  .chord-dot{
+    width:8px; height:8px; border-radius:50%; background:#15151a;
+    box-shadow:0 1px 0 rgba(255,255,255,0.06) inset; transition:all .15s;
+  }
+  .chord-dot.active{ background:var(--led); box-shadow:0 0 10px var(--glow); }
+
+  /* ---------- gamme ---------- */
+  .key-en{ font-family:var(--mono); font-size:0.68rem; color:var(--silk-3); margin-top:4px; }
+  .chord-btn{
+    display:block; width:100%; text-align:left; cursor:pointer; margin-top:9px; color:var(--led);
+    background:#0a0a0c; border:1px solid #08080a; border-radius:4px; padding:9px 11px;
+    font-family:var(--mono); font-size:0.8rem; text-shadow:0 0 12px var(--glow);
+    box-shadow:0 2px 6px rgba(0,0,0,0.5) inset;
+  }
+  .chord-text.updating{ animation:fade .3s ease; }
+  .chord-keys{ display:flex; flex-wrap:wrap; gap:9px; margin-top:11px; }
+  .kb{ --kb-w:11px; --kb-h:34px; --kb-bw:7px; display:flex; flex-direction:column; gap:3px; }
+  .kb-label{ font-family:var(--mono); font-size:0.62rem; color:var(--silk-2); text-align:center; }
+  .kb-keys{ position:relative; display:flex; height:var(--kb-h); border:1px solid #14141a; border-radius:3px; overflow:hidden; background:#14141a; }
+  .kb-key.white{ width:var(--kb-w); height:100%; background:linear-gradient(180deg,#d8d2c6,#b3ada1); border-right:1px solid #14141a; }
+  .kb-key.white:last-of-type{ border-right:none; }
+  .kb-key.white.on{ background:linear-gradient(180deg,var(--orange-2),var(--orange)); }
+  .kb-key.white.on.root{ background:linear-gradient(180deg,#ffd7ac,var(--orange-2)); }
+  .kb-blacks{ position:absolute; inset:0; pointer-events:none; }
+  .kb-key.black{ position:absolute; top:0; width:var(--kb-bw); height:60%; background:#121216; border-radius:0 0 2px 2px; }
+  .kb-key.black.on{ background:var(--orange); }
+  .kb-key.black.on.root{ background:var(--orange-2); }
+
+  /* ---------- panneaux depliables ---------- */
+  .drawer{ margin-top:12px; border-radius:7px; padding:13px; background:linear-gradient(180deg,#2c2c33,#212127); border:1px solid #15151a; }
+  .drawer-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .extra-title{ display:flex; align-items:center; gap:9px; cursor:pointer; user-select:none; font-family:var(--mono); font-size:0.58rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--silk-2); }
+  .extra-title .extra-badge{ background:#15151a; color:var(--silk-3); font-weight:400; }
+  .chevron{ transition:transform .22s; }
+  .expanded .chevron{ transform:rotate(180deg); }
+  .toggle-btn{ background:none; border:none; cursor:pointer; color:var(--silk-3); padding:4px; display:flex; }
+  .toggle-btn:hover{ color:var(--orange); }
+  .prefs-body, .extra-body{ max-height:0; opacity:0; overflow:hidden; transition:max-height .3s ease, opacity .22s ease; }
+  .expanded .prefs-body, .expanded .extra-body{ max-height:760px; opacity:1; }
+  .extra-hint, .prefs-hint{ color:var(--silk-2); font-size:0.74rem; line-height:1.55; margin:11px 0; }
+  .extra-value{ font-size:0.88rem; line-height:1.55; margin-bottom:11px; min-height:2.6em; }
+  .extra-value.updating{ animation:fade .32s ease; }
+  .drawers-2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media (max-width:860px){ .drawers-2{ grid-template-columns:1fr; } }
+
+  /* ---------- chips ---------- */
+  .chips{ display:flex; flex-wrap:wrap; gap:5px; }
+  .chip{
+    cursor:pointer; border-radius:4px; border:1px solid #14141a; color:var(--silk);
+    background:linear-gradient(180deg,#35353d,#25252b);
+    font-family:var(--mono); font-size:0.62rem; padding:6px 10px; transition:all .14s;
+    box-shadow:0 2px 0 #101014;
+  }
+  .chip:hover{ color:var(--orange-2); }
+  .chip.active{ background:linear-gradient(180deg,var(--orange-2),var(--orange)); color:#180c03; border-color:var(--orange-deep); font-weight:700; box-shadow:0 2px 0 #7c2d0c, 0 0 14px var(--glow); }
+  .prefs-count{ font-family:var(--mono); font-size:0.55rem; color:var(--orange); }
+  .btn-text{ background:none; border:none; cursor:pointer; color:var(--silk-3); font-family:var(--mono); font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; }
+  .btn-text:hover{ color:var(--orange); }
+
+  /* ---------- listes ---------- */
+  .list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; max-height:230px; overflow-y:auto; }
+  .list-item{ display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:4px; background:#1a1a1f; border:1px solid #14141a; cursor:pointer; }
+  .list-item:hover{ border-color:var(--orange-deep); }
+  .li-main{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.75rem; color:var(--silk); }
+  .li-time{ font-family:var(--mono); font-size:0.58rem; color:var(--orange); }
+  .li-del{ background:none; border:none; cursor:pointer; color:var(--silk-3); padding:3px; display:flex; }
+  .li-del:hover{ color:var(--orange); }
+  .empty-msg{ color:var(--silk-3); font-size:0.74rem; padding:5px 0; }
+  .count{ font-family:var(--mono); font-size:0.58rem; color:var(--orange); }
+  .seed-line{ font-family:var(--mono); font-size:0.6rem; color:var(--silk-3); letter-spacing:0.1em; text-align:center; margin:14px 0 0; }
+  .seed-line b{ color:var(--orange); font-weight:500; }
+
+  footer{ text-align:center; padding:26px 20px 10px; color:var(--silk-3); font-family:var(--mono); font-size:0.62rem; line-height:1.9; }
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translate(-50%,20px);
+    background:linear-gradient(180deg,#35353d,#25252b); border:1px solid var(--orange-deep); border-radius:5px; color:var(--txt);
+    font-family:var(--mono); font-size:0.72rem; padding:11px 18px; opacity:0; pointer-events:none;
+    transition:opacity .22s, transform .22s; z-index:80; box-shadow:0 12px 40px -12px var(--glow);
+  }
+  .toast.show{ opacity:1; transform:translate(-50%,0); }
+</style>
+</head>
+<body>
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-lock-closed" viewBox="0 0 24 24">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+  </symbol>
+  <symbol id="i-lock-open" viewBox="0 0 24 24">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+    <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+  </symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24">
+    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+    <path d="M3 3v5h5"></path>
+    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+    <path d="M16 16h5v5"></path>
+  </symbol>
+  <symbol id="i-star" viewBox="0 0 24 24">
+    <path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"></path>
+  </symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24">
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+  </symbol>
+  <symbol id="i-download" viewBox="0 0 24 24">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+    <polyline points="7 10 12 15 17 10"></polyline>
+    <line x1="12" x2="12" y1="15" y2="3"></line>
+  </symbol>
+  <symbol id="i-x" viewBox="0 0 24 24">
+    <path d="M18 6 6 18"></path>
+    <path d="m6 6 12 12"></path>
+  </symbol>
+  <symbol id="i-music" viewBox="0 0 24 24">
+    <path d="M9 18V5l12-2v13"></path>
+    <circle cx="6" cy="18" r="3"></circle>
+    <circle cx="18" cy="16" r="3"></circle>
+  </symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24">
+    <path d="m6 9 6 6 6-6"></path>
+  </symbol>
+  <symbol id="i-play" viewBox="0 0 24 24">
+    <polygon points="6 3 20 12 6 21 6 3"></polygon>
+  </symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24">
+    <rect x="6" y="4" width="4" height="16" rx="1"></rect>
+    <rect x="14" y="4" width="4" height="16" rx="1"></rect>
+  </symbol>
+  <symbol id="i-wrench" viewBox="0 0 24 24">
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"></path>
+  </symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24">
+    <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
+    <path d="M16 9a5 5 0 0 1 0 6"></path>
+    <path d="M19.364 18.364a9 9 0 0 0 0-12.728"></path>
+  </symbol>
+  <symbol id="i-link" viewBox="0 0 24 24">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+  </symbol>
+  <symbol id="i-volume-x" viewBox="0 0 24 24">
+    <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
+    <line x1="22" x2="16" y1="9" y2="15"></line>
+    <line x1="16" x2="22" y1="9" y2="15"></line>
+  </symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24">
+    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path>
+    <path d="M18 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"></path>
+  </symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24">
+    <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+    <line x1="9" x2="9" y1="5" y2="19"></line>
+    <line x1="15" x2="15" y1="5" y2="19"></line>
+    <line x1="3" x2="21" y1="12" y2="12"></line>
+  </symbol>
+  <symbol id="i-headphones" viewBox="0 0 24 24">
+    <path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+    <path d="M16 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2z"></path>
+    <path d="M3 14a9 9 0 0 1 18 0"></path>
+  </symbol>
+</svg>
+
+<div class="machine">
+ <div class="screws">
+  <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
+
+  <div class="head">
+    <div class="logo"><b>Page Noir</b><span>Rhythm Inspiration Composer</span></div>
+    <div class="lcd">
+      <div class="lcd-cell">
+        <span class="lcd-k">Tempo</span>
+        <button class="bpm-btn" id="bpmToggle" data-field="bpm" title="Métronome">
+          <svg class="icon bpm-icon"><use href="#i-play"></use></svg><span class="bpm-text">—</span>
+        </button>
+      </div>
+      <div class="lcd-cell">
+        <span class="lcd-k">Chrono</span>
+        <button class="chrono-btn" id="chronoToggle" title="Démarrer / pause">
+          <svg class="icon chrono-icon"><use href="#i-play"></use></svg><span class="chrono-text">00:00</span>
+        </button>
+      </div>
+    </div>
+    <div class="model">Model PN-808<br>Seed <span id="seedValue">#0000</span></div>
+  </div>
+
+  <!-- séquenceur : la grille rythmique en boutons de pas -->
+  <div class="seq" id="groovePanel">
+    <div class="seq-head">
+      <span class="seq-title" id="grooveTitle">
+        <svg class="icon chevron"><use href="#i-chevron-down"></use></svg>
+        Rhythm composer <span class="extra-badge" id="grooveBadge">—</span>
+      </span>
+      <button class="toggle-btn" id="grooveToggle" title="Afficher/masquer"><svg class="icon"><use href="#i-grid"></use></svg></button>
+    </div>
+    <div class="extra-body">
+      <p class="extra-hint" style="margin-top:0">Grille de départ sur 16 pas, une mesure en doubles-croches. À déformer, pas à recopier.</p>
+      <div class="groove-grid" id="grooveGrid"></div>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button class="fire" id="generateBtn">▶ Générer</button>
+    <button class="pad" id="copyBtn"><svg class="icon sm"><use href="#i-copy"></use></svg>Copier</button>
+    <button class="pad" id="linkBtn"><svg class="icon sm"><use href="#i-link"></use></svg>Lien</button>
+    <button class="pad" id="downloadBtn"><svg class="icon sm"><use href="#i-download"></use></svg>.txt</button>
+    <button class="pad" id="favBtn"><svg class="icon sm"><use href="#i-star"></use></svg>Favori</button>
+    <button class="pad metro-sound" id="metroSoundToggle" title="Son du métronome"><svg class="icon sm"><use href="#i-volume-x"></use></svg>Son</button>
+  </div>
+
+  <div class="modules" id="cardsGrid">
+    <div class="card" data-key="style">
+      <div class="mod-head">
+        <span class="mod-label">Style</span>
+        <div class="actions">
+          <button class="icon-btn dice" title="Relancer"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
+        </div>
+      </div>
+      <div class="val" data-field="style">—</div>
+      <div class="desc" data-field="styleDesc">—</div>
+      <div class="style-refs" id="styleRefs"></div>
+    </div>
+
+    <div class="card" data-key="bpm">
+      <div class="mod-head">
+        <span class="mod-label">Tempo / Chrono</span>
+        <div class="actions">
+          <button class="icon-btn dice" title="Relancer"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
+        </div>
+      </div>
+      <div class="chrono-head">
+        <span class="mod-label">Mode</span>
+        <button class="chrono-mode-btn" id="chronoModeToggle" title="Chrono à paliers">Paliers</button>
+      </div>
+      <div class="chrono-max-row">
+        <div class="chrono-max-simple" id="chronoMaxSimple">
+          <label for="chronoMaxInput">Temps max</label>
+          <input type="number" id="chronoMaxInput" min="15" max="240" step="5" value="15">
+        </div>
+        <div class="chrono-max-staged" id="chronoMaxStaged" hidden>
+          <span class="chrono-stage-label" id="chronoStageLabel">—</span>
+          <div class="chord-dots" id="chronoStageDots"></div>
+        </div>
+        <button class="icon-btn" id="chronoReset" title="Réinitialiser"><svg class="icon sm"><use href="#i-refresh"></use></svg></button>
+      </div>
+    </div>
+
+    <div class="card" data-key="key">
+      <div class="mod-head">
+        <span class="mod-label">Tonalité</span>
+        <div class="actions">
+          <button class="icon-btn dice" title="Relancer"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
+        </div>
+      </div>
+      <div class="val" data-field="key">—</div>
+      <div class="key-en" id="keyEn">—</div>
+      <button class="chord-btn" id="chordToggle" data-field="chords" title="Autre suite d'accords"><span class="chord-text">—</span></button>
+      <div class="chord-dots" id="chordDots"></div>
+      <div class="chord-keys" id="chordKeys"></div>
+    </div>
+
+    <div class="card" data-key="mood">
+      <div class="mod-head">
+        <span class="mod-label">Ambiance</span>
+        <div class="actions">
+          <button class="icon-btn dice" title="Relancer"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
+        </div>
+      </div>
+      <div class="val" data-field="mood">—</div>
+    </div>
+
+    <div class="card" data-key="structure">
+      <div class="mod-head">
+        <span class="mod-label">Structure</span>
+        <div class="actions">
+          <button class="icon-btn dice" title="Relancer"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
+        </div>
+      </div>
+      <div class="val sm" data-field="structure">—</div>
+    </div>
+
+    <div class="card" data-key="instruments">
+      <div class="mod-head">
+        <span class="mod-label">Instruments</span>
+        <div class="actions">
+          <button class="icon-btn dice" title="Relancer"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
+        </div>
+      </div>
+      <div class="val sm" data-field="instruments">—</div>
+    </div>
+
+    <div class="card" data-key="constraint">
+      <div class="mod-head">
+        <span class="mod-label">Contrainte créative</span>
+        <div class="actions">
+          <button class="icon-btn dice" title="Relancer"><svg class="icon"><use href="#i-refresh"></use></svg></button>
+          <button class="icon-btn lock" title="Verrouiller"><svg class="icon"><use href="#i-lock-open"></use></svg></button>
+        </div>
+      </div>
+      <div class="val" data-field="constraint">—</div>
+    </div>
+  </div>
+
+  <div class="drawers-2" style="margin-top:12px">
+    <div class="drawer" id="techPanel">
+      <div class="drawer-head">
+        <span class="extra-title" id="techTitle"><svg class="icon chevron"><use href="#i-chevron-down"></use></svg>Contrainte technique <span class="extra-badge">option</span></span>
+        <button class="toggle-btn" id="techToggle"><svg class="icon"><use href="#i-wrench"></use></svg></button>
+      </div>
+      <div class="extra-body">
+        <div class="extra-value" id="techValue">—</div>
+        <button class="pad" id="techReroll"><svg class="icon sm"><use href="#i-refresh"></use></svg>Une autre</button>
+      </div>
+    </div>
+    <div class="drawer" id="crea2Panel">
+      <div class="drawer-head">
+        <span class="extra-title" id="crea2Title"><svg class="icon chevron"><use href="#i-chevron-down"></use></svg>Contrainte créative <span class="extra-badge">bis</span></span>
+        <button class="toggle-btn" id="crea2Toggle"><svg class="icon"><use href="#i-spark"></use></svg></button>
+      </div>
+      <div class="extra-body">
+        <div class="extra-value" id="crea2Value">—</div>
+        <button class="pad" id="crea2Reroll"><svg class="icon sm"><use href="#i-refresh"></use></svg>Une autre</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer" id="prefsPanel">
+    <div class="drawer-head">
+      <span class="extra-title prefs-title" id="prefsTitle"><svg class="icon chevron"><use href="#i-chevron-down"></use></svg>Styles préférés <span class="prefs-count" id="prefsCount">0</span></span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn-text" id="prefsClear">Effacer</button>
+        <button class="toggle-btn" id="prefsToggle"><svg class="icon"><use href="#i-music"></use></svg></button>
+      </div>
+    </div>
+    <div class="prefs-body">
+      <p class="prefs-hint">Sélectionne des styles : les propositions resteront proches, ou en mélangeront deux.</p>
+      <div class="chips" id="chipsGrid"></div>
+    </div>
+  </div>
+
+  <div class="drawers-2" style="margin-top:12px">
+    <div class="drawer">
+      <div class="drawer-head"><span class="extra-title">Historique</span><span class="count" id="historyCount">0</span></div>
+      <ul class="list" id="historyList" style="margin-top:11px"></ul>
+    </div>
+    <div class="drawer">
+      <div class="drawer-head"><span class="extra-title">Favoris</span><span class="count" id="favCount">0</span></div>
+      <ul class="list" id="favList" style="margin-top:11px"></ul>
+    </div>
+  </div>
+
+  <p class="seed-line">L'inspiration est encodée dans l'URL — copie le lien pour la retrouver ou la partager</p>
+ </div>
+</div>
+
+<footer>
+  Page Noir · essai d'interface « boîte à rythme » — le moteur est identique à la version officielle<br>
+  <a href="index.html" style="color:var(--orange)">← revenir à la version actuelle</a>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // Deux niveaux : ~18 styles "parents" bien connus (seuls sélectionnables comme
+  // préférences), chacun avec des sous-genres plus précis piochés aléatoirement
+  // à la génération (affichés "Sous-genre (humeur)"). Les styles trop confidentiels
+  // vivent en sous-genre plutôt qu'en chip cliquable, pour garder la liste lisible.
+  // Pools d'humeurs partagés par famille de vibe : chaque style/sous-genre référence
+  // un pool (moodPool) au lieu d'un mot fixe, pour varier le qualificatif entre
+  // parenthèses à chaque tirage plutôt que de toujours afficher le même mot.
+  const MOOD_POOLS = {
+    dark: ["sombre", "menaçant", "glacial", "oppressant"],
+    aggressive: ["agressif", "brutal", "survolté", "rageur"],
+    hypnotic: ["hypnotique", "planant", "répétitif", "envoûtant"],
+    joyful: ["joyeux", "festif", "insouciant", "pétillant"],
+    dreamy: ["onirique", "flottant", "éthéré", "nostalgique"],
+    warm: ["chaleureux", "doux", "reposant", "tendre"],
+    energetic: ["énergique", "explosif", "électrique", "survolté"],
+    experimental: ["abstrait", "cérébral", "expérimental", "déroutant"],
+    emotional: ["émotionnel", "mélancolique", "introspectif", "fragile"],
+    exotic: ["psychédélique", "exotique", "hypnotique", "envoûtant"],
+    elegant: ["élégant", "raffiné", "virtuose", "sophistiqué"],
+    extreme: ["extrême", "chaotique", "sauvage", "excessif"],
+    sensual: ["sensuel", "langoureux", "chaloupé", "suave"],
+    retro: ["rétro", "nostalgique", "vintage", "suranné"],
+    cinematic: ["cinématographique", "narratif", "épique", "solennel"],
+    playful: ["ludique", "facétieux", "insouciant", "décalé"]
+  };
+
+  const STYLES = [
+    {name:"House", bpm:[120,128], desc:"Musique de danse à 4 temps née dans les clubs de Chicago, pulsation régulière et entêtante.", tags:["club","groove"], moodPool:"energetic", subgenres:[
+      {name:"Deep house", moodPool:"warm", bpm:[118,124], desc:"House feutrée et groovy, basses profondes et ambiance intimiste pour la danse relax."},
+      {name:"UK garage", moodPool:"hypnotic", bpm:[130,140], desc:"House/garage britannique syncopé et chaloupé, ancêtre du dubstep et de la grime."},
+      {name:"Gqom", moodPool:"dark", bpm:[120,128], desc:"House minimaliste et percussive de Durban (Afrique du Sud), ambiance sombre et physique."},
+      {name:"Tech house", moodPool:"hypnotic", bpm:[122,128], desc:"Croisement de la house et de la techno : groove répétitif, machinique et efficace."}
+    ]},
+    {name:"Techno", bpm:[125,135], desc:"Musique électronique répétitive et machinique née à Detroit, pensée pour la transe collective du dancefloor.", tags:["club"], moodPool:"hypnotic", subgenres:[
+      {name:"Techno minimale", moodPool:"hypnotic", bpm:[122,132], desc:"Techno épurée à l'extrême, boucles rythmiques presque vides et évolution très progressive."},
+      {name:"Techno acide", moodPool:"exotic", bpm:[125,140], desc:"Techno pilotée par la ligne de basse stridente et torturée du synthé TB-303."},
+      {name:"Techno industrielle", moodPool:"dark", bpm:[130,145], desc:"Techno dure et métallique, empruntant les textures bruitistes de l'industrial."}
+    ]},
+    {name:"Drum & Bass", bpm:[160,180], desc:"Breakbeats rapides et basses profondes, née de la scène jungle britannique des années 90.", tags:["bass"], moodPool:"aggressive", subgenres:[
+      {name:"Jungle", moodPool:"extreme", bpm:[160,175], desc:"Ancêtre frénétique de la drum & bass : breakbeats accélérés et basses reggae/dub."},
+      {name:"Liquid funk", moodPool:"emotional", bpm:[168,176], desc:"Drum & bass mélodique et aérienne, nappes douces posées sur des breaks rapides."},
+      {name:"Neurofunk", moodPool:"aggressive", bpm:[172,180], desc:"Drum & bass technique et sombre, basses grinçantes et production chirurgicale."},
+      {name:"Footwork", moodPool:"energetic", bpm:[155,165], desc:"Breakbeat frénétique de Chicago, samples vocaux hachés pensés pour la battle de danse."}
+    ]},
+    {name:"Dubstep", bpm:[135,145], desc:"Rythme à moitié tempo et basses profondes, hérité du sound-system dub jamaïcain.", tags:["bass","groove"], moodPool:"aggressive", subgenres:[
+      {name:"Riddim", moodPool:"aggressive", bpm:[140,150], desc:"Dubstep minimaliste centré sur un motif de basse répété et percutant."},
+      {name:"Future garage", moodPool:"dreamy", bpm:[130,140], desc:"Dubstep ralenti et brumeux, voix pitchées et ambiance nocturne."},
+      {name:"Brostep", moodPool:"extreme", bpm:[145,150], desc:"Dubstep saturé et agressif, basses 'wobble' extrêmes popularisées à l'international."}
+    ]},
+    {name:"Hip-Hop", bpm:[85,100], desc:"Culture et musique nées dans le Bronx, portées par le rap, le sample et le beat.", tags:["urban"], moodPool:"emotional", subgenres:[
+      {name:"Drill", moodPool:"hypnotic", bpm:[140,145], desc:"Rap sombre et syncopé né à Chicago puis Londres, basses glissantes et flow monocorde."},
+      {name:"Boom bap", moodPool:"retro", bpm:[85,95], desc:"Hip-hop classique des années 90, samples de vinyle et batterie sèche et percutante."},
+      {name:"Cloud rap", moodPool:"dreamy", bpm:[60,80], desc:"Rap planant et flou, voix pitchées/réverbérées, production atmosphérique."},
+      {name:"Grime", moodPool:"aggressive", bpm:[135,145], desc:"Rap électronique anglais énergique, aux rythmiques syncopées héritées du garage."},
+      {name:"Lo-fi hip-hop", moodPool:"warm", bpm:[70,90], desc:"Beats doux et volontairement imparfaits, pensés pour l'ambiance et la concentration."}
+    ]},
+    {name:"Trip-hop", bpm:[80,100], desc:"Hip-hop ralenti et cinématographique, mêlé à des textures électroniques sombres.", tags:["urban","texture"], moodPool:"cinematic"},
+    {name:"Trap", bpm:[130,145], desc:"Hip-hop moderne aux hi-hats roulés très rapides et basses 808, souvent joué en demi-tempo.", tags:["urban","bass"], moodPool:"dark", subgenres:[
+      {name:"Phonk", moodPool:"dark", bpm:[130,145], desc:"Trap saturé et lo-fi, samples de memphis rap vintage et basses distordues."},
+      {name:"Rage", moodPool:"extreme", bpm:[140,160], desc:"Trap maximaliste et saturé, synthés stridents et énergie de mosh pit."},
+      {name:"Trap latino", moodPool:"sensual", bpm:[130,150], desc:"Trap hispanophone mêlé à des influences reggaeton, très populaire en Amérique latine."}
+    ]},
+    {name:"Reggae", bpm:[70,90], desc:"Genre jamaïcain fondateur au groove chaloupé, contretemps à la guitare/clavier (skank) et basse proéminente.", tags:["groove"], moodPool:"warm", subgenres:[
+      {name:"Ska", moodPool:"playful", bpm:[120,150], desc:"Ancêtre enjoué du reggae, cuivres entraînants et rythmique 'offbeat' rapide et dansante."},
+      {name:"Dancehall", moodPool:"joyful", bpm:[90,110], desc:"Reggae électronique et percussif né en Jamaïque dans les années 80, rythmiques 'riddim' répétées."},
+      {name:"Reggaeton", moodPool:"sensual", bpm:[85,100], desc:"Rythme latino-caribéen (dembow) omniprésent, fusion de reggae, hip-hop et musique latine."}
+    ]},
+    {name:"Dub", bpm:[60,90], desc:"Reggae dépouillé et manipulé en studio : échos, réverbes tentaculaires et basse/batterie mises en avant.", tags:["groove","texture"], moodPool:"hypnotic", subgenres:[
+      {name:"Dub techno", moodPool:"hypnotic", bpm:[120,128], desc:"Techno minimale et spacieuse influencée par le dub : échos profonds, sub-basses et groove en boucle."}
+    ]},
+    {name:"Rock", bpm:[110,140], desc:"Musique à guitares/basse/batterie, matrice de la plupart des scènes indépendantes occidentales depuis les années 60.", tags:["guitar"], moodPool:"energetic", subgenres:[
+      {name:"Shoegaze", moodPool:"dreamy", bpm:[100,140], desc:"Rock aux guitares saturées noyées de réverbe, voix étouffées, ambiance planante."},
+      {name:"Post-rock", moodPool:"cinematic", bpm:[70,140], desc:"Rock instrumental aux structures longues, entre calme contemplatif et déferlantes saturées."},
+      {name:"Krautrock", moodPool:"hypnotic", bpm:[110,130], desc:"Rock expérimental allemand des années 70, rythmiques hypnotiques et exploration sonore."},
+      {name:"Grunge", moodPool:"aggressive", bpm:[110,140], desc:"Rock sale et abrasif de Seattle, entre mélancolie et explosions de distorsion."}
+    ]},
+    {name:"Punk", bpm:[150,180], desc:"Rock brut, rapide et rageur, joué vite et fort avec un minimum de moyens.", tags:["guitar"], moodPool:"aggressive", subgenres:[
+      {name:"Punk californien", moodPool:"playful", bpm:[160,180], desc:"Punk-rock mélodique et énergique popularisé sur la côte ouest américaine dans les années 90."},
+      {name:"Post-punk", moodPool:"dark", bpm:[120,150], desc:"Héritier plus sombre et expérimental du punk, basses proéminentes et rythmiques anguleuses."},
+      {name:"Hardcore punk", moodPool:"extreme", bpm:[170,220], desc:"Version accélérée et brutale du punk, morceaux très courts et intensité maximale."}
+    ]},
+    {name:"Pop", bpm:[100,120], desc:"Musique grand public soignée et mélodique, pensée pour l'efficacité immédiate du refrain.", tags:["song"], moodPool:"joyful", subgenres:[
+      {name:"K-pop", moodPool:"energetic", bpm:[110,130], desc:"Pop sud-coréenne ultra-produite, hybridation permanente de genres et chorégraphies synchronisées."},
+      {name:"Hyperpop", moodPool:"extreme", bpm:[150,180], desc:"Pop maximaliste et saturée, pitchs extrêmes et esthétique numérique assumée jusqu'à la caricature."},
+      {name:"Synthpop", moodPool:"retro", bpm:[100,125], desc:"Pop des années 80 portée par les synthétiseurs, mélodies imparables et froideur élégante."},
+      {name:"Indie pop", moodPool:"warm", bpm:[100,130], desc:"Pop indépendante et mélodique, production plus artisanale que la pop mainstream."}
+    ]},
+    {name:"Folk / Chanson", bpm:[70,110], desc:"Musique acoustique centrée sur la voix et le texte, tradition du chanteur-compositeur.", tags:["song"], moodPool:"emotional", subgenres:[
+      {name:"Ballade française", moodPool:"emotional", bpm:[60,80], desc:"Chanson française tout en retenue, priorité au texte et à la mélodie, piano ou guitare en soutien."},
+      {name:"Americana", moodPool:"warm", bpm:[80,110], desc:"Folk-rock américain aux racines country et blues, guitares organiques et sincérité brute."},
+      {name:"Folk psychédélique", moodPool:"exotic", bpm:[70,100], desc:"Folk acoustique enrichi de textures et d'effets hérités du rock psychédélique."}
+    ]},
+    {name:"Jazz", bpm:[100,140], desc:"Musique d'improvisation née à La Nouvelle-Orléans, harmonies riches et dialogue entre musiciens.", tags:["jazz"], moodPool:"elegant", subgenres:[
+      {name:"Jazz fusion", moodPool:"elegant", bpm:[90,160], desc:"Croisement du jazz avec le rock/funk électrique, improvisation virtuose et rythmiques complexes."},
+      {name:"Nu-jazz", moodPool:"elegant", bpm:[80,130], desc:"Jazz mêlé à l'électronique et aux beats club, entre improvisation et production moderne."},
+      {name:"Bossa nova", moodPool:"warm", bpm:[80,120], desc:"Douceur brésilienne héritée de la samba et du jazz, guitare syncopée et voix chuchotée."},
+      {name:"Jazz manouche", moodPool:"joyful", bpm:[140,220], desc:"Jazz tzigane virtuose à la guitare acoustique, hérité de Django Reinhardt."}
+    ]},
+    {name:"Funk / Disco", bpm:[100,120], desc:"Groove syncopé porté par la basse et les cuivres, matrice commune du disco et de la dance music.", tags:["jazz","groove","club"], moodPool:"sensual", subgenres:[
+      {name:"Funk psychédélique", moodPool:"exotic", bpm:[90,115], desc:"Funk groovy enrichi d'effets et de sonorités héritées du rock psychédélique des années 70."},
+      {name:"Disco", moodPool:"joyful", bpm:[110,130], desc:"Groove 4 temps orchestral et sophistiqué né dans les clubs des années 70, ancêtre direct de la house."},
+      {name:"Baile funk", moodPool:"extreme", bpm:[125,135], desc:"Musique de danse brésilienne née dans les favelas de Rio, percussions crues et basses puissantes."}
+    ]},
+    {name:"Ambient / Expérimental", bpm:[50,90], desc:"Musique de fond immersive et sans rythme marqué, pensée pour l'atmosphère plutôt que la danse.", tags:["texture"], moodPool:"experimental", subgenres:[
+      {name:"Drone", moodPool:"dark", bpm:[0,0], desc:"Sons continus et texturés qui évoluent très lentement, sans mélodie ni rythme apparent."},
+      {name:"Musique concrète", moodPool:"experimental", bpm:[0,0], desc:"Composition à partir de sons enregistrés du réel, assemblés hors de la notation classique."},
+      {name:"Field recording", moodPool:"experimental", bpm:[0,0], desc:"Œuvre construite à partir de sons captés dans un environnement réel (rue, nature, machines)."},
+      {name:"Neoclassique", moodPool:"emotional", bpm:[50,90], desc:"Musique contemporaine pour instruments classiques, souvent épurée et émotionnelle."},
+      {name:"Glitch", moodPool:"extreme", bpm:[90,150], desc:"Musique qui transforme les erreurs numériques (clics, sauts, bugs) en matière musicale."},
+      {name:"IDM", moodPool:"experimental", bpm:[80,160], desc:"Musique électronique expérimentale, rythmes complexes et sound design pointu."},
+      {name:"Musique de film", moodPool:"cinematic", bpm:[40,140], desc:"Composition au service d'une narration ou d'une image, très variée en style et en instrumentation."}
+    ]},
+    {name:"Industrial", bpm:[120,135], desc:"Sons bruts et métalliques, souvent samplés de machines ou d'usines, ambiance dérangeante.", tags:["texture"], moodPool:"dark", subgenres:[
+      {name:"EBM", moodPool:"aggressive", bpm:[120,135], desc:"Electronic Body Music : rythmes de boîte à rythmes martiaux et répétitifs, pensée pour un dancefloor sombre."},
+      {name:"Darkwave", moodPool:"dark", bpm:[100,130], desc:"Pop/rock sombre et mélancolique héritée du post-punk, synthés froids et ambiance gothique."}
+    ]},
+    {name:"Synthwave", bpm:[85,110], desc:"Sonorités synthétiques rétro inspirées des films et jeux vidéo des années 80.", tags:["texture"], moodPool:"retro", subgenres:[
+      {name:"Vaporwave", moodPool:"retro", bpm:[60,90], desc:"Collage nostalgique et ralenti de musiques commerciales, esthétique ironique et datée à dessein."},
+      {name:"Chiptune", moodPool:"playful", bpm:[120,160], desc:"Musique composée avec les sons de puces de vieilles consoles ou ordinateurs 8-16 bits."}
+    ]},
+    {name:"Afrobeat", bpm:[100,125], desc:"Fusion des rythmiques ouest-africaines (héritage Fela Kuti) avec le funk, le jazz et l'électronique.", tags:["groove"], moodPool:"warm", subgenres:[
+      {name:"Highlife électronique", moodPool:"warm", bpm:[100,125], desc:"Highlife ouest-africain (guitares entrelacées, cuivres) fusionné avec des productions électroniques."},
+      {name:"Amapiano", moodPool:"hypnotic", bpm:[110,115], desc:"Genre sud-africain explosé mondialement, basses profondes, percussions log-drum et pianos jazzy."},
+      {name:"Cumbia digitale", moodPool:"joyful", bpm:[85,100], desc:"Cumbia latino-américaine traditionnelle réinventée avec des synthés et productions électroniques."}
+    ]},
+    {name:"Hardcore / Rave", bpm:[160,190], desc:"Techno extrême et distordue, kicks saturés et tempo effréné, née des scènes gabber et rave.", tags:["club"], moodPool:"extreme", subgenres:[
+      {name:"Hardtek", moodPool:"extreme", bpm:[150,175], desc:"Dérivé du hardcore plus rapide et mélodique, kicks tribaux distordus des free parties françaises."},
+      {name:"Tribe", moodPool:"extreme", bpm:[150,180], desc:"Variante tribale et organique du hardtek : percussions martelées, ambiance de teknival."},
+      {name:"Gabber", moodPool:"extreme", bpm:[170,200], desc:"Version hollandaise originelle du hardcore, kicks distordus à l'extrême et énergie de warehouse rave."}
+    ]}
+  ];
+
+  // Morceaux de référence réels par style et sous-genre : la description explique,
+  // mais seule l'écoute débloque vraiment. Chaque entrée devient un lien de
+  // recherche YouTube (aucune API, aucun tracking).
+  const REFS = {
+    "House": ["Frankie Knuckles — Your Love", "Marshall Jefferson — Move Your Body", "Daft Punk — Da Funk"],
+    "Deep house": ["Mr. Fingers — Can You Feel It", "Kerri Chandler — Rain"],
+    "UK garage": ["MJ Cole — Sincere", "Artful Dodger — Re-Rewind"],
+    "Gqom": ["DJ Lag — Ice Drop", "Rudeboyz — Gqom"],
+    "Tech house": ["Green Velvet — La La Land", "Hot Since 82 — Buggin'"],
+
+    "Techno": ["Jeff Mills — The Bells", "Underground Resistance — Jaguar", "Robert Hood — Minus"],
+    "Techno minimale": ["Plastikman — Spastik", "Ricardo Villalobos — Dexter"],
+    "Techno acide": ["Hardfloor — Acperience 1", "Josh Wink — Higher State of Consciousness"],
+    "Techno industrielle": ["Perc — Look What Your Love Has Done to Me", "Surgeon — Badger Bite"],
+
+    "Drum & Bass": ["Goldie — Inner City Life", "Roni Size — Brown Paper Bag", "Pendulum — Blood Sugar"],
+    "Jungle": ["Shy FX — Original Nuttah", "Remarc — R.I.P."],
+    "Liquid funk": ["High Contrast — Global Love", "Calibre — Mystique"],
+    "Neurofunk": ["Noisia — Machine Gun", "Ed Rush & Optical — Funktion"],
+    "Footwork": ["DJ Rashad — Feelin'", "RP Boo — Baby Come On"],
+
+    "Dubstep": ["Skream — Midnight Request Line", "Digital Mystikz — Anti War Dub", "Burial — Archangel"],
+    "Riddim": ["Virtual Riot — Energy Drink", "Getter — Rip N Dip"],
+    "Future garage": ["Burial — Untrue", "Mount Kimbie — Maybes"],
+    "Brostep": ["Skrillex — Scary Monsters and Nice Sprites", "Excision — X Rated"],
+
+    "Hip-Hop": ["Nas — N.Y. State of Mind", "Wu-Tang Clan — C.R.E.A.M.", "A Tribe Called Quest — Can I Kick It?"],
+    "Drill": ["Pop Smoke — Dior", "Headie One — Both"],
+    "Boom bap": ["Gang Starr — Mass Appeal", "Mobb Deep — Shook Ones Pt. II"],
+    "Cloud rap": ["Clams Casino — I'm God", "A$AP Rocky — Purple Swag"],
+    "Grime": ["Dizzee Rascal — I Luv U", "Skepta — Shutdown"],
+    "Lo-fi hip-hop": ["Nujabes — Feather", "J Dilla — Donuts"],
+
+    "Trip-hop": ["Portishead — Glory Box", "Massive Attack — Teardrop", "Tricky — Hell Is Round the Corner"],
+
+    "Trap": ["Migos — Bad and Boujee", "Future — Mask Off", "Gucci Mane — Lemonade"],
+    "Phonk": ["Three 6 Mafia — Late Nite Tip", "Kordhell — Murder In My Mind"],
+    "Rage": ["Playboi Carti — Stop Breathing", "Yeat — Gët Busy"],
+    "Trap latino": ["Bad Bunny — Soy Peor", "Anuel AA — China"],
+
+    "Reggae": ["Bob Marley — Exodus", "Toots & the Maytals — Pressure Drop", "Burning Spear — Marcus Garvey"],
+    "Ska": ["The Skatalites — Guns of Navarone", "Desmond Dekker — Israelites"],
+    "Dancehall": ["Sean Paul — Get Busy", "Shabba Ranks — Ting-A-Ling"],
+    "Reggaeton": ["Daddy Yankee — Gasolina", "Tego Calderón — Pa' Que Retozen"],
+
+    "Dub": ["King Tubby — King Tubby Meets Rockers Uptown", "Lee \"Scratch\" Perry — Blackboard Jungle Dub", "Augustus Pablo — King Tubby Meets Rockers Uptown"],
+    "Dub techno": ["Basic Channel — Phylyps Trak", "Rhythm & Sound — Never Tell You"],
+
+    "Rock": ["The Rolling Stones — Gimme Shelter", "Led Zeppelin — Kashmir", "Pixies — Where Is My Mind?"],
+    "Shoegaze": ["My Bloody Valentine — Only Shallow", "Slowdive — Alison"],
+    "Post-rock": ["Explosions in the Sky — Your Hand in Mine", "Mogwai — Mogwai Fear Satan"],
+    "Krautrock": ["Neu! — Hallogallo", "Can — Vitamin C"],
+    "Grunge": ["Nirvana — Smells Like Teen Spirit", "Alice in Chains — Would?"],
+
+    "Punk": ["Ramones — Blitzkrieg Bop", "Sex Pistols — Anarchy in the U.K.", "The Clash — White Riot"],
+    "Punk californien": ["Green Day — Basket Case", "The Offspring — Self Esteem"],
+    "Post-punk": ["Joy Division — Disorder", "The Cure — A Forest"],
+    "Hardcore punk": ["Minor Threat — Straight Edge", "Bad Brains — Banned in D.C."],
+
+    "Pop": ["Michael Jackson — Billie Jean", "ABBA — Dancing Queen", "Dua Lipa — Don't Start Now"],
+    "K-pop": ["BLACKPINK — DDU-DU DDU-DU", "NewJeans — Ditto"],
+    "Hyperpop": ["SOPHIE — Immaterial", "100 gecs — money machine"],
+    "Synthpop": ["New Order — Blue Monday", "Depeche Mode — Just Can't Get Enough"],
+    "Indie pop": ["Beach House — Space Song", "Alvvays — Archie, Marry Me"],
+
+    "Folk / Chanson": ["Bob Dylan — Blowin' in the Wind", "Georges Brassens — Les Copains d'abord", "Nick Drake — Pink Moon"],
+    "Ballade française": ["Jacques Brel — Ne me quitte pas", "Barbara — L'Aigle noir"],
+    "Americana": ["Johnny Cash — Hurt", "Gillian Welch — Time (The Revelator)"],
+    "Folk psychédélique": ["The Incredible String Band — A Very Cellular Song", "Vashti Bunyan — Diamond Day"],
+
+    "Jazz": ["Miles Davis — So What", "John Coltrane — Giant Steps", "Dave Brubeck — Take Five"],
+    "Jazz fusion": ["Weather Report — Birdland", "Herbie Hancock — Chameleon"],
+    "Nu-jazz": ["St Germain — Rose Rouge", "Yussef Kamaal — Strings of Light"],
+    "Bossa nova": ["Stan Getz & João Gilberto — The Girl from Ipanema", "Antônio Carlos Jobim — Corcovado"],
+    "Jazz manouche": ["Django Reinhardt — Minor Swing", "Biréli Lagrène — Nuages"],
+
+    "Funk / Disco": ["James Brown — Funky Drummer", "Chic — Good Times", "Parliament — Flash Light"],
+    "Funk psychédélique": ["Funkadelic — Maggot Brain", "Sly & the Family Stone — Thank You"],
+    "Disco": ["Donna Summer — I Feel Love", "Sister Sledge — He's the Greatest Dancer"],
+    "Baile funk": ["MC Fioti — Bum Bum Tam Tam", "Anitta — Vai Malandra"],
+
+    "Ambient / Expérimental": ["Brian Eno — Music for Airports", "Aphex Twin — Selected Ambient Works Vol. II", "Stars of the Lid — Requiem for Dying Mothers"],
+    "Drone": ["Sunn O))) — Aghartha", "Éliane Radigue — Trilogie de la Mort"],
+    "Musique concrète": ["Pierre Schaeffer — Étude aux chemins de fer", "Pierre Henry — Variations pour une porte et un soupir"],
+    "Field recording": ["Chris Watson — El Tren Fantasma", "Francisco López — La Selva"],
+    "Neoclassique": ["Nils Frahm — Says", "Max Richter — On the Nature of Daylight"],
+    "Glitch": ["Oval — Do While", "Alva Noto — Xerrox"],
+    "IDM": ["Aphex Twin — Windowlicker", "Boards of Canada — Roygbiv"],
+    "Musique de film": ["Ennio Morricone — The Ecstasy of Gold", "Vangelis — Blade Runner Blues"],
+
+    "Industrial": ["Throbbing Gristle — Hamburger Lady", "Einstürzende Neubauten — Halber Mensch", "Nine Inch Nails — Head Like a Hole"],
+    "EBM": ["Front 242 — Headhunter", "Nitzer Ebb — Join in the Chant"],
+    "Darkwave": ["The Sisters of Mercy — Lucretia My Reflection", "Dead Can Dance — Severance"],
+
+    "Synthwave": ["Kavinsky — Nightcall", "Com Truise — Brokendate", "Carpenter Brut — Turbo Killer"],
+    "Vaporwave": ["Macintosh Plus — リサフランク420 / 現代のコンピュー", "Saint Pepsi — Enjoy Yourself"],
+    "Chiptune": ["Anamanaguchi — Meow", "Chipzel — Focus"],
+
+    "Afrobeat": ["Fela Kuti — Water No Get Enemy", "Tony Allen — Asiko", "Antibalas — Dirty Money"],
+    "Highlife électronique": ["Ebo Taylor — Love and Death", "Pat Thomas — Yamona"],
+    "Amapiano": ["Kabza De Small & DJ Maphorisa — Sponono", "Focalistic — Ke Star"],
+    "Cumbia digitale": ["Bomba Estéreo — Fuego", "Chancha Vía Circuito — Quimey Neuquén"],
+
+    "Hardcore / Rave": ["Rotterdam Termination Source — Poing", "The Prodigy — Charly", "Lenny Dee — Forgotten Moments"],
+    "Hardtek": ["Dr Peacock — Trip to Paris", "Radium — Bad Trip"],
+    "Tribe": ["Micropoint — Neurotoxine", "Le Bask — Tribalizer"],
+    "Gabber": ["Neophyte — Braincrackin'", "Angerfist — Raise Your Fist"]
+  };
+
+  // Grilles rythmiques de départ sur 16 pas (1 mesure en doubles-croches).
+  // 'x' = frappe, '-' = silence. Volontairement simples : c'est un point de
+  // départ à déformer, pas une transcription.
+  const GROOVES = {
+    four_floor: {label:"Four-on-the-floor", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Clap",   steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    techno_drive: {label:"Techno droite", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Clap",   steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    two_step: {label:"2-step garage", rows:[
+      {name:"Kick",   steps:"x-----x-x-------"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    gqom_broken: {label:"Gqom cassé", rows:[
+      {name:"Kick",   steps:"x--x--x---x-----"},
+      {name:"Snare",  steps:"--------x-------"},
+      {name:"Perc",   steps:"----x-------x---"}
+    ]},
+    dnb_two_step: {label:"Drum & bass 2-step", rows:[
+      {name:"Kick",   steps:"x---------x-----"},
+      {name:"Snare",  steps:"--------x-------"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    footwork_triplet: {label:"Footwork", rows:[
+      {name:"Kick",   steps:"x--x--x--x--x--x"},
+      {name:"Clap",   steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    half_time: {label:"Demi-tempo (dubstep)", rows:[
+      {name:"Kick",   steps:"x-------x--x----"},
+      {name:"Snare",  steps:"--------x-------"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    boom_bap: {label:"Boom bap", rows:[
+      {name:"Kick",   steps:"x------x-x------"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    trap_rolls: {label:"Trap (hats roulés)", rows:[
+      {name:"808",    steps:"x-----x---x-----"},
+      {name:"Clap",   steps:"--------x-------"},
+      {name:"Hi-hat", steps:"x-x-x-xxx-x-x-xx"}
+    ]},
+    one_drop: {label:"One drop (reggae)", rows:[
+      {name:"Kick",   steps:"--------x-------"},
+      {name:"Rimshot",steps:"--------x-------"},
+      {name:"Skank",  steps:"--x---x---x---x-"}
+    ]},
+    ska_offbeat: {label:"Ska (contretemps)", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Skank",  steps:"--x---x---x---x-"}
+    ]},
+    dembow: {label:"Dembow", rows:[
+      {name:"Kick",   steps:"x-------x-------"},
+      {name:"Snare",  steps:"---x--x----x--x-"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    rock_backbeat: {label:"Backbeat rock", rows:[
+      {name:"Kick",   steps:"x---------x-----"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    punk_fast: {label:"Punk (rapide)", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    pop_gated: {label:"Pop (backbeat large)", rows:[
+      {name:"Kick",   steps:"x-------x-------"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    funk_syncope: {label:"Funk syncopé", rows:[
+      {name:"Kick",   steps:"x--x--x---x-x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Hi-hat", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    disco_four: {label:"Disco", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Open hat",steps:"--x---x---x---x-"}
+    ]},
+    baile_funk: {label:"Baile funk", rows:[
+      {name:"Kick",   steps:"x--x----x--x----"},
+      {name:"Snare",  steps:"---x--x----x--x-"},
+      {name:"Perc",   steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    jazz_swing: {label:"Swing (ternaire)", rows:[
+      {name:"Kick",   steps:"x-------x-------"},
+      {name:"Balais", steps:"----x-------x---"},
+      {name:"Ride",   steps:"x--xx-x--xx-x--x"}
+    ]},
+    bossa: {label:"Bossa nova", rows:[
+      {name:"Kick",   steps:"x--x--x---x--x--"},
+      {name:"Clave",  steps:"--x-x---x-x-x---"},
+      {name:"Balais", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    afrobeat: {label:"Afrobeat", rows:[
+      {name:"Kick",   steps:"x--x----x--x----"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Shaker", steps:"x-xx-x-xx-x-xx-x"}
+    ]},
+    amapiano: {label:"Amapiano", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Log drum",steps:"------x-----x-x-"},
+      {name:"Shaker", steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    cumbia: {label:"Cumbia", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Guacharaca",steps:"x-xx-x-xx-x-xx-x"},
+      {name:"Clave",  steps:"--x---x-x-------"}
+    ]},
+    industrial_ebm: {label:"EBM / industriel", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Snare",  steps:"----x-------x---"},
+      {name:"Métal",  steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    gabber: {label:"Gabber / hardcore", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Kick off",steps:"--x---x---x---x-"},
+      {name:"Crash",  steps:"x---------------"}
+    ]},
+    hardtek_tribe: {label:"Hardtek / tribe", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Tribal", steps:"--xx--x---xx--x-"},
+      {name:"Hi-hat", steps:"--x---x---x---x-"}
+    ]},
+    chiptune: {label:"Chiptune", rows:[
+      {name:"Kick",   steps:"x---x---x---x---"},
+      {name:"Noise",  steps:"----x-------x---"},
+      {name:"Arp",    steps:"x-x-x-x-x-x-x-x-"}
+    ]},
+    ambient_none: {label:"Sans batterie", rows:[]}
+  };
+
+  // Style → grille rythmique. Les sous-genres n'apparaissent que s'ils
+  // s'écartent vraiment du groove de leur style parent.
+  const GROOVE_OF = {
+    "House":"four_floor", "Deep house":"four_floor", "UK garage":"two_step", "Gqom":"gqom_broken", "Tech house":"four_floor",
+    "Techno":"techno_drive", "Techno minimale":"techno_drive", "Techno acide":"techno_drive", "Techno industrielle":"industrial_ebm",
+    "Drum & Bass":"dnb_two_step", "Jungle":"dnb_two_step", "Liquid funk":"dnb_two_step", "Neurofunk":"dnb_two_step", "Footwork":"footwork_triplet",
+    "Dubstep":"half_time", "Riddim":"half_time", "Future garage":"two_step", "Brostep":"half_time",
+    "Hip-Hop":"boom_bap", "Drill":"trap_rolls", "Boom bap":"boom_bap", "Cloud rap":"trap_rolls", "Grime":"two_step", "Lo-fi hip-hop":"boom_bap",
+    "Trip-hop":"boom_bap",
+    "Trap":"trap_rolls", "Phonk":"trap_rolls", "Rage":"trap_rolls", "Trap latino":"dembow",
+    "Reggae":"one_drop", "Ska":"ska_offbeat", "Dancehall":"dembow", "Reggaeton":"dembow",
+    "Dub":"one_drop", "Dub techno":"four_floor",
+    "Rock":"rock_backbeat", "Shoegaze":"rock_backbeat", "Post-rock":"rock_backbeat", "Krautrock":"techno_drive", "Grunge":"rock_backbeat",
+    "Punk":"punk_fast", "Punk californien":"punk_fast", "Post-punk":"rock_backbeat", "Hardcore punk":"punk_fast",
+    "Pop":"pop_gated", "K-pop":"pop_gated", "Hyperpop":"trap_rolls", "Synthpop":"pop_gated", "Indie pop":"rock_backbeat",
+    "Folk / Chanson":"pop_gated", "Ballade française":"pop_gated", "Americana":"rock_backbeat", "Folk psychédélique":"pop_gated",
+    "Jazz":"jazz_swing", "Jazz fusion":"funk_syncope", "Nu-jazz":"funk_syncope", "Bossa nova":"bossa", "Jazz manouche":"jazz_swing",
+    "Funk / Disco":"funk_syncope", "Funk psychédélique":"funk_syncope", "Disco":"disco_four", "Baile funk":"baile_funk",
+    "Ambient / Expérimental":"ambient_none", "Drone":"ambient_none", "Musique concrète":"ambient_none", "Field recording":"ambient_none",
+    "Neoclassique":"ambient_none", "Glitch":"footwork_triplet", "IDM":"footwork_triplet", "Musique de film":"ambient_none",
+    "Industrial":"industrial_ebm", "EBM":"industrial_ebm", "Darkwave":"pop_gated",
+    "Synthwave":"pop_gated", "Vaporwave":"pop_gated", "Chiptune":"chiptune",
+    "Afrobeat":"afrobeat", "Highlife électronique":"afrobeat", "Amapiano":"amapiano", "Cumbia digitale":"cumbia",
+    "Hardcore / Rave":"gabber", "Hardtek":"hardtek_tribe", "Tribe":"hardtek_tribe", "Gabber":"gabber"
+  };
+
+  // Familles de tonalités, pour que la gamme tirée reste crédible avec le style
+  // (avant, un « Phonk » pouvait tomber en lydien, ce qui n'a aucun sens).
+  const KEY_POOLS = {
+    clubMinor: ["Do mineur", "La mineur naturel", "Fa# mineur mélodique", "Ré dorien", "Do# mineur harmonique"],
+    darkModal: ["Mi phrygien", "Sol# phrygien dominant", "Do# mineur harmonique", "Mode octatonique (diminué)", "Do mineur"],
+    grooveModal: ["Ré dorien", "Sol mixolydien", "Do mineur pentatonique (blues)", "Sib majeur pentatonique", "Mib majeur"],
+    songMajor: ["Mib majeur", "Sib majeur pentatonique", "La mineur naturel", "Fa lydien", "Do mineur"],
+    jazzRich: ["Ré dorien", "Sol mixolydien", "Mib majeur", "Fa# mineur mélodique", "Ré majeur harmonique"],
+    experimental: ["Gamme par tons (whole tone)", "Gamme chromatique libre", "Microtonalité (quarts de ton)", "Mode octatonique (diminué)", "Fa lydien"],
+    cinematic: ["Do mineur", "La mineur naturel", "Fa lydien", "Ré majeur harmonique", "Mib majeur"]
+  };
+
+  const KEYPOOL_OF = {
+    "House":"clubMinor", "Deep house":"jazzRich", "UK garage":"clubMinor", "Gqom":"darkModal", "Tech house":"clubMinor",
+    "Techno":"clubMinor", "Techno minimale":"clubMinor", "Techno acide":"darkModal", "Techno industrielle":"darkModal",
+    "Drum & Bass":"clubMinor", "Jungle":"clubMinor", "Liquid funk":"jazzRich", "Neurofunk":"darkModal", "Footwork":"clubMinor",
+    "Dubstep":"darkModal", "Riddim":"darkModal", "Future garage":"clubMinor", "Brostep":"darkModal",
+    "Hip-Hop":"grooveModal", "Drill":"darkModal", "Boom bap":"grooveModal", "Cloud rap":"clubMinor", "Grime":"darkModal", "Lo-fi hip-hop":"jazzRich",
+    "Trip-hop":"clubMinor",
+    "Trap":"darkModal", "Phonk":"darkModal", "Rage":"darkModal", "Trap latino":"clubMinor",
+    "Reggae":"grooveModal", "Ska":"songMajor", "Dancehall":"grooveModal", "Reggaeton":"clubMinor",
+    "Dub":"grooveModal", "Dub techno":"clubMinor",
+    "Rock":"grooveModal", "Shoegaze":"songMajor", "Post-rock":"cinematic", "Krautrock":"grooveModal", "Grunge":"grooveModal",
+    "Punk":"songMajor", "Punk californien":"songMajor", "Post-punk":"clubMinor", "Hardcore punk":"darkModal",
+    "Pop":"songMajor", "K-pop":"songMajor", "Hyperpop":"songMajor", "Synthpop":"clubMinor", "Indie pop":"songMajor",
+    "Folk / Chanson":"songMajor", "Ballade française":"songMajor", "Americana":"grooveModal", "Folk psychédélique":"grooveModal",
+    "Jazz":"jazzRich", "Jazz fusion":"jazzRich", "Nu-jazz":"jazzRich", "Bossa nova":"jazzRich", "Jazz manouche":"jazzRich",
+    "Funk / Disco":"grooveModal", "Funk psychédélique":"grooveModal", "Disco":"songMajor", "Baile funk":"clubMinor",
+    "Ambient / Expérimental":"experimental", "Drone":"experimental", "Musique concrète":"experimental", "Field recording":"experimental",
+    "Neoclassique":"cinematic", "Glitch":"experimental", "IDM":"experimental", "Musique de film":"cinematic",
+    "Industrial":"darkModal", "EBM":"darkModal", "Darkwave":"clubMinor",
+    "Synthwave":"clubMinor", "Vaporwave":"jazzRich", "Chiptune":"songMajor",
+    "Afrobeat":"grooveModal", "Highlife électronique":"grooveModal", "Amapiano":"jazzRich", "Cumbia digitale":"songMajor",
+    "Hardcore / Rave":"darkModal", "Hardtek":"darkModal", "Tribe":"darkModal", "Gabber":"darkModal"
+  };
+
+  const MOODS = [
+    "Mélancolique", "Euphorique", "Hypnotique", "Anxieux", "Onirique",
+    "Agressif", "Nostalgique", "Méditatif", "Chaotique", "Sensuel",
+    "Épique", "Minimaliste", "Claustrophobe", "Lumineux", "Menaçant",
+    "Ludique", "Solennel", "Flottant", "Urgent", "Introspectif",
+    "Joyeux", "Ringard"
+  ];
+
+  // Suites d'accords diatoniques réelles (pas aléatoires) pour chaque gamme,
+  // dérivées des degrés propres à chaque mode pour rester harmoniquement justes.
+  const KEYS = [
+    {name:"Do mineur", chords:["Cm → Ab → Eb → Bb", "Cm → Fm → Gm → Cm"]},
+    {name:"Ré dorien", chords:["Dm → G → Dm → C", "Dm → C → G → Dm"]},
+    {name:"Mi phrygien", chords:["Em → F → Em → F", "Em → F → G → Em"]},
+    {name:"Fa lydien", chords:["F → G → F → G", "F → G → C → F"]},
+    {name:"Sol mixolydien", chords:["G → F → C → G", "G → C → F → G"]},
+    {name:"La mineur naturel", chords:["Am → F → C → G", "Am → Dm → Em → Am"]},
+    {name:"Si locrien", chords:["C → Bdim → C → Bdim", "Bdim → F → C → Bdim"]},
+    {name:"Do# mineur harmonique", chords:["C#m → G# → C#m → A", "C#m → F#m → G# → C#m"]},
+    {name:"Mib majeur", chords:["Eb → Ab → Bb → Eb", "Eb → Cm → Ab → Bb"]},
+    {name:"Fa# mineur mélodique", chords:["F#m → B → C# → F#m", "F#m → G#m → C# → F#m"]},
+    {name:"Sol# phrygien dominant", chords:["G# → A → G# → A", "G# → F#m → A → G#"]},
+    {name:"Sib majeur pentatonique", chords:["Bb → F → Bb → F", "Bb → Dm → F → Gm"]},
+    {name:"Do mineur pentatonique (blues)", chords:["Cm → Fm → Cm → Gm", "Cm7 → Fm7 → Gm7 → Cm7"]},
+    {name:"Ré majeur harmonique", chords:["D → Gm → D → A", "D → Bb → A → D"]},
+    {name:"Gamme par tons (whole tone)", chords:["Caug → Daug → Caug → Daug", "Caug → Ebaug → Faug → Caug"]},
+    {name:"Gamme chromatique libre", chords:["Libre — mouvement chromatique par demi-tons, hors fonction tonale", "C → C#dim → D → D#dim (planage chromatique d'accords diminués)"]},
+    {name:"Microtonalité (quarts de ton)", chords:["Hors du tempérament occidental — pas d'accords fixes, joue sur les battements entre quarts de ton", "Privilégie les intervalles de quart de ton autour d'une note pivot plutôt qu'un accord"]},
+    {name:"Mode octatonique (diminué)", chords:["Cdim7 → Ebdim7 → Cdim7 → Ebdim7", "C7(b9) → Ebdim7 → C7(b9)"]}
+  ];
+
+  // Nom international (anglo-saxon) de chaque gamme : c'est la notation qu'on
+  // retrouve dans les DAW, les plugins et la plupart des tutos.
+  const KEYS_EN = {
+    "Do mineur": "C minor",
+    "Ré dorien": "D Dorian",
+    "Mi phrygien": "E Phrygian",
+    "Fa lydien": "F Lydian",
+    "Sol mixolydien": "G Mixolydian",
+    "La mineur naturel": "A natural minor",
+    "Si locrien": "B Locrian",
+    "Do# mineur harmonique": "C# harmonic minor",
+    "Mib majeur": "Eb major",
+    "Fa# mineur mélodique": "F# melodic minor",
+    "Sol# phrygien dominant": "G# Phrygian dominant",
+    "Sib majeur pentatonique": "Bb major pentatonic",
+    "Do mineur pentatonique (blues)": "C minor pentatonic (blues)",
+    "Ré majeur harmonique": "D harmonic major",
+    "Gamme par tons (whole tone)": "Whole tone",
+    "Gamme chromatique libre": "Free chromatic",
+    "Microtonalité (quarts de ton)": "Quarter-tone microtonal",
+    "Mode octatonique (diminué)": "Octatonic (diminished)"
+  };
+
+  // Théorie minimale pour dessiner les accords sur un clavier : demi-tons depuis
+  // la fondamentale, par type d'accord.
+  const NOTE_TO_SEMITONE = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+  const CHORD_FORMULAS = {
+    "":      [0, 4, 7],        // majeur
+    "m":     [0, 3, 7],
+    "m7":    [0, 3, 7, 10],
+    "7":     [0, 4, 7, 10],
+    "7(b9)": [0, 4, 7, 10, 1], // la b9 revient à la même classe de hauteur que le demi-ton
+    "aug":   [0, 4, 8],
+    "dim":   [0, 3, 6],
+    "dim7":  [0, 3, 6, 9]
+  };
+  // Une octave : 12 demi-tons, et lesquels sont des touches noires.
+  const BLACK_KEYS = [1, 3, 6, 8, 10];
+
+  const STRUCTURES = [
+    "Boucle hypnotique qui évolue lentement, sans section marquée",
+    "Intro atmosphérique → montée progressive → chute brutale",
+    "Couplet / refrain classique, mais détourné",
+    "Un seul crescendo continu du début à la fin",
+    "Collage de fragments courts (30 secondes maximum chacun)",
+    "Appel-réponse entre deux textures opposées",
+    "Rondo : un thème revient entre des sections contrastées",
+    "Décroissance progressive vers le silence total",
+    "Boucle qui se déphase lentement (process music, à la Steve Reich)",
+    "Tension qui monte mais n'est jamais totalement résolue"
+  ];
+
+  const INSTRUMENTS = [
+    "synthé analogique", "boîte à rythmes 808", "sample vinyle", "voix chuchotée",
+    "field recording urbain", "guitare saturée", "piano préparé", "basse sub",
+    "cordes pizzicato", "cuivres samplés", "percussions trouvées (objets du quotidien)",
+    "texture granulaire", "orgue Hammond", "thérémine", "kalimba", "boîte à musique",
+    "bruit blanc filtré", "cloches tubulaires", "batterie acoustique feutrée",
+    "chœurs pitchés", "clics et glitchs numériques", "souffle de bande (tape hiss)",
+    "patch de synthé modulaire", "vocodeur", "bols tibétains"
+  ];
+
+  // Contrainte creative principale : la regle du jeu, ce que tu t'autorises ou non.
+  const CONSTRAINTS = [
+    "N'utilise que 3 sons ou instruments maximum, pas un de plus.",
+    "Aucune batterie ni percussion classique n'est autorisée.",
+    "Le morceau doit tenir en une seule prise, sans coupe ni retouche.",
+    "Utilise un instrument que tu ne maîtrises pas encore.",
+    "Toute la rythmique doit venir d'objets du quotidien.",
+    "Interdiction de reverb et de delay.",
+    "La basse ne doit jamais jouer la fondamentale de l'accord.",
+    "Compose le morceau à l'envers : écris la fin en premier.",
+    "Une seule note peut être répétée à l'infini, construis tout autour.",
+    "Le silence doit occuper au moins 20% de la durée totale.",
+    "Utilise un sample vocal détourné de son sens d'origine.",
+    "Change de tempo au moins une fois, sans transition.",
+    "Tout doit être écrit et enregistré en moins de 20 minutes.",
+    "Aucun instrument ne doit sonner comme il le devrait (détourne-le).",
+    "La mélodie principale doit pouvoir être fredonnée a cappella.",
+    "Utilise un bug, une erreur ou un accident comme élément central.",
+    "Pas d'intro ni d'outro : seulement une boucle qui commence déjà en cours.",
+    "Chaque son doit passer par un effet de distorsion, même léger.",
+    "Emprunte le rythme d'une phrase parlée (prosodie) pour la mélodie.",
+    "Un seul accord pour tout le morceau.",
+    "Enregistre au moins un son à l'extérieur, tel quel.",
+    "La durée des sections doit suivre une suite de Fibonacci.",
+    "Aucun ordinateur : tout doit être analogique ou acoustique.",
+    "Écris le titre avant la musique, et laisse-le guider chaque choix.",
+    "Construis tout le morceau à partir d'un seul sample, sans jamais en ajouter un autre.",
+    "Un seul synthé pour tout : basse, lead, nappes et percussions comprises.",
+    "Interdiction des plugins tiers : uniquement ceux fournis avec ton logiciel.",
+    "Tous les sons doivent venir d'enregistrements que tu as faits toi-même.",
+    "Limite-toi à dix pistes maximum, batterie comprise.",
+    "Décide la durée exacte du morceau avant la première note, et tiens-la.",
+    "Le morceau doit tenir en moins de 90 secondes.",
+    "Compose dans une signature rythmique que tu n'utilises jamais (5/4, 7/8, 12/8).",
+    "Rejoue chaque partie en live plutôt que de dessiner les notes à la souris.",
+    "Une seule idée principale et deux éléments de soutien, pas un de plus.",
+    "Recrée de mémoire un morceau que tu aimes, sans jamais le réécouter.",
+    "Reprends un projet abandonné et termine-le sans rien supprimer.",
+    "Commence par le refrain (ou le drop) et déduis tout le reste ensuite.",
+    "Aucune note ne doit être quantifiée.",
+    "Tout le morceau tient sur une pédale : une note de basse qui ne change jamais.",
+    "La mélodie ne doit utiliser que trois notes différentes.",
+    "Aucun intervalle plus grand qu'une tierce dans la mélodie principale.",
+    "Écris la ligne de basse en premier, tout le reste en découle.",
+    "La batterie et la mélodie ne doivent jamais jouer en même temps.",
+    "Chaque section doit retirer un élément au lieu d'en ajouter.",
+    "Trouve le rythme en le tapant ou en le chantant avant de toucher un instrument.",
+    "Aucun son ne doit durer plus d'une seconde.",
+    "Le morceau doit fonctionner aussi bien à moitié tempo qu'à tempo normal.",
+    "Utilise uniquement des sons inversés.",
+    "Interdiction de copier-coller : rejoue chaque répétition à la main.",
+    "Aucune note tenue : uniquement des attaques courtes.",
+    "Compose entièrement en mono, aucun élément à gauche ou à droite.",
+    "Prends le tempo d'un objet réel autour de toi (ventilateur, pas dans la rue, essuie-glaces).",
+    "Une seule boucle de deux mesures, que tu fais évoluer pendant tout le morceau.",
+    "Aucun élément ne doit se répéter deux fois exactement à l'identique.",
+    "Le morceau doit pouvoir être joué en entier par une seule personne, en direct.",
+    "Interdiction de préréglages : construis chaque son depuis une onde brute.",
+    "La partie la plus intéressante doit être l'élément le plus discret du mix.",
+    "Chaque instrument entre l'un après l'autre, jamais deux en même temps.",
+    "Compose à un tempo extrême pour ton style : moitié ou double de ton habitude.",
+    "Le morceau doit contenir un passage où tout s'arrête pendant deux mesures au moins.",
+    "Choisis un morceau que tu détestes et vole-lui une seule idée.",
+    "Utilise une gamme que tu n'as jamais employée.",
+    "Le morceau doit rester écoutable si on coupe toutes les basses fréquences.",
+    "Enregistre une prise vocale, même si tu ne chantes pas, et intègre-la.",
+    "La percussion principale ne doit être ni une caisse claire ni un clap.",
+    "Interdiction d'accords majeurs (ou de mineurs, à toi de choisir).",
+    "Toute l'harmonie tient en deux accords, pas un de plus.",
+    "Le morceau démarre directement sur son moment le plus intense.",
+    "Sample ta propre voix et n'utilise qu'elle comme source sonore.",
+    "Aucune note ne doit tomber pile sur le temps.",
+    "Chaque son doit être resamplé au moins une fois avant d'entrer dans le morceau.",
+    "Compose en imaginant une écoute sur un seul petit haut-parleur de téléphone.",
+    "Interdiction de regarder l'écran pendant les dix premières minutes.",
+    "Garde une erreur volontaire du début à la fin, sans jamais la corriger.",
+    "Superpose deux boucles de longueurs différentes (par exemple 3 et 4 mesures).",
+    "Fais dialoguer deux éléments en appel-réponse du début à la fin.",
+    "Construis toute la mélodie avec les seules notes d'un unique accord.",
+    "Un seul son percussif, décliné de toutes les manières possibles.",
+    "Le morceau change complètement de caractère à mi-parcours, sans changer de tempo.",
+    "Compose en regardant une photo précise, et ne la quitte pas des yeux.",
+    "Aucun élément ne doit occuper plus de la moitié de la durée du morceau."
+  ];
+
+  // Contraintes optionnelles, axées production/technique — pensées pour ne pas
+  // contredire la contrainte principale ni les contraintes narratives ci-dessous.
+  const CONSTRAINTS_TECH = [
+    "Mixe le morceau uniquement au casque, jamais sur enceintes.",
+    "N'utilise aucun égaliseur (EQ) sur aucune piste.",
+    "Toutes les pistes doivent partager le même effet de reverb.",
+    "Exporte et réimporte chaque son en basse qualité avant de l'utiliser.",
+    "Aucune automation : tout doit être joué ou réglé en temps réel.",
+    "Limite-toi à un seul plugin ou une seule pédale d'effet pour tout le morceau.",
+    "Enregistre chaque piste en une seule prise, sans annuler (undo).",
+    "Utilise le même micro pour capter tous les sons, même les synthés, en repiquage.",
+    "Le morceau doit pouvoir être joué en live par une seule personne.",
+    "Inverse la balance stéréo à mi-parcours du morceau.",
+    "Découpe le morceau en boucles de 2 minutes maximum, même s'il dure plus longtemps.",
+    "Fais tout le mixage à un volume très bas, du début à la fin.",
+    "N'utilise que des presets d'usine, jamais réglés ni personnalisés.",
+    "Exporte aussi une version mono, et vérifie qu'elle fonctionne aussi bien.",
+    "N'utilise qu'un seul micro pour tout l'enregistrement, jamais deux en même temps.",
+    "Toute réverbération doit provenir d'une vraie pièce, jamais d'un plugin.",
+    "Limite le morceau à 8 pistes maximum, tout instrument confondu.",
+    "N'utilise que des sons enregistrés par toi-même, aucun sample extérieur.",
+    "Mixe uniquement sur des enceintes, jamais au casque.",
+    "Chaque piste doit être enregistrée d'une traite, sans montage ni coupe.",
+    "Utilise la même réverbération sur absolument toutes les pistes, sans exception.",
+    "N'ajoute aucune compression sur le mixage final.",
+    "Travaille exclusivement avec des instruments virtuels, aucun son capté en réel.",
+    "Joue toutes les notes avec un vrai contrôleur ou instrument, jamais à la souris.",
+    "N'utilise pas de métronome : cale-toi uniquement à l'oreille.",
+    "Exporte le morceau, puis remixe-le uniquement à partir de cet export.",
+    "Travaille avec un seul haut-parleur, jamais en stéréo, jusqu'au mixage final.",
+    "Limite-toi à trois automations maximum sur tout le morceau.",
+    "N'utilise aucune fréquence en dessous de 80 Hz.",
+    "Chaque instrument doit occuper une bande de fréquence bien distincte, sans chevauchement.",
+    "Programme la batterie à la main, note par note, sans quantification.",
+    "Quantifie tout à la croche la plus proche, sans exception ni nuance.",
+    "N'utilise pas de fondu (fade in/out) : les sons commencent et s'arrêtent net.",
+    "Limite le mixage à trois plugins au total, tous instruments confondus.",
+    "Enregistre chaque prise dans une pièce différente.",
+    "N'utilise que des sons trouvés en une seule journée, rien de plus ancien.",
+    "Applique le même effet de saturation sur chaque piste, à des degrés différents.",
+    "Compose sans jamais écouter le morceau dans son intégralité avant la fin.",
+    "Chaque instrument ne peut être utilisé qu'une seule fois dans le morceau.",
+    "Utilise un seul type de synthé (analogique, virtuel ou logiciel) pour tout le morceau.",
+    "Le morceau doit tenir sur une seule piste stéréo exportée, sans repasser dessus.",
+    "N'utilise aucun effet stéréo : tout doit rester mono jusqu'à l'export final.",
+    "Travaille avec un budget de trois prises maximum par instrument, pas plus.",
+    "Compose dans le désordre : termine le morceau avant d'en écrire le début.",
+    "Change de logiciel ou d'outil à mi-parcours de la composition.",
+    "Utilise uniquement des presets, sans jamais toucher un seul paramètre.",
+    "Enregistre le morceau dans le noir complet, sans repère visuel.",
+    "Limite chaque piste à une durée de vie de 16 mesures maximum avant qu'elle change.",
+    "N'utilise aucun instrument que tu connais déjà : improvise avec quelque chose de nouveau.",
+    "Grave une prise 'brouillon' complète avant toute retouche, et garde-la telle quelle.",
+    "Mixe le morceau les yeux fermés, en te fiant uniquement à l'oreille.",
+    "Chaque son doit passer par un appareil ou un objet non musical à la base (téléphone, jouet, objet du quotidien).",
+    "Limite le field recording ou l'enregistrement extérieur à un seul son central du morceau.",
+    "N'utilise aucun retour (monitoring) en temps réel : enregistre à l'aveugle et écoute seulement après.",
+    "Compose entièrement sur un temps limité de 10 minutes, chronométré.",
+    "Réutilise un son déjà présent dans un de tes anciens morceaux.",
+    "Exporte le morceau en basse résolution très compressée, et retravaille à partir de cet export dégradé.",
+    "Enregistre une prise témoin à la voix ou en chantant, même si tu ne l'utilises pas dans le morceau final.",
+    "Utilise uniquement des sons libres de droits que tu ne connais pas encore.",
+    "Ne dépasse jamais deux prises par instrument : la meilleure des deux tranche.",
+    "Le morceau ne doit contenir aucune piste de plus de 30 secondes, montées en boucle ou juxtaposées.",
+    "Compose sans repère de mesure ni de grille, au feeling uniquement.",
+    "Chaque effet ajouté doit être réévalué une fois le morceau terminé : garde seulement l'essentiel.",
+    "Enregistre le morceau dans un lieu inhabituel, différent de ton espace de travail habituel."
+  ];
+
+  // Contraintes optionnelles, axées récit/concept — un axe différent des
+  // contraintes techniques, pensé pour rester complémentaire, pas contradictoire.
+  // Deuxieme contrainte creative : un geste musical a appliquer sur ce que tu as deja.
+  const CONSTRAINTS_CREA2 = [
+    "Transforme ton motif principal en le jouant à l'envers.",
+    "Rejoue ta mélodie en inversant le sens de chaque intervalle, comme un miroir.",
+    "Double la durée de chaque note de ton thème et écoute ce que ça devient.",
+    "Divise par deux la durée de ton thème : mêmes notes, deux fois plus vite.",
+    "Décale ta mélodie d'un temps vers la droite sans rien changer d'autre.",
+    "Transpose une section entière d'un demi-ton vers le haut, sans prévenir.",
+    "Emprunte un accord à la gamme parallèle (majeure ↔ mineure).",
+    "Remplace un accord de ta grille par son relatif, en gardant la mélodie telle quelle.",
+    "Ajoute une seconde voix qui suit la mélodie en tierces.",
+    "Ajoute une contre-mélodie qui bouge quand la principale se tait.",
+    "Fais monter la basse pendant que la mélodie descend.",
+    "Garde exactement la même mélodie, mais change toute l'harmonie en dessous.",
+    "Rends le pont beaucoup plus dépouillé que tout le reste.",
+    "Coupe la première moitié de ton intro : commence directement là.",
+    "Retire l'élément dont tu es le plus fier et vois si le morceau tient debout.",
+    "Fais entrer la basse seulement à la moitié du morceau.",
+    "Termine le morceau brutalement, en pleine phrase.",
+    "Rends la dernière répétition différente de toutes les précédentes.",
+    "Prends l'élément principal et cache-le sous les autres.",
+    "Superpose ton refrain et ton couplet en même temps pour la fin.",
+    "Décale la caisse claire d'un demi-temps sur une section entière.",
+    "Ajoute un silence d'une mesure juste avant le moment le plus fort.",
+    "Fais commencer un élément avant la mesure, en anacrouse.",
+    "Transforme une nappe en percussion en la coupant très court.",
+    "Transforme une percussion en nappe en l'étirant à l'extrême.",
+    "Fais jouer le même motif par trois instruments, dans trois octaves différentes.",
+    "Enlève tous les hi-hats et écoute ce qui manque vraiment.",
+    "Remplace la mélodie principale par un rythme parlé.",
+    "Règle la vélocité de chaque note à la main, une par une.",
+    "Ajoute un élément qui ne joue qu'une seule fois dans tout le morceau.",
+    "Fais durer ta montée deux fois plus longtemps que ce qui te semble raisonnable.",
+    "Répète une section une fois de plus que le confortable.",
+    "Écoute le morceau très bas et garde uniquement ce que tu entends encore.",
+    "Écoute-le depuis la pièce d'à côté, porte ouverte, et note ce qui ressort.",
+    "Compare-le à un morceau de référence, puis exagère la différence principale.",
+    "Chante par-dessus ce que tu as, puis transcris ce que tu as chanté.",
+    "Rejoue toutes tes parties à l'oreille, sans regarder la grille.",
+    "Descends tout à zéro et remonte les éléments un par un, par ordre d'importance.",
+    "Donne-toi dix minutes pour terminer l'arrangement, dans l'état où il sera.",
+    "Décide que le morceau est fini maintenant, et ne t'occupe plus que du mix.",
+    "Sauvegarde, puis fais une version volontairement excessive de tout.",
+    "Fais une seconde version du morceau, deux fois plus courte.",
+    "Fais une version complète sans aucune percussion.",
+    "Change le tempo de dix BPM et réécoute avant de trancher.",
+    "Inverse les rôles : la basse prend le lead, le lead passe à la basse.",
+    "Prends ton élément le plus fort et réduis-le à une simple texture de fond.",
+    "Fais démarrer chaque section par un son qu'on n'entend nulle part ailleurs.",
+    "Module : change de tonalité pour la dernière partie.",
+    "Garde la même progression mais commence-la sur un autre accord.",
+    "Termine sur un accord qui n'est pas la tonique.",
+    "Ajoute une dissonance volontaire et ne la résous jamais.",
+    "Fais chevaucher la fin d'une section et le début de la suivante.",
+    "Retire toute la réverbération d'un élément pour le coller à l'oreille.",
+    "Éloigne un élément très loin, comme s'il venait d'une autre pièce.",
+    "Fais jouer un élément légèrement en avance sur le temps, tout du long.",
+    "Laisse un instrument jouer un peu faux, exprès.",
+    "Ajoute un accompagnement qui ne suit pas la pulsation principale.",
+    "Fais respirer l'arrangement : une mesure sur quatre, tout s'allège.",
+    "Construis une montée uniquement en retirant des éléments.",
+    "Écris en une phrase ce que le morceau doit faire ressentir, puis coupe tout ce qui n'y sert pas.",
+    "Fais écouter la boucle à quelqu'un et garde sa toute première réaction.",
+    "Enregistre-toi en train de fredonner l'idée avant de la produire.",
+    "Prends une seule mesure du morceau et fais-en le morceau entier.",
+    "Fais une pause de cinq minutes en silence complet, puis réécoute.",
+    "Joue ta mélodie une octave plus bas et vois si elle tient encore.",
+    "Remplace un instrument par le plus improbable de ta bibliothèque.",
+    "Fais durer le dernier accord jusqu'à ce que ça devienne inconfortable.",
+    "Ajoute une réponse rythmique qui contredit le motif principal.",
+    "Étire un son court jusqu'à en faire un décor complet.",
+    "Coupe le morceau en deux et échange l'ordre des deux moitiés."
+  ];
+
+  const els = {
+    generateBtn: document.getElementById('generateBtn'),
+    copyBtn: document.getElementById('copyBtn'),
+    linkBtn: document.getElementById('linkBtn'),
+    seedValue: document.getElementById('seedValue'),
+    downloadBtn: document.getElementById('downloadBtn'),
+    favBtn: document.getElementById('favBtn'),
+    grid: document.getElementById('cardsGrid'),
+    historyList: document.getElementById('historyList'),
+    historyCount: document.getElementById('historyCount'),
+    favList: document.getElementById('favList'),
+    favCount: document.getElementById('favCount'),
+    toast: document.getElementById('toast'),
+    chipsGrid: document.getElementById('chipsGrid'),
+    prefsCount: document.getElementById('prefsCount'),
+    prefsClear: document.getElementById('prefsClear'),
+    prefsPanel: document.getElementById('prefsPanel'),
+    prefsToggle: document.getElementById('prefsToggle'),
+    prefsTitle: document.getElementById('prefsTitle'),
+    bpmToggle: document.getElementById('bpmToggle'),
+    bpmCard: document.querySelector('.card[data-key="bpm"]'),
+    metroSoundToggle: document.getElementById('metroSoundToggle'),
+    chronoToggle: document.getElementById('chronoToggle'),
+    chronoText: document.querySelector('.chrono-text'),
+    chronoMaxInput: document.getElementById('chronoMaxInput'),
+    chronoReset: document.getElementById('chronoReset'),
+    styleRefs: document.getElementById('styleRefs'),
+    keyEn: document.getElementById('keyEn'),
+    chordKeys: document.getElementById('chordKeys'),
+    groovePanel: document.getElementById('groovePanel'),
+    grooveToggle: document.getElementById('grooveToggle'),
+    grooveTitle: document.getElementById('grooveTitle'),
+    grooveBadge: document.getElementById('grooveBadge'),
+    grooveGrid: document.getElementById('grooveGrid'),
+    chronoModeToggle: document.getElementById('chronoModeToggle'),
+    chronoMaxSimple: document.getElementById('chronoMaxSimple'),
+    chronoMaxStaged: document.getElementById('chronoMaxStaged'),
+    chronoStageLabel: document.getElementById('chronoStageLabel'),
+    chronoStageDots: document.getElementById('chronoStageDots'),
+    techPanel: document.getElementById('techPanel'),
+    techToggle: document.getElementById('techToggle'),
+    techTitle: document.getElementById('techTitle'),
+    techValue: document.getElementById('techValue'),
+    techReroll: document.getElementById('techReroll'),
+    crea2Panel: document.getElementById('crea2Panel'),
+    crea2Toggle: document.getElementById('crea2Toggle'),
+    crea2Title: document.getElementById('crea2Title'),
+    crea2Value: document.getElementById('crea2Value'),
+    crea2Reroll: document.getElementById('crea2Reroll'),
+    chordToggle: document.getElementById('chordToggle'),
+    chordText: document.querySelector('.chord-text'),
+    chordDots: document.getElementById('chordDots')
+  };
+
+  const LOCKS = { style:false, bpm:false, key:false, mood:false, structure:false, instruments:false, constraint:false };
+  let state = { styleObj:null, style:"", styleDesc:"", bpm:"", key:"", keyObj:null, chordIndex:0, mood:"", structure:"", instruments:[], constraint:"", styleRefs:[], grooveKey:"four_floor", keyPool:null };
+
+  const HISTORY_KEY = "glitch_inspi_history";
+  const FAV_KEY = "glitch_inspi_favorites";
+  const PREFS_KEY = "glitch_inspi_prefs";
+  const PREFS_OPEN_KEY = "glitch_inspi_prefs_open";
+  const PREFS = new Set();
+
+  function randomItem(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  // ---- tirage sans remise (bag shuffle) ----
+  // Chaque liste garde un "sac" mélangé : on pioche dedans jusqu'à épuisement
+  // avant de le regarnir, pour ne pas retomber trois fois sur la même entrée
+  // dans une session. Le remélange évite qu'un même élément se répète sur la
+  // charnière entre deux sacs.
+  const BAGS = new Map();
+
+  function shuffled(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function drawFrom(key, pool){
+    if(!pool.length) return undefined;
+    let bag = BAGS.get(key);
+    if(!bag || !bag.items.length || bag.size !== pool.length){
+      const fresh = shuffled(pool);
+      if(bag && bag.last !== undefined && fresh.length > 1 && fresh[0] === bag.last){
+        [fresh[0], fresh[fresh.length-1]] = [fresh[fresh.length-1], fresh[0]];
+      }
+      bag = { items: fresh, size: pool.length, last: bag ? bag.last : undefined };
+      BAGS.set(key, bag);
+    }
+    const picked = bag.items.pop();
+    bag.last = picked;
+    return picked;
+  }
+
+  function randomInstrumentsList(){
+    const picked = [];
+    const seen = new Set();
+    let guard = 0;
+    while(picked.length < 3 && guard < 50){
+      const item = drawFrom('instruments', INSTRUMENTS);
+      if(!seen.has(item)){ seen.add(item); picked.push(item); }
+      guard++;
+    }
+    return picked;
+  }
+
+  function formatBpm(styleObj){
+    const range = styleObj.bpm;
+    if(range[0]===0 && range[1]===0) return "Libre / rubato (sans tempo fixe)";
+    const val = Math.floor(Math.random()*(range[1]-range[0]+1))+range[0];
+    return val + " BPM";
+  }
+
+  function mergeBpmRanges(r1, r2){
+    const free1 = r1[0]===0 && r1[1]===0;
+    const free2 = r2[0]===0 && r2[1]===0;
+    if(free1 || free2) return [0,0];
+    const interLo = Math.max(r1[0], r2[0]);
+    const interHi = Math.min(r1[1], r2[1]);
+    if(interLo <= interHi) return [interLo, interHi];
+    return [Math.min(r1[0], r2[0]), Math.max(r1[1], r2[1])];
+  }
+
+  function lowerFirst(str){
+    return str.length ? str.charAt(0).toLowerCase() + str.slice(1) : str;
+  }
+
+  // ---- metronome ----
+  let audioCtx = null;
+  const metronome = { timerId: null, beatCount: 0 };
+
+  function ensureAudioCtx(){
+    if(!audioCtx){
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if(!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playClick(accent){
+    const ctx = ensureAudioCtx();
+    if(!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = accent ? 1500 : 950;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.07);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.08);
+  }
+
+  function parseBpmValue(){
+    const m = /(\d+)\s*BPM/.exec(state.bpm);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  function setBpmIcon(showPlay){
+    const use = els.bpmToggle.querySelector('.bpm-icon use');
+    use.setAttribute('href', showPlay ? '#i-play' : '#i-pause');
+  }
+
+  function pulseBeat(){
+    els.bpmToggle.classList.remove('beat');
+    void els.bpmToggle.offsetWidth;
+    els.bpmToggle.classList.add('beat');
+  }
+
+  let metronomeSoundOn = false;
+
+  function startMetronome(){
+    const bpmVal = parseBpmValue();
+    if(!bpmVal){ showToast('Pas de tempo fixe pour ce style'); return; }
+    const intervalMs = 60000 / bpmVal;
+    metronome.beatCount = 0;
+    const tick = ()=>{
+      if(metronomeSoundOn) playClick(metronome.beatCount % 4 === 0);
+      pulseBeat();
+      metronome.beatCount++;
+    };
+    tick();
+    metronome.timerId = setInterval(tick, intervalMs);
+    els.bpmToggle.classList.add('playing');
+    els.bpmCard.classList.add('metronome-active');
+    setBpmIcon(false);
+  }
+
+  function stopMetronome(){
+    if(metronome.timerId){
+      clearInterval(metronome.timerId);
+      metronome.timerId = null;
+    }
+    if(els.bpmToggle){
+      els.bpmToggle.classList.remove('playing');
+      setBpmIcon(true);
+    }
+    if(els.bpmCard) els.bpmCard.classList.remove('metronome-active');
+  }
+
+  // ---- chrono (independent work-session timer, unaffected by regeneration) ----
+  const CHRONO_STAGES_PRESET = [
+    { label: 'Sound design', min: 10 },
+    { label: 'Beat', min: 15 },
+    { label: 'Arrangement', min: 10 }
+  ];
+  const CHRONO_STAGED_KEY = "glitch_inspi_chrono_staged";
+  const chrono = { intervalId: null, elapsedSec: 0, running: false, staged: false, stageIndex: 0 };
+
+  function getChronoMaxSeconds(){
+    const val = parseInt(els.chronoMaxInput.value, 10);
+    if(!val || val <= 0) return null;
+    return val * 60;
+  }
+
+  function stageBoundaries(){
+    let acc = 0;
+    return CHRONO_STAGES_PRESET.map(st=>{ acc += st.min * 60; return acc; });
+  }
+
+  function formatChronoTime(sec){
+    const m = String(Math.floor(sec / 60)).padStart(2, '0');
+    const s = String(Math.floor(sec % 60)).padStart(2, '0');
+    return m + ':' + s;
+  }
+
+  function setChronoIcon(showPlay){
+    const use = els.chronoToggle.querySelector('.chrono-icon use');
+    use.setAttribute('href', showPlay ? '#i-play' : '#i-pause');
+  }
+
+  function playStageBeep(){
+    const ctx = ensureAudioCtx();
+    if(!ctx) return;
+    [0, 0.18].forEach((delay, i)=>{
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = i === 0 ? 880 : 1320;
+      const t = ctx.currentTime + delay;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.4, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.16);
+    });
+  }
+
+  function renderStageDots(){
+    if(!els.chronoStageDots) return;
+    els.chronoStageDots.innerHTML = '';
+    CHRONO_STAGES_PRESET.forEach((st, i)=>{
+      const dot = document.createElement('span');
+      dot.className = 'chord-dot' + (i === chrono.stageIndex ? ' active' : '');
+      els.chronoStageDots.appendChild(dot);
+    });
+  }
+
+  function setChronoStaged(staged){
+    chrono.staged = staged;
+    els.chronoModeToggle.classList.toggle('on', staged);
+    els.chronoMaxSimple.hidden = staged;
+    els.chronoMaxStaged.hidden = !staged;
+    try{ localStorage.setItem(CHRONO_STAGED_KEY, staged ? '1' : '0'); }catch(e){}
+    resetChrono();
+  }
+
+  function updateChronoDisplay(){
+    if(chrono.staged){
+      const bounds = stageBoundaries();
+      const total = bounds[bounds.length - 1];
+      const clampedElapsed = Math.min(chrono.elapsedSec, total);
+      let idx = bounds.findIndex(b=>clampedElapsed < b);
+      if(idx === -1) idx = CHRONO_STAGES_PRESET.length - 1;
+      if(idx !== chrono.stageIndex){
+        chrono.stageIndex = idx;
+        renderStageDots();
+        if(chrono.running) playStageBeep();
+      }
+      els.chronoStageLabel.textContent = CHRONO_STAGES_PRESET[idx].label;
+      const displaySec = Math.max(0, bounds[idx] - clampedElapsed);
+      els.chronoText.textContent = formatChronoTime(displaySec);
+      if(chrono.elapsedSec >= total && chrono.running){
+        stopChrono();
+        els.chronoToggle.classList.add('chrono-done');
+        showToast('Séance terminée !');
+      }
+      return;
+    }
+    const maxSec = getChronoMaxSeconds();
+    let displaySec = maxSec != null ? Math.max(0, maxSec - chrono.elapsedSec) : chrono.elapsedSec;
+    els.chronoText.textContent = formatChronoTime(displaySec);
+    if(maxSec != null && displaySec === 0 && chrono.running){
+      stopChrono();
+      els.chronoToggle.classList.add('chrono-done');
+      showToast('Temps écoulé !');
+    }
+  }
+
+  function startChrono(){
+    if(chrono.staged){
+      const total = stageBoundaries().pop();
+      if(chrono.elapsedSec >= total){ chrono.elapsedSec = 0; chrono.stageIndex = 0; renderStageDots(); }
+    } else {
+      const maxSec = getChronoMaxSeconds();
+      if(maxSec != null && chrono.elapsedSec >= maxSec) chrono.elapsedSec = 0;
+    }
+    chrono.running = true;
+    els.chronoToggle.classList.add('playing');
+    els.chronoToggle.classList.remove('chrono-done');
+    setChronoIcon(false);
+    chrono.intervalId = setInterval(()=>{
+      chrono.elapsedSec += 1;
+      updateChronoDisplay();
+    }, 1000);
+  }
+
+  function stopChrono(){
+    if(chrono.intervalId){ clearInterval(chrono.intervalId); chrono.intervalId = null; }
+    chrono.running = false;
+    if(els.chronoToggle){
+      els.chronoToggle.classList.remove('playing');
+      setChronoIcon(true);
+    }
+  }
+
+  function resetChrono(){
+    stopChrono();
+    chrono.elapsedSec = 0;
+    chrono.stageIndex = 0;
+    els.chronoToggle.classList.remove('chrono-done');
+    renderStageDots();
+    updateChronoDisplay();
+  }
+
+  // Selected styles plus every style sharing at least one tag with any of them.
+  function computeSelectedAndNeighbors(){
+    if(PREFS.size === 0) return null;
+    const selected = Array.from(PREFS);
+    const neighbors = new Set();
+    selected.forEach(name=>{
+      const obj = STYLES.find(s=>s.name===name);
+      if(!obj) return;
+      STYLES.forEach(s=>{
+        if(s.name===name || selected.includes(s.name)) return;
+        if(s.tags.some(t=>obj.tags.includes(t))) neighbors.add(s.name);
+      });
+    });
+    return { selected, neighbors: Array.from(neighbors) };
+  }
+
+  const SUBGENRE_CHANCE = 0.6;
+  const KEY_AFFINITY_CHANCE = 0.8;
+
+  function pickMood(entry){
+    const pool = entry.moodPool && MOOD_POOLS[entry.moodPool];
+    return pool ? drawFrom('mood:'+entry.moodPool, pool) : null;
+  }
+
+  // ---- extras dérivés du style (références, groove, famille de gammes) ----
+  // On repart toujours du nom affiché plutôt que d'une variable d'état : un même
+  // chemin sert pour une génération fraîche et pour un permalien restauré, et
+  // les liens partagés restent compatibles avec les anciennes versions.
+  function baseStyleNames(displayName){
+    if(!displayName) return [];
+    return displayName.split(' × ').map(part=>part.replace(/\s*\([^()]*\)\s*$/, '').trim());
+  }
+
+  function applyStyleExtras(displayName){
+    const parts = baseStyleNames(displayName);
+    const refs = [];
+    parts.forEach(name=>{
+      const list = REFS[name];
+      if(!list) return;
+      // Sur un mélange, on prend moins de titres par style pour ne pas noyer la carte.
+      list.slice(0, parts.length > 1 ? 2 : 3).forEach(r=>{
+        if(!refs.some(x=>x.track === r)) refs.push({ track: r, style: name });
+      });
+    });
+    state.styleRefs = refs;
+    state.grooveKey = parts.map(n=>GROOVE_OF[n]).find(Boolean) || 'four_floor';
+    state.keyPool = parts.map(n=>KEYPOOL_OF[n]).find(Boolean) || null;
+  }
+
+  function setSingleStyle(name){
+    const primary = STYLES.find(s=>s.name===name) || randomItem(STYLES);
+    let chosen = primary;
+    let bpmRange = primary.bpm;
+    if(primary.subgenres && primary.subgenres.length && Math.random() < SUBGENRE_CHANCE){
+      chosen = drawFrom('sub:'+primary.name, primary.subgenres);
+      bpmRange = chosen.bpm || primary.bpm;
+    }
+    const mood = pickMood(chosen);
+    const displayName = mood ? chosen.name + ' (' + mood + ')' : chosen.name;
+    state.styleObj = { name: displayName, bpm: bpmRange };
+    state.style = displayName;
+    state.styleDesc = chosen.desc;
+    applyStyleExtras(displayName);
+    if(!LOCKS.bpm) state.bpm = formatBpm(state.styleObj);
+  }
+
+  function setBlendStyle(nameA, nameB){
+    const a = STYLES.find(s=>s.name===nameA);
+    const b = STYLES.find(s=>s.name===nameB);
+    if(!a || !b || a.name===b.name){ setSingleStyle(nameA); return; }
+    const synthetic = { name: a.name+' × '+b.name, bpm: mergeBpmRanges(a.bpm, b.bpm) };
+    state.styleObj = synthetic;
+    state.style = synthetic.name;
+    state.styleDesc = 'Mélange entre '+a.name+' ('+lowerFirst(a.desc)+') et '+b.name+' ('+lowerFirst(b.desc)+')';
+    applyStyleExtras(synthetic.name);
+    if(!LOCKS.bpm) state.bpm = formatBpm(synthetic);
+  }
+
+  function genStyleField(){
+    const groups = computeSelectedAndNeighbors();
+    if(!groups){
+      setSingleStyle(drawFrom('style', STYLES).name);
+      return;
+    }
+    const { selected, neighbors } = groups;
+    const hasSecondCandidate = selected.length > 1 || neighbors.length > 0;
+    const doBlend = hasSecondCandidate && Math.random() < 0.4;
+    if(doBlend){
+      // Anchor the blend on one of the user's actual picks, never two neighbors alone.
+      const a = drawFrom('style:anchor', selected);
+      const candidatesForB = [];
+      selected.forEach(n=>{ if(n !== a) candidatesForB.push(n, n); });
+      neighbors.forEach(n=>candidatesForB.push(n));
+      setBlendStyle(a, drawFrom('style:blend', candidatesForB));
+    } else {
+      const weighted = [];
+      selected.forEach(n=>weighted.push(n,n,n));
+      neighbors.forEach(n=>weighted.push(n));
+      setSingleStyle(drawFrom('style:weighted', weighted));
+    }
+  }
+
+  function genField(key){
+    if(key === 'style' || key === 'bpm') stopMetronome();
+    switch(key){
+      case 'style': {
+        genStyleField();
+        break;
+      }
+      case 'bpm': {
+        const so = state.styleObj || randomItem(STYLES);
+        state.bpm = formatBpm(so);
+        break;
+      }
+      case 'key': {
+        // La gamme suit la famille du style dans la plupart des cas, mais on
+        // laisse une part de hasard pour garder des rapprochements inattendus.
+        const pool = state.keyPool && KEY_POOLS[state.keyPool];
+        const useAffinity = pool && Math.random() < KEY_AFFINITY_CHANCE;
+        if(useAffinity){
+          const name = drawFrom('key:'+state.keyPool, pool);
+          state.keyObj = KEYS.find(k=>k.name===name) || drawFrom('key', KEYS);
+        } else {
+          state.keyObj = drawFrom('key', KEYS);
+        }
+        state.key = state.keyObj.name;
+        state.chordIndex = Math.floor(Math.random() * state.keyObj.chords.length);
+        break;
+      }
+      case 'mood': state.mood = drawFrom('ambiance', MOODS); break;
+      case 'structure': state.structure = drawFrom('structure', STRUCTURES); break;
+      case 'instruments': state.instruments = randomInstrumentsList(); break;
+      case 'constraint': state.constraint = drawFrom('constraint', CONSTRAINTS); break;
+    }
+  }
+
+  function renderField(key, animate){
+    const el = document.querySelector('[data-field="'+key+'"]');
+    if(!el) return;
+    let text;
+    if(key === 'instruments') text = state.instruments.join(', ');
+    else text = state[key];
+    const textTarget = key === 'bpm' ? el.querySelector('.bpm-text') : el;
+    textTarget.textContent = text || '—';
+    if(animate){
+      el.classList.remove('updating');
+      void el.offsetWidth;
+      el.classList.add('updating');
+    }
+  }
+
+  function renderRefs(){
+    const refs = state.styleRefs || [];
+    els.styleRefs.innerHTML = '';
+    if(!refs.length) return;
+    const label = document.createElement('span');
+    label.className = 'ref-label';
+    label.textContent = 'À écouter';
+    els.styleRefs.appendChild(label);
+    refs.forEach(ref=>{
+      const a = document.createElement('a');
+      a.className = 'ref-link';
+      a.href = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(ref.track.replace(/\s*—\s*/g, ' '));
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.title = 'Chercher « ' + ref.track +' » sur YouTube';
+      a.innerHTML = '<svg class="icon"><use href="#i-headphones"></use></svg>';
+      const span = document.createElement('span');
+      span.textContent = ref.track;
+      a.appendChild(span);
+      els.styleRefs.appendChild(a);
+    });
+  }
+
+  function renderGroove(){
+    const groove = GROOVES[state.grooveKey] || GROOVES.four_floor;
+    els.grooveBadge.textContent = groove.label;
+    els.grooveGrid.innerHTML = '';
+    if(!groove.rows.length){
+      const p = document.createElement('p');
+      p.className = 'groove-empty';
+      p.textContent = "Pas de batterie ici : le rythme vient de la texture, des nappes et de leurs mouvements. Travaille l'évolution plutôt que la grille.";
+      els.grooveGrid.appendChild(p);
+      return;
+    }
+    groove.rows.forEach(row=>{
+      const line = document.createElement('div');
+      line.className = 'groove-row';
+      const name = document.createElement('span');
+      name.className = 'groove-name';
+      name.textContent = row.name;
+      const steps = document.createElement('div');
+      steps.className = 'groove-steps';
+      for(let i=0;i<16;i++){
+        const cell = document.createElement('span');
+        cell.className = 'groove-step'
+          + (row.steps[i] === 'x' ? ' on' : '')
+          + (i % 4 === 0 ? ' downbeat' : '');
+        steps.appendChild(cell);
+      }
+      line.appendChild(name);
+      line.appendChild(steps);
+      els.grooveGrid.appendChild(line);
+    });
+    const ruler = document.createElement('div');
+    ruler.className = 'groove-row groove-ruler';
+    const rulerName = document.createElement('span');
+    rulerName.className = 'groove-name';
+    rulerName.textContent = '';
+    const rulerSteps = document.createElement('div');
+    rulerSteps.className = 'groove-steps';
+    for(let i=0;i<16;i++){
+      const cell = document.createElement('span');
+      cell.className = 'groove-step';
+      cell.textContent = i % 4 === 0 ? String(i / 4 + 1) : '';
+      rulerSteps.appendChild(cell);
+    }
+    ruler.appendChild(rulerName);
+    ruler.appendChild(rulerSteps);
+    els.grooveGrid.appendChild(ruler);
+  }
+
+  // "F#m7" → { root:6, notes:[6,9,1,4], label:"F#m7" }. Renvoie null pour tout
+  // ce qui n'est pas un accord jouable (gammes libres, microtonalité, prose).
+  function parseChord(symbol){
+    const m = /^([A-G])([#b]?)(.*)$/.exec(symbol.trim());
+    if(!m) return null;
+    const formula = CHORD_FORMULAS[m[3].trim()];
+    if(!formula) return null;
+    let root = NOTE_TO_SEMITONE[m[1]];
+    if(m[2] === '#') root += 1;
+    if(m[2] === 'b') root -= 1;
+    root = (root + 12) % 12;
+    const notes = formula.map(iv=>(root + iv) % 12);
+    return { root, notes, label: symbol.trim() };
+  }
+
+  function parseProgression(text){
+    if(!text) return [];
+    // On écarte les progressions écrites en toutes lettres (chromatique libre,
+    // microtonalité…) : il n'y a pas d'accord fixe à dessiner.
+    const chords = text.split('→').map(part=>parseChord(part.replace(/\s*\([^()]*\)\s*$/, '')));
+    return chords.every(Boolean) ? chords : [];
+  }
+
+  const NOTE_NAMES = ['Do','Do#','Ré','Mib','Mi','Fa','Fa#','Sol','Sol#','La','Sib','Si'];
+
+  function buildKeyboard(chord){
+    const wrap = document.createElement('div');
+    wrap.className = 'kb';
+    wrap.title = chord.label + ' : ' + chord.notes.map(n=>NOTE_NAMES[n]).join(' · ');
+    const label = document.createElement('span');
+    label.className = 'kb-label';
+    label.textContent = chord.label;
+    const keys = document.createElement('div');
+    keys.className = 'kb-keys';
+    // Les blanches occupent le flux, les noires sont posées par-dessus.
+    for(let pc = 0; pc < 12; pc++){
+      if(BLACK_KEYS.includes(pc)) continue;
+      const white = document.createElement('span');
+      white.className = 'kb-key white'
+        + (chord.notes.includes(pc) ? ' on' : '')
+        + (pc === chord.root ? ' root' : '');
+      keys.appendChild(white);
+    }
+    const blacks = document.createElement('div');
+    blacks.className = 'kb-blacks';
+    // Position d'une noire, exprimée en nombre de blanches depuis le début.
+    const blackOffsets = { 1:1, 3:2, 6:4, 8:5, 10:6 };
+    BLACK_KEYS.forEach(pc=>{
+      const black = document.createElement('span');
+      black.className = 'kb-key black'
+        + (chord.notes.includes(pc) ? ' on' : '')
+        + (pc === chord.root ? ' root' : '');
+      black.style.left = 'calc(' + blackOffsets[pc] + ' * var(--kb-w) - var(--kb-bw) / 2)';
+      blacks.appendChild(black);
+    });
+    keys.appendChild(blacks);
+    wrap.appendChild(label);
+    wrap.appendChild(keys);
+    return wrap;
+  }
+
+  function renderChordKeyboards(){
+    els.chordKeys.innerHTML = '';
+    if(!state.keyObj) return;
+    const chords = parseProgression(state.keyObj.chords[state.chordIndex]);
+    chords.forEach(chord=>els.chordKeys.appendChild(buildKeyboard(chord)));
+  }
+
+  function renderChords(animate){
+    if(!state.keyObj) return;
+    els.chordText.textContent = state.keyObj.chords[state.chordIndex];
+    els.keyEn.textContent = KEYS_EN[state.keyObj.name] || '';
+    renderChordKeyboards();
+    els.chordDots.innerHTML = '';
+    state.keyObj.chords.forEach((_, i)=>{
+      const dot = document.createElement('span');
+      dot.className = 'chord-dot' + (i === state.chordIndex ? ' active' : '');
+      els.chordDots.appendChild(dot);
+    });
+    if(animate){
+      els.chordText.classList.remove('updating');
+      void els.chordText.offsetWidth;
+      els.chordText.classList.add('updating');
+    }
+  }
+
+  function toggleChords(){
+    if(!state.keyObj || state.keyObj.chords.length < 2) return;
+    state.chordIndex = (state.chordIndex + 1) % state.keyObj.chords.length;
+    renderChords(true);
+  }
+
+  function renderAll(animate){
+    ['style','styleDesc','bpm','key','mood','structure','instruments','constraint'].forEach(k=>renderField(k, animate));
+    renderChords(animate);
+    renderRefs();
+    renderGroove();
+  }
+
+  function generateAll(){
+    if(!LOCKS.style){
+      genField('style'); // also regenerates bpm internally when bpm is unlocked
+    } else if(!LOCKS.bpm){
+      genField('bpm');
+    }
+    if(!LOCKS.key) genField('key');
+    if(!LOCKS.mood) genField('mood');
+    if(!LOCKS.structure) genField('structure');
+    if(!LOCKS.instruments) genField('instruments');
+    if(!LOCKS.constraint) genField('constraint');
+    renderAll(true);
+    rerollExtra(els.techValue, CONSTRAINTS_TECH);
+    rerollExtra(els.crea2Value, CONSTRAINTS_CREA2);
+    updateSeedDisplay();
+    pulseButton();
+    pushHistory();
+  }
+
+  function rerollSingle(key){
+    genField(key);
+    renderAll(false);
+    renderField(key, true);
+    updateSeedDisplay();
+    if(key === 'style'){
+      renderField('styleDesc', true);
+      renderField('bpm', true);
+    }
+    if(key === 'key'){
+      renderChords(true);
+    }
+  }
+
+  function pulseButton(){
+    els.generateBtn.classList.remove('pulse');
+    void els.generateBtn.offsetWidth;
+    els.generateBtn.classList.add('pulse');
+  }
+
+  function formatText(){
+    const lines = [
+      "INSPIRATION MUSICALE",
+      "---------------------",
+      "Style        : " + state.style + " (" + state.styleDesc + ")",
+      "Tempo        : " + state.bpm,
+      "Tonalité     : " + state.key + " — " + (state.keyObj ? state.keyObj.chords[state.chordIndex] : ''),
+      "Ambiance     : " + state.mood,
+      "Structure    : " + state.structure,
+      "Instruments  : " + state.instruments.join(', '),
+      "Contrainte   : " + state.constraint
+    ];
+    if(state.styleRefs && state.styleRefs.length){
+      lines.push("À écouter    : " + state.styleRefs.map(r=>r.track).join(' · '));
+    }
+    const groove = GROOVES[state.grooveKey];
+    if(groove && groove.rows.length){
+      lines.push("", "Pattern rythmique — " + groove.label + " (16 pas)");
+      groove.rows.forEach(row=>{
+        lines.push("  " + row.name.padEnd(9) + " |" + row.steps.replace(/x/g, 'X') + "|");
+      });
+    }
+    return lines.join("\n");
+  }
+
+  function showToast(msg){
+    els.toast.textContent = msg;
+    els.toast.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>els.toast.classList.remove('show'), 2200);
+  }
+
+  // ---- optional extra-constraint panels (technique / créative bis) ----
+  const TECH_OPEN_KEY = "glitch_inspi_tech_open";
+  const CREA2_OPEN_KEY = "glitch_inspi_crea2_open";
+  const GROOVE_OPEN_KEY = "glitch_inspi_groove_open";
+
+  function setExtraPanelOpen(panelEl, storageKey, open){
+    panelEl.classList.toggle('expanded', open);
+    try{ localStorage.setItem(storageKey, open ? '1' : '0'); }catch(e){}
+  }
+  function toggleExtraPanelOpen(panelEl, storageKey){
+    setExtraPanelOpen(panelEl, storageKey, !panelEl.classList.contains('expanded'));
+  }
+  function rerollExtra(valueEl, pool){
+    valueEl.textContent = drawFrom(valueEl.id, pool);
+    valueEl.classList.remove('updating');
+    void valueEl.offsetWidth;
+    valueEl.classList.add('updating');
+  }
+
+  // ---- persistence ----
+  function loadJSON(key){
+    try{ return JSON.parse(localStorage.getItem(key)) || []; }
+    catch(e){ return []; }
+  }
+  function saveJSON(key, val){
+    try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){}
+  }
+
+  // ---- style preferences (chips) ----
+  function loadPrefs(){
+    const saved = loadJSON(PREFS_KEY);
+    saved.forEach(name=>{ if(STYLES.some(s=>s.name===name)) PREFS.add(name); });
+  }
+  function savePrefs(){
+    saveJSON(PREFS_KEY, Array.from(PREFS));
+  }
+  function updatePrefsCount(){
+    const n = PREFS.size;
+    els.prefsCount.textContent = n === 0 ? 'Aucun (tout est possible)' : (n + (n>1 ? ' sélectionnés' : ' sélectionné'));
+  }
+  function renderChips(){
+    els.chipsGrid.innerHTML = '';
+    const sorted = STYLES.slice().sort((a,b)=>a.name.localeCompare(b.name, 'fr', {sensitivity:'base'}));
+    sorted.forEach(s=>{
+      const btn = document.createElement('button');
+      btn.className = 'chip' + (PREFS.has(s.name) ? ' active' : '');
+      btn.type = 'button';
+      btn.textContent = s.name;
+      btn.addEventListener('click', ()=>{
+        if(PREFS.has(s.name)) PREFS.delete(s.name); else PREFS.add(s.name);
+        btn.classList.toggle('active', PREFS.has(s.name));
+        savePrefs();
+        updatePrefsCount();
+        if(!LOCKS.style){ rerollSingle('style'); }
+      });
+      els.chipsGrid.appendChild(btn);
+    });
+    updatePrefsCount();
+  }
+
+  function setPrefsOpen(open){
+    els.prefsPanel.classList.toggle('expanded', open);
+    try{ localStorage.setItem(PREFS_OPEN_KEY, open ? '1' : '0'); }catch(e){}
+  }
+  function togglePrefsOpen(){
+    setPrefsOpen(!els.prefsPanel.classList.contains('expanded'));
+  }
+
+  function snapshot(){
+    return {
+      id: Date.now() + '_' + Math.random().toString(36).slice(2,7),
+      time: Date.now(),
+      style: state.style, styleDesc: state.styleDesc,
+      styleBpmRange: state.styleObj ? state.styleObj.bpm : [70,160],
+      bpm: state.bpm, key: state.key, chordIndex: state.chordIndex,
+      mood: state.mood, structure: state.structure,
+      instruments: state.instruments.slice(), constraint: state.constraint
+    };
+  }
+
+  // ---- seed & permalien ----
+  // L'état complet est encodé dans le hash de l'URL (base64 d'un JSON compact),
+  // ce qui rend chaque inspiration reproductible et partageable telle quelle.
+  // La "seed" affichée est un condensé court de cet état, pour l'identifier d'un
+  // coup d'œil et la retrouver dans l'historique.
+  function encodeState(snap){
+    const compact = [
+      snap.style, snap.styleDesc, snap.styleBpmRange,
+      snap.bpm, snap.key, snap.chordIndex,
+      snap.mood, snap.structure, snap.instruments, snap.constraint
+    ];
+    const bytes = new TextEncoder().encode(JSON.stringify(compact));
+    let bin = '';
+    bytes.forEach(b=>{ bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+
+  function decodeState(encoded){
+    try{
+      const b64 = encoded.replace(/-/g,'+').replace(/_/g,'/');
+      const bin = atob(b64);
+      const bytes = Uint8Array.from(bin, c=>c.charCodeAt(0));
+      const c = JSON.parse(new TextDecoder().decode(bytes));
+      if(!Array.isArray(c) || c.length < 10) return null;
+      return {
+        id: 'shared_' + Math.random().toString(36).slice(2,7),
+        time: Date.now(),
+        style: c[0], styleDesc: c[1], styleBpmRange: c[2],
+        bpm: c[3], key: c[4], chordIndex: c[5],
+        mood: c[6], structure: c[7], instruments: c[8] || [], constraint: c[9]
+      };
+    }catch(e){ return null; }
+  }
+
+  function seedLabel(encoded){
+    let h = 0x811c9dc5;
+    for(let i=0;i<encoded.length;i++){
+      h ^= encoded.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return '#' + h.toString(16).toUpperCase().padStart(8,'0').slice(0,4);
+  }
+
+  function currentPermalink(){
+    const encoded = encodeState(snapshot());
+    return { encoded, url: location.origin + location.pathname + '#i=' + encoded };
+  }
+
+  function updateSeedDisplay(){
+    const { encoded } = currentPermalink();
+    els.seedValue.textContent = seedLabel(encoded);
+    try{ history.replaceState(null, '', '#i=' + encoded); }catch(e){}
+  }
+
+  function readStateFromHash(){
+    const m = /^#i=(.+)$/.exec(location.hash || '');
+    return m ? decodeState(m[1]) : null;
+  }
+
+  function pushHistory(){
+    const list = loadJSON(HISTORY_KEY);
+    list.unshift(snapshot());
+    while(list.length > 20) list.pop();
+    saveJSON(HISTORY_KEY, list);
+    renderHistory();
+  }
+
+  function restoreSnapshot(snap){
+    state.styleObj = { name: snap.style, bpm: snap.styleBpmRange || (STYLES.find(s=>s.name===snap.style)||{bpm:[70,160]}).bpm };
+    state.style = snap.style; state.styleDesc = snap.styleDesc || (STYLES.find(s=>s.name===snap.style)||{desc:""}).desc;
+    state.bpm = snap.bpm; state.key = snap.key;
+    state.keyObj = KEYS.find(k=>k.name===snap.key) || { name: snap.key, chords: [""] };
+    state.chordIndex = (typeof snap.chordIndex === 'number' && snap.chordIndex < state.keyObj.chords.length) ? snap.chordIndex : 0;
+    state.mood = snap.mood; state.structure = snap.structure;
+    state.instruments = snap.instruments.slice(); state.constraint = snap.constraint;
+    applyStyleExtras(snap.style);
+    renderAll(true);
+    stopMetronome();
+    updateSeedDisplay();
+  }
+
+  function timeAgo(ts){
+    const s = Math.floor((Date.now()-ts)/1000);
+    if(s<60) return 'à l\'instant';
+    const m = Math.floor(s/60); if(m<60) return m+'min';
+    const h = Math.floor(m/60); if(h<24) return h+'h';
+    const d = Math.floor(h/24); return d+'j';
+  }
+
+  function renderHistory(){
+    const list = loadJSON(HISTORY_KEY);
+    els.historyCount.textContent = list.length;
+    els.historyList.innerHTML = '';
+    if(list.length === 0){
+      els.historyList.innerHTML = '<li class="empty-msg">Aucune génération pour le moment.</li>';
+      return;
+    }
+    list.forEach(snap=>{
+      const li = document.createElement('li');
+      li.className = 'list-item';
+      li.innerHTML = '<span class="li-main"><b>'+escapeHtml(snap.style)+'</b> · '+escapeHtml(snap.bpm)+' · '+escapeHtml(snap.mood)+'</span>'+
+        '<span class="li-time">'+escapeHtml(seedLabel(encodeState(snap)))+'</span>';
+      li.addEventListener('click', ()=>restoreSnapshot(snap));
+      els.historyList.appendChild(li);
+    });
+  }
+
+  function renderFavorites(){
+    const list = loadJSON(FAV_KEY);
+    els.favCount.textContent = list.length;
+    els.favList.innerHTML = '';
+    if(list.length === 0){
+      els.favList.innerHTML = '<li class="empty-msg">Aucun favori enregistré.</li>';
+      return;
+    }
+    list.forEach(snap=>{
+      const li = document.createElement('li');
+      li.className = 'list-item';
+      const main = document.createElement('span');
+      main.className = 'li-main';
+      main.innerHTML = '<b>'+escapeHtml(snap.style)+'</b> · '+escapeHtml(snap.bpm)+' · '+escapeHtml(snap.mood);
+      main.addEventListener('click', ()=>restoreSnapshot(snap));
+      const seed = document.createElement('span');
+      seed.className = 'li-time';
+      seed.textContent = seedLabel(encodeState(snap));
+      const del = document.createElement('button');
+      del.className = 'li-del'; del.title = 'Retirer des favoris';
+      del.innerHTML = '<svg class="icon sm"><use href="#i-x"></use></svg>';
+      del.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const updated = loadJSON(FAV_KEY).filter(x=>x.id !== snap.id);
+        saveJSON(FAV_KEY, updated);
+        renderFavorites();
+      });
+      li.appendChild(main); li.appendChild(seed); li.appendChild(del);
+      els.favList.appendChild(li);
+    });
+  }
+
+  function escapeHtml(str){
+    const d = document.createElement('div');
+    d.textContent = str == null ? '' : str;
+    return d.innerHTML;
+  }
+
+  // ---- wiring ----
+  els.grid.querySelectorAll('.card').forEach(card=>{
+    const key = card.dataset.key;
+    const diceBtn = card.querySelector('.dice');
+    const lockBtn = card.querySelector('.lock');
+    const lockUse = lockBtn.querySelector('use');
+    diceBtn.addEventListener('click', ()=>rerollSingle(key));
+    lockBtn.addEventListener('click', ()=>{
+      LOCKS[key] = !LOCKS[key];
+      lockUse.setAttribute('href', LOCKS[key] ? '#i-lock-closed' : '#i-lock-open');
+      lockBtn.classList.toggle('on', LOCKS[key]);
+      lockBtn.title = LOCKS[key] ? 'Déverrouiller' : 'Verrouiller';
+      card.classList.toggle('locked', LOCKS[key]);
+    });
+  });
+
+  els.generateBtn.addEventListener('click', generateAll);
+
+  els.bpmToggle.addEventListener('click', ()=>{
+    if(metronome.timerId) stopMetronome(); else startMetronome();
+  });
+
+  els.chordToggle.addEventListener('click', toggleChords);
+
+  els.metroSoundToggle.addEventListener('click', ()=>{
+    metronomeSoundOn = !metronomeSoundOn;
+    els.metroSoundToggle.classList.toggle('on', metronomeSoundOn);
+    els.metroSoundToggle.querySelector('use').setAttribute('href', metronomeSoundOn ? '#i-volume' : '#i-volume-x');
+    showToast(metronomeSoundOn ? 'Son du métronome activé' : 'Métronome silencieux');
+  });
+
+  els.chronoToggle.addEventListener('click', ()=>{
+    if(chrono.running) stopChrono(); else startChrono();
+  });
+  els.chronoMaxInput.addEventListener('input', resetChrono);
+  els.chronoReset.addEventListener('click', resetChrono);
+  els.chronoModeToggle.addEventListener('click', ()=>setChronoStaged(!chrono.staged));
+
+  els.copyBtn.addEventListener('click', ()=>{
+    const text = formatText();
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(()=>showToast('Copié dans le presse-papiers')).catch(()=>showToast('Impossible de copier'));
+    } else {
+      showToast('Copie non supportée par ce navigateur');
+    }
+  });
+
+  els.linkBtn.addEventListener('click', ()=>{
+    const url = currentPermalink().url;
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(()=>showToast('Lien copié dans le presse-papiers')).catch(()=>showToast('Impossible de copier'));
+    } else {
+      showToast('Copie non supportée par ce navigateur');
+    }
+  });
+
+  els.downloadBtn.addEventListener('click', ()=>{
+    const blob = new Blob([formatText()], {type:'text/plain;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'inspiration-' + Date.now() + '.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Fichier téléchargé');
+  });
+
+  els.favBtn.addEventListener('click', ()=>{
+    const list = loadJSON(FAV_KEY);
+    list.unshift(snapshot());
+    while(list.length > 30) list.pop();
+    saveJSON(FAV_KEY, list);
+    renderFavorites();
+    showToast('Ajouté aux favoris');
+  });
+
+  els.prefsToggle.addEventListener('click', togglePrefsOpen);
+  els.prefsTitle.addEventListener('click', togglePrefsOpen);
+
+  els.prefsClear.addEventListener('click', ()=>{
+    if(PREFS.size === 0) return;
+    PREFS.clear();
+    savePrefs();
+    renderChips();
+    if(!LOCKS.style){ rerollSingle('style'); }
+  });
+
+  els.techToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.techPanel, TECH_OPEN_KEY));
+  els.techTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.techPanel, TECH_OPEN_KEY));
+  els.techReroll.addEventListener('click', ()=>rerollExtra(els.techValue, CONSTRAINTS_TECH));
+
+  els.grooveToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY));
+  els.grooveTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY));
+
+  els.crea2Toggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY));
+  els.crea2Title.addEventListener('click', ()=>toggleExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY));
+  els.crea2Reroll.addEventListener('click', ()=>rerollExtra(els.crea2Value, CONSTRAINTS_CREA2));
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.code === 'Space' && document.activeElement === document.body){
+      e.preventDefault();
+      generateAll();
+    }
+  });
+
+  // ---- init ----
+  function init(){
+    loadPrefs();
+    renderChips();
+    let savedOpen = null;
+    try{ savedOpen = localStorage.getItem(PREFS_OPEN_KEY); }catch(e){}
+    setPrefsOpen(savedOpen === '1');
+
+    let techOpen = null, crea2Open = null, grooveOpen = null;
+    try{
+      techOpen = localStorage.getItem(TECH_OPEN_KEY);
+      crea2Open = localStorage.getItem(CREA2_OPEN_KEY);
+      grooveOpen = localStorage.getItem(GROOVE_OPEN_KEY);
+    }catch(e){}
+    setExtraPanelOpen(els.techPanel, TECH_OPEN_KEY, techOpen === '1');
+    setExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY, crea2Open === '1');
+    setExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY, grooveOpen === '1');
+    els.techValue.textContent = drawFrom('techValue', CONSTRAINTS_TECH);
+    els.crea2Value.textContent = drawFrom('crea2Value', CONSTRAINTS_CREA2);
+
+    let chronoStagedSaved = null;
+    try{ chronoStagedSaved = localStorage.getItem(CHRONO_STAGED_KEY); }catch(e){}
+    setChronoStaged(chronoStagedSaved === '1');
+
+    const shared = readStateFromHash();
+    if(shared){
+      restoreSnapshot(shared);
+      renderHistory();
+      renderFavorites();
+      return;
+    }
+
+    genField('style'); genField('bpm'); genField('key');
+    genField('mood'); genField('structure'); genField('instruments'); genField('constraint');
+    renderAll(false);
+    updateSeedDisplay();
+    renderHistory();
+    renderFavorites();
+    pushHistory();
+  }
+  init();
+
+  if('serviceWorker' in navigator && (location.protocol === 'http:' || location.protocol === 'https:')){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    });
+  }
+
+})();
+</script>
+<script>
+  // Le séquenceur est la pièce maîtresse de cette maquette : on l'ouvre d'office,
+  // en passant par le même bouton que l'utilisateur, pour ne rien court-circuiter.
+  (function(){
+    const panel = document.getElementById('groovePanel');
+    if(panel && !panel.classList.contains('expanded')) document.getElementById('grooveTitle').click();
+  })();
+</script>
+</body>
+</html>

@@ -203,6 +203,38 @@
   }
   .chord-btn:hover{ color:var(--text-0); background:rgba(255,255,255,0.06); }
   .chord-btn .chord-text.updating{ animation:valueFade 0.28s ease; }
+  .key-en{
+    font-family:var(--mono); font-size:0.72rem; letter-spacing:0.03em;
+    color:var(--text-2); margin-top:3px;
+  }
+  .key-en:empty{ display:none; }
+
+  .chord-keys{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .chord-keys:empty{ display:none; }
+  .kb{ --kb-w:11px; --kb-h:34px; --kb-bw:7px; display:flex; flex-direction:column; gap:3px; }
+  .kb-label{
+    font-family:var(--mono); font-size:0.64rem; color:var(--text-1); text-align:center;
+  }
+  .kb-keys{
+    position:relative; display:flex; height:var(--kb-h);
+    border:1px solid var(--border-hover); border-radius:3px; overflow:hidden; background:var(--border-hover);
+  }
+  .kb-key{ display:block; }
+  .kb-key.white{
+    width:var(--kb-w); height:100%; background:#3a352e;
+    border-right:1px solid var(--border-hover);
+  }
+  .kb-key.white:last-of-type{ border-right:none; }
+  .kb-key.white.on{ background:var(--accent); }
+  .kb-key.white.on.root{ background:var(--accent-hover); }
+  .kb-blacks{ position:absolute; inset:0; pointer-events:none; }
+  .kb-key.black{
+    position:absolute; top:0; width:var(--kb-bw); height:60%;
+    background:#17150f; border-radius:0 0 2px 2px;
+  }
+  .kb-key.black.on{ background:var(--accent); }
+  .kb-key.black.on.root{ background:var(--accent-hover); }
+
   .chord-dots{ display:flex; gap:5px; margin:6px 2px 0; }
   .chord-dot{ width:5px; height:5px; border-radius:50%; background:var(--border-hover); transition:background 0.15s ease, transform 0.15s ease; }
   .chord-dot.active{ background:var(--accent); transform:scale(1.3); }
@@ -598,10 +630,12 @@
       </div>
       <div class="card-body">
         <div class="card-value" data-field="key">—</div>
+        <div class="key-en" id="keyEn">—</div>
         <button type="button" class="chord-btn" id="chordToggle" data-field="chords" title="Cliquer pour l'autre suite d'accords possible">
           <span class="chord-text">—</span>
         </button>
         <div class="chord-dots" id="chordDots"></div>
+        <div class="chord-keys" id="chordKeys"></div>
       </div>
     </div>
 
@@ -715,7 +749,7 @@
 </main>
 
 <footer>
-  <p>La page noir v2.1 · inspiration générée localement, rien n'est envoyé nulle part</p>
+  <p>La page noir v2.2 · inspiration générée localement, rien n'est envoyé nulle part</p>
   <p class="credit">Générateur créé par <b>omnipotard</b> — si vous voulez m'aider à améliorer le modèle, vous pouvez me payer un café</p>
 </footer>
 
@@ -1201,6 +1235,45 @@
     {name:"Mode octatonique (diminué)", chords:["Cdim7 → Ebdim7 → Cdim7 → Ebdim7", "C7(b9) → Ebdim7 → C7(b9)"]}
   ];
 
+  // Nom international (anglo-saxon) de chaque gamme : c'est la notation qu'on
+  // retrouve dans les DAW, les plugins et la plupart des tutos.
+  const KEYS_EN = {
+    "Do mineur": "C minor",
+    "Ré dorien": "D Dorian",
+    "Mi phrygien": "E Phrygian",
+    "Fa lydien": "F Lydian",
+    "Sol mixolydien": "G Mixolydian",
+    "La mineur naturel": "A natural minor",
+    "Si locrien": "B Locrian",
+    "Do# mineur harmonique": "C# harmonic minor",
+    "Mib majeur": "Eb major",
+    "Fa# mineur mélodique": "F# melodic minor",
+    "Sol# phrygien dominant": "G# Phrygian dominant",
+    "Sib majeur pentatonique": "Bb major pentatonic",
+    "Do mineur pentatonique (blues)": "C minor pentatonic (blues)",
+    "Ré majeur harmonique": "D harmonic major",
+    "Gamme par tons (whole tone)": "Whole tone",
+    "Gamme chromatique libre": "Free chromatic",
+    "Microtonalité (quarts de ton)": "Quarter-tone microtonal",
+    "Mode octatonique (diminué)": "Octatonic (diminished)"
+  };
+
+  // Théorie minimale pour dessiner les accords sur un clavier : demi-tons depuis
+  // la fondamentale, par type d'accord.
+  const NOTE_TO_SEMITONE = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+  const CHORD_FORMULAS = {
+    "":      [0, 4, 7],        // majeur
+    "m":     [0, 3, 7],
+    "m7":    [0, 3, 7, 10],
+    "7":     [0, 4, 7, 10],
+    "7(b9)": [0, 4, 7, 10, 1], // la b9 revient à la même classe de hauteur que le demi-ton
+    "aug":   [0, 4, 8],
+    "dim":   [0, 3, 6],
+    "dim7":  [0, 3, 6, 9]
+  };
+  // Une octave : 12 demi-tons, et lesquels sont des touches noires.
+  const BLACK_KEYS = [1, 3, 6, 8, 10];
+
   const STRUCTURES = [
     "Boucle hypnotique qui évolue lentement, sans section marquée",
     "Intro atmosphérique → montée progressive → chute brutale",
@@ -1416,6 +1489,8 @@
     chronoMaxInput: document.getElementById('chronoMaxInput'),
     chronoReset: document.getElementById('chronoReset'),
     styleRefs: document.getElementById('styleRefs'),
+    keyEn: document.getElementById('keyEn'),
+    chordKeys: document.getElementById('chordKeys'),
     groovePanel: document.getElementById('groovePanel'),
     grooveToggle: document.getElementById('grooveToggle'),
     grooveTitle: document.getElementById('grooveTitle'),
@@ -1953,9 +2028,79 @@
     els.grooveGrid.appendChild(ruler);
   }
 
+  // "F#m7" → { root:6, notes:[6,9,1,4], label:"F#m7" }. Renvoie null pour tout
+  // ce qui n'est pas un accord jouable (gammes libres, microtonalité, prose).
+  function parseChord(symbol){
+    const m = /^([A-G])([#b]?)(.*)$/.exec(symbol.trim());
+    if(!m) return null;
+    const formula = CHORD_FORMULAS[m[3].trim()];
+    if(!formula) return null;
+    let root = NOTE_TO_SEMITONE[m[1]];
+    if(m[2] === '#') root += 1;
+    if(m[2] === 'b') root -= 1;
+    root = (root + 12) % 12;
+    const notes = formula.map(iv=>(root + iv) % 12);
+    return { root, notes, label: symbol.trim() };
+  }
+
+  function parseProgression(text){
+    if(!text) return [];
+    // On écarte les progressions écrites en toutes lettres (chromatique libre,
+    // microtonalité…) : il n'y a pas d'accord fixe à dessiner.
+    const chords = text.split('→').map(part=>parseChord(part.replace(/\s*\([^()]*\)\s*$/, '')));
+    return chords.every(Boolean) ? chords : [];
+  }
+
+  const NOTE_NAMES = ['Do','Do#','Ré','Mib','Mi','Fa','Fa#','Sol','Sol#','La','Sib','Si'];
+
+  function buildKeyboard(chord){
+    const wrap = document.createElement('div');
+    wrap.className = 'kb';
+    wrap.title = chord.label + ' : ' + chord.notes.map(n=>NOTE_NAMES[n]).join(' · ');
+    const label = document.createElement('span');
+    label.className = 'kb-label';
+    label.textContent = chord.label;
+    const keys = document.createElement('div');
+    keys.className = 'kb-keys';
+    // Les blanches occupent le flux, les noires sont posées par-dessus.
+    for(let pc = 0; pc < 12; pc++){
+      if(BLACK_KEYS.includes(pc)) continue;
+      const white = document.createElement('span');
+      white.className = 'kb-key white'
+        + (chord.notes.includes(pc) ? ' on' : '')
+        + (pc === chord.root ? ' root' : '');
+      keys.appendChild(white);
+    }
+    const blacks = document.createElement('div');
+    blacks.className = 'kb-blacks';
+    // Position d'une noire, exprimée en nombre de blanches depuis le début.
+    const blackOffsets = { 1:1, 3:2, 6:4, 8:5, 10:6 };
+    BLACK_KEYS.forEach(pc=>{
+      const black = document.createElement('span');
+      black.className = 'kb-key black'
+        + (chord.notes.includes(pc) ? ' on' : '')
+        + (pc === chord.root ? ' root' : '');
+      black.style.left = 'calc(' + blackOffsets[pc] + ' * var(--kb-w) - var(--kb-bw) / 2)';
+      blacks.appendChild(black);
+    });
+    keys.appendChild(blacks);
+    wrap.appendChild(label);
+    wrap.appendChild(keys);
+    return wrap;
+  }
+
+  function renderChordKeyboards(){
+    els.chordKeys.innerHTML = '';
+    if(!state.keyObj) return;
+    const chords = parseProgression(state.keyObj.chords[state.chordIndex]);
+    chords.forEach(chord=>els.chordKeys.appendChild(buildKeyboard(chord)));
+  }
+
   function renderChords(animate){
     if(!state.keyObj) return;
     els.chordText.textContent = state.keyObj.chords[state.chordIndex];
+    els.keyEn.textContent = KEYS_EN[state.keyObj.name] || '';
+    renderChordKeyboards();
     els.chordDots.innerHTML = '';
     state.keyObj.chords.forEach((_, i)=>{
       const dot = document.createElement('span');

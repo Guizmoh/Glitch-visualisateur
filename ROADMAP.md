@@ -1,6 +1,6 @@
 # Feuille de route — La page noir
 
-Version actuelle : **v2.1** · [Voir l'app](https://guizmoh.github.io/Glitch-visualisateur/)
+Version actuelle : **v2.2** · [Voir l'app](https://guizmoh.github.io/Glitch-visualisateur/)
 
 Les dix améliorations identifiées, classées par **impact réel** (pas par
 facilité). Le texte d'analyse d'origine est conservé tel quel pour chaque

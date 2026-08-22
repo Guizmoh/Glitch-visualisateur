@@ -490,10 +490,6 @@
   <symbol id="i-wrench" viewBox="0 0 24 24">
     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94z"></path>
   </symbol>
-  <symbol id="i-book" viewBox="0 0 24 24">
-    <path d="M12 7v14"></path>
-    <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"></path>
-  </symbol>
   <symbol id="i-volume" viewBox="0 0 24 24">
     <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
     <path d="M16 9a5 5 0 0 1 0 6"></path>
@@ -507,6 +503,10 @@
     <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"></path>
     <line x1="22" x2="16" y1="9" y2="15"></line>
     <line x1="16" x2="22" y1="9" y2="15"></line>
+  </symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24">
+    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path>
+    <path d="M18 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"></path>
   </symbol>
   <symbol id="i-grid" viewBox="0 0 24 24">
     <rect x="3" y="5" width="18" height="14" rx="2"></rect>
@@ -718,20 +718,20 @@
       </div>
     </div>
 
-    <div class="extra-panel" id="narrPanel">
+    <div class="extra-panel" id="crea2Panel">
       <div class="extra-head">
         <div class="extra-head-left">
-          <button class="extra-toggle" id="narrToggle" title="Afficher/masquer">
-            <svg class="icon"><use href="#i-book"></use></svg>
+          <button class="extra-toggle" id="crea2Toggle" title="Afficher/masquer">
+            <svg class="icon"><use href="#i-spark"></use></svg>
             <svg class="icon chevron"><use href="#i-chevron-down"></use></svg>
           </button>
-          <span class="extra-title" id="narrTitle">Contrainte narrative <span class="extra-badge">optionnelle</span></span>
+          <span class="extra-title" id="crea2Title">Contrainte créative <span class="extra-badge">bis · optionnelle</span></span>
         </div>
       </div>
       <div class="extra-body">
-        <p class="extra-hint">Un axe différent, autour du sens ou du récit — pensé pour ne pas contredire la contrainte principale ni la contrainte technique.</p>
-        <div class="extra-value" id="narrValue">—</div>
-        <button class="btn-ghost extra-reroll" id="narrReroll"><svg class="icon sm"><use href="#i-refresh"></use></svg>Une autre</button>
+        <p class="extra-hint">Un geste à appliquer sur ce que tu as déjà, plutôt qu'une règle de départ : développement d'un motif, harmonie, arrangement. Utile quand le morceau est lancé mais tourne en rond.</p>
+        <div class="extra-value" id="crea2Value">—</div>
+        <button class="btn-ghost extra-reroll" id="crea2Reroll"><svg class="icon sm"><use href="#i-refresh"></use></svg>Une autre</button>
       </div>
     </div>
   </div>
@@ -749,7 +749,7 @@
 </main>
 
 <footer>
-  <p>La page noir v2.2 · inspiration générée localement, rien n'est envoyé nulle part</p>
+  <p>La page noir v2.3 · inspiration générée localement, rien n'est envoyé nulle part</p>
   <p class="credit">Générateur créé par <b>omnipotard</b> — si vous voulez m'aider à améliorer le modèle, vous pouvez me payer un café</p>
 </footer>
 
@@ -1297,6 +1297,7 @@
     "patch de synthé modulaire", "vocodeur", "bols tibétains"
   ];
 
+  // Contrainte creative principale : la regle du jeu, ce que tu t'autorises ou non.
   const CONSTRAINTS = [
     "N'utilise que 3 sons ou instruments maximum, pas un de plus.",
     "Aucune batterie ni percussion classique n'est autorisée.",
@@ -1321,7 +1322,64 @@
     "Enregistre au moins un son à l'extérieur, tel quel.",
     "La durée des sections doit suivre une suite de Fibonacci.",
     "Aucun ordinateur : tout doit être analogique ou acoustique.",
-    "Écris le titre avant la musique, et laisse-le guider chaque choix."
+    "Écris le titre avant la musique, et laisse-le guider chaque choix.",
+    "Construis tout le morceau à partir d'un seul sample, sans jamais en ajouter un autre.",
+    "Un seul synthé pour tout : basse, lead, nappes et percussions comprises.",
+    "Interdiction des plugins tiers : uniquement ceux fournis avec ton logiciel.",
+    "Tous les sons doivent venir d'enregistrements que tu as faits toi-même.",
+    "Limite-toi à dix pistes maximum, batterie comprise.",
+    "Décide la durée exacte du morceau avant la première note, et tiens-la.",
+    "Le morceau doit tenir en moins de 90 secondes.",
+    "Compose dans une signature rythmique que tu n'utilises jamais (5/4, 7/8, 12/8).",
+    "Rejoue chaque partie en live plutôt que de dessiner les notes à la souris.",
+    "Une seule idée principale et deux éléments de soutien, pas un de plus.",
+    "Recrée de mémoire un morceau que tu aimes, sans jamais le réécouter.",
+    "Reprends un projet abandonné et termine-le sans rien supprimer.",
+    "Commence par le refrain (ou le drop) et déduis tout le reste ensuite.",
+    "Aucune note ne doit être quantifiée.",
+    "Tout le morceau tient sur une pédale : une note de basse qui ne change jamais.",
+    "La mélodie ne doit utiliser que trois notes différentes.",
+    "Aucun intervalle plus grand qu'une tierce dans la mélodie principale.",
+    "Écris la ligne de basse en premier, tout le reste en découle.",
+    "La batterie et la mélodie ne doivent jamais jouer en même temps.",
+    "Chaque section doit retirer un élément au lieu d'en ajouter.",
+    "Trouve le rythme en le tapant ou en le chantant avant de toucher un instrument.",
+    "Aucun son ne doit durer plus d'une seconde.",
+    "Le morceau doit fonctionner aussi bien à moitié tempo qu'à tempo normal.",
+    "Utilise uniquement des sons inversés.",
+    "Interdiction de copier-coller : rejoue chaque répétition à la main.",
+    "Aucune note tenue : uniquement des attaques courtes.",
+    "Compose entièrement en mono, aucun élément à gauche ou à droite.",
+    "Prends le tempo d'un objet réel autour de toi (ventilateur, pas dans la rue, essuie-glaces).",
+    "Une seule boucle de deux mesures, que tu fais évoluer pendant tout le morceau.",
+    "Aucun élément ne doit se répéter deux fois exactement à l'identique.",
+    "Le morceau doit pouvoir être joué en entier par une seule personne, en direct.",
+    "Interdiction de préréglages : construis chaque son depuis une onde brute.",
+    "La partie la plus intéressante doit être l'élément le plus discret du mix.",
+    "Chaque instrument entre l'un après l'autre, jamais deux en même temps.",
+    "Compose à un tempo extrême pour ton style : moitié ou double de ton habitude.",
+    "Le morceau doit contenir un passage où tout s'arrête pendant deux mesures au moins.",
+    "Choisis un morceau que tu détestes et vole-lui une seule idée.",
+    "Utilise une gamme que tu n'as jamais employée.",
+    "Le morceau doit rester écoutable si on coupe toutes les basses fréquences.",
+    "Enregistre une prise vocale, même si tu ne chantes pas, et intègre-la.",
+    "La percussion principale ne doit être ni une caisse claire ni un clap.",
+    "Interdiction d'accords majeurs (ou de mineurs, à toi de choisir).",
+    "Toute l'harmonie tient en deux accords, pas un de plus.",
+    "Le morceau démarre directement sur son moment le plus intense.",
+    "Sample ta propre voix et n'utilise qu'elle comme source sonore.",
+    "Aucune note ne doit tomber pile sur le temps.",
+    "Chaque son doit être resamplé au moins une fois avant d'entrer dans le morceau.",
+    "Compose en imaginant une écoute sur un seul petit haut-parleur de téléphone.",
+    "Interdiction de regarder l'écran pendant les dix premières minutes.",
+    "Garde une erreur volontaire du début à la fin, sans jamais la corriger.",
+    "Superpose deux boucles de longueurs différentes (par exemple 3 et 4 mesures).",
+    "Fais dialoguer deux éléments en appel-réponse du début à la fin.",
+    "Construis toute la mélodie avec les seules notes d'un unique accord.",
+    "Un seul son percussif, décliné de toutes les manières possibles.",
+    "Le morceau change complètement de caractère à mi-parcours, sans changer de tempo.",
+    "Compose en regardant une photo précise, et ne la quitte pas des yeux.",
+    "Aucun élément ne doit occuper plus de la moitié de la durée du morceau."
   ];
 
   // Contraintes optionnelles, axées production/technique — pensées pour ne pas
@@ -1395,71 +1453,78 @@
 
   // Contraintes optionnelles, axées récit/concept — un axe différent des
   // contraintes techniques, pensé pour rester complémentaire, pas contradictoire.
-  const CONSTRAINTS_NARRATIVE = [
-    "Le morceau raconte une journée précise dont tu te souviens clairement.",
-    "Compose comme la bande originale d'un lieu que tu n'as jamais visité.",
-    "Le morceau doit donner l'impression de commencer au milieu d'une histoire.",
-    "Imagine que ce morceau est entendu par quelqu'un dans 50 ans : que doit-il comprendre ?",
-    "Structure le morceau comme un souvenir en trois temps : avant / pendant / après.",
-    "Le morceau est un dialogue imaginaire entre deux personnes qui ne s'accordent pas.",
-    "Compose comme si tu décrivais une couleur à quelqu'un qui ne voit pas.",
-    "Le titre doit être une phrase entendue par hasard dans la rue.",
-    "Le morceau doit sembler inachevé, comme interrompu.",
-    "Imagine la version de ce morceau qu'écouterait ton toi du futur, dans 10 ans.",
-    "Compose pour le lieu précis où tu te trouves en ce moment.",
-    "Le morceau doit pouvoir accompagner un générique de fin, même si ce n'en est pas un.",
-    "Raconte une transformation : le morceau doit sonner différemment à la fin qu'au début.",
-    "Compose comme un souvenir qu'on essaie de retenir avant qu'il ne s'efface.",
-    "Le morceau doit ressembler à un lieu que tu as quitté et que tu ne reverras jamais.",
-    "Imagine que ce morceau est le dernier son qu'on entend avant de s'endormir.",
-    "Compose comme si tu racontais un secret que tu n'as jamais dit à personne.",
-    "Le morceau doit donner l'impression d'un dialogue entre ton toi d'enfant et ton toi actuel.",
-    "Écris la musique d'un lieu imaginaire que tu aimerais visiter un jour.",
-    "Le morceau doit sonner comme une lettre qu'on n'a jamais envoyée.",
-    "Imagine que ce morceau accompagne quelqu'un qui apprend une bonne nouvelle.",
-    "Compose comme si la pièce se terminait par un aveu.",
-    "Le morceau raconte un trajet précis, un chemin que tu connais par cœur.",
-    "Imagine ce morceau joué au moment exact où quelqu'un change d'avis.",
-    "Compose comme la bande-son d'un rêve que tu as vraiment fait.",
-    "Le morceau doit ressembler à une conversation qu'on entend à travers un mur.",
-    "Imagine que ce morceau raconte une attente, sans dire ce qu'on attend.",
-    "Compose comme si tu décrivais un objet auquel tu tiens, sans jamais le nommer.",
-    "Le morceau doit sonner comme un début d'histoire dont on n'aura jamais la fin.",
-    "Imagine ce morceau comme la dernière chose qu'un lieu se souvient avant de disparaître.",
-    "Compose une musique qui pourrait accompagner un aveu qu'on n'ose pas faire.",
-    "Le morceau raconte une hésitation : partir ou rester.",
-    "Imagine que ce morceau est entendu par quelqu'un qui ne comprend pas la langue du titre.",
-    "Compose comme si le morceau essayait de convaincre quelqu'un de revenir.",
-    "Le morceau raconte ce qu'on ressent juste avant que quelque chose change pour toujours.",
-    "Imagine une pièce vide qui vient d'être quittée : compose ce silence-là.",
-    "Compose la musique d'un souvenir que tu sais en train de s'effacer.",
-    "Le morceau doit ressembler à une promesse qu'on n'est pas sûr de pouvoir tenir.",
-    "Imagine ce morceau comme la première pensée du matin, avant que tout revienne.",
-    "Compose comme si tu racontais une ville la nuit, vue d'une fenêtre.",
-    "Le morceau doit donner l'impression de suivre quelqu'un sans se faire remarquer.",
-    "Imagine la musique d'un objet qui a traversé plusieurs générations d'une famille.",
-    "Compose comme le dernier souvenir commun de deux personnes qui se perdent de vue.",
-    "Le morceau raconte un 'peut-être' plutôt qu'un 'oui' ou un 'non'.",
-    "Imagine ce morceau comme la traduction d'une odeur familière.",
-    "Compose comme si le morceau essayait de retenir le temps qui passe trop vite.",
-    "Le morceau doit ressembler à une pièce qu'on retrouve après très longtemps.",
-    "Imagine que ce morceau est composé par quelqu'un qui n'a plus l'usage de la parole.",
-    "Compose la musique d'un lieu qui n'existe que dans tes souvenirs d'enfance.",
-    "Le morceau doit raconter ce qu'on ne dit jamais à voix haute.",
-    "Imagine ce morceau comme un pont entre deux idées qui ne devraient pas se toucher.",
-    "Compose comme la dernière danse d'une soirée qui touche à sa fin.",
-    "Le morceau doit sonner comme une excuse sincère, mais tardive.",
-    "Imagine que ce morceau raconte une décision prise en une fraction de seconde.",
-    "Compose comme si tu décrivais quelqu'un que tu admires sans jamais le lui dire.",
-    "Le morceau doit ressembler au vide qui suit une bonne nouvelle inattendue.",
-    "Imagine la musique d'un lieu que tu ne visiteras qu'en pensée.",
-    "Compose comme la première fois qu'on se sent vraiment chez soi quelque part.",
-    "Le morceau raconte ce qui reste quand tout le reste a été dit.",
-    "Imagine ce morceau comme une carte postale qu'on n'enverra jamais.",
-    "Compose la musique d'un instant où tout aurait pu basculer autrement.",
-    "Le morceau doit ressembler à un au revoir qu'on espère provisoire.",
-    "Imagine que ce morceau est la dernière chose que quelqu'un entend avant un grand changement.",
-    "Compose comme un lieu qui se souvient de tous ceux qui y sont passés."
+  // Deuxieme contrainte creative : un geste musical a appliquer sur ce que tu as deja.
+  const CONSTRAINTS_CREA2 = [
+    "Transforme ton motif principal en le jouant à l'envers.",
+    "Rejoue ta mélodie en inversant le sens de chaque intervalle, comme un miroir.",
+    "Double la durée de chaque note de ton thème et écoute ce que ça devient.",
+    "Divise par deux la durée de ton thème : mêmes notes, deux fois plus vite.",
+    "Décale ta mélodie d'un temps vers la droite sans rien changer d'autre.",
+    "Transpose une section entière d'un demi-ton vers le haut, sans prévenir.",
+    "Emprunte un accord à la gamme parallèle (majeure ↔ mineure).",
+    "Remplace un accord de ta grille par son relatif, en gardant la mélodie telle quelle.",
+    "Ajoute une seconde voix qui suit la mélodie en tierces.",
+    "Ajoute une contre-mélodie qui bouge quand la principale se tait.",
+    "Fais monter la basse pendant que la mélodie descend.",
+    "Garde exactement la même mélodie, mais change toute l'harmonie en dessous.",
+    "Rends le pont beaucoup plus dépouillé que tout le reste.",
+    "Coupe la première moitié de ton intro : commence directement là.",
+    "Retire l'élément dont tu es le plus fier et vois si le morceau tient debout.",
+    "Fais entrer la basse seulement à la moitié du morceau.",
+    "Termine le morceau brutalement, en pleine phrase.",
+    "Rends la dernière répétition différente de toutes les précédentes.",
+    "Prends l'élément principal et cache-le sous les autres.",
+    "Superpose ton refrain et ton couplet en même temps pour la fin.",
+    "Décale la caisse claire d'un demi-temps sur une section entière.",
+    "Ajoute un silence d'une mesure juste avant le moment le plus fort.",
+    "Fais commencer un élément avant la mesure, en anacrouse.",
+    "Transforme une nappe en percussion en la coupant très court.",
+    "Transforme une percussion en nappe en l'étirant à l'extrême.",
+    "Fais jouer le même motif par trois instruments, dans trois octaves différentes.",
+    "Enlève tous les hi-hats et écoute ce qui manque vraiment.",
+    "Remplace la mélodie principale par un rythme parlé.",
+    "Règle la vélocité de chaque note à la main, une par une.",
+    "Ajoute un élément qui ne joue qu'une seule fois dans tout le morceau.",
+    "Fais durer ta montée deux fois plus longtemps que ce qui te semble raisonnable.",
+    "Répète une section une fois de plus que le confortable.",
+    "Écoute le morceau très bas et garde uniquement ce que tu entends encore.",
+    "Écoute-le depuis la pièce d'à côté, porte ouverte, et note ce qui ressort.",
+    "Compare-le à un morceau de référence, puis exagère la différence principale.",
+    "Chante par-dessus ce que tu as, puis transcris ce que tu as chanté.",
+    "Rejoue toutes tes parties à l'oreille, sans regarder la grille.",
+    "Descends tout à zéro et remonte les éléments un par un, par ordre d'importance.",
+    "Donne-toi dix minutes pour terminer l'arrangement, dans l'état où il sera.",
+    "Décide que le morceau est fini maintenant, et ne t'occupe plus que du mix.",
+    "Sauvegarde, puis fais une version volontairement excessive de tout.",
+    "Fais une seconde version du morceau, deux fois plus courte.",
+    "Fais une version complète sans aucune percussion.",
+    "Change le tempo de dix BPM et réécoute avant de trancher.",
+    "Inverse les rôles : la basse prend le lead, le lead passe à la basse.",
+    "Prends ton élément le plus fort et réduis-le à une simple texture de fond.",
+    "Fais démarrer chaque section par un son qu'on n'entend nulle part ailleurs.",
+    "Module : change de tonalité pour la dernière partie.",
+    "Garde la même progression mais commence-la sur un autre accord.",
+    "Termine sur un accord qui n'est pas la tonique.",
+    "Ajoute une dissonance volontaire et ne la résous jamais.",
+    "Fais chevaucher la fin d'une section et le début de la suivante.",
+    "Retire toute la réverbération d'un élément pour le coller à l'oreille.",
+    "Éloigne un élément très loin, comme s'il venait d'une autre pièce.",
+    "Fais jouer un élément légèrement en avance sur le temps, tout du long.",
+    "Laisse un instrument jouer un peu faux, exprès.",
+    "Ajoute un accompagnement qui ne suit pas la pulsation principale.",
+    "Fais respirer l'arrangement : une mesure sur quatre, tout s'allège.",
+    "Construis une montée uniquement en retirant des éléments.",
+    "Écris en une phrase ce que le morceau doit faire ressentir, puis coupe tout ce qui n'y sert pas.",
+    "Fais écouter la boucle à quelqu'un et garde sa toute première réaction.",
+    "Enregistre-toi en train de fredonner l'idée avant de la produire.",
+    "Prends une seule mesure du morceau et fais-en le morceau entier.",
+    "Fais une pause de cinq minutes en silence complet, puis réécoute.",
+    "Joue ta mélodie une octave plus bas et vois si elle tient encore.",
+    "Remplace un instrument par le plus improbable de ta bibliothèque.",
+    "Fais durer le dernier accord jusqu'à ce que ça devienne inconfortable.",
+    "Ajoute une réponse rythmique qui contredit le motif principal.",
+    "Étire un son court jusqu'à en faire un décor complet.",
+    "Coupe le morceau en deux et échange l'ordre des deux moitiés."
   ];
 
   const els = {
@@ -1506,11 +1571,11 @@
     techTitle: document.getElementById('techTitle'),
     techValue: document.getElementById('techValue'),
     techReroll: document.getElementById('techReroll'),
-    narrPanel: document.getElementById('narrPanel'),
-    narrToggle: document.getElementById('narrToggle'),
-    narrTitle: document.getElementById('narrTitle'),
-    narrValue: document.getElementById('narrValue'),
-    narrReroll: document.getElementById('narrReroll'),
+    crea2Panel: document.getElementById('crea2Panel'),
+    crea2Toggle: document.getElementById('crea2Toggle'),
+    crea2Title: document.getElementById('crea2Title'),
+    crea2Value: document.getElementById('crea2Value'),
+    crea2Reroll: document.getElementById('crea2Reroll'),
     chordToggle: document.getElementById('chordToggle'),
     chordText: document.querySelector('.chord-text'),
     chordDots: document.getElementById('chordDots')
@@ -2140,7 +2205,7 @@
     if(!LOCKS.constraint) genField('constraint');
     renderAll(true);
     rerollExtra(els.techValue, CONSTRAINTS_TECH);
-    rerollExtra(els.narrValue, CONSTRAINTS_NARRATIVE);
+    rerollExtra(els.crea2Value, CONSTRAINTS_CREA2);
     updateSeedDisplay();
     pulseButton();
     pushHistory();
@@ -2198,9 +2263,9 @@
     showToast._t = setTimeout(()=>els.toast.classList.remove('show'), 2200);
   }
 
-  // ---- optional extra-constraint panels (technique / narrative) ----
+  // ---- optional extra-constraint panels (technique / créative bis) ----
   const TECH_OPEN_KEY = "glitch_inspi_tech_open";
-  const NARR_OPEN_KEY = "glitch_inspi_narr_open";
+  const CREA2_OPEN_KEY = "glitch_inspi_crea2_open";
   const GROOVE_OPEN_KEY = "glitch_inspi_groove_open";
 
   function setExtraPanelOpen(panelEl, storageKey, open){
@@ -2519,9 +2584,9 @@
   els.grooveToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY));
   els.grooveTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY));
 
-  els.narrToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY));
-  els.narrTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY));
-  els.narrReroll.addEventListener('click', ()=>rerollExtra(els.narrValue, CONSTRAINTS_NARRATIVE));
+  els.crea2Toggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY));
+  els.crea2Title.addEventListener('click', ()=>toggleExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY));
+  els.crea2Reroll.addEventListener('click', ()=>rerollExtra(els.crea2Value, CONSTRAINTS_CREA2));
 
   document.addEventListener('keydown', (e)=>{
     if(e.code === 'Space' && document.activeElement === document.body){
@@ -2538,17 +2603,17 @@
     try{ savedOpen = localStorage.getItem(PREFS_OPEN_KEY); }catch(e){}
     setPrefsOpen(savedOpen === '1');
 
-    let techOpen = null, narrOpen = null, grooveOpen = null;
+    let techOpen = null, crea2Open = null, grooveOpen = null;
     try{
       techOpen = localStorage.getItem(TECH_OPEN_KEY);
-      narrOpen = localStorage.getItem(NARR_OPEN_KEY);
+      crea2Open = localStorage.getItem(CREA2_OPEN_KEY);
       grooveOpen = localStorage.getItem(GROOVE_OPEN_KEY);
     }catch(e){}
     setExtraPanelOpen(els.techPanel, TECH_OPEN_KEY, techOpen === '1');
-    setExtraPanelOpen(els.narrPanel, NARR_OPEN_KEY, narrOpen === '1');
+    setExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY, crea2Open === '1');
     setExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY, grooveOpen === '1');
     els.techValue.textContent = drawFrom('techValue', CONSTRAINTS_TECH);
-    els.narrValue.textContent = drawFrom('narrValue', CONSTRAINTS_NARRATIVE);
+    els.crea2Value.textContent = drawFrom('crea2Value', CONSTRAINTS_CREA2);
 
     let chronoStagedSaved = null;
     try{ chronoStagedSaved = localStorage.getItem(CHRONO_STAGED_KEY); }catch(e){}

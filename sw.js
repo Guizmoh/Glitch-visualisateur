@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'page-noir-v2.3';
+const CACHE_VERSION = 'page-noir-v2.6';
 const CORE_ASSETS = [
   './',
   './index.html',

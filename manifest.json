@@ -1,12 +1,12 @@
 {
   "name": "La page noir — inspiration musicale",
   "short_name": "Page noir",
-  "description": "Générateur d'inspiration musicale (v2.3) : style, morceaux de référence, BPM, pattern rythmique, gamme, ambiance, structure et contraintes.",
+  "description": "Générateur d'inspiration musicale (v2.6) : style, morceaux de référence, BPM, pattern rythmique, gamme, ambiance, structure et contraintes.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#1a1815",
-  "theme_color": "#1a1815",
+  "background_color": "#100d0c",
+  "theme_color": "#100d0c",
   "lang": "fr",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

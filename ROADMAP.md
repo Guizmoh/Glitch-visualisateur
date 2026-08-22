@@ -1,6 +1,6 @@
-# Feuille de route — Inspiration musical
+# Feuille de route — La page noir
 
-Version actuelle : **v1.4.1** · [Voir l'app](https://guizmoh.github.io/Glitch-visualisateur/)
+Version actuelle : **v2.1** · [Voir l'app](https://guizmoh.github.io/Glitch-visualisateur/)
 
 Les dix améliorations identifiées, classées par **impact réel** (pas par
 facilité). Le texte d'analyse d'origine est conservé tel quel pour chaque
@@ -11,10 +11,10 @@ point, afin de pouvoir reprendre le travail plus tard sans re-réfléchir au
 
 | # | Amélioration | Statut |
 |---|---|---|
-| 1 | Morceaux de référence par style | ✅ v1.4.1 |
-| 2 | Pattern rythmique suggéré | ✅ v1.4.1 |
+| 1 | Morceaux de référence par style | ✅ v2.1 |
+| 2 | Pattern rythmique suggéré | ✅ v2.1 |
 | 3 | Export MIDI de la suite d'accords | ⬜ à faire |
-| 4 | Lier la gamme au style | ✅ v1.4.1 |
+| 4 | Lier la gamme au style | ✅ v2.1 |
 | 5 | Structure en mesures plutôt qu'en mots | ⬜ à faire |
 | 6 | Bouton « Débloque-moi » | ⬜ à faire |
 | 7 | Bloc-notes lié à la seed | ⬜ à faire |
@@ -26,7 +26,7 @@ point, afin de pouvoir reprendre le travail plus tard sans re-réfléchir au
 
 ## Le gros trou actuel : ça décrit, mais ça ne fait pas entendre
 
-### 1. Morceaux de référence par style — ✅ livré en v1.4.1
+### 1. Morceaux de référence par style — ✅ livré en v2.1
 
 > 2-3 titres réels par style/sous-genre, avec un lien de recherche YouTube. Si
 > tu tombes sur "Highlife électronique (tendre)", la description aide, mais 30
@@ -39,7 +39,7 @@ point, afin de pouvoir reprendre le travail plus tard sans re-réfléchir au
 (`House × Techno`), les titres sont pris dans les deux styles. Les références
 partent aussi dans l'export `.txt`.
 
-### 2. Un pattern rythmique suggéré — ✅ livré en v1.4.1
+### 2. Un pattern rythmique suggéré — ✅ livré en v2.1
 
 > Une grille 16 pas (kick/snare/hats) typique du style, affichée visuellement.
 > Tu passes de "fais du boom bap" à "voilà où tombe la caisse claire".
@@ -73,7 +73,7 @@ main (en-tête `MThd` + piste `MTrk`, delta-times en VLQ), au BPM affiché.
 
 ## Cohérence musicale (bug de conception actuel)
 
-### 4. Lier la gamme au style — ✅ livré en v1.4.1
+### 4. Lier la gamme au style — ✅ livré en v2.1
 
 > Aujourd'hui la tonalité est tirée indépendamment — tu peux tomber sur "Phonk
 > + Lydien" qui n'a pas beaucoup de sens. Pondérer les modes par style

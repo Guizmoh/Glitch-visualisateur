@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'inspiration-v1.4.1';
+const CACHE_VERSION = 'page-noir-v2.1';
 const CORE_ASSETS = [
   './',
   './index.html',

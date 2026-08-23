@@ -136,8 +136,8 @@
     /* le style se centre quand il a toute la largeur */
     .card[data-key="style"]{ text-align:center; }
     .card[data-key="style"] .card-label{ justify-content:center; }
-    .card[data-key="style"] .card-desc{ max-width:600px; margin-left:auto; margin-right:auto; }
-    .card[data-key="style"] .style-refs{ max-width:540px; margin-left:auto; margin-right:auto; }
+    .card[data-key="style"] .card-desc{ max-width:780px; margin-left:auto; margin-right:auto; font-size:1.04rem; }
+    
     .card[data-key="constraint"]{ text-align:center; }
     .card[data-key="constraint"] .card-label{ justify-content:center; }
   }
@@ -162,18 +162,25 @@
   .card[data-key="mood"] .card-value{ font-size:1.85rem; }
   .card-value.updating, .card-desc.updating{ animation:fade .34s ease; }
   @keyframes fade{ from{ opacity:0; transform:translateY(3px); } to{ opacity:1; transform:none; } }
-  .card-desc{ color:var(--txt-2); font-size:0.84rem; line-height:1.6; margin-top:9px; }
+  .card-desc{ color:var(--txt-2); font-size:0.97rem; line-height:1.65; margin-top:12px; }
 
-  /* l'ambiance est centree pour ne pas paraitre vide */
-  .card[data-key="mood"]{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
-  .card[data-key="mood"] .card-head{ width:100%; justify-content:space-between; }
+  /* L'ambiance ne contient qu'un mot : on centre la valeur dans la place
+     restante, mais l'en-tete garde sa position haute comme sur les autres
+     cartes. */
+  .card[data-key="mood"]{ display:flex; flex-direction:column; }
+  .card[data-key="mood"] .card-value{
+    flex:1; display:flex; align-items:center; justify-content:center; text-align:center;
+    min-height:2em;
+  }
 
   /* ---------- references ---------- */
-  .style-refs{ margin-top:14px; display:flex; flex-direction:column; gap:6px; }
+  /* Deux par ligne : la carte respire au lieu d'empiler une colonne centree. */
+  .style-refs{ margin-top:16px; display:grid; grid-template-columns:1fr; gap:8px; text-align:left; }
+  @media (min-width:620px){ .style-refs{ grid-template-columns:1fr 1fr; } }
   .style-refs:empty{ display:none; }
-  .ref-label{ font-family:var(--mono); font-size:0.55rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--txt-3); }
+  .ref-label{ font-family:var(--mono); font-size:0.58rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--txt-3); grid-column:1 / -1; }
   .ref-link{
-    display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--txt-2); font-size:0.79rem; line-height:1.4;
+    display:flex; align-items:center; gap:8px; text-decoration:none; color:var(--txt-2); font-size:0.84rem; line-height:1.4;
     border-radius:999px; padding:9px 14px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);
     transition:color .15s ease, border-color .15s ease;
   }
@@ -224,7 +231,7 @@
   .key-en{ font-family:var(--mono); font-size:0.72rem; color:var(--txt-3); margin-top:5px; }
   .key-en:empty{ display:none; }
   .key-body{ display:grid; gap:18px; align-items:center; }
-  @media (min-width:980px){ .key-body{ grid-template-columns:0.82fr 1.18fr; } }
+  @media (min-width:980px){ .key-body{ grid-template-columns:0.72fr 1.28fr; } }
   .chord-btn{
     display:inline-block; cursor:pointer; margin-top:12px; color:var(--txt-2); text-align:left;
     background:rgba(0,0,0,0.34); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:12px 15px;
@@ -238,9 +245,9 @@
   .chord-keys{ display:flex; flex-wrap:wrap; gap:11px; }
   @media (min-width:980px){ .chord-keys{ justify-content:flex-end; } }
   /* une noire par frontiere de blanches : 1,2 puis 4,5,6 — position calculee */
-  .kb{ --kb-w:13px; --kb-bw:8px; --kb-h:40px; display:flex; flex-direction:column; gap:5px; }
-  @media (min-width:980px){ .kb{ --kb-w:16px; --kb-bw:10px; --kb-h:50px; } }
-  .kb-label{ font-family:var(--mono); font-size:0.64rem; color:var(--txt-2); text-align:center; }
+  .kb{ --kb-w:16px; --kb-bw:10px; --kb-h:48px; display:flex; flex-direction:column; gap:6px; }
+  @media (min-width:980px){ .kb{ --kb-w:19px; --kb-bw:12px; --kb-h:60px; } }
+  .kb-label{ font-family:var(--mono); font-size:0.7rem; color:var(--txt-2); text-align:center; }
   .kb-keys{ position:relative; display:flex; height:var(--kb-h); border-radius:6px; overflow:hidden; border:1px solid rgba(0,0,0,0.5); }
   .kb-key.white{ width:var(--kb-w); background:linear-gradient(180deg,#efeade,#c9c3b6); border-right:1px solid rgba(0,0,0,0.4); }
   .kb-key.white:last-of-type{ border-right:none; }

@@ -133,6 +133,7 @@
     .panel-history{ grid-column:1 / 4; grid-row:7; }
     .panel-fav{ grid-column:4 / 7; grid-row:7; }
     .panel-groove{ grid-column:1 / 7; grid-row:8; }
+    .panel-sample{ grid-column:1 / 7; grid-row:9; }
     /* le style se centre quand il a toute la largeur */
     .card[data-key="style"]{ text-align:center; }
     .card[data-key="style"] .card-label{ justify-content:center; }
@@ -313,6 +314,32 @@
   .groove-step.on.downbeat{ background:linear-gradient(180deg,#ffc496,#f0803a); }
   .groove-ruler .groove-step{ background:none; border:none; box-shadow:none; height:auto; font-family:var(--mono); font-size:0.57rem; color:var(--txt-3); text-align:center; }
   .groove-empty{ color:var(--txt-2); font-size:0.84rem; line-height:1.6; margin:0; }
+
+  /* ---------- sample (Freesound) ---------- */
+  .sample-key-row{ display:flex; gap:8px; margin-top:2px; }
+  .sample-key-row input{
+    flex:1; min-width:0; background:var(--lcd); border:1px solid rgba(255,255,255,0.05); border-radius:10px;
+    color:var(--txt); font-family:var(--mono); font-size:0.78rem; padding:9px 12px;
+  }
+  .sample-key-row input:focus{ outline:none; border-color:rgba(226,124,40,0.45); }
+  /* La clé enregistrée reste modifiable : seule l'explication d'inscription
+     s'efface, jamais le champ lui-même. */
+  .sample-panel-ready #sampleKeyHint{ display:none; }
+  .sample-result{ margin-top:14px; }
+  .sample-result:empty{ display:none; }
+  .sample-card{
+    display:flex; flex-direction:column; gap:9px; background:rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:14px 16px;
+  }
+  .sample-card audio{ width:100%; height:34px; }
+  .sample-card-meta{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .sample-card-name{ font-size:0.92rem; font-weight:600; }
+  .sample-card-name span{ color:var(--txt-2); font-weight:400; }
+  .sample-card-links{ display:flex; gap:14px; font-family:var(--mono); font-size:0.68rem; }
+  .sample-card-links a{ color:var(--orange-2); text-decoration:none; }
+  .sample-card-links a:hover{ text-decoration:underline; }
+  .sample-status{ color:var(--txt-2); font-size:0.85rem; line-height:1.55; }
+  .sample-status.error{ color:#f0a06a; }
   @media (max-width:620px){
     .groove-step, .groove-ruler .groove-step{ width:17px; }
     .groove-step{ height:17px; border-radius:5px; }
@@ -627,6 +654,23 @@
     <div class="extra-body">
       <p class="extra-hint">Une grille de départ typique du style, sur 16 pas (une mesure en doubles-croches). À déformer, pas à recopier.</p>
       <div class="groove-grid" id="grooveGrid"></div>
+    </div>
+  </div>
+
+  <div class="glass soft pad panel-sample" id="samplePanel">
+    <div class="card-head" style="margin-bottom:0">
+      <span class="panel-title" id="sampleTitle">Sample réel <span class="extra-badge">CC0 · Freesound</span></span>
+      <button class="panel-toggle" id="sampleToggle" title="Afficher/masquer"><svg class="icon chevron"><use href="#i-chevron-down"></use></svg></button>
+    </div>
+    <div class="extra-body">
+      <p class="extra-hint">Un son réel sous licence CC0 (libre de droits, sans attribution), cherché en direct sur Freesound.org à partir du style tiré. C'est le seul endroit de l'app qui contacte un service extérieur, et seulement quand tu cliques sur le bouton.</p>
+      <div class="sample-key-row" id="sampleKeyRow">
+        <input type="password" id="sampleKeyInput" placeholder="Clé API Freesound" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn-ghost" id="sampleKeySave" style="flex:none;display:inline-flex">Enregistrer</button>
+      </div>
+      <p class="extra-hint" id="sampleKeyHint">Gratuit : crée un compte sur <a href="https://freesound.org" target="_blank" rel="noopener">freesound.org</a>, puis demande une clé sur <a href="https://freesound.org/apiv2/apply/" target="_blank" rel="noopener">freesound.org/apiv2/apply</a>. Elle reste sur cet appareil, jamais envoyée ailleurs qu'à Freesound.</p>
+      <button type="button" class="btn-ghost" id="sampleFetch" style="flex:none;display:inline-flex"><svg class="icon sm"><use href="#i-refresh"></use></svg>Trouver un sample</button>
+      <div class="sample-result" id="sampleResult"></div>
     </div>
   </div>
 
@@ -1090,6 +1134,35 @@
     "Hardcore / Rave":"darkModal", "Hardtek":"darkModal", "Tribe":"darkModal", "Gabber":"darkModal"
   };
 
+  // Style → mots-clés de recherche Freesound. Freesound est surtout indexé en
+  // anglais et pensé pour des sons/loops/field recordings, pas des morceaux
+  // entiers : ces requêtes ciblent des sons ou boucles plausibles plutôt que
+  // de traduire littéralement le nom du style.
+  const SAMPLE_QUERY_OF = {
+    "House":"house loop", "Deep house":"deep house chords", "UK garage":"garage 2step drum loop",
+    "Gqom":"gqom drum loop", "Tech house":"tech house loop",
+    "Techno":"techno loop", "Techno minimale":"minimal techno loop", "Techno acide":"acid 303 loop", "Techno industrielle":"industrial techno noise",
+    "Drum & Bass":"drum and bass break", "Jungle":"jungle break amen", "Liquid funk":"liquid dnb pad", "Neurofunk":"reese bass", "Footwork":"footwork drum loop",
+    "Dubstep":"dubstep wobble bass", "Riddim":"riddim bass", "Future garage":"future garage pad", "Brostep":"dubstep bass drop",
+    "Hip-Hop":"hip hop drum loop", "Drill":"drill hi hat loop", "Boom bap":"boom bap drum loop", "Cloud rap":"cloud rap pad",
+    "Grime":"grime beat", "Lo-fi hip-hop":"lofi hip hop loop", "Trip-hop":"trip hop loop",
+    "Trap":"trap 808 loop", "Phonk":"phonk cowbell loop", "Rage":"trap distorted synth", "Trap latino":"reggaeton dembow loop",
+    "Reggae":"reggae guitar skank", "Ska":"ska horns loop", "Dancehall":"dancehall riddim loop", "Reggaeton":"reggaeton dembow beat",
+    "Dub":"dub reggae bassline", "Dub techno":"dub techno chord loop",
+    "Rock":"rock guitar riff", "Shoegaze":"shoegaze guitar reverb", "Post-rock":"post rock guitar swell", "Krautrock":"motorik drum loop", "Grunge":"grunge guitar distortion",
+    "Punk":"punk guitar riff", "Punk californien":"pop punk guitar", "Post-punk":"post punk bassline", "Hardcore punk":"hardcore punk drums",
+    "Pop":"pop synth chords", "K-pop":"kpop synth loop", "Hyperpop":"hyperpop glitch synth", "Synthpop":"synthpop arpeggio", "Indie pop":"indie guitar loop",
+    "Folk / Chanson":"acoustic guitar folk", "Ballade française":"piano ballad chords", "Americana":"acoustic guitar americana", "Folk psychédélique":"psychedelic sitar",
+    "Jazz":"jazz piano chords", "Jazz fusion":"jazz fusion electric piano", "Nu-jazz":"nu jazz drum loop", "Bossa nova":"bossa nova guitar", "Jazz manouche":"gypsy jazz guitar",
+    "Funk / Disco":"funk bass groove", "Funk psychédélique":"psychedelic funk guitar", "Disco":"disco strings loop", "Baile funk":"baile funk beat",
+    "Ambient / Expérimental":"ambient drone pad", "Drone":"drone texture", "Musique concrète":"musique concrete texture", "Field recording":"field recording ambience",
+    "Neoclassique":"solo piano", "Glitch":"glitch texture", "IDM":"idm glitch drum", "Musique de film":"cinematic strings",
+    "Industrial":"industrial noise loop", "EBM":"ebm synth bass", "Darkwave":"darkwave synth pad",
+    "Synthwave":"synthwave arpeggio", "Vaporwave":"vaporwave chime", "Chiptune":"chiptune 8bit loop",
+    "Afrobeat":"afrobeat percussion loop", "Highlife électronique":"highlife guitar loop", "Amapiano":"amapiano log drum", "Cumbia digitale":"cumbia guacharaca loop",
+    "Hardcore / Rave":"hardcore rave stab", "Hardtek":"hardtek kick loop", "Tribe":"tribal drum loop", "Gabber":"gabber kick distorted"
+  };
+
   const MOODS = [
     "Mélancolique", "Euphorique", "Hypnotique", "Anxieux", "Onirique",
     "Agressif", "Nostalgique", "Méditatif", "Chaotique", "Sensuel",
@@ -1447,6 +1520,14 @@
     grooveTitle: document.getElementById('grooveTitle'),
     grooveBadge: document.getElementById('grooveBadge'),
     grooveGrid: document.getElementById('grooveGrid'),
+    samplePanel: document.getElementById('samplePanel'),
+    sampleToggle: document.getElementById('sampleToggle'),
+    sampleTitle: document.getElementById('sampleTitle'),
+    sampleKeyRow: document.getElementById('sampleKeyRow'),
+    sampleKeyInput: document.getElementById('sampleKeyInput'),
+    sampleKeySave: document.getElementById('sampleKeySave'),
+    sampleFetch: document.getElementById('sampleFetch'),
+    sampleResult: document.getElementById('sampleResult'),
     chronoModeToggle: document.getElementById('chronoModeToggle'),
     chronoMaxSimple: document.getElementById('chronoMaxSimple'),
     chronoMaxStaged: document.getElementById('chronoMaxStaged'),
@@ -1468,7 +1549,7 @@
   };
 
   const LOCKS = { style:false, bpm:false, key:false, mood:false, structure:false, instruments:false, constraint:false };
-  let state = { styleObj:null, style:"", styleDesc:"", bpm:"", key:"", keyObj:null, chordIndex:0, mood:"", structure:"", instruments:[], constraint:"", styleRefs:[], grooveKey:"four_floor", keyPool:null };
+  let state = { styleObj:null, style:"", styleDesc:"", bpm:"", key:"", keyObj:null, chordIndex:0, mood:"", structure:"", instruments:[], constraint:"", styleRefs:[], grooveKey:"four_floor", keyPool:null, sampleQuery:"loop" };
 
   const HISTORY_KEY = "glitch_inspi_history";
   const FAV_KEY = "glitch_inspi_favorites";
@@ -1804,6 +1885,7 @@
     state.styleRefs = refs;
     state.grooveKey = parts.map(n=>GROOVE_OF[n]).find(Boolean) || 'four_floor';
     state.keyPool = parts.map(n=>KEYPOOL_OF[n]).find(Boolean) || null;
+    state.sampleQuery = parts.map(n=>SAMPLE_QUERY_OF[n]).find(Boolean) || parts[0].toLowerCase();
   }
 
   function setSingleStyle(name){
@@ -1977,6 +2059,102 @@
     ruler.appendChild(rulerName);
     ruler.appendChild(rulerSteps);
     els.grooveGrid.appendChild(ruler);
+  }
+
+  // ---- sample réel (Freesound) ----
+  // Recherche à la demande uniquement (jamais automatique) : c'est le seul
+  // appel réseau de l'app, et il doit rester un choix explicite de
+  // l'utilisateur. La clé reste en localStorage, jamais dans le code.
+  const FREESOUND_KEY_STORAGE = "glitch_inspi_freesound_key";
+
+  function getFreesoundKey(){
+    try{ return localStorage.getItem(FREESOUND_KEY_STORAGE) || ''; }catch(e){ return ''; }
+  }
+  function setFreesoundKey(key){
+    try{
+      if(key) localStorage.setItem(FREESOUND_KEY_STORAGE, key);
+      else localStorage.removeItem(FREESOUND_KEY_STORAGE);
+    }catch(e){}
+  }
+  function updateSampleKeyUI(){
+    const hasKey = !!getFreesoundKey();
+    els.samplePanel.classList.toggle('sample-panel-ready', hasKey);
+    els.sampleKeyInput.value = getFreesoundKey();
+  }
+
+  function renderSampleStatus(msg, isError){
+    els.sampleResult.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'sample-status' + (isError ? ' error' : '');
+    p.textContent = msg;
+    els.sampleResult.appendChild(p);
+  }
+
+  function renderSampleCard(sound){
+    els.sampleResult.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = 'sample-card';
+    const audio = document.createElement('audio');
+    audio.controls = true;
+    audio.preload = 'none';
+    audio.src = sound.previews && (sound.previews['preview-hq-mp3'] || sound.previews['preview-lq-mp3']);
+    const meta = document.createElement('div');
+    meta.className = 'sample-card-meta';
+    const name = document.createElement('div');
+    name.className = 'sample-card-name';
+    name.textContent = sound.name + ' ';
+    const by = document.createElement('span');
+    by.textContent = '— ' + sound.username;
+    name.appendChild(by);
+    const links = document.createElement('div');
+    links.className = 'sample-card-links';
+    const a = document.createElement('a');
+    a.href = sound.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+    a.textContent = 'Voir sur Freesound';
+    links.appendChild(a);
+    meta.appendChild(name);
+    meta.appendChild(links);
+    card.appendChild(audio);
+    card.appendChild(meta);
+    els.sampleResult.appendChild(card);
+  }
+
+  function fetchSample(){
+    const key = getFreesoundKey();
+    if(!key){
+      renderSampleStatus('Configure ta clé API Freesound ci-dessus pour chercher un sample.', false);
+      return;
+    }
+    const query = state.sampleQuery || 'loop';
+    renderSampleStatus('Recherche en cours sur Freesound…', false);
+    const params = new URLSearchParams({
+      query: query,
+      filter: 'license:"Creative Commons 0"',
+      fields: 'id,name,username,license,previews,url',
+      page_size: '15',
+      token: key
+    });
+    fetch('https://freesound.org/apiv2/search/text/?' + params.toString())
+      .then(res=>{
+        if(res.status === 401) throw new Error('unauthorized');
+        if(!res.ok) throw new Error('http_' + res.status);
+        return res.json();
+      })
+      .then(data=>{
+        const results = (data && data.results) || [];
+        if(!results.length){
+          renderSampleStatus('Aucun résultat CC0 pour « ' + query + ' ». Réessaie, ou change de style.', false);
+          return;
+        }
+        renderSampleCard(randomItem(results));
+      })
+      .catch(err=>{
+        if(err.message === 'unauthorized'){
+          renderSampleStatus('Clé API refusée par Freesound. Vérifie qu\'elle est correcte et active.', true);
+        } else {
+          renderSampleStatus('Impossible de contacter Freesound (hors ligne, ou service indisponible).', true);
+        }
+      });
   }
 
   // "F#m7" → { root:6, notes:[6,9,1,4], label:"F#m7" }. Renvoie null pour tout
@@ -2153,6 +2331,7 @@
   const TECH_OPEN_KEY = "glitch_inspi_tech_open";
   const CREA2_OPEN_KEY = "glitch_inspi_crea2_open";
   const GROOVE_OPEN_KEY = "glitch_inspi_groove_open";
+  const SAMPLE_OPEN_KEY = "glitch_inspi_sample_open";
 
   function setExtraPanelOpen(panelEl, storageKey, open){
     panelEl.classList.toggle('expanded', open);
@@ -2470,6 +2649,15 @@
   els.grooveToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY));
   els.grooveTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY));
 
+  els.sampleToggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.samplePanel, SAMPLE_OPEN_KEY));
+  els.sampleTitle.addEventListener('click', ()=>toggleExtraPanelOpen(els.samplePanel, SAMPLE_OPEN_KEY));
+  els.sampleKeySave.addEventListener('click', ()=>{
+    setFreesoundKey(els.sampleKeyInput.value.trim());
+    updateSampleKeyUI();
+    showToast(getFreesoundKey() ? 'Clé enregistrée sur cet appareil' : 'Clé effacée');
+  });
+  els.sampleFetch.addEventListener('click', fetchSample);
+
   els.crea2Toggle.addEventListener('click', ()=>toggleExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY));
   els.crea2Title.addEventListener('click', ()=>toggleExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY));
   els.crea2Reroll.addEventListener('click', ()=>rerollExtra(els.crea2Value, CONSTRAINTS_CREA2));
@@ -2489,17 +2677,20 @@
     try{ savedOpen = localStorage.getItem(PREFS_OPEN_KEY); }catch(e){}
     setPrefsOpen(savedOpen === '1');
 
-    let techOpen = null, crea2Open = null, grooveOpen = null;
+    let techOpen = null, crea2Open = null, grooveOpen = null, sampleOpen = null;
     try{
       techOpen = localStorage.getItem(TECH_OPEN_KEY);
       crea2Open = localStorage.getItem(CREA2_OPEN_KEY);
       grooveOpen = localStorage.getItem(GROOVE_OPEN_KEY);
+      sampleOpen = localStorage.getItem(SAMPLE_OPEN_KEY);
     }catch(e){}
     setExtraPanelOpen(els.techPanel, TECH_OPEN_KEY, techOpen === '1');
     setExtraPanelOpen(els.crea2Panel, CREA2_OPEN_KEY, crea2Open === '1');
     setExtraPanelOpen(els.groovePanel, GROOVE_OPEN_KEY, grooveOpen === '1');
+    setExtraPanelOpen(els.samplePanel, SAMPLE_OPEN_KEY, sampleOpen === '1');
     els.techValue.textContent = drawFrom('techValue', CONSTRAINTS_TECH);
     els.crea2Value.textContent = drawFrom('crea2Value', CONSTRAINTS_CREA2);
+    updateSampleKeyUI();
 
     let chronoStagedSaved = null;
     try{ chronoStagedSaved = localStorage.getItem(CHRONO_STAGED_KEY); }catch(e){}

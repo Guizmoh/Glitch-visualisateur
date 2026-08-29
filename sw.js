@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'page-noir-v2.6.1';
+const CACHE_VERSION = 'page-noir-v2.6.2';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -25,10 +25,15 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // Ne gère que les ressources de l'app elle-même : les appels vers des
+  // services tiers (ex. la recherche de sample sur Freesound) doivent
+  // passer directement par le réseau normal du navigateur, sans transiter
+  // par ce service worker ni par son cache.
+  if (!event.request.url.startsWith(self.location.origin)) return;
   event.respondWith(
     caches.match(event.request).then((cached) => {
       const network = fetch(event.request).then((response) => {
-        if (response && response.ok && event.request.url.startsWith(self.location.origin)) {
+        if (response && response.ok) {
           const copy = response.clone();
           caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, copy));
         }

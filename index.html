@@ -126,18 +126,19 @@
   html{ background:var(--page-bg); }
   body{
     margin:0; min-height:100vh; color:var(--txt); font-family:var(--sans);
+    background:var(--page-bg);   /* opaque : une page hote au fond clair ne traverse plus */
     -webkit-font-smoothing:antialiased; padding:32px 20px 56px; position:relative;
   }
   body::after{
-    content:''; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
     background:var(--bg-layers);
   }
   body::before{
-    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+    content:''; position:fixed; inset:0; z-index:1; pointer-events:none;
     opacity:var(--texture-op); mix-blend-mode:var(--texture-blend);
     background-image:var(--texture-img); background-size:var(--texture-size);
   }
-  .wrap{ position:relative; z-index:1; max-width:1120px; margin:0 auto; }
+  .wrap{ position:relative; z-index:2; max-width:1120px; margin:0 auto; }
 
   /* ---------- verre ---------- */
   .glass{

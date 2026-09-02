@@ -1,12 +1,30 @@
 <!DOCTYPE html>
-<html lang="fr" data-theme="a">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Plan de morceau — arrangement musical</title>
+<title>Plan de morceau</title>
 <meta name="description" content="Calcule la structure d'un morceau (intro, couplet, refrain, pont, outro) en mesures, selon la durée visée, le tempo et le genre musical.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎼</text></svg>">
 <meta name="theme-color" content="#100d0c">
+<script>
+  /* Choix du theme avant le premier rendu : preference enregistree, sinon
+     celle de la page hote ou du systeme. Evite le clignotement. */
+  (function(){
+    var t = null;
+    try {
+      var s = JSON.parse(localStorage.getItem('plan-de-morceau-v1') || 'null');
+      if (s && (s.theme === 'a' || s.theme === 'b')) t = s.theme;
+    } catch (e) {}
+    if (!t){
+      var h = document.documentElement.getAttribute('data-theme');
+      if (h === 'light' || h === 'b') t = 'b';
+      else if (h === 'dark' || h === 'a') t = 'a';
+      else { try { t = matchMedia('(prefers-color-scheme: light)').matches ? 'b' : 'a'; } catch (e){ t = 'a'; } }
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,6 +73,7 @@
     --curve-rgb:242,149,63;
     --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     --sans:'Inter', system-ui, -apple-system, sans-serif;
+    color-scheme:dark;
   }
 
   /* ---------------- THEME B — clair, futuriste, bleu electrique --------------- */
@@ -100,6 +119,7 @@
     --cell-txt:rgba(15,25,50,0.66);
     --cell-txt-1:rgba(15,25,50,0.92);
     --curve-rgb:61,90,254;
+    color-scheme:light;
   }
 
   *{ box-sizing:border-box; }
@@ -435,6 +455,17 @@
     .row{ grid-template-columns:28px minmax(0,1fr) 132px 118px 104px auto; }
   }
 
+  /* ---------- feuille de texte (page partagee : pas de telechargement) ---------- */
+  .sheet{ position:fixed; inset:0; z-index:60; display:flex; align-items:center; justify-content:center;
+          padding:24px; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); }
+  .sheet[hidden]{ display:none; }
+  .sheet .box{ width:min(760px,100%); max-height:82vh; display:flex; flex-direction:column; gap:12px;
+    background:var(--glass); border:1px solid var(--line); border-radius:var(--r-card); padding:20px;
+    backdrop-filter:blur(30px); -webkit-backdrop-filter:blur(30px); box-shadow:0 1px 0 var(--hi) inset, var(--shadow); }
+  .sheet textarea{ flex:1; min-height:300px; resize:none; background:var(--glass-2); border:1px solid var(--line);
+    border-radius:12px; color:var(--txt); font-family:var(--mono); font-size:0.72rem; line-height:1.6; padding:12px; }
+  .sheet textarea:focus{ outline:1px solid var(--accent-soft); }
+
   /* ---------- impression ---------- */
   @media print{
     html,body{ background:#fff; color:#111; }
@@ -596,6 +627,20 @@
     <span class="no-print">Les durées sont des repères : une mesure = <span id="fBeats">4</span> temps au tempo choisi.<br>
     Tout reste dans le navigateur, rien n'est envoyé.</span>
   </footer>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="box">
+    <div class="card-head" style="margin:0">
+      <h2 id="sheetTitle">Plan de morceau</h2>
+      <span class="sub">Le téléchargement est bloqué dans une page partagée : copiez le texte ci-dessous.</span>
+    </div>
+    <textarea id="sheetText" readonly spellcheck="false"></textarea>
+    <div class="actions" style="margin:0">
+      <button type="button" class="btn primary" id="sheetCopy">⧉ Copier</button>
+      <button type="button" class="btn" id="sheetClose">Fermer</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -1002,7 +1047,8 @@ function hexToHsl(hex){
 const STORE = 'plan-de-morceau-v1';
 const state = {
   genre:'pop', duration:210, bpm:108, sig:'4/4', sections:[],
-  edited:false, showGrid:true, click:true, theme:'a', colors:{}
+  edited:false, showGrid:true, click:true,
+  theme:(document.documentElement.getAttribute('data-theme') === 'b') ? 'b' : 'a', colors:{}
 };
 
 function save(){
@@ -1019,7 +1065,7 @@ function load(){
     state.edited = !!o.edited;
     state.showGrid = o.showGrid !== false;
     state.click = o.click !== false;
-    state.theme = (o.theme === 'b') ? 'b' : 'a';
+    state.theme = (o.theme === 'b' || o.theme === 'a') ? o.theme : state.theme;
     state.colors = {};
     if (o.colors) Object.keys(o.colors).forEach(function(k){
       const c = o.colors[k];
@@ -1430,7 +1476,20 @@ function planJson(){
   }, null, 2);
 }
 
+/* Dans une page partagée (artifact, iframe), le navigateur refuse les
+   téléchargements lancés par la page : on affiche le texte à copier. */
+const EMBEDDED = (function(){ try { return window.self !== window.top; } catch (e){ return true; } })();
+
+function showText(name, text){
+  $('sheetTitle').textContent = name;
+  $('sheetText').value = text;
+  $('sheet').hidden = false;
+  $('sheetText').focus();
+  $('sheetText').setSelectionRange(0, 0);
+}
+
 function download(name, text, mime){
+  if (EMBEDDED){ showText(name, text); return; }
   const b = new Blob([text], { type:mime + ';charset=utf-8' });
   const u = URL.createObjectURL(b);
   const a = document.createElement('a');
@@ -1618,6 +1677,19 @@ function wire(){
   $('txtBtn').addEventListener('click', function(){ download(fileName('txt'), planText(), 'text/plain'); });
   $('jsonBtn').addEventListener('click', function(){ download(fileName('json'), planJson(), 'application/json'); });
   $('printBtn').addEventListener('click', function(){ window.print(); });
+  $('sheetClose').addEventListener('click', function(){ $('sheet').hidden = true; });
+  $('sheet').addEventListener('click', function(e){ if (e.target === $('sheet')) $('sheet').hidden = true; });
+  $('sheetCopy').addEventListener('click', function(){
+    const t = $('sheetText');
+    t.focus(); t.select();
+    let done = false;
+    try { done = document.execCommand('copy'); } catch (e) {}
+    if (done) toast('Copié dans le presse-papiers');
+    else if (navigator.clipboard) navigator.clipboard.writeText(t.value).then(
+      function(){ toast('Copié dans le presse-papiers'); },
+      function(){ toast('Sélectionnez le texte puis Ctrl+C'); });
+    else toast('Sélectionnez le texte puis Ctrl+C');
+  });
   $('resetBtn').addEventListener('click', function(){
     try { localStorage.removeItem(STORE); } catch (e) {}
     state.genre = 'pop'; state.duration = 210; state.bpm = 108; state.sig = '4/4';
@@ -1629,6 +1701,7 @@ function wire(){
   document.addEventListener('keydown', function(e){
     const tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'textarea') return;
+    if (e.key === 'Escape' && !$('sheet').hidden){ $('sheet').hidden = true; return; }
     if (e.code === 'Space'){ e.preventDefault(); playing ? stop(false) : play(); }
     if (e.key === 'g' || e.key === 'G'){ generate(); toast('Structure régénérée'); }
   });

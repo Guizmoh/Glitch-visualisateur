@@ -207,6 +207,13 @@
     border-left:2px solid var(--accent-soft); padding:2px 0 2px 12px;
   }
 
+  /* ---------- mise en page : cartes empilees (mobile) puis console ---------- */
+  .app{ display:block; }
+  .rail-foot:empty, .main-foot:empty{ display:none; }
+  .row .mini{ display:none; gap:2px; align-items:center; }
+  .row .mini i{ width:5px; height:15px; border-radius:2px; display:block; }
+  .row .mini u{ font-family:var(--mono); font-size:0.54rem; color:var(--txt-3); text-decoration:none; margin-left:2px; }
+
   /* ---------- statistiques ---------- */
   .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(126px,1fr)); gap:10px; margin-bottom:18px; }
   .stat{
@@ -381,13 +388,65 @@
 
   footer{ text-align:center; color:var(--txt-3); font-family:var(--mono); font-size:0.64rem; line-height:1.8; margin-top:26px; }
 
+  @media (min-width:1000px){
+    .app{ display:grid; grid-template-columns:298px minmax(0,1fr); gap:18px; align-items:start; }
+    .rail{ position:sticky; top:18px; max-height:calc(100vh - 36px); overflow-y:auto; overflow-x:hidden; }
+    .rail::-webkit-scrollbar{ width:8px; }
+    .rail::-webkit-scrollbar-thumb{ background:var(--line); border-radius:99px; }
+    .rail section.glass{ margin-bottom:12px; }
+    .rail .pad{ padding:17px 17px; }
+    .rail .field{ margin-bottom:13px; }
+    .rail .cols{ grid-template-columns:1fr; gap:15px; margin-top:0 !important; }
+    .rail .chips{ grid-template-columns:repeat(2,1fr); gap:5px; max-height:198px; overflow-y:auto; padding-right:4px;
+      -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 16px), transparent);
+      mask-image:linear-gradient(180deg,#000 calc(100% - 16px), transparent); }
+    .rail .chips::-webkit-scrollbar{ width:6px; }
+    .rail .chips::-webkit-scrollbar-thumb{ background:var(--line); border-radius:99px; }
+    .rail .chip{ padding:8px 9px; font-size:0.74rem; gap:6px; }
+    .rail .chip .emo{ font-size:0.92rem; }
+    .rail .genre-note{ font-size:0.72rem; line-height:1.55; }
+    .rail .seg button{ padding:7px 10px; font-size:0.68rem; }
+    .rail .seg button span{ display:none; }            /* la glose ne rentre pas dans le rail */
+    .rail .presets button:nth-child(n+6){ display:none; }
+    .rail .genre-note{ display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
+    .rail .presets button{ font-size:0.62rem; padding:5px 8px; }
+    .rail .actions{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .rail .btn{ width:100%; min-width:0; flex:none; padding:11px 6px; font-size:0.6rem; }
+    .rail .actions .btn:first-child{ grid-column:1 / -1; }
+    /* en-tete en bandeau : le titre et sa phrase sur une seule ligne */
+    header{ text-align:left; margin-bottom:16px; }
+    h1{ display:flex; align-items:flex-end; gap:20px; flex-wrap:wrap; font-size:1.95rem; }
+    h1 .title-sub{ margin:0 0 3px; max-width:56ch; font-size:0.4em; line-height:1.5; }
+    .eyebrow{ margin-bottom:8px; }
+    .topbar{ margin-bottom:8px; }
+
+    /* lignes denses : une section par ligne, la moitie de la hauteur */
+    .row{ grid-template-columns:28px minmax(0,1fr) 104px 118px 104px auto; gap:11px; padding:7px 12px 7px 8px; }
+    .row .idx{ height:26px; }
+    .row input.name{ font-size:0.88rem; }
+    .row .tip{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:0; font-size:0.68rem; }
+    .row .mini{ display:flex; }
+    .rows{ gap:5px; }
+    .stat{ padding:12px 14px; }
+    .stat .v{ font-size:1.2rem; }
+  }
+  @media (min-width:1280px){
+    .wrap{ max-width:1300px; }
+    .row{ grid-template-columns:28px minmax(0,1fr) 132px 118px 104px auto; }
+  }
+
   /* ---------- impression ---------- */
   @media print{
     html,body{ background:#fff; color:#111; }
     body{ padding:0; }
     body::before, body::after{ display:none; }
     .glass{ background:none; border:1px solid #ddd; box-shadow:none; backdrop-filter:none; }
-    .card-controls, .actions, .transport, .row .tools, .stepper button, .add, footer .no-print{ display:none !important; }
+    .card-controls, .actions, .transport, .row .tools, .stepper button, .add, .palette,
+    .topbar, .row .mini, footer .no-print{ display:none !important; }
+    .app{ display:block !important; }
+    .rail{ display:none !important; }
+    header{ text-align:center !important; }
+    h1{ display:block !important; }
     h1, h2, .stat .v, .row input.name{ color:#111; }
     .stat, .row{ border:1px solid #ddd; background:none; }
     .row input.name{ font-weight:700; }
@@ -413,6 +472,8 @@
     </h1>
   </header>
 
+  <div class="app">
+   <aside class="rail">
   <!-- ============ REGLAGES ============ -->
   <section class="glass pad card-controls">
     <div class="field">
@@ -457,6 +518,10 @@
     </div>
   </section>
 
+    <div class="rail-foot" id="railFoot"></div>
+   </aside>
+
+   <main class="work">
   <!-- ============ CHIFFRES CLES ============ -->
   <div class="stats" id="stats"></div>
 
@@ -515,7 +580,11 @@
   </section>
 
   <!-- ============ EXPORT ============ -->
-  <div class="actions">
+  <div class="main-foot" id="mainFoot"></div>
+   </main>
+  </div>
+
+  <div class="actions" id="actions">
     <button type="button" class="btn" id="copyBtn">⧉ Copier le plan</button>
     <button type="button" class="btn" id="txtBtn">↓ Fichier .txt</button>
     <button type="button" class="btn" id="jsonBtn">↓ Fichier .json</button>
@@ -650,6 +719,24 @@ const GENRES = [
            B('montee',8,16), B('drop',16,64,0,{name:'Peak'}), B('break',8,16,1),
            B('theme',8,32,2,{name:'Reprise du groove'}), B('outro',16,32,3) ],
     cycle:{ at:7, blocks:[ B('break',8,16), B('montee',8,16), B('drop',16,64,0,{name:'Peak'}) ] } },
+
+  { id:'dnb', emo:'🥁', label:'Drum & Bass', bpm:174, dur:330, sig:'4/4', phrase:8,
+    note:"174 BPM mais kick et basse en demi-temps : on ressent 87. Intro et outro de 32 mesures pour le mix, premier drop vers 1:00, breakdown au centre, second drop plus long que le premier.",
+    form:[ B('intro',16,32,3,{name:'Intro (mixable)'}), B('montee',8,16,0,{name:'Montée'}),
+           B('drop',32,64,0,{name:'Premier drop'}), B('break',16,32,2,{name:'Breakdown'}),
+           B('montee',8,16,0,{name:'Montée'}), B('drop',32,64,0,{name:'Second drop'}),
+           B('outro',16,32,3,{name:'Outro (mixable)'}) ],
+    cycle:{ at:6, blocks:[ B('break',16,32,0,{name:'Breakdown'}), B('montee',8,16,0,{name:'Montée'}),
+                           B('drop',32,64,0,{name:'Drop'}) ] } },
+
+  { id:'tribe', emo:'🔊', label:'Tribe / Free party', bpm:175, dur:420, sig:'4/4', phrase:8,
+    note:"Le kick ne s'arrête jamais : tout se construit par couches de percussions sur des phrases de 16 ou 32 mesures. Intro et outro très longues pour le mix, breaks qui coupent net avant la relance, et un mur de kick au centre.",
+    form:[ B('intro',32,64,3,{name:'Intro kick'}), B('theme',32,64,0,{name:'Boucle principale'}),
+           B('break',16,32,2,{name:'Break'}), B('montee',16,32,0,{name:'Montée'}),
+           B('drop',32,64,0,{name:'Mur de kick'}), B('break',16,32,1,{name:'Second break'}),
+           B('theme',16,48,2,{name:'Reprise de la boucle'}), B('outro',32,64,3,{name:'Outro kick'}) ],
+    cycle:{ at:6, blocks:[ B('break',16,32,0,{name:'Break'}), B('montee',16,32,0,{name:'Montée'}),
+                           B('drop',32,64,0,{name:'Mur de kick'}) ] } },
 
   { id:'jazz', emo:'🎺', label:'Jazz (AABA)', bpm:144, dur:330, sig:'4/4', phrase:8,
     note:"Thème de 32 mesures (AABA), puis un chorus complet par soliste, puis retour du thème. La longueur se règle au nombre de chorus.",
@@ -1097,6 +1184,7 @@ function renderRows(){
         '<input class="name" value="' + escapeHtml(s.name) + '" aria-label="Nom de la section">' +
         '<div class="tip">' + TYPES[s.t].tip + '</div>' +
       '</div>' +
+      '<div class="mini" aria-hidden="true">' + miniBars(s) + '</div>' +
       '<div class="stepper">' +
         '<button type="button" data-a="minus" aria-label="Retirer des mesures">−</button>' +
         '<span class="bars"><input class="barsIn" type="number" min="1" max="512" value="' + s.bars + '" aria-label="Nombre de mesures"> <small>mes.</small></span>' +
@@ -1111,6 +1199,16 @@ function renderRows(){
       '</div>';
     el.appendChild(row);
   });
+}
+
+/* Apercu compact de la longueur d'une section, une barre par mesure,
+   plus claire tous les quatre temps forts. */
+function miniBars(s){
+  const n = Math.min(s.bars, 16);
+  let out = '';
+  for (let k = 0; k < n; k++) out += '<i style="background:' + colorOf(s.t, k % 4 === 0 ? 58 : 40) + '"></i>';
+  if (s.bars > 16) out += '<u>+' + (s.bars - 16) + '</u>';
+  return out;
 }
 
 function renderGrid(){
@@ -1158,6 +1256,14 @@ function renderSwatches(){
    pendant que l'utilisateur fait glisser sa couleur. */
 function repaint(){
   renderTimeline(); renderRows(); renderGrid(); renderAddChips(); save();
+}
+
+/* Les boutons d'export vivent au pied du rail sur grand ecran, et a la fin
+   de la page en colonne unique : un seul jeu de boutons, deplace au besoin. */
+const WIDE = window.matchMedia('(min-width:1000px)');
+function placeActions(){
+  const a = $('actions'), host = WIDE.matches ? $('railFoot') : $('mainFoot');
+  if (a && host && a.parentNode !== host) host.appendChild(a);
 }
 
 function applyTheme(){
@@ -1544,6 +1650,9 @@ pick = function(id){
 buildChips();
 wireRows();
 wire();
+placeActions();
+if (WIDE.addEventListener) WIDE.addEventListener('change', placeActions);
+else if (WIDE.addListener) WIDE.addListener(placeActions);
 if (!load()) generate();
 applyTheme();
 render();

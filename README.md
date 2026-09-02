@@ -10,9 +10,10 @@ dans un navigateur.
 
 ## Ce que fait l'application
 
-- **18 genres** avec leur modèle de structure : pop, rock, métal, punk, ballade,
-  funk/soul, R&B, hip-hop/trap, trip-hop, EDM/house, techno, jazz (AABA),
-  blues 12 mesures, reggae, chanson française, folk, ambient, cinématique.
+- **20 genres** avec leur modèle de structure : pop, rock, métal, punk, ballade,
+  funk/soul, R&B, hip-hop/trap, trip-hop, EDM/house, techno, drum & bass,
+  tribe/free party, jazz (AABA), blues 12 mesures, reggae, chanson française,
+  folk, ambient, cinématique.
   Chaque genre propose sa durée type, son tempo et sa longueur de phrase :
   l'ambient s'ouvre sur 8 minutes de nappes qui se recouvrent, le cinématique
   sur 3 minutes de paliers (atmosphère, thème, montée, impact, climax, coda),
@@ -31,6 +32,10 @@ dans un navigateur.
   Barre d'espace pour lancer / mettre en pause, clic sur la règle pour se déplacer.
 - **Édition libre** : renommer une section, changer son nombre de mesures,
   la monter, la descendre, la dupliquer, la supprimer, en ajouter une.
+- **Deux mises en page** selon la largeur d'écran : au-delà de 1000 px, une
+  console — colonne de réglages fixe à gauche, sections en lignes denses avec
+  aperçu de longueur ; en dessous, les cartes pleine largeur empilées, pensées
+  pour le téléphone. Même code, mêmes données, aucun réglage à faire.
 - **Deux thèmes** : le thème A sombre (braise, verre mat) et le thème B clair
   et futuriste (bleu électrique, grille fine), au choix en haut de page.
 - **Couleurs modifiables** : chaque type de section a son sélecteur de couleur,

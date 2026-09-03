@@ -264,6 +264,42 @@
   }
   .board.filtering .ctrl:not(.match), .board.filtering .key:not(.match){ opacity:0.22; }
 
+  /* ---------- annotation directe sur le plan ---------- */
+  .board-hint{
+    color:var(--text-2); font-size:0.78rem; margin:0 0 10px;
+  }
+  .board-hint kbd{
+    background:var(--surface); border:1px solid var(--border); border-radius:4px;
+    padding:1px 6px; font-family:var(--mono); font-size:0.7rem; color:var(--text-1);
+  }
+  .pop{
+    position:absolute; z-index:30; width:196px; padding:8px;
+    background:var(--surface); border:1px solid var(--accent-border); border-radius:var(--radius-md);
+    box-shadow:0 18px 36px -20px #000;
+  }
+  .pop-head{
+    display:flex; align-items:center; gap:6px; margin-bottom:6px;
+    font-family:var(--mono); font-size:0.63rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-2);
+  }
+  .pop-head .learned{ color:#58c470; }
+  .pop-head .more{
+    margin-left:auto; background:none; border:none; cursor:pointer; color:var(--text-2);
+    font-size:0.8rem; line-height:1; padding:2px 4px; border-radius:4px;
+  }
+  .pop-head .more:hover{ color:var(--accent); background:var(--surface-hover); }
+  .pop input{
+    width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:7px 9px; font-size:0.88rem;
+  }
+  .pop input:focus{ border-color:var(--accent-border); }
+  .pop .dots{ display:flex; gap:5px; margin-top:7px; }
+  .pop .dot{
+    width:15px; height:15px; border-radius:50%; padding:0; cursor:pointer;
+    background:var(--cc); border:none; opacity:0.42; transition:opacity 0.12s ease;
+  }
+  .pop .dot:hover{ opacity:0.85; }
+  .pop .dot.on{ opacity:1; box-shadow:0 0 0 2px var(--surface), 0 0 0 3px var(--cc); }
+
   /* ---------- vue liste ---------- */
   .group{
     border:1px solid var(--border); border-radius:var(--radius-lg);
@@ -482,6 +518,11 @@
       <input class="input-box" id="sheetDaw" placeholder="—">
     </div>
   </div>
+
+  <p class="board-hint" id="boardHint">
+    Clique un contrôle et écris à quoi il sert — « kick », « send 2 », « feedback »…
+    <kbd>Tab</kbd> passe au suivant, <kbd>Entrée</kbd> valide. Le bouton ⋯ ouvre le détail (CC, canal, commentaire).
+  </p>
 
   <div id="viewport"></div>
 </main>
@@ -964,6 +1005,7 @@
     renderSheets();
     const vp = $("viewport");
     vp.textContent = "";
+    pop = null; popId = null;
     const dev = device();
     if(store.view === "list"){
       vp.appendChild(renderList(dev));
@@ -974,6 +1016,7 @@
     }
     $("viewBoard").classList.toggle("active", store.view !== "list");
     $("viewList").classList.toggle("active", store.view === "list");
+    $("boardHint").hidden = store.view === "list";
     applyFilter();
     if(selected) markSelection();
   }
@@ -996,7 +1039,116 @@
   }
 
   /* ------------------------------------------------------------------ *
-   * Éditeur d'un contrôle
+   * Annotation directe : un clic sur le plan pose un champ sur le contrôle.
+   * C'est le geste principal — écrire « kick », « send 2 », « feedback »
+   * et enchaîner au Tab. Le reste (CC, canal, commentaire) vit derrière « ⋯ ».
+   * ------------------------------------------------------------------ */
+  let pop = null, popId = null, popOrig = "";
+
+  function closePop(keep){
+    if(!pop) return;
+    const id = popId;
+    if(keep === false) setEntry(store.device, id, {t:popOrig});
+    pop.remove(); pop = null; popId = null;
+    const node = document.querySelector('#viewport [data-id="' + id + '"]');
+    if(node) node.classList.remove("sel");
+    refreshControl(id);
+  }
+
+  function openPop(ctrlId){
+    closePop(true);
+    closeEditor();
+    const dev = device();
+    const ctrl = dev.controls.find(c => c.id === ctrlId);
+    const board = document.querySelector("#viewport .board");
+    if(!ctrl || !board) return;
+    const node = board.querySelector('[data-id="' + ctrlId + '"]');
+    if(!node) return;
+    const e = entry(dev.id, ctrlId) || {};
+    popId = ctrlId; popOrig = e.t || "";
+
+    pop = el("div", "pop");
+    const head = el("div", "pop-head");
+    head.appendChild(el("span", null, hwName(dev.id, ctrl)));
+    const badge = el("span", "learned", numLabel(ctrl, e));
+    head.appendChild(badge);
+    const more = el("button", "more", "⋯");
+    more.type = "button"; more.title = "CC, canal, commentaire…";
+    more.addEventListener("click", () => { const id = popId; closePop(true); openEditor(dev.id, id); });
+    head.appendChild(more);
+    pop.appendChild(head);
+
+    const inp = el("input");
+    inp.value = e.t || "";
+    inp.placeholder = "kick, send 2, feedback…";
+    inp.autocomplete = "off";
+    pop.appendChild(inp);
+
+    const dots = el("div", "dots");
+    CATS.forEach(c => {
+      const b = el("button", "dot" + ((e.c || "other") === c.id ? " on" : ""));
+      b.type = "button"; b.title = c.name;
+      b.style.setProperty("--cc", c.color);
+      b.addEventListener("click", () => {
+        setEntry(dev.id, popId, {t:inp.value.trim(), c:c.id});
+        Array.prototype.forEach.call(dots.children, x => x.classList.toggle("on", x === b));
+        inp.focus();
+      });
+      dots.appendChild(b);
+    });
+    pop.appendChild(dots);
+
+    inp.addEventListener("input", () => {
+      setEntry(dev.id, popId, {t:inp.value.trim()});
+      renderTabs();
+    });
+    inp.addEventListener("keydown", ev => {
+      if(ev.key === "Enter"){ ev.preventDefault(); closePop(true); }
+      else if(ev.key === "Escape"){ ev.preventDefault(); closePop(false); }
+      else if(ev.key === "Tab"){
+        ev.preventDefault();
+        const i = dev.controls.findIndex(c => c.id === popId);
+        const j = (i + (ev.shiftKey ? -1 : 1) + dev.controls.length) % dev.controls.length;
+        const next = dev.controls[j].id;
+        closePop(true);
+        openPop(next);
+      }
+    });
+
+    board.appendChild(pop);
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
+    let left = node.offsetLeft + node.offsetWidth / 2 - pw / 2;
+    left = Math.max(4, Math.min(left, board.clientWidth - pw - 4));
+    let top = node.offsetTop + node.offsetHeight + 6;
+    if(top + ph > board.clientHeight - 4) top = Math.max(4, node.offsetTop - ph - 6);
+    pop.style.left = left + "px";
+    pop.style.top = top + "px";
+    pop.dataset.badge = "1";
+
+    node.classList.add("sel");
+    if(node.scrollIntoView) node.scrollIntoView({block:"nearest", inline:"nearest"});
+    inp.focus(); inp.select();
+  }
+
+  // Le contrôle en cours d'annotation apprend son CC/note si on bouge la bonne
+  // sorte de contrôle sur le clavier pendant qu'on écrit.
+  function popLearn(kind, num, ch){
+    if(!pop) return false;
+    const dev = device();
+    const ctrl = dev.controls.find(c => c.id === popId);
+    if(!ctrl) return false;
+    const e = entry(dev.id, popId) || {};
+    if(e.num !== "" && e.num != null && e.num !== undefined && String(e.num) !== "") return false;
+    const expect = (ctrl.type === "knob" || ctrl.type === "enc" || ctrl.type === "fader" || ctrl.type === "wheel") ? "cc" : "note";
+    if(kind !== expect) return false;
+    setEntry(dev.id, popId, {kind:kind, num:String(num), ch:String(ch)});
+    const badge = pop.querySelector(".learned");
+    if(badge) badge.textContent = numLabel(ctrl, entry(dev.id, popId));
+    return true;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Éditeur détaillé (CC, canal, commentaire)
    * ------------------------------------------------------------------ */
   let selected = null;   // {devId, ctrlId}
   let learnArmed = false;
@@ -1181,6 +1333,8 @@
     ));
 
     if(num === "PB") return;
+
+    if(popLearn(kind, num, ch)) return;
 
     if(learnArmed && selected){
       $("edNum").value = String(num);
@@ -1374,10 +1528,10 @@
    * Écouteurs
    * ------------------------------------------------------------------ */
   $("viewport").addEventListener("click", ev => {
-    const n = ev.target.closest("[data-id]");
-    if(!n || n.tagName === "TR" || !n.dataset.id) return;
-    if(n.tagName === "INPUT" || n.tagName === "SELECT") return;
-    openEditor(store.device, n.dataset.id);
+    if(pop && pop.contains(ev.target)) return;
+    const n = ev.target.closest(".ctrl, .key");
+    if(!n || !n.dataset.id) return;
+    openPop(n.dataset.id);
   });
 
   $("viewport").addEventListener("keydown", ev => {
@@ -1385,7 +1539,14 @@
     const n = ev.target.closest(".ctrl, .key");
     if(!n || !n.dataset.id) return;
     ev.preventDefault();
-    openEditor(store.device, n.dataset.id);
+    openPop(n.dataset.id);
+  });
+
+  // Clic à côté : on garde ce qui est écrit et on referme.
+  document.addEventListener("mousedown", ev => {
+    if(!pop || pop.contains(ev.target)) return;
+    if(ev.target.closest(".ctrl, .key")) return;   // le clic ouvrira l'autre contrôle
+    closePop(true);
   });
 
   // Saisie rapide dans la vue liste

@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiches MIDI</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎛️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1a1815;
+    --surface:#211e1a;
+    --surface-hover:#282420;
+    --panel:#1e1b17;
+    --border:#38332c;
+    --border-hover:#4a4338;
+    --text-0:#f5f1ec;
+    --text-1:#a9a297;
+    --text-2:#6f6a5f;
+    --accent:#ef6c2e;
+    --accent-hover:#ff8442;
+    --accent-soft:rgba(239,108,46,0.12);
+    --accent-border:rgba(239,108,46,0.5);
+    --on-accent:#1a1613;
+    --radius-lg:14px;
+    --radius-md:10px;
+    --radius-sm:7px;
+    --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --sans:'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--text-0);
+    font-family:var(--sans);
+    min-height:100vh;
+  }
+
+  .icon{ width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
+  .icon.sm{ width:13px; height:13px; }
+
+  /* ---------- en-tête ---------- */
+  header{
+    border-bottom:1px solid var(--border);
+    padding:18px 22px 16px;
+    display:flex; align-items:flex-start; gap:18px; flex-wrap:wrap;
+  }
+  .brand{ display:flex; flex-direction:column; gap:3px; margin-right:auto; }
+  .eyebrow{
+    font-family:var(--mono); font-size:0.66rem; letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--accent); margin:0;
+  }
+  h1{ font-size:1.15rem; font-weight:700; letter-spacing:-0.01em; margin:0; }
+  .brand .sub{ color:var(--text-2); font-size:0.76rem; }
+  .brand .sub a{ color:var(--text-2); }
+  .brand .sub a:hover{ color:var(--accent); }
+
+  /* ---------- barre fiche ---------- */
+  .sheetbar{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .field{
+    display:flex; align-items:center; gap:7px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:5px 10px;
+  }
+  .field label{ font-size:0.7rem; color:var(--text-2); font-family:var(--mono); text-transform:uppercase; letter-spacing:0.08em; }
+  select, input, textarea{
+    font-family:var(--sans); font-size:0.86rem; color:var(--text-0);
+    background:transparent; border:none; outline:none;
+  }
+  select{ cursor:pointer; max-width:230px; }
+  select option{ background:var(--surface); color:var(--text-0); }
+  input::placeholder, textarea::placeholder{ color:var(--text-2); }
+  .input-box{
+    background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:7px 10px; width:100%;
+  }
+  .input-box:focus-within, .input-box:focus{ border-color:var(--accent-border); }
+
+  button{ font-family:var(--sans); }
+  .btn{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:0.8rem; font-weight:500; color:var(--text-1);
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm);
+    padding:7px 11px; cursor:pointer; transition:all 0.15s ease; white-space:nowrap;
+  }
+  .btn:hover{ color:var(--text-0); border-color:var(--border-hover); background:var(--surface-hover); }
+  .btn.icon-only{ padding:7px 8px; }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); font-weight:600; }
+  .btn.primary:hover{ background:var(--accent-hover); border-color:var(--accent-hover); color:var(--on-accent); }
+  .btn.on{ background:var(--accent-soft); border-color:var(--accent-border); color:var(--text-0); }
+  .btn.danger:hover{ border-color:#b4453a; color:#ff8b7d; }
+  .btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  /* ---------- barre d'outils ---------- */
+  .toolbar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:12px 22px; border-bottom:1px solid var(--border); background:var(--panel);
+    position:sticky; top:0; z-index:20;
+  }
+  .tabs{ display:flex; gap:5px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-md); padding:3px; }
+  .tab{
+    display:flex; align-items:center; gap:8px;
+    font-size:0.82rem; font-weight:500; color:var(--text-1);
+    background:transparent; border:none; border-radius:var(--radius-sm);
+    padding:7px 12px; cursor:pointer; transition:all 0.15s ease;
+  }
+  .tab:hover{ color:var(--text-0); }
+  .tab.active{ background:var(--surface-hover); color:var(--text-0); }
+  .tab .count{
+    font-family:var(--mono); font-size:0.68rem; color:var(--text-2);
+    background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:1px 7px;
+  }
+  .tab.active .count{ color:var(--accent); border-color:var(--accent-border); }
+  .spacer{ margin-left:auto; }
+  .search{ display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:6px 10px; }
+  .search input{ width:150px; font-size:0.82rem; }
+  .search svg{ color:var(--text-2); }
+
+  .midi-dot{ width:7px; height:7px; border-radius:50%; background:var(--text-2); flex-shrink:0; }
+  .midi-dot.live{ background:#58c470; box-shadow:0 0 8px #58c470; }
+  .midi-dot.err{ background:#e0554a; }
+  .monitor{
+    font-family:var(--mono); font-size:0.72rem; color:var(--text-2);
+    padding:6px 10px; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
+    min-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .monitor b{ color:var(--accent); font-weight:500; }
+
+  main{ padding:20px 22px 90px; }
+
+  .infos{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start;
+    margin-bottom:16px;
+  }
+  .infos .grow{ flex:1 1 260px; }
+  .infos textarea{ resize:vertical; min-height:38px; font-size:0.84rem; line-height:1.45; }
+  .lbl{ font-family:var(--mono); font-size:0.66rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-2); display:block; margin-bottom:5px; }
+
+  /* ---------- plateau ---------- */
+  .board-scroll{ overflow-x:auto; padding-bottom:6px; }
+  .board{
+    position:relative; width:100%; min-width:880px;
+    background:linear-gradient(160deg, #262219, #1c1a17 70%);
+    border:1px solid var(--border); border-radius:var(--radius-lg);
+    container-type:inline-size;
+    box-shadow:0 18px 40px -30px #000;
+  }
+  .zone{
+    position:absolute; border:1px solid rgba(255,255,255,0.055); border-radius:10px;
+    background:rgba(255,255,255,0.018);
+  }
+  .zone-title{
+    position:absolute; top:0.5cqw; left:0.9cqw;
+    font-family:var(--mono); font-size:1.05cqw; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--text-2);
+  }
+
+  .ctrl{
+    position:absolute; left:var(--x); top:var(--y); width:var(--w); height:var(--h);
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+    gap:0.25cqw; padding:0; margin:0; background:none; border:none; cursor:pointer;
+    color:inherit; text-align:center; overflow:hidden;
+  }
+  .ctrl .cn{
+    font-family:var(--mono); font-size:1.02cqw; line-height:1.15; letter-spacing:0.03em;
+    color:var(--text-2); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .ctrl .cl{
+    font-size:1.18cqw; line-height:1.2; font-weight:500; color:var(--cc,var(--accent));
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .ctrl .cs{
+    font-size:0.98cqw; line-height:1.2; color:#544f46;
+    max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .ctrl.assigned .cn{ color:var(--text-1); }
+
+  /* boutons rotatifs */
+  .t-knob .cap, .t-enc .cap{
+    aspect-ratio:1; height:58%; border-radius:50%; position:relative; flex:none;
+    background:radial-gradient(circle at 35% 28%, #4a443a, #2a2621 70%);
+    border:1px solid #4e4739; box-shadow:0 2px 5px -2px #000;
+  }
+  .t-knob .cap::after, .t-enc .cap::after{
+    content:''; position:absolute; left:50%; top:10%; width:0.28cqw; height:34%;
+    background:var(--cc,#8d8578); border-radius:2px; transform:translateX(-50%);
+  }
+  .t-enc .cap{ box-shadow:0 0 0 0.18cqw #322d26, 0 2px 5px -2px #000; }
+  .t-enc .cap::before{
+    content:''; position:absolute; inset:14%; border-radius:50%;
+    border:1px dashed rgba(255,255,255,0.12);
+  }
+
+  /* faders */
+  .t-fader .cap{
+    width:20%; height:62%; flex:none; border-radius:3px; position:relative;
+    background:linear-gradient(#181613,#241f1a); border:1px solid #3d372e;
+    box-shadow:inset 0 2px 6px -2px #000;
+  }
+  .t-fader .cap::after{
+    content:''; position:absolute; left:-90%; right:-90%; top:34%; height:11%;
+    background:linear-gradient(#5a5347,#39332b); border:1px solid #564e40; border-radius:2px;
+    box-shadow:0 2px 4px -2px #000;
+  }
+  .t-fader.assigned .cap::after{ background:linear-gradient(var(--cc),#39332b); border-color:var(--cc); }
+
+  /* molettes (pitch / mod) */
+  .t-wheel .cap{
+    width:62%; height:66%; flex:none; border-radius:6px;
+    background:repeating-linear-gradient(#3a352c 0 2px, #2b2721 2px 5px);
+    border:1px solid #4a4438; box-shadow:inset 0 0 8px -3px #000;
+  }
+
+  /* boutons / pads */
+  .t-btn, .t-pad{
+    justify-content:center; border-radius:5px; padding:0 0.4cqw;
+    background:linear-gradient(#2c2822,#221f1a); border:1px solid #413a31;
+  }
+  .t-pad{ border-radius:7px; background:linear-gradient(#332e26,#242019); }
+  .t-btn .cn, .t-pad .cn{ font-size:0.98cqw; }
+  .t-btn .cl, .t-pad .cl{ font-size:1.1cqw; }
+  .t-pad{ padding:0 0.2cqw; }
+  .t-pad .cl{
+    font-size:1.02cqw; white-space:normal; text-overflow:clip; overflow-wrap:break-word; line-height:1.14;
+    display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
+  }
+  .t-btn.assigned, .t-pad.assigned{ border-color:var(--cc); background:linear-gradient(color-mix(in srgb, var(--cc) 16%, #2c2822), #221f1a); }
+
+  /* écran décoratif */
+  .screen{
+    position:absolute; left:var(--x); top:var(--y); width:var(--w); height:var(--h);
+    border-radius:5px; background:linear-gradient(#20261f,#161a16); border:1px solid #3c4439;
+    display:flex; align-items:center; justify-content:center;
+    font-family:var(--mono); font-size:1.05cqw; color:#5d7a58; letter-spacing:0.12em;
+  }
+
+  /* clavier */
+  .key{
+    position:absolute; left:var(--x); top:var(--y); width:var(--w); height:var(--h);
+    border:none; padding:0; cursor:pointer; border-radius:0 0 3px 3px;
+  }
+  .key.w{ background:linear-gradient(#d8d2c6,#f2ede4); border:1px solid #9c968b; z-index:1; }
+  .key.b{ background:linear-gradient(#2a2723,#131110); border:1px solid #0c0b0a; z-index:2; border-radius:0 0 2px 2px; }
+  .key.assigned::after{
+    content:''; position:absolute; left:50%; bottom:8%; width:0.85cqw; height:0.85cqw;
+    border-radius:50%; background:var(--cc); transform:translateX(-50%);
+    box-shadow:0 0 6px -1px var(--cc);
+  }
+  .key-oct{
+    position:absolute; left:var(--x); top:var(--y);
+    font-family:var(--mono); font-size:0.95cqw; color:#6d675c; pointer-events:none; z-index:3;
+  }
+
+  .ctrl:hover .cap, .ctrl:hover{ filter:brightness(1.18); }
+  .ctrl.sel, .key.sel{ outline:2px solid var(--accent); outline-offset:1px; z-index:6; }
+  .ctrl.hit, .key.hit{ animation:hit 0.9s ease; }
+  @keyframes hit{
+    0%{ outline:2px solid #58c470; outline-offset:3px; }
+    100%{ outline:2px solid rgba(88,196,112,0); outline-offset:1px; }
+  }
+  .board.filtering .ctrl:not(.match), .board.filtering .key:not(.match){ opacity:0.22; }
+
+  /* ---------- vue liste ---------- */
+  .group{
+    border:1px solid var(--border); border-radius:var(--radius-lg);
+    background:var(--surface); margin-bottom:10px; overflow:hidden;
+  }
+  .group > summary{
+    list-style:none; cursor:pointer; padding:12px 16px;
+    display:flex; align-items:center; gap:10px; font-weight:600; font-size:0.9rem;
+  }
+  .group > summary::-webkit-details-marker{ display:none; }
+  .group > summary::before{
+    content:''; width:7px; height:7px; border-right:1.6px solid var(--text-2); border-bottom:1.6px solid var(--text-2);
+    transform:rotate(-45deg); transition:transform 0.2s ease; margin-right:2px;
+  }
+  .group[open] > summary::before{ transform:rotate(45deg); }
+  .group .badge{
+    font-family:var(--mono); font-size:0.7rem; font-weight:400; color:var(--text-2);
+    background:var(--bg); border:1px solid var(--border); border-radius:999px; padding:2px 9px;
+  }
+  .group .badge.some{ color:var(--accent); border-color:var(--accent-border); }
+  table{ width:100%; border-collapse:collapse; }
+  th{
+    font-family:var(--mono); font-size:0.64rem; letter-spacing:0.1em; text-transform:uppercase;
+    color:var(--text-2); text-align:left; font-weight:400; padding:6px 10px; border-top:1px solid var(--border);
+  }
+  td{ padding:4px 6px; border-top:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+  tr.row-assigned td:first-child{ box-shadow:inset 2px 0 0 var(--cc); }
+  td.name{ font-family:var(--mono); font-size:0.76rem; color:var(--text-1); white-space:nowrap; padding-left:12px; }
+  td.name small{ display:block; color:var(--text-2); font-size:0.68rem; }
+  td input, td select{ width:100%; background:var(--bg); border:1px solid transparent; border-radius:var(--radius-sm); padding:6px 8px; font-size:0.83rem; }
+  td input:hover, td select:hover{ border-color:var(--border); }
+  td input:focus, td select:focus{ border-color:var(--accent-border); background:var(--surface-hover); }
+  td.num input{ font-family:var(--mono); text-align:center; }
+  .col-num{ width:88px; } .col-ch{ width:70px; } .col-cat{ width:135px; } .col-cm{ width:24%; }
+  tr.dim{ opacity:0.25; }
+
+  /* ---------- éditeur ---------- */
+  .editor{
+    position:fixed; top:0; right:0; width:330px; height:100vh; z-index:40;
+    background:var(--panel); border-left:1px solid var(--border);
+    transform:translateX(102%); transition:transform 0.22s ease;
+    display:flex; flex-direction:column; box-shadow:-20px 0 40px -30px #000;
+  }
+  .editor.open{ transform:none; }
+  .ed-head{ padding:16px 16px 12px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; gap:10px; }
+  .ed-head .t{ flex:1; min-width:0; }
+  .ed-head .k{ font-family:var(--mono); font-size:0.72rem; color:var(--accent); letter-spacing:0.08em; }
+  .ed-head .n{ font-size:0.98rem; font-weight:600; margin-top:2px; word-break:break-word; }
+  .ed-head .d{ font-size:0.72rem; color:var(--text-2); margin-top:2px; }
+  .ed-body{ padding:14px 16px 20px; overflow-y:auto; flex:1; }
+  .ed-row{ margin-bottom:14px; }
+  .ed-row.split{ display:flex; gap:8px; }
+  .ed-row.split > div{ flex:1; }
+  .cats{ display:flex; flex-wrap:wrap; gap:5px; }
+  .cat{
+    font-size:0.75rem; color:var(--text-1); background:transparent;
+    border:1px solid var(--border); border-radius:999px; padding:4px 10px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px; transition:all 0.15s ease;
+  }
+  .cat .dot{ width:8px; height:8px; border-radius:50%; background:var(--cc); flex-shrink:0; }
+  .cat:hover{ border-color:var(--border-hover); color:var(--text-0); }
+  .cat.on{ border-color:var(--cc); background:color-mix(in srgb, var(--cc) 14%, transparent); color:var(--text-0); }
+  .seg{ display:flex; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
+  .seg button{
+    flex:1; background:transparent; border:none; color:var(--text-2);
+    font-size:0.76rem; padding:7px 0; cursor:pointer; font-family:var(--mono);
+  }
+  .seg button.on{ background:var(--surface-hover); color:var(--text-0); }
+  .ed-foot{ padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:8px; align-items:center; }
+  .hint-sm{ font-size:0.72rem; color:var(--text-2); line-height:1.5; }
+  .hint-sm kbd{ background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-family:var(--mono); font-size:0.68rem; }
+
+  footer{
+    padding:24px 22px 40px; text-align:center; color:var(--text-2); font-size:0.76rem; line-height:1.7;
+    border-top:1px solid var(--border);
+  }
+  footer a{ color:var(--text-2); }
+  footer a:hover{ color:var(--accent); }
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translate(-50%, 20px);
+    background:var(--surface); border:1px solid var(--border-hover); border-radius:var(--radius-md);
+    padding:10px 16px; font-size:0.84rem; color:var(--text-0);
+    opacity:0; pointer-events:none; transition:all 0.2s ease; z-index:60;
+    box-shadow:0 14px 30px -18px #000;
+  }
+  .toast.show{ opacity:1; transform:translate(-50%, 0); }
+
+  .empty{ color:var(--text-2); font-size:0.86rem; padding:26px; text-align:center; }
+
+  @media (max-width:860px){
+    header{ padding:14px 14px 12px; }
+    .toolbar{ padding:10px 14px; }
+    main{ padding:16px 14px 80px; }
+    .editor{ width:100%; height:auto; max-height:82vh; top:auto; bottom:0; border-left:none; border-top:1px solid var(--border); border-radius:16px 16px 0 0; transform:translateY(102%); }
+    .editor.open{ transform:none; }
+    .search input{ width:110px; }
+    .col-cm{ display:none; }
+  }
+
+  /* ---------- impression ---------- */
+  #printArea{ display:none; }
+  @media print{
+    @page{ size:A4 landscape; margin:10mm; }
+    :root{
+      --bg:#fff; --surface:#fff; --surface-hover:#fff; --panel:#fff;
+      --border:#c9c4bb; --border-hover:#a9a49b;
+      --text-0:#141210; --text-1:#3d3831; --text-2:#6d675e;
+    }
+    body{ background:#fff; color:#141210; }
+    body > *{ display:none !important; }
+    #printArea{ display:block !important; }
+    .board{ background:#fff; border-color:#bbb5ab; box-shadow:none; min-width:0; break-inside:avoid; }
+    .zone{ border-color:#ddd8d0; background:#fbfaf8; }
+    .t-knob .cap, .t-enc .cap{ background:#f0ece5; border-color:#a9a49b; box-shadow:none; }
+    .t-knob .cap::after, .t-enc .cap::after{ background:var(--cc,#6d675e); }
+    .t-fader .cap{ background:#f0ece5; border-color:#a9a49b; box-shadow:none; }
+    .t-fader .cap::after{ background:var(--cc,#8d8578); border-color:#6d675e; }
+    .t-btn, .t-pad{ background:#f4f1eb; border-color:#a9a49b; }
+    .t-btn.assigned, .t-pad.assigned{ background:#fff; border-color:var(--cc); border-width:1.5px; }
+    .t-wheel .cap{ background:#eae5dd; border-color:#a9a49b; }
+    .key.w{ background:#fff; border-color:#a9a49b; }
+    .key.b{ background:#3a3630; border-color:#242020; }
+    .ctrl .cn, .zone-title, .key-oct{ color:#6d675e; }
+    .ctrl .cs{ color:#a29c92; }
+    .screen{ background:#f2f0ea; border-color:#bbb5ab; color:#8d877d; }
+    *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+  .p-head{ display:flex; align-items:flex-end; gap:14px; border-bottom:1.5px solid #141210; padding-bottom:6px; margin-bottom:12px; }
+  .p-head h2{ margin:0; font-size:1.35rem; letter-spacing:-0.01em; }
+  .p-head .meta{ font-family:var(--mono); font-size:0.72rem; color:#6d675e; margin-left:auto; }
+  .p-dev{ font-family:var(--mono); font-size:0.78rem; letter-spacing:0.1em; text-transform:uppercase; color:#6d675e; margin:16px 0 6px; }
+  .p-notes{ font-size:0.82rem; line-height:1.5; margin:0 0 10px; white-space:pre-wrap; }
+  .p-table{ width:100%; border-collapse:collapse; margin-top:10px; font-size:0.78rem; break-inside:auto; }
+  .p-table th{ border-bottom:1px solid #141210; color:#141210; padding:4px 6px; font-size:0.64rem; }
+  .p-table td{ border-top:1px solid #ddd8d0; padding:4px 6px; }
+  .p-table td.pn{ font-family:var(--mono); white-space:nowrap; }
+  .p-table tr{ break-inside:avoid; }
+  .p-cat{ display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; }
+  .p-sec{ font-weight:600; background:#f4f1eb; }
+  .p-page{ break-after:page; }
+  .p-page:last-child{ break-after:auto; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24"><path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 15h12v6H6z"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 21h16"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="m7 13 5-5 5 5"/><path d="M4 3h16"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-wave" viewBox="0 0 24 24"><path d="M3 12h3l2-6 3 14 3-11 2 3h5"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m5 15 7-7 7 7-4 4H9z"/><path d="M4 21h16"/></symbol>
+  <symbol id="i-arrow-l" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m11 6-6 6 6 6"/></symbol>
+  <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+</svg>
+
+<header>
+  <div class="brand">
+    <p class="eyebrow">Mémo d'assignations</p>
+    <h1>Fiches MIDI</h1>
+    <span class="sub">Reloop Keyfadr · M-Audio Oxygen 49 — <a href="index.html">inspiration musicale</a></span>
+  </div>
+  <div class="sheetbar">
+    <div class="field">
+      <label for="sheetSelect">Morceau</label>
+      <select id="sheetSelect" title="Fiche en cours"></select>
+    </div>
+    <button class="btn" id="sheetNew" title="Nouvelle fiche"><svg class="icon sm"><use href="#i-plus"></use></svg>Nouveau</button>
+    <button class="btn icon-only" id="sheetDup" title="Dupliquer la fiche"><svg class="icon sm"><use href="#i-copy"></use></svg></button>
+    <button class="btn icon-only" id="sheetRen" title="Renommer la fiche"><svg class="icon sm"><use href="#i-edit"></use></svg></button>
+    <button class="btn icon-only danger" id="sheetDel" title="Supprimer la fiche"><svg class="icon sm"><use href="#i-trash"></use></svg></button>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="tabs" id="deviceTabs"></div>
+  <div class="tabs">
+    <button class="tab active" id="viewBoard" title="Vue plan"><svg class="icon sm"><use href="#i-grid"></use></svg>Plan</button>
+    <button class="tab" id="viewList" title="Vue liste (saisie rapide)"><svg class="icon sm"><use href="#i-list"></use></svg>Liste</button>
+  </div>
+  <div class="search">
+    <svg class="icon sm"><use href="#i-search"></use></svg>
+    <input type="search" id="search" placeholder="Chercher une assignation…" autocomplete="off">
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="midiBtn" title="Écouter les messages MIDI entrants">
+    <span class="midi-dot" id="midiDot"></span><svg class="icon sm"><use href="#i-wave"></use></svg>MIDI
+  </button>
+  <div class="monitor" id="monitor">MIDI éteint</div>
+  <button class="btn" id="printBtn" title="Imprimer / PDF"><svg class="icon sm"><use href="#i-print"></use></svg>Fiche</button>
+  <button class="btn icon-only" id="exportBtn" title="Exporter toutes les fiches (JSON)"><svg class="icon sm"><use href="#i-down"></use></svg></button>
+  <button class="btn icon-only" id="importBtn" title="Importer un fichier de fiches"><svg class="icon sm"><use href="#i-up"></use></svg></button>
+  <input type="file" id="importFile" accept="application/json,.json" hidden>
+</div>
+
+<main>
+  <div class="infos">
+    <div class="grow">
+      <span class="lbl">Notes du morceau</span>
+      <textarea class="input-box" id="sheetNotes" rows="1" placeholder="Tempo, tonalité, rappels de scène, ce qu'il faut penser à bouger…"></textarea>
+    </div>
+    <div style="flex:0 0 110px">
+      <span class="lbl">BPM</span>
+      <input class="input-box" id="sheetBpm" inputmode="numeric" placeholder="—">
+    </div>
+    <div style="flex:0 0 170px">
+      <span class="lbl">Projet / DAW</span>
+      <input class="input-box" id="sheetDaw" placeholder="—">
+    </div>
+  </div>
+
+  <div id="viewport"></div>
+</main>
+
+<footer>
+  <p>Fiches MIDI · tout est enregistré dans ton navigateur, rien n'est envoyé nulle part</p>
+  <p><a href="index.html">← Inspiration musicale</a></p>
+</footer>
+
+<aside class="editor" id="editor" aria-hidden="true">
+  <div class="ed-head">
+    <div class="t">
+      <div class="k" id="edKind">—</div>
+      <div class="n" id="edName">—</div>
+      <div class="d" id="edDev">—</div>
+    </div>
+    <button class="btn icon-only" id="edClose" title="Fermer (Échap)"><svg class="icon sm"><use href="#i-close"></use></svg></button>
+  </div>
+  <div class="ed-body">
+    <div class="ed-row">
+      <span class="lbl">Assignation</span>
+      <input class="input-box" id="edLabel" placeholder="Ex. Cutoff du bassline" autocomplete="off">
+    </div>
+    <div class="ed-row">
+      <span class="lbl">Catégorie</span>
+      <div class="cats" id="edCats"></div>
+    </div>
+    <div class="ed-row split">
+      <div>
+        <span class="lbl">Type</span>
+        <div class="seg" id="edSeg">
+          <button data-k="cc" type="button">CC</button>
+          <button data-k="note" type="button">Note</button>
+        </div>
+      </div>
+      <div>
+        <span class="lbl">N°</span>
+        <input class="input-box" id="edNum" inputmode="numeric" placeholder="—">
+      </div>
+      <div>
+        <span class="lbl">Canal</span>
+        <input class="input-box" id="edCh" inputmode="numeric" placeholder="—">
+      </div>
+    </div>
+    <div class="ed-row">
+      <button class="btn" id="edLearn" style="width:100%; justify-content:center">
+        <svg class="icon sm"><use href="#i-wave"></use></svg>Apprendre depuis le contrôleur
+      </button>
+    </div>
+    <div class="ed-row">
+      <span class="lbl">Commentaire</span>
+      <input class="input-box" id="edNote" placeholder="Position de départ, astuce…" autocomplete="off">
+    </div>
+    <div class="ed-row">
+      <span class="lbl">Nom sur l'appareil</span>
+      <input class="input-box" id="edHw" placeholder="—" autocomplete="off">
+    </div>
+    <p class="hint-sm"><kbd>Entrée</kbd> enregistre et passe au contrôle suivant · <kbd>Échap</kbd> ferme.</p>
+  </div>
+  <div class="ed-foot">
+    <button class="btn icon-only" id="edPrev" title="Contrôle précédent"><svg class="icon sm"><use href="#i-arrow-l"></use></svg></button>
+    <button class="btn icon-only" id="edNext" title="Contrôle suivant"><svg class="icon sm"><use href="#i-arrow-r"></use></svg></button>
+    <button class="btn danger" id="edClear" style="margin-left:auto"><svg class="icon sm"><use href="#i-eraser"></use></svg>Vider</button>
+  </div>
+</aside>
+
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ------------------------------------------------------------------ *
+   * Catégories : la couleur sert de code visuel sur le plan ET à l'impression.
+   * ------------------------------------------------------------------ */
+  const CATS = [
+    {id:"vol",   name:"Volume",     color:"#4f9dff"},
+    {id:"filt",  name:"Filtre",     color:"#b06cff"},
+    {id:"fx",    name:"Effet",      color:"#ff5fa8"},
+    {id:"send",  name:"Send",       color:"#2fc7c0"},
+    {id:"mod",   name:"Modulation", color:"#ffb020"},
+    {id:"inst",  name:"Instrument", color:"#58c470"},
+    {id:"nav",   name:"Transport",  color:"#8f96a3"},
+    {id:"other", name:"Autre",      color:"#ef6c2e"}
+  ];
+  const CAT_BY_ID = Object.fromEntries(CATS.map(c => [c.id, c]));
+  const catColor = id => (CAT_BY_ID[id] || CAT_BY_ID.other).color;
+
+  /* ------------------------------------------------------------------ *
+   * Description des contrôleurs.
+   * Les coordonnées sont exprimées dans un repère virtuel (W x H) converti
+   * en pourcentages au rendu : le plan reste net à n'importe quelle taille.
+   * Les plans sont schématiques — le nom de chaque contrôle reste modifiable
+   * (« Nom sur l'appareil ») si la sérigraphie de ta machine diffère.
+   * ------------------------------------------------------------------ */
+  const NOTES_EN = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const NOTES_FR = ["Do","Do#","Ré","Ré#","Mi","Fa","Fa#","Sol","Sol#","La","La#","Si"];
+  const isBlackKey = m => [1,3,6,8,10].indexOf(m % 12) !== -1;
+  const noteName = m => NOTES_EN[m % 12] + (Math.floor(m / 12) - 1);
+  const noteNameFr = m => NOTES_FR[m % 12] + (Math.floor(m / 12) - 1);
+
+  // Construit un clavier : touches blanches réparties uniformément, noires intercalées.
+  function buildKeys(startMidi, count, x, y, w, h, group){
+    let whites = 0;
+    for(let i = 0; i < count; i++) if(!isBlackKey(startMidi + i)) whites++;
+    const ww = w / whites, bw = ww * 0.62, out = [];
+    let wi = 0;
+    for(let i = 0; i < count; i++){
+      const m = startMidi + i, black = isBlackKey(m);
+      out.push({
+        id:"key" + m, name:noteName(m), sub:noteNameFr(m), kind:"note", defNum:m,
+        type:black ? "key-b" : "key-w", group:group,
+        x: black ? x + wi * ww - bw / 2 : x + wi * ww,
+        y: y, w: black ? bw : ww, h: black ? h * 0.6 : h,
+        oct: (!black && m % 12 === 0) ? noteName(m) : null
+      });
+      if(!black) wi++;
+    }
+    return out;
+  }
+
+  function buildKeyfadr(){
+    const c = [], g = [];
+
+    g.push({id:"tr", name:"Transport & modes", x:10, y:46, w:196, h:430});
+    const btns = [
+      ["play","Play",""], ["stop","Stop",""],
+      ["rec","Rec","Enreg."], ["ovr","Overdub",""],
+      ["cycle","Cycle","Boucle"], ["tap","Tap","Tempo"],
+      ["scene_up","Scène ▲",""], ["scene_dn","Scène ▼",""],
+      ["oct_dn","Oct −",""], ["oct_up","Oct +",""],
+      ["shift","Shift","2e couche"]
+    ];
+    btns.forEach((b, i) => {
+      c.push({id:b[0], name:b[1], sub:b[2], kind:"note", type:"btn", group:"tr",
+        x:20 + (i % 2) * 92, y:76 + Math.floor(i / 2) * 44, w:84, h:34});
+    });
+
+    g.push({id:"ch", name:"Canaux 1 – 8", x:218, y:46, w:772, h:430});
+    const sw = (756 - 7 * 6) / 8;
+    for(let i = 1; i <= 8; i++){
+      const x = 226 + (i - 1) * (sw + 6);
+      c.push({id:"enc" + i,  name:"ENC " + i,   sub:"Pan",      kind:"cc", type:"enc",   group:"ch", x:x, y:76,  w:sw, h:64});
+      c.push({id:"knA" + i,  name:"KNOB A" + i, sub:"Send A",   kind:"cc", type:"knob",  group:"ch", x:x, y:144, w:sw, h:58});
+      c.push({id:"knB" + i,  name:"KNOB B" + i, sub:"Send B",   kind:"cc", type:"knob",  group:"ch", x:x, y:206, w:sw, h:58});
+      c.push({id:"mute" + i, name:"MUTE " + i,  sub:"",         kind:"note", type:"btn", group:"ch", x:x, y:268, w:sw, h:24});
+      c.push({id:"solo" + i, name:"SOLO " + i,  sub:"",         kind:"note", type:"btn", group:"ch", x:x, y:296, w:sw, h:24});
+      c.push({id:"arm" + i,  name:"REC " + i,   sub:"",         kind:"note", type:"btn", group:"ch", x:x, y:324, w:sw, h:24});
+      c.push({id:"fad" + i,  name:"FADER " + i, sub:"Volume",   kind:"cc", type:"fader", group:"ch", x:x, y:354, w:sw, h:112});
+    }
+
+    g.push({id:"kb", name:"Clavier 25 touches", x:10, y:488, w:980, h:200});
+    c.push.apply(c, buildKeys(48, 25, 20, 508, 960, 172, "kb"));
+
+    return {id:"keyfadr", name:"Reloop Keyfadr", short:"Keyfadr", w:1000, h:700, groups:g, controls:c, screens:[]};
+  }
+
+  function buildOxygen(){
+    const c = [], g = [];
+
+    g.push({id:"wh", name:"Molettes", x:10, y:40, w:118, h:218});
+    c.push({id:"pitch", name:"Pitch", sub:"",     kind:"cc", type:"wheel", group:"wh", x:20, y:70, w:42, h:128});
+    c.push({id:"mod",   name:"Mod",   sub:"CC 1", kind:"cc", defNum:1, type:"wheel", group:"wh", x:72, y:70, w:42, h:128});
+    c.push({id:"oct_dn", name:"Oct −", sub:"", kind:"note", type:"btn", group:"wh", x:20, y:208, w:42, h:30});
+    c.push({id:"oct_up", name:"Oct +", sub:"", kind:"note", type:"btn", group:"wh", x:72, y:208, w:42, h:30});
+
+    g.push({id:"pads", name:"Pads", x:140, y:40, w:216, h:218});
+    for(let i = 1; i <= 8; i++){
+      const col = (i - 1) % 4, row = Math.floor((i - 1) / 4);
+      c.push({id:"pad" + i, name:"PAD " + i, sub:"", kind:"note", type:"pad", group:"pads",
+        x:148 + col * 51, y:76 + row * 70, w:48, h:64});
+    }
+
+    g.push({id:"nav", name:"Transport & navigation", x:368, y:40, w:176, h:218});
+    const tb = [["rew","◀◀",""],["ff","▶▶",""],["stop","Stop",""],["play","Play",""],["loop","Loop",""],["rec","Rec",""]];
+    tb.forEach((b, i) => {
+      c.push({id:b[0], name:b[1], sub:b[2], kind:"note", type:"btn", group:"nav",
+        x:376 + (i % 3) * 56, y:134 + Math.floor(i / 3) * 38, w:48, h:30});
+    });
+    c.push({id:"trk_prev", name:"Track −", sub:"", kind:"note", type:"btn", group:"nav", x:376, y:212, w:76, h:28});
+    c.push({id:"trk_next", name:"Track +", sub:"", kind:"note", type:"btn", group:"nav", x:460, y:212, w:76, h:28});
+
+    g.push({id:"kf", name:"Potentiomètres & faders", x:556, y:40, w:434, h:218});
+    const kw = (418 - 7 * 4) / 8;
+    for(let i = 1; i <= 8; i++){
+      c.push({id:"kn" + i, name:"KNOB " + i, sub:"", kind:"cc", type:"knob", group:"kf",
+        x:564 + (i - 1) * (kw + 4), y:70, w:kw, h:58});
+    }
+    const fw = (418 - 8 * 4) / 9;
+    for(let i = 1; i <= 9; i++){
+      const x = 564 + (i - 1) * (fw + 4);
+      c.push({id:"fad" + i,  name:"FAD " + i,  sub:"", kind:"cc",   type:"fader", group:"kf", x:x, y:132, w:fw, h:80});
+      c.push({id:"fbtn" + i, name:"BTN " + i,  sub:"", kind:"note", type:"btn",   group:"kf", x:x, y:216, w:fw, h:26});
+    }
+
+    g.push({id:"kb", name:"Clavier 49 touches", x:10, y:268, w:980, h:164});
+    c.push.apply(c, buildKeys(36, 49, 20, 284, 960, 140, "kb"));
+
+    return {
+      id:"oxygen49", name:"M-Audio Oxygen 49", short:"Oxygen 49", w:1000, h:440,
+      groups:g, controls:c,
+      screens:[{x:376, y:70, w:160, h:52, text:"LCD"}]
+    };
+  }
+
+  const DEVICES = [buildKeyfadr(), buildOxygen()];
+  const DEV_BY_ID = Object.fromEntries(DEVICES.map(d => [d.id, d]));
+
+  /* ------------------------------------------------------------------ *
+   * Stockage local
+   * ------------------------------------------------------------------ */
+  const LS_KEY = "fiches-midi-v1";
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  function emptySheet(name){
+    const maps = {};
+    DEVICES.forEach(d => { maps[d.id] = {}; });
+    return {id:uid(), name:name || "Nouveau morceau", bpm:"", daw:"", notes:"", maps:maps, updated:Date.now()};
+  }
+
+  function loadStore(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(!raw) return null;
+      const s = JSON.parse(raw);
+      if(!s || !Array.isArray(s.sheets)) return null;
+      s.sheets.forEach(sh => {
+        sh.maps = sh.maps || {};
+        DEVICES.forEach(d => { sh.maps[d.id] = sh.maps[d.id] || {}; });
+      });
+      s.labels = s.labels || {};
+      return s;
+    }catch(e){ return null; }
+  }
+
+  let store = loadStore();
+  if(!store){
+    store = {v:1, sheets:[emptySheet("Morceau 1")], current:null, device:DEVICES[0].id, view:"board", labels:{}};
+    store.current = store.sheets[0].id;
+  }
+  if(!store.sheets.length) store.sheets.push(emptySheet("Morceau 1"));
+  if(!store.sheets.some(s => s.id === store.current)) store.current = store.sheets[0].id;
+  if(!DEV_BY_ID[store.device]) store.device = DEVICES[0].id;
+
+  let saveTimer = null;
+  function save(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(store)); }
+      catch(e){ toast("Impossible d'enregistrer (stockage plein ou bloqué)"); }
+    }, 200);
+  }
+
+  const sheet = () => store.sheets.find(s => s.id === store.current);
+  const device = () => DEV_BY_ID[store.device];
+  const mapOf = (devId) => { const s = sheet(); s.maps[devId] = s.maps[devId] || {}; return s.maps[devId]; };
+  const entry = (devId, ctrlId) => mapOf(devId)[ctrlId] || null;
+  const isSet = (e) => !!(e && (e.t || e.num !== "" && e.num != null || e.cm));
+  const hwName = (devId, ctrl) => (store.labels[devId] && store.labels[devId][ctrl.id]) || ctrl.name;
+
+  function setEntry(devId, ctrlId, patch){
+    const m = mapOf(devId);
+    const e = Object.assign({t:"", c:"other", kind:"", num:"", ch:"", cm:""}, m[ctrlId] || {}, patch);
+    if(!e.t && !e.cm && (e.num === "" || e.num == null)) delete m[ctrlId];
+    else m[ctrlId] = e;
+    sheet().updated = Date.now();
+    save();
+  }
+
+  function countAssigned(devId){
+    const m = (sheet().maps[devId]) || {};
+    return Object.keys(m).filter(k => isSet(m[k])).length;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Utilitaires d'affichage
+   * ------------------------------------------------------------------ */
+  const $ = id => document.getElementById(id);
+  const el = (tag, cls, txt) => { const n = document.createElement(tag); if(cls) n.className = cls; if(txt != null) n.textContent = txt; return n; };
+  const pct = (v, total) => (v / total * 100) + "%";
+
+  let toastTimer = null;
+  function toast(msg){
+    const t = $("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 2200);
+  }
+
+  function numLabel(ctrl, e){
+    if(!e || e.num === "" || e.num == null) return "";
+    const k = e.kind || ctrl.kind;
+    if(k === "note"){
+      const n = parseInt(e.num, 10);
+      return isNaN(n) ? "Note " + e.num : "Note " + e.num + " · " + noteName(n);
+    }
+    return "CC " + e.num;
+  }
+
+  function tooltip(dev, ctrl){
+    const e = entry(dev.id, ctrl.id);
+    const bits = [hwName(dev.id, ctrl)];
+    if(ctrl.sub) bits.push("(" + ctrl.sub + ")");
+    if(e && e.t) bits.push("→ " + e.t);
+    const n = numLabel(ctrl, e);
+    if(n) bits.push("· " + n + (e.ch ? " canal " + e.ch : ""));
+    if(e && e.cm) bits.push("· " + e.cm);
+    return bits.join(" ");
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Rendu du plan
+   * ------------------------------------------------------------------ */
+  function renderBoard(dev, opts){
+    opts = opts || {};
+    const board = el("div", "board");
+    board.style.aspectRatio = dev.w + " / " + dev.h;
+    board.dataset.dev = dev.id;
+
+    dev.groups.forEach(g => {
+      const z = el("div", "zone");
+      z.style.left = pct(g.x, dev.w); z.style.top = pct(g.y, dev.h);
+      z.style.width = pct(g.w, dev.w); z.style.height = pct(g.h, dev.h);
+      const t = el("span", "zone-title", g.name);
+      z.appendChild(t);
+      board.appendChild(z);
+    });
+
+    (dev.screens || []).forEach(s => {
+      const n = el("div", "screen", s.text);
+      n.style.setProperty("--x", pct(s.x, dev.w)); n.style.setProperty("--y", pct(s.y, dev.h));
+      n.style.setProperty("--w", pct(s.w, dev.w)); n.style.setProperty("--h", pct(s.h, dev.h));
+      board.appendChild(n);
+    });
+
+    dev.controls.forEach(ctrl => {
+      const e = entry(dev.id, ctrl.id), on = isSet(e);
+      const isKey = ctrl.type.indexOf("key-") === 0;
+      const n = el("div", isKey
+        ? "key " + (ctrl.type === "key-b" ? "b" : "w") + (on ? " assigned" : "")
+        : "ctrl t-" + ctrl.type + (on ? " assigned" : ""));
+      n.style.setProperty("--x", pct(ctrl.x, dev.w));
+      n.style.setProperty("--y", pct(ctrl.y, dev.h));
+      n.style.setProperty("--w", pct(ctrl.w, dev.w));
+      n.style.setProperty("--h", pct(ctrl.h, dev.h));
+      if(on) n.style.setProperty("--cc", catColor(e.c));
+      n.dataset.id = ctrl.id;
+      n.title = tooltip(dev, ctrl);
+
+      if(!isKey){
+        if(ctrl.type === "knob" || ctrl.type === "enc" || ctrl.type === "fader" || ctrl.type === "wheel"){
+          n.appendChild(el("span", "cap"));
+        }
+        n.appendChild(el("span", "cn", hwName(dev.id, ctrl)));
+        if(on && e.t) n.appendChild(el("span", "cl", e.t));
+        else if(ctrl.sub) n.appendChild(el("span", "cs", ctrl.sub));
+      }
+
+      if(opts.interactive){ n.tabIndex = 0; n.setAttribute("role", "button"); }
+      board.appendChild(n);
+
+      if(ctrl.oct){
+        const o = el("div", "key-oct", ctrl.oct);
+        o.style.setProperty("--x", pct(ctrl.x + 2, dev.w));
+        o.style.setProperty("--y", pct(ctrl.y + ctrl.h - 16, dev.h));
+        board.appendChild(o);
+      }
+    });
+
+    return board;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Rendu de la liste (saisie rapide au clavier)
+   * ------------------------------------------------------------------ */
+  function renderList(dev){
+    const wrap = el("div");
+    dev.groups.forEach(g => {
+      const ctrls = dev.controls.filter(c => c.group === g.id);
+      const done = ctrls.filter(c => isSet(entry(dev.id, c.id))).length;
+      const d = el("details", "group");
+      d.open = g.id !== "kb";
+      const s = el("summary");
+      s.appendChild(el("span", null, g.name));
+      const b = el("span", "badge" + (done ? " some" : ""), done + " / " + ctrls.length);
+      s.appendChild(b);
+      d.appendChild(s);
+
+      const table = el("table");
+      const thead = el("thead"), htr = el("tr");
+      [["Contrôle", "col-name"], ["Assignation", ""], ["Catégorie", "col-cat"], ["CC / Note", "col-num"], ["Canal", "col-ch"], ["Commentaire", "col-cm"]]
+        .forEach(h => { const th = el("th", h[1], h[0]); htr.appendChild(th); });
+      thead.appendChild(htr); table.appendChild(thead);
+
+      const tb = el("tbody");
+      ctrls.forEach(ctrl => {
+        const e = entry(dev.id, ctrl.id) || {};
+        const tr = el("tr", isSet(e) ? "row-assigned" : "");
+        tr.dataset.id = ctrl.id;
+        if(isSet(e)) tr.style.setProperty("--cc", catColor(e.c));
+
+        const tdn = el("td", "name");
+        tdn.appendChild(document.createTextNode(hwName(dev.id, ctrl)));
+        if(ctrl.sub) tdn.appendChild(el("small", null, ctrl.sub));
+        tr.appendChild(tdn);
+
+        tr.appendChild(cellInput("t", e.t || "", "Ce que ça pilote…", ctrl.id));
+        tr.appendChild(cellCat(e.c || "other", ctrl.id));
+        tr.appendChild(cellInput("num", e.num || "", (e.kind || ctrl.kind) === "note" ? "note" : "cc", ctrl.id, "num"));
+        tr.appendChild(cellInput("ch", e.ch || "", "—", ctrl.id, "num"));
+        tr.appendChild(cellInput("cm", e.cm || "", "", ctrl.id, "cm"));
+        tb.appendChild(tr);
+      });
+      table.appendChild(tb);
+      d.appendChild(table);
+      wrap.appendChild(d);
+    });
+    return wrap;
+  }
+
+  function cellInput(field, val, ph, ctrlId, cls){
+    const td = el("td", cls === "num" ? "num" : (cls === "cm" ? "col-cm" : ""));
+    const i = el("input");
+    i.value = val; i.placeholder = ph || ""; i.autocomplete = "off";
+    i.dataset.field = field; i.dataset.id = ctrlId;
+    if(cls === "num") i.inputMode = "numeric";
+    td.appendChild(i);
+    return td;
+  }
+
+  function cellCat(val, ctrlId){
+    const td = el("td", "col-cat");
+    const s = el("select");
+    s.dataset.field = "c"; s.dataset.id = ctrlId;
+    CATS.forEach(c => {
+      const o = el("option", null, c.name);
+      o.value = c.id;
+      if(c.id === val) o.selected = true;
+      s.appendChild(o);
+    });
+    td.appendChild(s);
+    return td;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Rendu global
+   * ------------------------------------------------------------------ */
+  function renderTabs(){
+    const t = $("deviceTabs");
+    t.textContent = "";
+    DEVICES.forEach(d => {
+      const b = el("button", "tab" + (d.id === store.device ? " active" : ""));
+      b.appendChild(el("span", null, d.short));
+      b.appendChild(el("span", "count", countAssigned(d.id) + " / " + d.controls.length));
+      b.title = d.name;
+      b.addEventListener("click", () => { store.device = d.id; closeEditor(); save(); render(); });
+      t.appendChild(b);
+    });
+  }
+
+  function renderSheets(){
+    const sel = $("sheetSelect");
+    sel.textContent = "";
+    store.sheets.forEach(s => {
+      const o = el("option", null, s.name);
+      o.value = s.id;
+      if(s.id === store.current) o.selected = true;
+      sel.appendChild(o);
+    });
+    const s = sheet();
+    $("sheetNotes").value = s.notes || "";
+    $("sheetBpm").value = s.bpm || "";
+    $("sheetDaw").value = s.daw || "";
+    $("sheetDel").disabled = store.sheets.length <= 1;
+  }
+
+  function render(){
+    renderTabs();
+    renderSheets();
+    const vp = $("viewport");
+    vp.textContent = "";
+    const dev = device();
+    if(store.view === "list"){
+      vp.appendChild(renderList(dev));
+    }else{
+      const scroll = el("div", "board-scroll");
+      scroll.appendChild(renderBoard(dev, {interactive:true}));
+      vp.appendChild(scroll);
+    }
+    $("viewBoard").classList.toggle("active", store.view !== "list");
+    $("viewList").classList.toggle("active", store.view === "list");
+    applyFilter();
+    if(selected) markSelection();
+  }
+
+  // Re-rendu ciblé d'un contrôle sur le plan (évite de reconstruire tout le plan à chaque frappe).
+  function refreshControl(ctrlId){
+    const dev = device();
+    const board = document.querySelector("#viewport .board");
+    if(!board) return;
+    const old = board.querySelector('[data-id="' + ctrlId + '"]');
+    if(!old) return;
+    const ctrl = dev.controls.find(c => c.id === ctrlId);
+    const tmp = renderBoard(dev, {interactive:true});
+    const fresh = tmp.querySelector('[data-id="' + ctrlId + '"]');
+    fresh.tabIndex = 0;
+    if(old.classList.contains("sel")) fresh.classList.add("sel");
+    old.replaceWith(fresh);
+    renderTabs();
+    void ctrl;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Éditeur d'un contrôle
+   * ------------------------------------------------------------------ */
+  let selected = null;   // {devId, ctrlId}
+  let learnArmed = false;
+
+  function markSelection(){
+    document.querySelectorAll("#viewport .sel").forEach(n => n.classList.remove("sel"));
+    if(!selected) return;
+    const n = document.querySelector('#viewport [data-id="' + selected.ctrlId + '"]');
+    if(n) n.classList.add("sel");
+  }
+
+  function openEditor(devId, ctrlId, focus){
+    const dev = DEV_BY_ID[devId];
+    const ctrl = dev.controls.find(c => c.id === ctrlId);
+    if(!ctrl) return;
+    selected = {devId:devId, ctrlId:ctrlId};
+    const e = entry(devId, ctrlId) || {};
+    const kind = e.kind || ctrl.kind;
+
+    $("edKind").textContent = typeLabel(ctrl.type);
+    $("edName").textContent = hwName(devId, ctrl) + (ctrl.sub ? " · " + ctrl.sub : "");
+    $("edDev").textContent = dev.name;
+    $("edLabel").value = e.t || "";
+    $("edNum").value = e.num != null ? e.num : "";
+    $("edCh").value = e.ch || "";
+    $("edNote").value = e.cm || "";
+    $("edHw").value = hwName(devId, ctrl);
+    $("edHw").placeholder = ctrl.name;
+
+    Array.prototype.forEach.call($("edSeg").children, b => b.classList.toggle("on", b.dataset.k === kind));
+    renderCats(e.c || "other");
+
+    $("editor").classList.add("open");
+    $("editor").setAttribute("aria-hidden", "false");
+    markSelection();
+    const n = document.querySelector('#viewport [data-id="' + ctrlId + '"]');
+    if(n && n.scrollIntoView) n.scrollIntoView({block:"nearest", inline:"nearest"});
+    if(focus !== false) $("edLabel").focus(), $("edLabel").select();
+  }
+
+  function typeLabel(t){
+    return {knob:"Potentiomètre", enc:"Encodeur sans fin", fader:"Fader", btn:"Bouton",
+            pad:"Pad", wheel:"Molette", "key-w":"Touche", "key-b":"Touche"}[t] || "Contrôle";
+  }
+
+  function renderCats(active){
+    const box = $("edCats");
+    box.textContent = "";
+    CATS.forEach(c => {
+      const b = el("button", "cat" + (c.id === active ? " on" : ""));
+      b.type = "button";
+      b.style.setProperty("--cc", c.color);
+      b.appendChild(el("span", "dot"));
+      b.appendChild(el("span", null, c.name));
+      b.addEventListener("click", () => { commitEditor({c:c.id}); renderCats(c.id); });
+      box.appendChild(b);
+    });
+  }
+
+  function closeEditor(){
+    $("editor").classList.remove("open");
+    $("editor").setAttribute("aria-hidden", "true");
+    selected = null; learnArmed = false;
+    $("edLearn").classList.remove("on");
+    document.querySelectorAll("#viewport .sel").forEach(n => n.classList.remove("sel"));
+  }
+
+  function currentCat(){
+    const on = $("edCats").querySelector(".cat.on");
+    if(!on) return "other";
+    const i = Array.prototype.indexOf.call($("edCats").children, on);
+    return CATS[i] ? CATS[i].id : "other";
+  }
+  function currentKind(){
+    const on = $("edSeg").querySelector("button.on");
+    return on ? on.dataset.k : "cc";
+  }
+
+  function commitEditor(patch){
+    if(!selected) return;
+    const p = Object.assign({
+      t:$("edLabel").value.trim(),
+      c:currentCat(),
+      kind:currentKind(),
+      num:$("edNum").value.trim(),
+      ch:$("edCh").value.trim(),
+      cm:$("edNote").value.trim()
+    }, patch || {});
+    setEntry(selected.devId, selected.ctrlId, p);
+    refreshControl(selected.ctrlId);
+    markSelection();
+  }
+
+  function moveSelection(delta){
+    if(!selected) return;
+    const dev = DEV_BY_ID[selected.devId];
+    const i = dev.controls.findIndex(c => c.id === selected.ctrlId);
+    const j = Math.min(dev.controls.length - 1, Math.max(0, i + delta));
+    openEditor(dev.id, dev.controls[j].id);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Recherche / filtre
+   * ------------------------------------------------------------------ */
+  function applyFilter(){
+    const q = $("search").value.trim().toLowerCase();
+    const dev = device();
+    const board = document.querySelector("#viewport .board");
+    if(board) board.classList.toggle("filtering", !!q);
+
+    dev.controls.forEach(c => {
+      const e = entry(dev.id, c.id) || {};
+      const hay = [hwName(dev.id, c), c.sub || "", e.t || "", e.cm || "", numLabel(c, e)].join(" ").toLowerCase();
+      const hit = !q || hay.indexOf(q) !== -1;
+      const n = document.querySelector('#viewport [data-id="' + c.id + '"]');
+      if(n){
+        n.classList.toggle("match", hit);
+        if(n.tagName === "TR") n.classList.toggle("dim", !!q && !hit);
+      }
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * MIDI entrant : identifier un contrôle ou apprendre son numéro
+   * ------------------------------------------------------------------ */
+  let midiAccess = null;
+
+  function setMidiState(cls, text){
+    const dot = $("midiDot");
+    dot.classList.remove("live", "err");
+    if(cls) dot.classList.add(cls);
+    $("monitor").textContent = text;
+  }
+
+  async function toggleMidi(){
+    if(midiAccess){
+      midiAccess.inputs.forEach(i => { i.onmidimessage = null; });
+      midiAccess = null;
+      $("midiBtn").classList.remove("on");
+      setMidiState(null, "MIDI éteint");
+      return;
+    }
+    if(!navigator.requestMIDIAccess){
+      setMidiState("err", "Web MIDI indisponible (Chrome/Edge)");
+      toast("Ce navigateur ne gère pas le Web MIDI — essaie Chrome ou Edge.");
+      return;
+    }
+    try{
+      midiAccess = await navigator.requestMIDIAccess({sysex:false});
+      bindInputs();
+      midiAccess.onstatechange = bindInputs;
+      $("midiBtn").classList.add("on");
+    }catch(err){
+      setMidiState("err", "Accès MIDI refusé");
+      toast("Accès MIDI refusé par le navigateur.");
+    }
+  }
+
+  function bindInputs(){
+    if(!midiAccess) return;
+    const names = [];
+    midiAccess.inputs.forEach(inp => { inp.onmidimessage = onMidi; names.push(inp.name); });
+    setMidiState(names.length ? "live" : "err",
+      names.length ? "À l'écoute · " + names.join(", ") : "Aucun appareil MIDI détecté");
+  }
+
+  function onMidi(ev){
+    const d = ev.data;
+    if(!d || d.length < 2) return;
+    const status = d[0] & 0xf0, ch = (d[0] & 0x0f) + 1;
+    let kind = null, num = d[1], val = d.length > 2 ? d[2] : 0;
+    if(status === 0xb0) kind = "cc";
+    else if(status === 0x90 && val > 0) kind = "note";
+    else if(status === 0xe0){ kind = "cc"; num = "PB"; }
+    else return;
+
+    const mon = $("monitor");
+    mon.textContent = "";
+    mon.appendChild(el("b", null, (kind === "cc" ? "CC " : "Note ") + num));
+    mon.appendChild(document.createTextNode(
+      " = " + val + " · canal " + ch + (kind === "note" && typeof num === "number" ? " · " + noteName(num) : "")
+    ));
+
+    if(num === "PB") return;
+
+    if(learnArmed && selected){
+      $("edNum").value = String(num);
+      $("edCh").value = String(ch);
+      Array.prototype.forEach.call($("edSeg").children, b => b.classList.toggle("on", b.dataset.k === kind));
+      commitEditor();
+      learnArmed = false;
+      $("edLearn").classList.remove("on");
+      toast((kind === "cc" ? "CC " : "Note ") + num + " (canal " + ch + ") mémorisé");
+      return;
+    }
+
+    // Sinon : on met en évidence les contrôles déjà associés à ce message.
+    const dev = device();
+    let found = 0;
+    dev.controls.forEach(c => {
+      const e = entry(dev.id, c.id);
+      if(!e || e.num === "" || e.num == null) return;
+      if(parseInt(e.num, 10) !== num) return;
+      if((e.kind || c.kind) !== kind) return;
+      if(e.ch && parseInt(e.ch, 10) !== ch) return;
+      const n = document.querySelector('#viewport [data-id="' + c.id + '"]');
+      if(n){ n.classList.remove("hit"); void n.offsetWidth; n.classList.add("hit"); found++; }
+    });
+    if(!found) mon.appendChild(document.createTextNode(" · non attribué"));
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Fiches : créer / dupliquer / renommer / supprimer
+   * ------------------------------------------------------------------ */
+  function newSheet(){
+    const s = emptySheet("Morceau " + (store.sheets.length + 1));
+    store.sheets.push(s);
+    store.current = s.id;
+    save(); closeEditor(); render();
+    toast("Nouvelle fiche créée");
+  }
+
+  function dupSheet(){
+    const s = JSON.parse(JSON.stringify(sheet()));
+    s.id = uid(); s.name = sheet().name + " (copie)"; s.updated = Date.now();
+    store.sheets.push(s); store.current = s.id;
+    save(); closeEditor(); render();
+    toast("Fiche dupliquée");
+  }
+
+  function renameSheet(){
+    const s = sheet();
+    const n = prompt("Nom du morceau :", s.name);
+    if(n == null) return;
+    s.name = n.trim() || s.name;
+    save(); renderSheets();
+  }
+
+  function delSheet(){
+    if(store.sheets.length <= 1) return;
+    const s = sheet();
+    if(!confirm("Supprimer la fiche « " + s.name + " » ? Cette action est définitive.")) return;
+    store.sheets = store.sheets.filter(x => x.id !== s.id);
+    store.current = store.sheets[0].id;
+    save(); closeEditor(); render();
+    toast("Fiche supprimée");
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Export / import
+   * ------------------------------------------------------------------ */
+  function exportAll(){
+    const data = JSON.stringify({v:1, exported:new Date().toISOString(), sheets:store.sheets, labels:store.labels}, null, 2);
+    const blob = new Blob([data], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "fiches-midi-" + new Date().toISOString().slice(0, 10) + ".json";
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  function importFile(file){
+    const r = new FileReader();
+    r.onload = () => {
+      try{
+        const data = JSON.parse(r.result);
+        if(!data || !Array.isArray(data.sheets)) throw new Error("format");
+        let added = 0;
+        data.sheets.forEach(s => {
+          if(!s || typeof s !== "object") return;
+          const ns = emptySheet(s.name || "Import");
+          ns.bpm = String(s.bpm || ""); ns.daw = String(s.daw || ""); ns.notes = String(s.notes || "");
+          DEVICES.forEach(d => {
+            const src = (s.maps && s.maps[d.id]) || {};
+            Object.keys(src).forEach(k => {
+              if(!d.controls.some(c => c.id === k)) return;
+              const e = src[k] || {};
+              ns.maps[d.id][k] = {
+                t:String(e.t || ""), c:CAT_BY_ID[e.c] ? e.c : "other",
+                kind:e.kind === "note" ? "note" : (e.kind === "cc" ? "cc" : ""),
+                num:e.num == null ? "" : String(e.num), ch:e.ch == null ? "" : String(e.ch),
+                cm:String(e.cm || "")
+              };
+            });
+          });
+          store.sheets.push(ns); added++;
+        });
+        if(data.labels && typeof data.labels === "object"){
+          Object.keys(data.labels).forEach(devId => {
+            if(!DEV_BY_ID[devId]) return;
+            store.labels[devId] = Object.assign({}, store.labels[devId], data.labels[devId]);
+          });
+        }
+        if(added) store.current = store.sheets[store.sheets.length - 1].id;
+        save(); render();
+        toast(added + " fiche(s) importée(s)");
+      }catch(e){ toast("Fichier illisible — ce n'est pas un export de fiches MIDI."); }
+    };
+    r.readAsText(file);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Impression : plan + tableau, pour chaque appareil utilisé dans la fiche
+   * ------------------------------------------------------------------ */
+  function buildPrintDoc(){
+    const s = sheet();
+    const root = el("div");
+    const used = DEVICES.filter(d => countAssigned(d.id) > 0);
+    const devs = used.length ? used : [device()];
+
+    devs.forEach((dev, i) => {
+      const page = el("div", "p-page");
+
+      const head = el("div", "p-head");
+      const h = el("h2", null, s.name);
+      head.appendChild(h);
+      const meta = el("div", "meta");
+      const bits = [dev.name];
+      if(s.bpm) bits.push(s.bpm + " BPM");
+      if(s.daw) bits.push(s.daw);
+      bits.push(new Date().toLocaleDateString("fr-FR"));
+      meta.textContent = bits.join("  ·  ");
+      head.appendChild(meta);
+      page.appendChild(head);
+
+      if(s.notes && i === 0) page.appendChild(el("p", "p-notes", s.notes));
+
+      page.appendChild(renderBoard(dev, {interactive:false}));
+
+      const table = el("table", "p-table");
+      const thead = el("thead"), tr = el("tr");
+      ["Contrôle", "Assignation", "CC / Note", "Canal", "Commentaire"].forEach(t => tr.appendChild(el("th", null, t)));
+      thead.appendChild(tr); table.appendChild(thead);
+      const tb = el("tbody");
+      let rows = 0;
+      dev.groups.forEach(g => {
+        const list = dev.controls.filter(c => c.group === g.id && isSet(entry(dev.id, c.id)));
+        if(!list.length) return;
+        const gt = el("tr");
+        const gtd = el("td", "p-sec", g.name);
+        gtd.colSpan = 5; gt.appendChild(gtd); tb.appendChild(gt);
+        list.forEach(c => {
+          const e = entry(dev.id, c.id);
+          const r = el("tr");
+          const c1 = el("td", "pn");
+          const dot = el("span", "p-cat");
+          dot.style.background = catColor(e.c);
+          c1.appendChild(dot);
+          c1.appendChild(document.createTextNode(hwName(dev.id, c)));
+          r.appendChild(c1);
+          r.appendChild(el("td", null, e.t || ""));
+          r.appendChild(el("td", "pn", numLabel(c, e)));
+          r.appendChild(el("td", "pn", e.ch || ""));
+          r.appendChild(el("td", null, e.cm || ""));
+          tb.appendChild(r); rows++;
+        });
+      });
+      table.appendChild(tb);
+      if(rows) page.appendChild(table);
+      root.appendChild(page);
+    });
+    return root;
+  }
+
+  // Rempli sur beforeprint : le Ctrl+P du navigateur produit la même fiche que le bouton.
+  function fillPrint(){
+    const area = $("printArea");
+    area.textContent = "";
+    area.appendChild(buildPrintDoc());
+  }
+  window.addEventListener("beforeprint", fillPrint);
+  window.addEventListener("afterprint", () => { $("printArea").textContent = ""; });
+
+  /* ------------------------------------------------------------------ *
+   * Écouteurs
+   * ------------------------------------------------------------------ */
+  $("viewport").addEventListener("click", ev => {
+    const n = ev.target.closest("[data-id]");
+    if(!n || n.tagName === "TR" || !n.dataset.id) return;
+    if(n.tagName === "INPUT" || n.tagName === "SELECT") return;
+    openEditor(store.device, n.dataset.id);
+  });
+
+  $("viewport").addEventListener("keydown", ev => {
+    if(ev.key !== "Enter" && ev.key !== " ") return;
+    const n = ev.target.closest(".ctrl, .key");
+    if(!n || !n.dataset.id) return;
+    ev.preventDefault();
+    openEditor(store.device, n.dataset.id);
+  });
+
+  // Saisie rapide dans la vue liste
+  $("viewport").addEventListener("input", ev => {
+    const f = ev.target.dataset.field;
+    if(!f) return;
+    const row = ev.target.closest("tr");
+    const id = ev.target.dataset.id;
+    setEntry(store.device, id, {[f]:ev.target.value.trim()});
+    const e = entry(store.device, id);
+    if(row){
+      row.classList.toggle("row-assigned", isSet(e));
+      if(e) row.style.setProperty("--cc", catColor(e.c));
+    }
+    renderTabs();
+  });
+  $("viewport").addEventListener("change", ev => {
+    if(ev.target.dataset.field !== "c") return;
+    const row = ev.target.closest("tr");
+    setEntry(store.device, ev.target.dataset.id, {c:ev.target.value});
+    const e = entry(store.device, ev.target.dataset.id);
+    if(row && e) row.style.setProperty("--cc", catColor(e.c));
+  });
+
+  ["edLabel", "edNum", "edCh", "edNote"].forEach(id => {
+    $(id).addEventListener("input", () => commitEditor());
+  });
+  $("edHw").addEventListener("input", () => {
+    if(!selected) return;
+    const dev = DEV_BY_ID[selected.devId];
+    const ctrl = dev.controls.find(c => c.id === selected.ctrlId);
+    const v = $("edHw").value.trim();
+    store.labels[dev.id] = store.labels[dev.id] || {};
+    if(!v || v === ctrl.name) delete store.labels[dev.id][ctrl.id];
+    else store.labels[dev.id][ctrl.id] = v;
+    save();
+    $("edName").textContent = hwName(dev.id, ctrl) + (ctrl.sub ? " · " + ctrl.sub : "");
+    refreshControl(ctrl.id);
+    markSelection();
+  });
+
+  Array.prototype.forEach.call($("edSeg").children, b => {
+    b.addEventListener("click", () => {
+      Array.prototype.forEach.call($("edSeg").children, x => x.classList.toggle("on", x === b));
+      commitEditor();
+    });
+  });
+
+  $("edLearn").addEventListener("click", async () => {
+    if(!midiAccess) await toggleMidi();
+    if(!midiAccess) return;
+    learnArmed = !learnArmed;
+    $("edLearn").classList.toggle("on", learnArmed);
+    if(learnArmed) toast("Bouge le contrôle sur ton clavier…");
+  });
+
+  $("edClear").addEventListener("click", () => {
+    if(!selected) return;
+    const m = mapOf(selected.devId);
+    delete m[selected.ctrlId];
+    sheet().updated = Date.now(); save();
+    const id = selected.ctrlId, dev = selected.devId;
+    refreshControl(id);
+    openEditor(dev, id, false);
+    if(store.view === "list") render();
+  });
+
+  $("edClose").addEventListener("click", closeEditor);
+  $("edPrev").addEventListener("click", () => moveSelection(-1));
+  $("edNext").addEventListener("click", () => moveSelection(1));
+
+  document.addEventListener("keydown", ev => {
+    if(ev.key === "Escape" && $("editor").classList.contains("open")){ closeEditor(); return; }
+    if(ev.key === "Enter" && $("editor").contains(document.activeElement) && document.activeElement.tagName === "INPUT"){
+      ev.preventDefault();
+      commitEditor();
+      moveSelection(ev.shiftKey ? -1 : 1);
+    }
+  });
+
+  $("sheetSelect").addEventListener("change", ev => {
+    store.current = ev.target.value;
+    save(); closeEditor(); render();
+  });
+  $("sheetNew").addEventListener("click", newSheet);
+  $("sheetDup").addEventListener("click", dupSheet);
+  $("sheetRen").addEventListener("click", renameSheet);
+  $("sheetDel").addEventListener("click", delSheet);
+
+  ["sheetNotes", "sheetBpm", "sheetDaw"].forEach(id => {
+    $(id).addEventListener("input", () => {
+      const s = sheet();
+      s.notes = $("sheetNotes").value;
+      s.bpm = $("sheetBpm").value;
+      s.daw = $("sheetDaw").value;
+      s.updated = Date.now();
+      save();
+    });
+  });
+
+  $("viewBoard").addEventListener("click", () => { store.view = "board"; save(); render(); });
+  $("viewList").addEventListener("click", () => { store.view = "list"; save(); render(); });
+  $("search").addEventListener("input", applyFilter);
+  $("midiBtn").addEventListener("click", toggleMidi);
+  $("printBtn").addEventListener("click", () => { fillPrint(); window.print(); });
+  $("exportBtn").addEventListener("click", exportAll);
+  $("importBtn").addEventListener("click", () => $("importFile").click());
+  $("importFile").addEventListener("change", ev => {
+    if(ev.target.files && ev.target.files[0]) importFile(ev.target.files[0]);
+    ev.target.value = "";
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

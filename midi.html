@@ -142,21 +142,38 @@
 
   /* ---------- plateau ---------- */
   .board-scroll{ overflow-x:auto; padding-bottom:6px; }
+  /* Le plan est dessiné comme la face avant vue de dessus : châssis, sérigraphie,
+     puis les contrôles positionnés en pourcentage d'un repère virtuel. */
   .board{
     position:relative; width:100%; min-width:880px;
-    background:linear-gradient(160deg, #262219, #1c1a17 70%);
-    border:1px solid var(--border); border-radius:var(--radius-lg);
+    background:linear-gradient(168deg, #322d26 0%, #262219 18%, #201d19 62%, #191715 100%);
+    border:1px solid #0e0c0a; border-radius:14px;
     container-type:inline-size;
-    box-shadow:0 18px 40px -30px #000;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.09), inset 0 0 0 1px rgba(255,255,255,0.02),
+               0 20px 46px -32px #000;
   }
   .zone{
-    position:absolute; border:1px solid rgba(255,255,255,0.055); border-radius:10px;
-    background:rgba(255,255,255,0.018);
+    position:absolute; border:1px solid rgba(255,255,255,0.05); border-radius:9px;
+    background:rgba(0,0,0,0.13);
   }
   .zone-title{
     position:absolute; top:0.5cqw; left:0.9cqw;
     font-family:var(--mono); font-size:1.05cqw; letter-spacing:0.1em; text-transform:uppercase;
     color:var(--text-2);
+  }
+  .mark{
+    position:absolute; left:var(--x); top:var(--y); width:var(--w);
+    text-align:center; pointer-events:none; line-height:1;
+  }
+  .mark.chan{ font-family:var(--mono); font-size:1.1cqw; color:#7d766a; letter-spacing:0.1em; }
+  .mark.brand{ font-size:2.4cqw; font-weight:700; letter-spacing:-0.02em; color:#6b6459; }
+  .mark.model{
+    font-family:var(--mono); font-size:1.15cqw; letter-spacing:0.34em; color:#575147;
+  }
+  .decor{ position:absolute; left:var(--x); top:var(--y); width:var(--w); height:var(--h); }
+  .decor.felt{
+    background:linear-gradient(#2a211c, #17120f); border-radius:2px;
+    box-shadow:0 1px 0 rgba(255,255,255,0.04);
   }
 
   .ctrl{
@@ -179,34 +196,43 @@
   }
   .ctrl.assigned .cn{ color:var(--text-1); }
 
-  /* boutons rotatifs */
+  /* boutons rotatifs : capuchon bombé posé sur une jupe */
   .t-knob .cap, .t-enc .cap{
     aspect-ratio:1; height:58%; border-radius:50%; position:relative; flex:none;
-    background:radial-gradient(circle at 35% 28%, #4a443a, #2a2621 70%);
-    border:1px solid #4e4739; box-shadow:0 2px 5px -2px #000;
+    background:radial-gradient(circle at 38% 26%, #565046, #383229 55%, #211e1a 100%);
+    border:1px solid #100e0c;
+    box-shadow:0 0 0 0.2cqw #2b2721, 0 0 0 calc(0.2cqw + 1px) #14120f,
+               0 2px 4px -1px #000, inset 0 1px 0 rgba(255,255,255,0.16);
   }
   .t-knob .cap::after, .t-enc .cap::after{
-    content:''; position:absolute; left:50%; top:10%; width:0.28cqw; height:34%;
-    background:var(--cc,#8d8578); border-radius:2px; transform:translateX(-50%);
+    content:''; position:absolute; left:50%; top:9%; width:0.3cqw; height:36%;
+    background:var(--cc,#cfc7b8); border-radius:2px; transform:translateX(-50%);
+    box-shadow:0 0 3px -1px var(--cc,transparent);
   }
-  .t-enc .cap{ box-shadow:0 0 0 0.18cqw #322d26, 0 2px 5px -2px #000; }
+  /* encodeur sans fin : couronne crantée + point de poussoir */
   .t-enc .cap::before{
-    content:''; position:absolute; inset:14%; border-radius:50%;
-    border:1px dashed rgba(255,255,255,0.12);
+    content:''; position:absolute; inset:-14%; border-radius:50%;
+    background:repeating-conic-gradient(#5d564a 0 1.6deg, transparent 1.6deg 15deg);
+    -webkit-mask:radial-gradient(circle, transparent 60%, #000 62%);
+    mask:radial-gradient(circle, transparent 60%, #000 62%);
   }
 
-  /* faders */
+  /* faders : fente encastrée + curseur */
   .t-fader .cap{
-    width:20%; height:62%; flex:none; border-radius:3px; position:relative;
-    background:linear-gradient(#181613,#241f1a); border:1px solid #3d372e;
-    box-shadow:inset 0 2px 6px -2px #000;
+    width:14%; height:64%; flex:none; border-radius:2px; position:relative;
+    background:linear-gradient(#100e0c,#1d1916); border:1px solid #0a0908;
+    box-shadow:inset 0 0 4px 1px #000, 0 1px 0 rgba(255,255,255,0.05);
   }
   .t-fader .cap::after{
-    content:''; position:absolute; left:-90%; right:-90%; top:34%; height:11%;
-    background:linear-gradient(#5a5347,#39332b); border:1px solid #564e40; border-radius:2px;
-    box-shadow:0 2px 4px -2px #000;
+    content:''; position:absolute; left:-115%; right:-115%; top:33%; height:12%;
+    background:linear-gradient(#6d6558,#413a30 55%, #2b2620);
+    border:1px solid #17140f; border-radius:2px;
+    box-shadow:0 2px 4px -2px #000, inset 0 1px 0 rgba(255,255,255,0.22);
   }
-  .t-fader.assigned .cap::after{ background:linear-gradient(var(--cc),#39332b); border-color:var(--cc); }
+  .t-fader.assigned .cap::after{
+    background:linear-gradient(var(--cc), color-mix(in srgb, var(--cc) 45%, #2b2620));
+    border-color:#17140f;
+  }
 
   /* molettes (pitch / mod) */
   .t-wheel .cap{
@@ -217,10 +243,16 @@
 
   /* boutons / pads */
   .t-btn, .t-pad{
-    justify-content:center; border-radius:5px; padding:0 0.4cqw;
-    background:linear-gradient(#2c2822,#221f1a); border:1px solid #413a31;
+    justify-content:center; border-radius:4px; padding:0 0.4cqw;
+    background:linear-gradient(#3a342c,#252119); border:1px solid #12100e;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.09), 0 1px 2px -1px #000;
   }
-  .t-pad{ border-radius:7px; background:linear-gradient(#332e26,#242019); }
+  .t-pad{ border-radius:6px; background:linear-gradient(#3d372e,#26221b); }
+  .led{
+    position:absolute; top:22%; left:0.5cqw; width:0.5cqw; height:0.5cqw; border-radius:50%;
+    background:#3a3128; box-shadow:inset 0 0 2px #000;
+  }
+  .assigned > .led{ background:var(--cc); box-shadow:0 0 5px -1px var(--cc); }
   .t-btn .cn, .t-pad .cn{ font-size:0.98cqw; }
   .t-btn .cl, .t-pad .cl{ font-size:1.1cqw; }
   .t-pad{ padding:0 0.2cqw; }
@@ -231,11 +263,11 @@
   .t-btn.assigned, .t-pad.assigned{ border-color:var(--cc); background:linear-gradient(color-mix(in srgb, var(--cc) 16%, #2c2822), #221f1a); }
 
   /* écran décoratif */
-  .screen{
-    position:absolute; left:var(--x); top:var(--y); width:var(--w); height:var(--h);
-    border-radius:5px; background:linear-gradient(#20261f,#161a16); border:1px solid #3c4439;
+  .decor.screen{
+    border-radius:4px; background:linear-gradient(#1d241c,#12160f); border:1px solid #0d0f0c;
     display:flex; align-items:center; justify-content:center;
     font-family:var(--mono); font-size:1.05cqw; color:#5d7a58; letter-spacing:0.12em;
+    box-shadow:inset 0 2px 6px -2px #000;
   }
 
   /* clavier */
@@ -243,8 +275,16 @@
     position:absolute; left:var(--x); top:var(--y); width:var(--w); height:var(--h);
     border:none; padding:0; cursor:pointer; border-radius:0 0 3px 3px;
   }
-  .key.w{ background:linear-gradient(#d8d2c6,#f2ede4); border:1px solid #9c968b; z-index:1; }
-  .key.b{ background:linear-gradient(#2a2723,#131110); border:1px solid #0c0b0a; z-index:2; border-radius:0 0 2px 2px; }
+  .key.w{
+    background:linear-gradient(#f2ede4 72%, #ded7ca 92%, #c8c1b4);
+    border:1px solid #8b8579; border-top:none; z-index:1;
+    box-shadow:inset 0 -0.35cqw 0.5cqw -0.35cqw rgba(0,0,0,0.4);
+  }
+  .key.b{
+    background:linear-gradient(#3a352e, #171412 62%, #0d0b0a);
+    border:1px solid #060505; z-index:2; border-radius:0 0 3px 3px;
+    box-shadow:0 0.25cqw 0.4cqw -0.2cqw rgba(0,0,0,0.75), inset 0 -0.2cqw 0 rgba(255,255,255,0.06);
+  }
   .key.assigned::after{
     content:''; position:absolute; left:50%; bottom:8%; width:0.85cqw; height:0.85cqw;
     border-radius:50%; background:var(--cc); transform:translateX(-50%);
@@ -414,18 +454,24 @@
     #printArea{ display:block !important; }
     .board{ background:#fff; border-color:#bbb5ab; box-shadow:none; min-width:0; break-inside:avoid; }
     .zone{ border-color:#ddd8d0; background:#fbfaf8; }
-    .t-knob .cap, .t-enc .cap{ background:#f0ece5; border-color:#a9a49b; box-shadow:none; }
-    .t-knob .cap::after, .t-enc .cap::after{ background:var(--cc,#6d675e); }
-    .t-fader .cap{ background:#f0ece5; border-color:#a9a49b; box-shadow:none; }
-    .t-fader .cap::after{ background:var(--cc,#8d8578); border-color:#6d675e; }
-    .t-btn, .t-pad{ background:#f4f1eb; border-color:#a9a49b; }
+    .t-knob .cap, .t-enc .cap{ background:#f0ece5; border-color:#a9a49b; box-shadow:0 0 0 0.2cqw #e4dfd6; }
+    .t-knob .cap::after, .t-enc .cap::after{ background:var(--cc,#6d675e); box-shadow:none; }
+    .t-enc .cap::before{ background:repeating-conic-gradient(#b3ada3 0 1.6deg, transparent 1.6deg 15deg); }
+    .t-fader .cap{ background:#eae5dd; border-color:#a9a49b; box-shadow:none; }
+    .t-fader .cap::after{ background:var(--cc,#8d8578); border-color:#6d675e; box-shadow:none; }
+    .t-btn, .t-pad{ background:#f4f1eb; border-color:#a9a49b; box-shadow:none; }
     .t-btn.assigned, .t-pad.assigned{ background:#fff; border-color:var(--cc); border-width:1.5px; }
     .t-wheel .cap{ background:#eae5dd; border-color:#a9a49b; }
-    .key.w{ background:#fff; border-color:#a9a49b; }
-    .key.b{ background:#3a3630; border-color:#242020; }
-    .ctrl .cn, .zone-title, .key-oct{ color:#6d675e; }
+    .led{ background:#ded8ce; box-shadow:none; }
+    .assigned > .led{ background:var(--cc); box-shadow:none; }
+    .key.w{ background:#fff; border-color:#a9a49b; box-shadow:none; }
+    .key.b{ background:#3a3630; border-color:#242020; box-shadow:none; }
+    .ctrl .cn, .zone-title, .key-oct, .mark.chan{ color:#6d675e; }
     .ctrl .cs{ color:#a29c92; }
-    .screen{ background:#f2f0ea; border-color:#bbb5ab; color:#8d877d; }
+    .mark.brand{ color:#8d877d; }
+    .mark.model{ color:#a29c92; }
+    .decor.felt{ background:#ddd8d0; box-shadow:none; }
+    .decor.screen{ background:#f2f0ea; border-color:#bbb5ab; color:#8d877d; }
     *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
   .p-head{ display:flex; align-items:flex-end; gap:14px; border-bottom:1.5px solid #141210; padding-bottom:6px; margin-bottom:12px; }
@@ -645,40 +691,53 @@
     return out;
   }
 
+  // Vue de dessus du Keyfadr (le modèle à faders, sans pads).
+  // Proportions réelles : 320 x 220 mm. Section Mix d'après le manuel Reloop —
+  // par canal, de haut en bas : Pan (encodeur poussoir), Send 2, Send 1,
+  // Mute, Solo, Rec, puis le fader de volume. 35 boutons au total.
   function buildKeyfadr(){
-    const c = [], g = [];
+    const c = [], g = [], m = [], d = [];
+    const W = 1000, H = 688;
 
-    g.push({id:"tr", name:"Transport & modes", x:10, y:46, w:196, h:430});
-    const btns = [
-      ["play","Play",""], ["stop","Stop",""],
-      ["rec","Rec","Enreg."], ["ovr","Overdub",""],
-      ["cycle","Cycle","Boucle"], ["tap","Tap","Tempo"],
-      ["scene_up","Scène ▲",""], ["scene_dn","Scène ▼",""],
-      ["oct_dn","Oct −",""], ["oct_up","Oct +",""],
-      ["shift","Shift","2e couche"]
+    // --- colonne de gauche : transport, scène, banque, clavier
+    g.push({id:"tr", name:"Transport", x:16, y:16, w:174, h:408});
+    const left = [
+      ["play","PLAY","Lecture DAW"],   ["stop","STOP","Arrêt DAW"],
+      ["rec","REC","Enreg. DAW"],      ["shift","SHIFT","Scène / 2e couche"],
+      ["ch_prev","CH ◀","8 pistes −"], ["ch_next","CH ▶","8 pistes +"],
+      ["oct_dn","OCT −","Octave bas"], ["oct_up","OCT +","Octave haut"],
+      ["tap","TAP","Tempo"],           ["arp","ARP","Arpégiateur"],
+      ["sus","SUS","Sustain"]
     ];
-    btns.forEach((b, i) => {
-      c.push({id:b[0], name:b[1], sub:b[2], kind:"note", type:"btn", group:"tr",
-        x:20 + (i % 2) * 92, y:76 + Math.floor(i / 2) * 44, w:84, h:34});
+    left.forEach((b, i) => {
+      c.push({id:b[0], name:b[1], sub:b[2], kind:"note", type:"btn", led:i < 4, group:"tr",
+        x:28, y:46 + i * 29, w:150, h:26});
     });
+    m.push({x:28, y:374, w:150, cls:"brand", text:"reloop"});
+    m.push({x:28, y:402, w:150, cls:"model", text:"KEYFADR"});
 
-    g.push({id:"ch", name:"Canaux 1 – 8", x:218, y:46, w:772, h:430});
-    const sw = (756 - 7 * 6) / 8;
+    // --- section mix : 8 tranches identiques, numérotées en sérigraphie
+    g.push({id:"ch", name:"Mix section", silent:true, x:202, y:16, w:782, h:408});
+    const sw = (762 - 7 * 5) / 8;
     for(let i = 1; i <= 8; i++){
-      const x = 226 + (i - 1) * (sw + 6);
-      c.push({id:"enc" + i,  name:"ENC " + i,   sub:"Pan",      kind:"cc", type:"enc",   group:"ch", x:x, y:76,  w:sw, h:64});
-      c.push({id:"knA" + i,  name:"KNOB A" + i, sub:"Send A",   kind:"cc", type:"knob",  group:"ch", x:x, y:144, w:sw, h:58});
-      c.push({id:"knB" + i,  name:"KNOB B" + i, sub:"Send B",   kind:"cc", type:"knob",  group:"ch", x:x, y:206, w:sw, h:58});
-      c.push({id:"mute" + i, name:"MUTE " + i,  sub:"",         kind:"note", type:"btn", group:"ch", x:x, y:268, w:sw, h:24});
-      c.push({id:"solo" + i, name:"SOLO " + i,  sub:"",         kind:"note", type:"btn", group:"ch", x:x, y:296, w:sw, h:24});
-      c.push({id:"arm" + i,  name:"REC " + i,   sub:"",         kind:"note", type:"btn", group:"ch", x:x, y:324, w:sw, h:24});
-      c.push({id:"fad" + i,  name:"FADER " + i, sub:"Volume",   kind:"cc", type:"fader", group:"ch", x:x, y:354, w:sw, h:112});
+      const x = 212 + (i - 1) * (sw + 5);
+      m.push({x:x, y:26, w:sw, cls:"chan", text:String(i)});
+      c.push({id:"enc" + i,  name:"PAN " + i,      sub:"", kind:"cc",   type:"enc",   group:"ch", x:x, y:44,  w:sw, h:62});
+      c.push({id:"knA" + i,  name:"SEND 2 · " + i, sub:"", kind:"cc",   type:"knob",  group:"ch", x:x, y:110, w:sw, h:58});
+      c.push({id:"knB" + i,  name:"SEND 1 · " + i, sub:"", kind:"cc",   type:"knob",  group:"ch", x:x, y:172, w:sw, h:58});
+      c.push({id:"mute" + i, name:"MUTE " + i,     sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:234, w:sw, h:24});
+      c.push({id:"solo" + i, name:"SOLO " + i,     sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:262, w:sw, h:24});
+      c.push({id:"arm" + i,  name:"REC " + i,      sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:290, w:sw, h:24});
+      c.push({id:"fad" + i,  name:"FADER " + i,    sub:"", kind:"cc",   type:"fader", group:"ch", x:x, y:320, w:sw, h:102});
     }
 
-    g.push({id:"kb", name:"Clavier 25 touches", x:10, y:488, w:980, h:200});
-    c.push.apply(c, buildKeys(48, 25, 20, 508, 960, 172, "kb"));
+    // --- clavier 25 mini-touches, pleine largeur
+    d.push({x:16, y:432, w:968, h:7, cls:"felt"});
+    g.push({id:"kb", name:"Clavier 25 mini-touches", x:0, y:0, w:0, h:0, hidden:true});
+    c.push.apply(c, buildKeys(48, 25, 16, 441, 968, 231, "kb"));
 
-    return {id:"keyfadr", name:"Reloop Keyfadr", short:"Keyfadr", w:1000, h:700, groups:g, controls:c, screens:[]};
+    return {id:"keyfadr", name:"Reloop Keyfadr", short:"Keyfadr", w:W, h:H,
+            groups:g, controls:c, marks:m, decor:d};
   }
 
   function buildOxygen(){
@@ -725,7 +784,8 @@
     return {
       id:"oxygen49", name:"M-Audio Oxygen 49", short:"Oxygen 49", w:1000, h:440,
       groups:g, controls:c,
-      screens:[{x:376, y:70, w:160, h:52, text:"LCD"}]
+      marks:[{x:148, y:222, w:200, cls:"model", text:"OXYGEN 49"}],
+      decor:[{x:376, y:70, w:160, h:52, cls:"screen", text:"LCD"}]
     };
   }
 
@@ -844,18 +904,26 @@
     board.dataset.dev = dev.id;
 
     dev.groups.forEach(g => {
+      if(g.hidden) return;
       const z = el("div", "zone");
       z.style.left = pct(g.x, dev.w); z.style.top = pct(g.y, dev.h);
       z.style.width = pct(g.w, dev.w); z.style.height = pct(g.h, dev.h);
-      const t = el("span", "zone-title", g.name);
-      z.appendChild(t);
+      if(!g.silent) z.appendChild(el("span", "zone-title", g.name));
       board.appendChild(z);
     });
 
-    (dev.screens || []).forEach(s => {
-      const n = el("div", "screen", s.text);
+    (dev.decor || []).forEach(s => {
+      const n = el("div", "decor " + (s.cls || ""), s.text || "");
       n.style.setProperty("--x", pct(s.x, dev.w)); n.style.setProperty("--y", pct(s.y, dev.h));
       n.style.setProperty("--w", pct(s.w, dev.w)); n.style.setProperty("--h", pct(s.h, dev.h));
+      board.appendChild(n);
+    });
+
+    // Sérigraphie : numéros de tranche, marque, modèle.
+    (dev.marks || []).forEach(s => {
+      const n = el("div", "mark " + (s.cls || ""), s.text);
+      n.style.setProperty("--x", pct(s.x, dev.w)); n.style.setProperty("--y", pct(s.y, dev.h));
+      n.style.setProperty("--w", pct(s.w, dev.w));
       board.appendChild(n);
     });
 
@@ -877,6 +945,7 @@
         if(ctrl.type === "knob" || ctrl.type === "enc" || ctrl.type === "fader" || ctrl.type === "wheel"){
           n.appendChild(el("span", "cap"));
         }
+        if(ctrl.led) n.appendChild(el("span", "led"));
         n.appendChild(el("span", "cn", hwName(dev.id, ctrl)));
         if(on && e.t) n.appendChild(el("span", "cl", e.t));
         else if(ctrl.sub) n.appendChild(el("span", "cs", ctrl.sub));

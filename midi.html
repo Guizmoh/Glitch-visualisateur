@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎛️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Barlow+Condensed:wght@500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg:#1a1815;
@@ -29,7 +29,15 @@
     --radius-sm:7px;
     --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     --sans:'Inter', system-ui, -apple-system, sans-serif;
+    /* police des étiquettes écrites par l'utilisateur, réglable dans « Aa » */
+    --label:'Inter', system-ui, sans-serif;
+    --label-w:600;
+    --label-scale:1;
+    --label-track:0;
   }
+  body[data-font="barlow"]{ --label:'Barlow Condensed','Arial Narrow',sans-serif; --label-w:600; --label-scale:1.14; --label-track:0.01em; }
+  body[data-font="bebas"]{ --label:'Bebas Neue',Impact,sans-serif; --label-w:400; --label-scale:1.2; --label-track:0.04em; }
+  body[data-font="mono"]{ --label:'JetBrains Mono',ui-monospace,monospace; --label-w:500; --label-scale:0.92; --label-track:0; }
 
   *{ box-sizing:border-box; }
   html,body{ margin:0; padding:0; }
@@ -130,6 +138,25 @@
   }
   .monitor b{ color:var(--accent); font-weight:500; }
 
+  /* petit menu déroulant (police / majuscules) */
+  .menu-wrap{ position:relative; }
+  .menu{
+    position:absolute; top:calc(100% + 6px); right:0; z-index:50; width:220px; padding:12px;
+    background:var(--surface); border:1px solid var(--border-hover); border-radius:var(--radius-md);
+    box-shadow:0 18px 36px -20px #000; display:flex; flex-direction:column; gap:8px;
+  }
+  .fonts{ display:flex; flex-direction:column; gap:5px; }
+  .fonts button{
+    text-align:left; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
+    color:var(--text-1); padding:7px 10px; cursor:pointer; font-size:1rem; line-height:1.1;
+    display:flex; align-items:baseline; gap:8px;
+  }
+  .fonts button:hover{ border-color:var(--border-hover); color:var(--text-0); }
+  .fonts button.on{ border-color:var(--accent-border); background:var(--accent-soft); color:var(--text-0); }
+  .fonts button small{ font-family:var(--sans); font-size:0.68rem; color:var(--text-2); margin-left:auto; }
+  .switch{ display:flex; align-items:center; gap:8px; font-size:0.82rem; color:var(--text-1); cursor:pointer; }
+  .switch input{ width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+
   main{ padding:20px 22px 90px; }
 
   .infos{
@@ -187,8 +214,17 @@
     color:var(--text-2); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .ctrl .cl{
-    font-size:1.18cqw; line-height:1.2; font-weight:500; color:var(--cc,var(--accent));
+    font-family:var(--label); font-weight:var(--label-w); letter-spacing:var(--label-track);
+    font-size:calc(1.2cqw * var(--label-scale)); line-height:1.2; color:var(--cc,var(--accent));
     max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  body.caps .cl,
+  body.caps .pop input,
+  body.caps td input[data-field="t"],
+  body.caps .p-table td.pt,
+  body.caps #edLabel{ text-transform:uppercase; }
+  .pop input, td input[data-field="t"], #edLabel, .p-table td.pt{
+    font-family:var(--label); font-weight:var(--label-w); letter-spacing:var(--label-track);
   }
   .ctrl .cs{
     font-size:0.98cqw; line-height:1.2; color:#544f46;
@@ -254,10 +290,10 @@
   }
   .assigned > .led{ background:var(--cc); box-shadow:0 0 5px -1px var(--cc); }
   .t-btn .cn, .t-pad .cn{ font-size:0.98cqw; }
-  .t-btn .cl, .t-pad .cl{ font-size:1.1cqw; }
+  .t-btn .cl, .t-pad .cl{ font-size:calc(1.12cqw * var(--label-scale)); }
   .t-pad{ padding:0 0.2cqw; }
   .t-pad .cl{
-    font-size:1.02cqw; white-space:normal; text-overflow:clip; overflow-wrap:break-word; line-height:1.14;
+    font-size:calc(1.04cqw * var(--label-scale)); white-space:normal; text-overflow:clip; overflow-wrap:break-word; line-height:1.14;
     display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
   }
   .t-btn.assigned, .t-pad.assigned{ border-color:var(--cc); background:linear-gradient(color-mix(in srgb, var(--cc) 16%, #2c2822), #221f1a); }
@@ -285,11 +321,23 @@
     border:1px solid #060505; z-index:2; border-radius:0 0 3px 3px;
     box-shadow:0 0.25cqw 0.4cqw -0.2cqw rgba(0,0,0,0.75), inset 0 -0.2cqw 0 rgba(255,255,255,0.06);
   }
-  .key.assigned::after{
-    content:''; position:absolute; left:50%; bottom:8%; width:0.85cqw; height:0.85cqw;
-    border-radius:50%; background:var(--cc); transform:translateX(-50%);
-    box-shadow:0 0 6px -1px var(--cc);
+  /* Touche annotée : bande de couleur en bas de la touche, comme un gaffer,
+     avec le nom écrit dans la longueur. */
+  .key .tape{
+    position:absolute; left:0; right:0; bottom:0; height:62%;
+    background:var(--cc); border-radius:0 0 2px 2px;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.35);
   }
+  .key.b .tape{ height:52%; }
+  .key.b .tape .cl{ font-size:calc(0.92cqw * var(--label-scale)); color:#0f0d0b; }
+  .key .tape .cl{
+    writing-mode:vertical-rl; transform:rotate(180deg);
+    font-family:var(--label); font-weight:var(--label-w); letter-spacing:var(--label-track);
+    font-size:calc(1.05cqw * var(--label-scale)); line-height:1;
+    color:#15120f; white-space:nowrap; max-height:94%; overflow:hidden;
+  }
+  body.caps .key .tape .cl{ text-transform:uppercase; }
   .key-oct{
     position:absolute; left:var(--x); top:var(--y);
     font-family:var(--mono); font-size:0.95cqw; color:#6d675c; pointer-events:none; z-index:3;
@@ -313,7 +361,7 @@
     padding:1px 6px; font-family:var(--mono); font-size:0.7rem; color:var(--text-1);
   }
   .pop{
-    position:absolute; z-index:30; width:196px; padding:8px;
+    position:absolute; z-index:30; width:230px; padding:8px;
     background:var(--surface); border:1px solid var(--accent-border); border-radius:var(--radius-md);
     box-shadow:0 18px 36px -20px #000;
   }
@@ -332,13 +380,17 @@
     padding:7px 9px; font-size:0.88rem;
   }
   .pop input:focus{ border-color:var(--accent-border); }
-  .pop .dots{ display:flex; gap:5px; margin-top:7px; }
+  .pop .dots{ display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
   .pop .dot{
-    width:15px; height:15px; border-radius:50%; padding:0; cursor:pointer;
-    background:var(--cc); border:none; opacity:0.42; transition:opacity 0.12s ease;
+    width:16px; height:16px; border-radius:50%; padding:0; cursor:pointer;
+    background:var(--cc); border:none; opacity:0.45; transition:opacity 0.12s ease, transform 0.12s ease;
   }
-  .pop .dot:hover{ opacity:0.85; }
+  .pop .dot:hover{ opacity:0.9; transform:scale(1.14); }
   .pop .dot.on{ opacity:1; box-shadow:0 0 0 2px var(--surface), 0 0 0 3px var(--cc); }
+  .pop .catname{
+    margin-top:7px; font-size:0.7rem; color:var(--cc,var(--text-2));
+    font-family:var(--mono); letter-spacing:0.06em; text-transform:uppercase;
+  }
 
   /* ---------- vue liste ---------- */
   .group{
@@ -430,6 +482,24 @@
 
   .empty{ color:var(--text-2); font-size:0.86rem; padding:26px; text-align:center; }
 
+  /* superposition : aperçu du template image */
+  .backup{
+    position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.7); padding:20px; overflow:auto;
+  }
+  .backup-box{
+    background:var(--surface); border:1px solid var(--border-hover); border-radius:var(--radius-lg);
+    padding:14px; width:min(1100px, 100%); display:flex; flex-direction:column; gap:10px;
+  }
+  .backup-box p{ margin:0; font-size:0.84rem; color:var(--text-1); }
+  .img-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .img-head p{ margin-right:auto; }
+  .img-box img{
+    width:100%; height:auto; display:block; border-radius:var(--radius-md);
+    border:1px solid var(--border); background:var(--bg);
+  }
+  a.btn{ text-decoration:none; }
+
   @media (max-width:860px){
     header{ padding:14px 14px 12px; }
     .toolbar{ padding:10px 14px; }
@@ -508,6 +578,7 @@
   <symbol id="i-eraser" viewBox="0 0 24 24"><path d="m5 15 7-7 7 7-4 4H9z"/><path d="M4 21h16"/></symbol>
   <symbol id="i-arrow-l" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m11 6-6 6 6 6"/></symbol>
   <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m4 17 5-5 4 4 3-3 4 4"/></symbol>
 </svg>
 
 <header>
@@ -518,7 +589,7 @@
   </div>
   <div class="sheetbar">
     <div class="field">
-      <label for="sheetSelect">Morceau</label>
+      <label for="sheetSelect" id="sheetLabel">Morceau</label>
       <select id="sheetSelect" title="Fiche en cours"></select>
     </div>
     <button class="btn" id="sheetNew" title="Nouvelle fiche"><svg class="icon sm"><use href="#i-plus"></use></svg>Nouveau</button>
@@ -543,6 +614,15 @@
     <span class="midi-dot" id="midiDot"></span><svg class="icon sm"><use href="#i-wave"></use></svg>MIDI
   </button>
   <div class="monitor" id="monitor">MIDI éteint</div>
+  <div class="menu-wrap">
+    <button class="btn" id="styleBtn" title="Police et majuscules des étiquettes" style="font-weight:700">Aa</button>
+    <div class="menu" id="styleMenu" hidden>
+      <span class="lbl">Police des étiquettes</span>
+      <div class="fonts" id="fontChoice"></div>
+      <label class="switch"><input type="checkbox" id="capsChk"><span>Tout en majuscules</span></label>
+    </div>
+  </div>
+  <button class="btn" id="imgBtn" title="Télécharger le template en image"><svg class="icon sm"><use href="#i-image"></use></svg>Image</button>
   <button class="btn" id="printBtn" title="Imprimer / PDF"><svg class="icon sm"><use href="#i-print"></use></svg>Fiche</button>
   <button class="btn icon-only" id="exportBtn" title="Exporter toutes les fiches (JSON)"><svg class="icon sm"><use href="#i-down"></use></svg></button>
   <button class="btn icon-only" id="importBtn" title="Importer un fichier de fiches"><svg class="icon sm"><use href="#i-up"></use></svg></button>
@@ -551,15 +631,27 @@
 
 <main>
   <div class="infos">
+    <div style="flex:0 0 152px">
+      <span class="lbl">Type de fiche</span>
+      <div class="seg" id="kindSeg">
+        <button type="button" data-k="morceau">Morceau</button>
+        <button type="button" data-k="set">Set</button>
+      </div>
+    </div>
+    <div style="flex:0 0 160px" id="sheetSetBox">
+      <span class="lbl">Fait partie du set</span>
+      <input class="input-box" id="sheetSet" list="setList" placeholder="—" autocomplete="off">
+      <datalist id="setList"></datalist>
+    </div>
     <div class="grow">
-      <span class="lbl">Notes du morceau</span>
+      <span class="lbl">Notes</span>
       <textarea class="input-box" id="sheetNotes" rows="1" placeholder="Tempo, tonalité, rappels de scène, ce qu'il faut penser à bouger…"></textarea>
     </div>
-    <div style="flex:0 0 110px">
+    <div style="flex:0 0 92px">
       <span class="lbl">BPM</span>
       <input class="input-box" id="sheetBpm" inputmode="numeric" placeholder="—">
     </div>
-    <div style="flex:0 0 170px">
+    <div style="flex:0 0 150px">
       <span class="lbl">Projet / DAW</span>
       <input class="input-box" id="sheetDaw" placeholder="—">
     </div>
@@ -645,15 +737,25 @@
   /* ------------------------------------------------------------------ *
    * Catégories : la couleur sert de code visuel sur le plan ET à l'impression.
    * ------------------------------------------------------------------ */
+  // Rangées par teinte pour que la palette du sélecteur se lise comme un arc-en-ciel.
+  // Les identifiants d'origine (vol, filt, fx, send, mod, inst, nav, other) sont
+  // conservés : les fiches déjà enregistrées gardent leurs couleurs.
   const CATS = [
-    {id:"vol",   name:"Volume",     color:"#4f9dff"},
-    {id:"filt",  name:"Filtre",     color:"#b06cff"},
-    {id:"fx",    name:"Effet",      color:"#ff5fa8"},
-    {id:"send",  name:"Send",       color:"#2fc7c0"},
-    {id:"mod",   name:"Modulation", color:"#ffb020"},
-    {id:"inst",  name:"Instrument", color:"#58c470"},
-    {id:"nav",   name:"Transport",  color:"#8f96a3"},
-    {id:"other", name:"Autre",      color:"#ef6c2e"}
+    {id:"kick",   name:"Kick",            color:"#FF3B46"},
+    {id:"snare",  name:"Snare / Clap",    color:"#FF7A22"},
+    {id:"perc",   name:"Percu / Hats",    color:"#FFB020"},
+    {id:"vol",    name:"Volume",          color:"#F2E62E"},
+    {id:"sample", name:"Sample / Boucle", color:"#9BE83A"},
+    {id:"send",   name:"Send",            color:"#2BE38B"},
+    {id:"fx",     name:"Effet",           color:"#1FE0D0"},
+    {id:"inst",   name:"Synthé / Lead",   color:"#24C8FF"},
+    {id:"pad",    name:"Nappe / Pad",     color:"#4B87FF"},
+    {id:"filt",   name:"Filtre",          color:"#7A6BFF"},
+    {id:"bass",   name:"Basse",           color:"#A855F7"},
+    {id:"voice",  name:"Voix",            color:"#E24BE0"},
+    {id:"mod",    name:"Modulation",      color:"#FF3D9A"},
+    {id:"nav",    name:"Transport",       color:"#9AA3B2"},
+    {id:"other",  name:"Autre",           color:"#E8DFD2"}
   ];
   const CAT_BY_ID = Object.fromEntries(CATS.map(c => [c.id, c]));
   const catColor = id => (CAT_BY_ID[id] || CAT_BY_ID.other).color;
@@ -798,11 +900,22 @@
   const LS_KEY = "fiches-midi-v1";
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-  function emptySheet(name){
+  // Une fiche = un morceau, ou le set entier (kind:"set"). Un morceau peut être
+  // rattaché à un set par son nom, ce qui les regroupe dans le sélecteur et
+  // permet d'imprimer tout le livret du set d'un coup.
+  function emptySheet(name, kind, set){
     const maps = {};
     DEVICES.forEach(d => { maps[d.id] = {}; });
-    return {id:uid(), name:name || "Nouveau morceau", bpm:"", daw:"", notes:"", maps:maps, updated:Date.now()};
+    return {id:uid(), name:name || "Nouveau morceau", kind:kind === "set" ? "set" : "morceau",
+            set:set || "", bpm:"", daw:"", notes:"", maps:maps, updated:Date.now()};
   }
+
+  const FONTS = [
+    {id:"inter",  name:"Inter",            note:"par défaut"},
+    {id:"barlow", name:"Barlow Condensed", note:"condensé"},
+    {id:"bebas",  name:"Bebas Neue",       note:"affiche"},
+    {id:"mono",   name:"JetBrains Mono",   note:"technique"}
+  ];
 
   function loadStore(){
     try{
@@ -813,15 +926,19 @@
       s.sheets.forEach(sh => {
         sh.maps = sh.maps || {};
         DEVICES.forEach(d => { sh.maps[d.id] = sh.maps[d.id] || {}; });
+        sh.kind = sh.kind === "set" ? "set" : "morceau";
+        sh.set = sh.set || "";
       });
       s.labels = s.labels || {};
+      s.ui = Object.assign({font:"inter", caps:true}, s.ui || {});
       return s;
     }catch(e){ return null; }
   }
 
   let store = loadStore();
   if(!store){
-    store = {v:1, sheets:[emptySheet("Morceau 1")], current:null, device:DEVICES[0].id, view:"board", labels:{}};
+    store = {v:1, sheets:[emptySheet("Morceau 1")], current:null, device:DEVICES[0].id, view:"board",
+             labels:{}, ui:{font:"inter", caps:true}};
     store.current = store.sheets[0].id;
   }
   if(!store.sheets.length) store.sheets.push(emptySheet("Morceau 1"));
@@ -841,6 +958,15 @@
   const device = () => DEV_BY_ID[store.device];
   const mapOf = (devId) => { const s = sheet(); s.maps[devId] = s.maps[devId] || {}; return s.maps[devId]; };
   const entry = (devId, ctrlId) => mapOf(devId)[ctrlId] || null;
+  // Mêmes lectures, mais sur une fiche donnée : sert à imprimer ou exporter
+  // une autre fiche que celle affichée (le livret d'un set, par exemple).
+  const entryOf = (sh, devId, ctrlId) => ((sh && sh.maps && sh.maps[devId]) || {})[ctrlId] || null;
+  const countIn = (sh, devId) => {
+    const m = (sh && sh.maps && sh.maps[devId]) || {};
+    return Object.keys(m).filter(k => isSet(m[k])).length;
+  };
+  const morceauxOf = (sh) => sh.kind === "set"
+    ? store.sheets.filter(x => x.kind !== "set" && x.set === sh.name) : [];
   const isSet = (e) => !!(e && (e.t || e.num !== "" && e.num != null || e.cm));
   const hwName = (devId, ctrl) => (store.labels[devId] && store.labels[devId][ctrl.id]) || ctrl.name;
 
@@ -883,8 +1009,8 @@
     return "CC " + e.num;
   }
 
-  function tooltip(dev, ctrl){
-    const e = entry(dev.id, ctrl.id);
+  function tooltip(sh, dev, ctrl){
+    const e = entryOf(sh, dev.id, ctrl.id);
     const bits = [hwName(dev.id, ctrl)];
     if(ctrl.sub) bits.push("(" + ctrl.sub + ")");
     if(e && e.t) bits.push("→ " + e.t);
@@ -899,6 +1025,7 @@
    * ------------------------------------------------------------------ */
   function renderBoard(dev, opts){
     opts = opts || {};
+    const sh = opts.sheet || sheet();
     const board = el("div", "board");
     board.style.aspectRatio = dev.w + " / " + dev.h;
     board.dataset.dev = dev.id;
@@ -928,7 +1055,7 @@
     });
 
     dev.controls.forEach(ctrl => {
-      const e = entry(dev.id, ctrl.id), on = isSet(e);
+      const e = entryOf(sh, dev.id, ctrl.id), on = isSet(e);
       const isKey = ctrl.type.indexOf("key-") === 0;
       const n = el("div", isKey
         ? "key " + (ctrl.type === "key-b" ? "b" : "w") + (on ? " assigned" : "")
@@ -939,9 +1066,15 @@
       n.style.setProperty("--h", pct(ctrl.h, dev.h));
       if(on) n.style.setProperty("--cc", catColor(e.c));
       n.dataset.id = ctrl.id;
-      n.title = tooltip(dev, ctrl);
+      n.title = tooltip(sh, dev, ctrl);
 
-      if(!isKey){
+      if(isKey){
+        if(on){
+          const tape = el("span", "tape");
+          if(e.t) tape.appendChild(el("span", "cl", e.t));
+          n.appendChild(tape);
+        }
+      }else{
         if(ctrl.type === "knob" || ctrl.type === "enc" || ctrl.type === "fader" || ctrl.type === "wheel"){
           n.appendChild(el("span", "cap"));
         }
@@ -1053,20 +1186,61 @@
     });
   }
 
+  const setNames = () => {
+    const out = [];
+    store.sheets.forEach(s => {
+      const n = s.kind === "set" ? s.name : s.set;
+      if(n && out.indexOf(n) === -1) out.push(n);
+    });
+    return out.sort((a, b) => a.localeCompare(b, "fr"));
+  };
+
   function renderSheets(){
     const sel = $("sheetSelect");
     sel.textContent = "";
-    store.sheets.forEach(s => {
-      const o = el("option", null, s.name);
-      o.value = s.id;
-      if(s.id === store.current) o.selected = true;
-      sel.appendChild(o);
+
+    // Regroupé par set : la fiche du set, puis ses morceaux, puis les fiches libres.
+    const used = {};
+    setNames().forEach(name => {
+      const grp = el("optgroup");
+      grp.label = name.toUpperCase();
+      store.sheets.forEach(s => {
+        if(!(s.kind === "set" && s.name === name) && !(s.kind !== "set" && s.set === name)) return;
+        used[s.id] = true;
+        const o = el("option", null, (s.kind === "set" ? "◆ " : "") + s.name);
+        o.value = s.id;
+        if(s.id === store.current) o.selected = true;
+        grp.appendChild(o);
+      });
+      if(grp.children.length) sel.appendChild(grp);
     });
+    const loose = store.sheets.filter(s => !used[s.id]);
+    if(loose.length){
+      const grp = sel.children.length ? el("optgroup") : sel;
+      if(grp !== sel) grp.label = "SANS SET";
+      loose.forEach(s => {
+        const o = el("option", null, (s.kind === "set" ? "◆ " : "") + s.name);
+        o.value = s.id;
+        if(s.id === store.current) o.selected = true;
+        grp.appendChild(o);
+      });
+      if(grp !== sel) sel.appendChild(grp);
+    }
+
     const s = sheet();
     $("sheetNotes").value = s.notes || "";
     $("sheetBpm").value = s.bpm || "";
     $("sheetDaw").value = s.daw || "";
     $("sheetDel").disabled = store.sheets.length <= 1;
+
+    Array.prototype.forEach.call($("kindSeg").children, b => b.classList.toggle("on", b.dataset.k === s.kind));
+    const setBox = $("sheetSetBox");
+    setBox.hidden = s.kind === "set";
+    $("sheetSet").value = s.set || "";
+    const dl = $("setList");
+    dl.textContent = "";
+    setNames().forEach(n => { const o = el("option"); o.value = n; dl.appendChild(o); });
+    $("sheetLabel").textContent = s.kind === "set" ? "Set" : "Morceau";
   }
 
   function render(){
@@ -1124,6 +1298,11 @@
     refreshControl(id);
   }
 
+  function currentPopCat(){
+    const e = popId ? entry(store.device, popId) : null;
+    return (e && e.c) || "other";
+  }
+
   function openPop(ctrlId){
     closePop(true);
     closeEditor();
@@ -1154,18 +1333,29 @@
     pop.appendChild(inp);
 
     const dots = el("div", "dots");
+    const catName = el("div", "catname");
+    const showCat = id => {
+      const c = CAT_BY_ID[id] || CAT_BY_ID.other;
+      catName.textContent = c.name;
+      catName.style.setProperty("--cc", c.color);
+    };
     CATS.forEach(c => {
       const b = el("button", "dot" + ((e.c || "other") === c.id ? " on" : ""));
       b.type = "button"; b.title = c.name;
       b.style.setProperty("--cc", c.color);
+      b.addEventListener("mouseenter", () => showCat(c.id));
       b.addEventListener("click", () => {
         setEntry(dev.id, popId, {t:inp.value.trim(), c:c.id});
         Array.prototype.forEach.call(dots.children, x => x.classList.toggle("on", x === b));
+        showCat(c.id);
         inp.focus();
       });
       dots.appendChild(b);
     });
+    dots.addEventListener("mouseleave", () => showCat(currentPopCat()));
     pop.appendChild(dots);
+    pop.appendChild(catName);
+    showCat(e.c || "other");
 
     inp.addEventListener("input", () => {
       setEntry(dev.id, popId, {t:inp.value.trim()});
@@ -1434,12 +1624,17 @@
   /* ------------------------------------------------------------------ *
    * Fiches : créer / dupliquer / renommer / supprimer
    * ------------------------------------------------------------------ */
+  // La nouvelle fiche reste dans le set en cours : on ajoute un morceau au set
+  // sur lequel on travaille sans avoir à le re-saisir.
   function newSheet(){
-    const s = emptySheet("Morceau " + (store.sheets.length + 1));
+    const cur = sheet();
+    const parent = cur.kind === "set" ? cur.name : cur.set;
+    const n = store.sheets.filter(s => s.kind !== "set").length + 1;
+    const s = emptySheet("Morceau " + n, "morceau", parent);
     store.sheets.push(s);
     store.current = s.id;
     save(); closeEditor(); render();
-    toast("Nouvelle fiche créée");
+    toast(parent ? "Morceau ajouté au set « " + parent + " »" : "Nouvelle fiche créée");
   }
 
   function dupSheet(){
@@ -1447,14 +1642,19 @@
     s.id = uid(); s.name = sheet().name + " (copie)"; s.updated = Date.now();
     store.sheets.push(s); store.current = s.id;
     save(); closeEditor(); render();
-    toast("Fiche dupliquée");
+    toast("Fiche dupliquée — sers-t'en comme modèle");
   }
 
   function renameSheet(){
     const s = sheet();
-    const n = prompt("Nom du morceau :", s.name);
+    const n = prompt(s.kind === "set" ? "Nom du set :" : "Nom du morceau :", s.name);
     if(n == null) return;
+    const old = s.name;
     s.name = n.trim() || s.name;
+    // Renommer un set suit ses morceaux, sinon ils se retrouveraient orphelins.
+    if(s.kind === "set" && s.name !== old){
+      store.sheets.forEach(x => { if(x.set === old) x.set = s.name; });
+    }
     save(); renderSheets();
   }
 
@@ -1522,22 +1722,339 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Template en image : le plan est redessiné sur un canvas haute
+   * définition (le DOM n'est pas capturable tel quel) à partir des mêmes
+   * coordonnées, pour un PNG net à garder sur le téléphone en live.
+   * ------------------------------------------------------------------ */
+  const THEMES = {
+    dark: {page:"#141210", panel:"#241f1a", panel2:"#191715", edge:"#0e0c0a", zone:"#1e1a16",
+           zoneEdge:"#3a342c", t0:"#f5f1ec", t1:"#a9a297", t2:"#6f6a5f", silk:"#6b6459",
+           capA:"#565046", capB:"#211e1a", capEdge:"#100e0c", skirt:"#2b2721",
+           slot:"#100e0c", cursor:"#5b5346", btn:"#332e27", btnEdge:"#12100e",
+           keyW:"#efeae0", keyWEdge:"#8b8579", keyB:"#1a1714", keyBEdge:"#000000", ink:"#15120f"},
+    light:{page:"#ffffff", panel:"#faf8f4", panel2:"#f2efe9", edge:"#b9b3a9", zone:"#f5f2ec",
+           zoneEdge:"#d7d1c7", t0:"#141210", t1:"#4a443c", t2:"#7d766b", silk:"#9a9388",
+           capA:"#f0ece5", capB:"#ddd7cd", capEdge:"#a9a49b", skirt:"#e4dfd6",
+           slot:"#e0dad0", cursor:"#8d8578", btn:"#f4f1eb", btnEdge:"#a9a49b",
+           keyW:"#ffffff", keyWEdge:"#a9a49b", keyB:"#3a3630", keyBEdge:"#242020", ink:"#15120f"}
+  };
+
+  function labelFont(){
+    const f = {inter:"'Inter', sans-serif", barlow:"'Barlow Condensed', sans-serif",
+               bebas:"'Bebas Neue', sans-serif", mono:"'JetBrains Mono', monospace"};
+    return f[store.ui.font] || f.inter;
+  }
+  const labelWeight = () => (store.ui.font === "bebas" ? 400 : (store.ui.font === "mono" ? 500 : 600));
+  const labelScale = () => ({inter:1, barlow:1.14, bebas:1.2, mono:0.92}[store.ui.font] || 1);
+  const caseOf = (t) => store.ui.caps ? String(t).toUpperCase() : String(t);
+
+  function roundRect(ctx, x, y, w, h, r){
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  // Tronque au besoin : mieux vaut « REVERB… » qu'un texte qui déborde sur le voisin.
+  function fitText(ctx, text, max){
+    if(ctx.measureText(text).width <= max) return text;
+    let t = text;
+    while(t.length > 1 && ctx.measureText(t + "…").width > max) t = t.slice(0, -1);
+    return t + "…";
+  }
+
+  // Les tranches sont étroites : on rétrécit un peu la police avant de couper,
+  // pour que « MASTER » tienne en entier plutôt que de finir en « MAST… ».
+  function shrinkToFit(ctx, text, max, size, font, weight){
+    let s = size;
+    ctx.font = weight + " " + Math.round(s) + "px " + font;
+    while(s > size * 0.76 && ctx.measureText(text).width > max){
+      s -= 1;
+      ctx.font = weight + " " + Math.round(s) + "px " + font;
+    }
+    return fitText(ctx, text, max);
+  }
+
+  function drawTemplate(dev, s, themeName){
+    const P = THEMES[themeName] || THEMES.dark;
+    const S = 2.6, M = 46, HEAD = 168, LEG = 104;
+    const bx = M, by = M + HEAD;
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(dev.w * S + M * 2);
+    cv.height = Math.round(by + dev.h * S + LEG + M);
+    const ctx = cv.getContext("2d");
+    const X = v => bx + v * S, Y = v => by + v * S, U = v => v * S;
+
+    ctx.fillStyle = P.page;
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.textBaseline = "middle";
+
+    /* ---- en-tête ---- */
+    ctx.textAlign = "left";
+    ctx.fillStyle = P.t0;
+    ctx.font = "700 " + Math.round(46 * labelScale()) + "px " + labelFont();
+    ctx.fillText(caseOf((s.kind === "set" ? "SET — " : "") + s.name), M, M + 34);
+    const bits = [dev.name];
+    if(s.kind !== "set" && s.set) bits.push("Set " + s.set);
+    if(s.bpm) bits.push(s.bpm + " BPM");
+    if(s.daw) bits.push(s.daw);
+    bits.push(new Date().toLocaleDateString("fr-FR"));
+    ctx.fillStyle = P.t2;
+    ctx.font = "400 22px 'JetBrains Mono', monospace";
+    ctx.fillText(bits.join("   ·   ").toUpperCase(), M, M + 82);
+    if(s.notes){
+      ctx.fillStyle = P.t1;
+      ctx.font = "400 24px 'Inter', sans-serif";
+      ctx.fillText(fitText(ctx, s.notes.replace(/\s+/g, " "), cv.width - M * 2), M, M + 126);
+    }
+    ctx.fillStyle = P.zoneEdge;
+    ctx.fillRect(M, M + 150, cv.width - M * 2, 2);
+
+    /* ---- châssis ---- */
+    const grad = ctx.createLinearGradient(bx, by, bx + U(dev.w) * 0.35, by + U(dev.h));
+    grad.addColorStop(0, P.panel); grad.addColorStop(1, P.panel2);
+    roundRect(ctx, bx, by, U(dev.w), U(dev.h), 34);
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.strokeStyle = P.edge; ctx.lineWidth = 2; ctx.stroke();
+
+    /* ---- zones ---- */
+    dev.groups.forEach(g => {
+      if(g.hidden) return;
+      roundRect(ctx, X(g.x), Y(g.y), U(g.w), U(g.h), 22);
+      ctx.fillStyle = P.zone; ctx.fill();
+      ctx.strokeStyle = P.zoneEdge; ctx.lineWidth = 1.5; ctx.stroke();
+      if(!g.silent){
+        ctx.fillStyle = P.t2;
+        ctx.font = "400 20px 'JetBrains Mono', monospace";
+        ctx.textAlign = "left";
+        ctx.fillText(g.name.toUpperCase(), X(g.x) + 22, Y(g.y) + 26);
+      }
+    });
+
+    (dev.decor || []).forEach(d => {
+      if(d.cls === "felt"){
+        ctx.fillStyle = P.edge;
+        ctx.fillRect(X(d.x), Y(d.y), U(d.w), U(d.h));
+      }else{
+        roundRect(ctx, X(d.x), Y(d.y), U(d.w), U(d.h), 8);
+        ctx.fillStyle = themeName === "light" ? "#eef0ea" : "#12160f"; ctx.fill();
+        ctx.strokeStyle = P.zoneEdge; ctx.lineWidth = 1.5; ctx.stroke();
+        if(d.text){
+          ctx.fillStyle = P.t2; ctx.textAlign = "center";
+          ctx.font = "400 20px 'JetBrains Mono', monospace";
+          ctx.fillText(d.text, X(d.x) + U(d.w) / 2, Y(d.y) + U(d.h) / 2);
+        }
+      }
+    });
+
+    ctx.textAlign = "center";
+    (dev.marks || []).forEach(m => {
+      const cx = X(m.x) + U(m.w) / 2;
+      if(m.cls === "brand"){ ctx.fillStyle = P.silk; ctx.font = "700 " + Math.round(U(24)) + "px 'Inter', sans-serif"; }
+      else if(m.cls === "model"){ ctx.fillStyle = P.silk; ctx.font = "400 " + Math.round(U(11)) + "px 'JetBrains Mono', monospace"; ctx.letterSpacing = "8px"; }
+      else { ctx.fillStyle = P.t2; ctx.font = "400 " + Math.round(U(11)) + "px 'JetBrains Mono', monospace"; }
+      ctx.fillText(m.text, cx, Y(m.y) + U(m.cls === "brand" ? 12 : 6));
+      ctx.letterSpacing = "0px";
+    });
+
+    /* ---- contrôles ---- */
+    const nameSize = Math.round(U(10.2)), labSize = Math.round(U(12) * labelScale());
+    dev.controls.forEach(c => {
+      const e = entryOf(s, dev.id, c.id), on = isSet(e);
+      const col = on ? catColor(e.c) : null;
+      const x = X(c.x), y = Y(c.y), w = U(c.w), h = U(c.h);
+      const cx = x + w / 2;
+      let textTop = y;
+
+      if(c.type === "knob" || c.type === "enc"){
+        const rad = h * 0.29, ccy = y + rad + U(1);
+        ctx.beginPath(); ctx.arc(cx, ccy, rad + U(2.2), 0, 7); ctx.fillStyle = P.skirt; ctx.fill();
+        const g2 = ctx.createRadialGradient(cx - rad * 0.3, ccy - rad * 0.4, rad * 0.1, cx, ccy, rad);
+        g2.addColorStop(0, P.capA); g2.addColorStop(1, P.capB);
+        ctx.beginPath(); ctx.arc(cx, ccy, rad, 0, 7); ctx.fillStyle = g2; ctx.fill();
+        ctx.strokeStyle = P.capEdge; ctx.lineWidth = 1.5; ctx.stroke();
+        if(c.type === "enc"){
+          ctx.strokeStyle = P.skirt; ctx.lineWidth = 2;
+          for(let a = 0; a < 24; a++){
+            const an = a / 24 * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(an) * (rad + U(1.4)), ccy + Math.sin(an) * (rad + U(1.4)));
+            ctx.lineTo(cx + Math.cos(an) * (rad + U(3.4)), ccy + Math.sin(an) * (rad + U(3.4)));
+            ctx.stroke();
+          }
+        }
+        ctx.strokeStyle = col || P.cursor; ctx.lineWidth = Math.max(2, U(0.9)); ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(cx, ccy - rad * 0.82); ctx.lineTo(cx, ccy - rad * 0.24); ctx.stroke();
+        textTop = ccy + rad + U(3);
+      }else if(c.type === "fader"){
+        const sw = w * 0.14, sh = h * 0.62, sx = cx - sw / 2, sy = y;
+        roundRect(ctx, sx, sy, sw, sh, 4); ctx.fillStyle = P.slot; ctx.fill();
+        ctx.strokeStyle = P.capEdge; ctx.lineWidth = 1.2; ctx.stroke();
+        const cw = w * 0.44, chh = sh * 0.13, cy2 = sy + sh * 0.33;
+        roundRect(ctx, cx - cw / 2, cy2, cw, chh, 3);
+        ctx.fillStyle = col || P.cursor; ctx.fill();
+        ctx.strokeStyle = P.capEdge; ctx.lineWidth = 1.2; ctx.stroke();
+        textTop = sy + sh + U(3);
+      }else if(c.type === "wheel"){
+        const ww = w * 0.62, hh = h * 0.66;
+        roundRect(ctx, cx - ww / 2, y, ww, hh, 8);
+        ctx.fillStyle = P.skirt; ctx.fill();
+        ctx.strokeStyle = P.capEdge; ctx.lineWidth = 1.5; ctx.stroke();
+        textTop = y + hh + U(3);
+      }else if(c.type === "btn" || c.type === "pad"){
+        roundRect(ctx, x, y, w, h, c.type === "pad" ? 10 : 7);
+        ctx.fillStyle = P.btn; ctx.fill();
+        ctx.strokeStyle = col || P.btnEdge; ctx.lineWidth = col ? 3 : 1.5; ctx.stroke();
+        if(c.led){
+          ctx.beginPath(); ctx.arc(x + U(3.4), y + h * 0.3, U(1.5), 0, 7);
+          ctx.fillStyle = col || P.skirt; ctx.fill();
+        }
+        // texte centré dans le bouton
+        ctx.textAlign = "center";
+        const inner = w - U(3);
+        if(on && e.t){
+          ctx.fillStyle = P.t2; ctx.font = "400 " + Math.round(nameSize * 0.92) + "px 'JetBrains Mono', monospace";
+          ctx.fillText(fitText(ctx, hwName(dev.id, c), inner), cx, y + h * 0.32);
+          ctx.fillStyle = col;
+          const bt = shrinkToFit(ctx, caseOf(e.t), inner, labSize, labelFont(), labelWeight());
+          ctx.fillText(bt, cx, y + h * 0.72);
+        }else{
+          ctx.fillStyle = P.t1; ctx.font = "400 " + nameSize + "px 'JetBrains Mono', monospace";
+          ctx.fillText(fitText(ctx, hwName(dev.id, c), inner), cx, y + h / 2);
+        }
+        return;
+      }else if(c.type === "key-w" || c.type === "key-b"){
+        const white = c.type === "key-w";
+        roundRect(ctx, x, y, w, h, 4);
+        ctx.fillStyle = white ? P.keyW : P.keyB; ctx.fill();
+        ctx.strokeStyle = white ? P.keyWEdge : P.keyBEdge; ctx.lineWidth = 1.5; ctx.stroke();
+        if(on){
+          const th = h * (white ? 0.62 : 0.52);
+          roundRect(ctx, x + 1, y + h - th, w - 2, th - 1, 3);
+          ctx.fillStyle = col; ctx.fill();
+          if(e.t){
+            ctx.save();
+            roundRect(ctx, x + 1, y + h - th, w - 2, th - 1, 3);
+            ctx.clip();                       // le nom reste dans la bande de couleur
+            ctx.translate(cx, y + h - th / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = "center";
+            ctx.fillStyle = P.ink;
+            ctx.font = labelWeight() + " " + Math.round(U(white ? 10.5 : 9) * labelScale()) + "px " + labelFont();
+            ctx.fillText(fitText(ctx, caseOf(e.t), th - U(7)), 0, 0);
+            ctx.restore();
+          }
+        }
+        if(c.oct){
+          ctx.textAlign = "left"; ctx.fillStyle = P.t2;
+          ctx.font = "400 " + Math.round(U(9)) + "px 'JetBrains Mono', monospace";
+          ctx.fillText(c.oct, x + U(2), y + h - U(8));
+        }
+        return;
+      }
+
+      // étiquettes sous les rotatifs, faders et molettes
+      ctx.textAlign = "center";
+      ctx.fillStyle = on ? P.t1 : P.t2;
+      ctx.font = "400 " + nameSize + "px 'JetBrains Mono', monospace";
+      ctx.fillText(fitText(ctx, hwName(dev.id, c), w), cx, textTop + nameSize * 0.6);
+      if(on && e.t){
+        ctx.fillStyle = col;
+        const t = shrinkToFit(ctx, caseOf(e.t), w + U(5), labSize, labelFont(), labelWeight());
+        ctx.fillText(t, cx, textTop + nameSize * 0.6 + labSize * 1.15);
+      }else if(c.sub){
+        ctx.fillStyle = P.t2;
+        ctx.font = "400 " + Math.round(nameSize * 0.95) + "px 'Inter', sans-serif";
+        ctx.fillText(fitText(ctx, c.sub, w), cx, textTop + nameSize * 0.6 + labSize * 1.05);
+      }
+    });
+
+    /* ---- légende des couleurs réellement utilisées ---- */
+    const map = (s.maps && s.maps[dev.id]) || {};
+    const used = [];
+    Object.keys(map).forEach(k => {
+      if(!isSet(map[k])) return;
+      const c = map[k].c || "other";
+      if(used.indexOf(c) === -1) used.push(c);
+    });
+    let lx = M, ly = by + U(dev.h) + 46;
+    ctx.textAlign = "left";
+    ctx.font = "600 22px 'Inter', sans-serif";
+    used.sort((a, b) => CATS.findIndex(c => c.id === a) - CATS.findIndex(c => c.id === b));
+    used.map(id => CAT_BY_ID[id] || CAT_BY_ID.other).forEach(cat => {
+      const tw = ctx.measureText(cat.name.toUpperCase()).width;
+      if(lx + tw + 46 > cv.width - M){ lx = M; ly += 40; }
+      ctx.fillStyle = cat.color;
+      roundRect(ctx, lx, ly - 9, 18, 18, 5); ctx.fill();
+      ctx.fillStyle = P.t1;
+      ctx.fillText(cat.name.toUpperCase(), lx + 26, ly);
+      lx += tw + 52;
+    });
+    return cv;
+  }
+
+  function showTemplateImage(){
+    const dev = device(), s = sheet();
+    let theme = "dark";
+    const back = el("div", "backup");
+    const box = el("div", "backup-box img-box");
+    const head = el("div", "img-head");
+    head.appendChild(el("p", null, "Template à garder pour tes lives — " + dev.name));
+    const themeBtn = el("button", "btn", "Fond clair");
+    const dl = el("a", "btn primary");
+    dl.textContent = "Télécharger le PNG";
+    head.appendChild(themeBtn); head.appendChild(dl);
+    const img = el("img");
+    img.alt = "Template " + s.name;
+    box.appendChild(head); box.appendChild(img);
+    const foot = el("p", "hint-sm", "Sur téléphone : appui long sur l'image pour l'enregistrer.");
+    box.appendChild(foot);
+    back.appendChild(box);
+    back.addEventListener("mousedown", ev => { if(ev.target === back) back.remove(); });
+    document.body.appendChild(back);
+
+    function paint(){
+      const cv = drawTemplate(dev, s, theme);
+      const url = cv.toDataURL("image/png");
+      img.src = url;
+      dl.href = url;
+      dl.download = "template-" + (s.name || "fiche").toLowerCase().replace(/[^a-z0-9]+/gi, "-")
+                  + "-" + dev.short.toLowerCase().replace(/[^a-z0-9]+/gi, "-") + ".png";
+      themeBtn.textContent = theme === "dark" ? "Fond clair" : "Fond sombre";
+    }
+    themeBtn.addEventListener("click", () => { theme = theme === "dark" ? "light" : "dark"; paint(); });
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(paint);
+    else paint();
+  }
+
+  /* ------------------------------------------------------------------ *
    * Impression : plan + tableau, pour chaque appareil utilisé dans la fiche
    * ------------------------------------------------------------------ */
   function buildPrintDoc(){
-    const s = sheet();
     const root = el("div");
-    const used = DEVICES.filter(d => countAssigned(d.id) > 0);
+    // Une fiche de set imprime aussi tous ses morceaux : le livret complet du live.
+    const cur = sheet();
+    [cur].concat(morceauxOf(cur)).forEach(s => addSheetPages(root, s));
+    return root;
+  }
+
+  function addSheetPages(root, s){
+    const used = DEVICES.filter(d => countIn(s, d.id) > 0);
     const devs = used.length ? used : [device()];
 
     devs.forEach((dev, i) => {
       const page = el("div", "p-page");
 
       const head = el("div", "p-head");
-      const h = el("h2", null, s.name);
+      const h = el("h2", null, (s.kind === "set" ? "SET — " : "") + s.name);
       head.appendChild(h);
       const meta = el("div", "meta");
       const bits = [dev.name];
+      if(s.kind !== "set" && s.set) bits.unshift("Set " + s.set);
       if(s.bpm) bits.push(s.bpm + " BPM");
       if(s.daw) bits.push(s.daw);
       bits.push(new Date().toLocaleDateString("fr-FR"));
@@ -1547,7 +2064,7 @@
 
       if(s.notes && i === 0) page.appendChild(el("p", "p-notes", s.notes));
 
-      page.appendChild(renderBoard(dev, {interactive:false}));
+      page.appendChild(renderBoard(dev, {interactive:false, sheet:s}));
 
       const table = el("table", "p-table");
       const thead = el("thead"), tr = el("tr");
@@ -1556,13 +2073,13 @@
       const tb = el("tbody");
       let rows = 0;
       dev.groups.forEach(g => {
-        const list = dev.controls.filter(c => c.group === g.id && isSet(entry(dev.id, c.id)));
+        const list = dev.controls.filter(c => c.group === g.id && isSet(entryOf(s, dev.id, c.id)));
         if(!list.length) return;
         const gt = el("tr");
         const gtd = el("td", "p-sec", g.name);
         gtd.colSpan = 5; gt.appendChild(gtd); tb.appendChild(gt);
         list.forEach(c => {
-          const e = entry(dev.id, c.id);
+          const e = entryOf(s, dev.id, c.id);
           const r = el("tr");
           const c1 = el("td", "pn");
           const dot = el("span", "p-cat");
@@ -1570,7 +2087,7 @@
           c1.appendChild(dot);
           c1.appendChild(document.createTextNode(hwName(dev.id, c)));
           r.appendChild(c1);
-          r.appendChild(el("td", null, e.t || ""));
+          r.appendChild(el("td", "pt", e.t || ""));
           r.appendChild(el("td", "pn", numLabel(c, e)));
           r.appendChild(el("td", "pn", e.ch || ""));
           r.appendChild(el("td", null, e.cm || ""));
@@ -1581,7 +2098,6 @@
       if(rows) page.appendChild(table);
       root.appendChild(page);
     });
-    return root;
   }
 
   // Rempli sur beforeprint : le Ctrl+P du navigateur produit la même fiche que le bouton.
@@ -1716,6 +2232,51 @@
     });
   });
 
+  Array.prototype.forEach.call($("kindSeg").children, b => {
+    b.addEventListener("click", () => {
+      const s = sheet();
+      s.kind = b.dataset.k;
+      if(s.kind === "set") s.set = "";
+      s.updated = Date.now();
+      save(); renderSheets();
+    });
+  });
+  $("sheetSet").addEventListener("input", () => {
+    const s = sheet();
+    s.set = $("sheetSet").value.trim();
+    s.updated = Date.now();
+    save();
+  });
+  $("sheetSet").addEventListener("change", renderSheets);
+
+  /* ---- police et majuscules ---- */
+  function applyUi(){
+    document.body.dataset.font = store.ui.font;
+    document.body.classList.toggle("caps", !!store.ui.caps);
+    $("capsChk").checked = !!store.ui.caps;
+    const box = $("fontChoice");
+    box.textContent = "";
+    FONTS.forEach(f => {
+      const b = el("button", store.ui.font === f.id ? "on" : "");
+      b.type = "button";
+      b.style.fontFamily = {inter:"'Inter',sans-serif", barlow:"'Barlow Condensed',sans-serif",
+                            bebas:"'Bebas Neue',sans-serif", mono:"'JetBrains Mono',monospace"}[f.id];
+      b.appendChild(el("span", null, store.ui.caps ? f.name.toUpperCase() : f.name));
+      b.appendChild(el("small", null, f.note));
+      b.addEventListener("click", () => { store.ui.font = f.id; save(); applyUi(); });
+      box.appendChild(b);
+    });
+  }
+  $("styleBtn").addEventListener("click", () => { $("styleMenu").hidden = !$("styleMenu").hidden; });
+  $("capsChk").addEventListener("change", () => { store.ui.caps = $("capsChk").checked; save(); applyUi(); });
+  document.addEventListener("mousedown", ev => {
+    if($("styleMenu").hidden) return;
+    if(ev.target.closest(".menu-wrap")) return;
+    $("styleMenu").hidden = true;
+  });
+
+  $("imgBtn").addEventListener("click", showTemplateImage);
+
   $("viewBoard").addEventListener("click", () => { store.view = "board"; save(); render(); });
   $("viewList").addEventListener("click", () => { store.view = "list"; save(); render(); });
   $("search").addEventListener("input", applyFilter);
@@ -1728,6 +2289,7 @@
     ev.target.value = "";
   });
 
+  applyUi();
   render();
 })();
 </script>

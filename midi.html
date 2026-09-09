@@ -168,6 +168,14 @@
   .lbl{ font-family:var(--mono); font-size:0.66rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-2); display:block; margin-bottom:5px; }
 
   /* ---------- plateau ---------- */
+  /* page Shift : bandeau bien visible pour ne pas annoter la mauvaise couche */
+  body.on-shift .board-scroll{
+    border-left:3px solid var(--accent); padding-left:9px; border-radius:3px;
+  }
+  body.on-shift .board-scroll::before{
+    content:'⇧ PAGE SHIFT'; display:block; margin-bottom:6px;
+    font-family:var(--mono); font-size:0.68rem; letter-spacing:0.16em; color:var(--accent);
+  }
   .board-scroll{ overflow-x:auto; padding-bottom:6px; }
   /* Le plan est dessiné comme la face avant vue de dessus : châssis, sérigraphie,
      puis les contrôles positionnés en pourcentage d'un repère virtuel. */
@@ -245,6 +253,11 @@
     background:var(--cc,#cfc7b8); border-radius:2px; transform:translateX(-50%);
     box-shadow:0 0 3px -1px var(--cc,transparent);
   }
+  /* petits potards de send : capuchon réduit pour laisser la place au texte */
+  .t-knob.sm .cap{ height:46%; }
+  .t-knob.sm .cn{ font-size:0.9cqw; }
+  .t-knob.sm .cl{ font-size:calc(1.02cqw * var(--label-scale)); }
+
   /* encodeur sans fin : couronne crantée + point de poussoir */
   .t-enc .cap::before{
     content:''; position:absolute; inset:-14%; border-radius:50%;
@@ -252,6 +265,21 @@
     -webkit-mask:radial-gradient(circle, transparent 60%, #000 62%);
     mask:radial-gradient(circle, transparent 60%, #000 62%);
   }
+
+  /* appui de l'encodeur : la pastille au centre du capuchon */
+  .t-push{
+    border-radius:50%; background:#2a2620; border:1px solid #14120f;
+    box-shadow:inset 0 1px 1px rgba(255,255,255,0.12);
+  }
+  .t-push:hover{ background:#3b352c; }
+  .t-push.assigned{ background:var(--cc); border-color:#14120f; box-shadow:0 0 7px -1px var(--cc); }
+
+  /* repère : ce contrôle porte aussi une annotation sur l'autre page */
+  .ctrl.other::after, .key.other::after{
+    content:''; position:absolute; top:0; right:0;
+    border-left:0.8cqw solid transparent; border-top:0.8cqw solid var(--oc,#8a8478);
+  }
+  .t-knob.other::after, .t-enc.other::after, .t-fader.other::after, .t-push.other::after{ top:0; right:0.4cqw; }
 
   /* faders : fente encastrée + curseur */
   .t-fader .cap{
@@ -601,6 +629,10 @@
 
 <div class="toolbar">
   <div class="tabs" id="deviceTabs"></div>
+  <div class="tabs" id="pageTabs" title="Deuxième couche d'assignations, accessible avec la touche Shift du contrôleur">
+    <button class="tab active" data-p="maps">Normal</button>
+    <button class="tab" data-p="shift">⇧ Shift</button>
+  </div>
   <div class="tabs">
     <button class="tab active" id="viewBoard" title="Vue plan"><svg class="icon sm"><use href="#i-grid"></use></svg>Plan</button>
     <button class="tab" id="viewList" title="Vue liste (saisie rapide)"><svg class="icon sm"><use href="#i-list"></use></svg>Liste</button>
@@ -660,6 +692,7 @@
   <p class="board-hint" id="boardHint">
     Clique un contrôle et écris à quoi il sert — « kick », « send 2 », « feedback »…
     <kbd>Tab</kbd> passe au suivant, <kbd>Entrée</kbd> valide. Le bouton ⋯ ouvre le détail (CC, canal, commentaire).
+    La pastille au centre d'un encodeur, c'est son appui ; le petit coin coloré signale une annotation sur l'autre page.
   </p>
 
   <div id="viewport"></div>
@@ -818,19 +851,30 @@
     m.push({x:28, y:374, w:150, cls:"brand", text:"reloop"});
     m.push({x:28, y:402, w:150, cls:"model", text:"KEYFADR"});
 
-    // --- section mix : 8 tranches identiques, numérotées en sérigraphie
+    // --- section mix : 8 tranches identiques, numérotées en sérigraphie.
+    // Par tranche : l'encodeur PAN en haut (il tourne ET se clique), les deux
+    // petits potards de send en dessous à gauche et à droite, puis les trois
+    // boutons et le fader.
     g.push({id:"ch", name:"Mix section", silent:true, x:202, y:16, w:782, h:408});
     const sw = (762 - 7 * 5) / 8;
+    const kw = (sw - 4) / 2;
+    const ecy = 38 + 66 * 0.58 / 2 + 1;      // centre du capuchon de l'encodeur
     for(let i = 1; i <= 8; i++){
       const x = 212 + (i - 1) * (sw + 5);
-      m.push({x:x, y:26, w:sw, cls:"chan", text:String(i)});
-      c.push({id:"enc" + i,  name:"PAN " + i,      sub:"", kind:"cc",   type:"enc",   group:"ch", x:x, y:44,  w:sw, h:62});
-      c.push({id:"knA" + i,  name:"SEND 2 · " + i, sub:"", kind:"cc",   type:"knob",  group:"ch", x:x, y:110, w:sw, h:58});
-      c.push({id:"knB" + i,  name:"SEND 1 · " + i, sub:"", kind:"cc",   type:"knob",  group:"ch", x:x, y:172, w:sw, h:58});
-      c.push({id:"mute" + i, name:"MUTE " + i,     sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:234, w:sw, h:24});
-      c.push({id:"solo" + i, name:"SOLO " + i,     sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:262, w:sw, h:24});
-      c.push({id:"arm" + i,  name:"REC " + i,      sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:290, w:sw, h:24});
-      c.push({id:"fad" + i,  name:"FADER " + i,    sub:"", kind:"cc",   type:"fader", group:"ch", x:x, y:320, w:sw, h:102});
+      m.push({x:x, y:24, w:sw, cls:"chan", text:String(i)});
+      c.push({id:"enc" + i,  name:"PAN " + i,  sub:"", kind:"cc",  type:"enc",  group:"ch", x:x, y:38, w:sw, h:66});
+      c.push({id:"encP" + i, name:"PUSH " + i, sub:"Appui de l'encodeur", kind:"note", type:"push", group:"ch",
+              x:x + sw / 2 - 8, y:ecy - 8, w:16, h:16});
+      // Les deux petits potards tiennent côte à côte : nom court sur le plan,
+      // nom complet dans les tableaux et les infobulles.
+      c.push({id:"knB" + i, name:"SEND 1 · " + i, short:"SEND 1", sub:"", kind:"cc", type:"knob", cls:"sm", group:"ch",
+              x:x, y:106, w:kw, h:56});
+      c.push({id:"knA" + i, name:"SEND 2 · " + i, short:"SEND 2", sub:"", kind:"cc", type:"knob", cls:"sm", group:"ch",
+              x:x + kw + 4, y:106, w:kw, h:56});
+      c.push({id:"mute" + i, name:"MUTE " + i,  sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:166, w:sw, h:24});
+      c.push({id:"solo" + i, name:"SOLO " + i,  sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:194, w:sw, h:24});
+      c.push({id:"arm" + i,  name:"REC " + i,   sub:"", kind:"note", type:"btn", led:true, group:"ch", x:x, y:222, w:sw, h:24});
+      c.push({id:"fad" + i,  name:"FADER " + i, sub:"", kind:"cc",   type:"fader", group:"ch", x:x, y:250, w:sw, h:160});
     }
 
     // --- clavier 25 mini-touches, pleine largeur
@@ -903,11 +947,16 @@
   // Une fiche = un morceau, ou le set entier (kind:"set"). Un morceau peut être
   // rattaché à un set par son nom, ce qui les regroupe dans le sélecteur et
   // permet d'imprimer tout le livret du set d'un coup.
+  // Deux couches d'assignations par fiche : la page normale et la page Shift
+  // (le Keyfadr double ses contrôles avec la touche Shift).
+  const PAGES = [{id:"maps", name:"Normal"}, {id:"shift", name:"Shift"}];
+  const pageOf = p => (p === "shift" ? "shift" : "maps");
+
   function emptySheet(name, kind, set){
-    const maps = {};
-    DEVICES.forEach(d => { maps[d.id] = {}; });
+    const maps = {}, shift = {};
+    DEVICES.forEach(d => { maps[d.id] = {}; shift[d.id] = {}; });
     return {id:uid(), name:name || "Nouveau morceau", kind:kind === "set" ? "set" : "morceau",
-            set:set || "", bpm:"", daw:"", notes:"", maps:maps, updated:Date.now()};
+            set:set || "", bpm:"", daw:"", notes:"", maps:maps, shift:shift, updated:Date.now()};
   }
 
   const FONTS = [
@@ -924,12 +973,13 @@
       const s = JSON.parse(raw);
       if(!s || !Array.isArray(s.sheets)) return null;
       s.sheets.forEach(sh => {
-        sh.maps = sh.maps || {};
-        DEVICES.forEach(d => { sh.maps[d.id] = sh.maps[d.id] || {}; });
+        sh.maps = sh.maps || {}; sh.shift = sh.shift || {};
+        DEVICES.forEach(d => { sh.maps[d.id] = sh.maps[d.id] || {}; sh.shift[d.id] = sh.shift[d.id] || {}; });
         sh.kind = sh.kind === "set" ? "set" : "morceau";
         sh.set = sh.set || "";
       });
       s.labels = s.labels || {};
+      s.page = pageOf(s.page);
       s.ui = Object.assign({font:"inter", caps:true}, s.ui || {});
       return s;
     }catch(e){ return null; }
@@ -938,7 +988,7 @@
   let store = loadStore();
   if(!store){
     store = {v:1, sheets:[emptySheet("Morceau 1")], current:null, device:DEVICES[0].id, view:"board",
-             labels:{}, ui:{font:"inter", caps:true}};
+             page:"maps", labels:{}, ui:{font:"inter", caps:true}};
     store.current = store.sheets[0].id;
   }
   if(!store.sheets.length) store.sheets.push(emptySheet("Morceau 1"));
@@ -956,19 +1006,27 @@
 
   const sheet = () => store.sheets.find(s => s.id === store.current);
   const device = () => DEV_BY_ID[store.device];
-  const mapOf = (devId) => { const s = sheet(); s.maps[devId] = s.maps[devId] || {}; return s.maps[devId]; };
-  const entry = (devId, ctrlId) => mapOf(devId)[ctrlId] || null;
-  // Mêmes lectures, mais sur une fiche donnée : sert à imprimer ou exporter
-  // une autre fiche que celle affichée (le livret d'un set, par exemple).
-  const entryOf = (sh, devId, ctrlId) => ((sh && sh.maps && sh.maps[devId]) || {})[ctrlId] || null;
-  const countIn = (sh, devId) => {
-    const m = (sh && sh.maps && sh.maps[devId]) || {};
+  const mapOf = (devId, page) => {
+    const s = sheet(), k = pageOf(page || store.page);
+    s[k] = s[k] || {};
+    s[k][devId] = s[k][devId] || {};
+    return s[k][devId];
+  };
+  const entry = (devId, ctrlId, page) => mapOf(devId, page)[ctrlId] || null;
+  // Mêmes lectures, mais sur une fiche et une page données : sert à imprimer ou
+  // exporter autre chose que ce qui est affiché (le livret d'un set, la page Shift…).
+  const entryOf = (sh, devId, ctrlId, page) => (((sh && sh[pageOf(page)]) || {})[devId] || {})[ctrlId] || null;
+  const countIn = (sh, devId, page) => {
+    const m = (((sh && sh[pageOf(page)]) || {})[devId]) || {};
     return Object.keys(m).filter(k => isSet(m[k])).length;
   };
   const morceauxOf = (sh) => sh.kind === "set"
     ? store.sheets.filter(x => x.kind !== "set" && x.set === sh.name) : [];
   const isSet = (e) => !!(e && (e.t || e.num !== "" && e.num != null || e.cm));
   const hwName = (devId, ctrl) => (store.labels[devId] && store.labels[devId][ctrl.id]) || ctrl.name;
+  // Sur le plan, les contrôles trop étroits affichent un nom court.
+  const shortName = (devId, ctrl) =>
+    (store.labels[devId] && store.labels[devId][ctrl.id]) || ctrl.short || ctrl.name;
 
   function setEntry(devId, ctrlId, patch){
     const m = mapOf(devId);
@@ -979,10 +1037,8 @@
     save();
   }
 
-  function countAssigned(devId){
-    const m = (sheet().maps[devId]) || {};
-    return Object.keys(m).filter(k => isSet(m[k])).length;
-  }
+  const countAssigned = (devId) => countIn(sheet(), devId, store.page);
+  const otherPage = () => (store.page === "shift" ? "maps" : "shift");
 
   /* ------------------------------------------------------------------ *
    * Utilitaires d'affichage
@@ -1009,14 +1065,16 @@
     return "CC " + e.num;
   }
 
-  function tooltip(sh, dev, ctrl){
-    const e = entryOf(sh, dev.id, ctrl.id);
+  function tooltip(sh, dev, ctrl, page){
+    const e = entryOf(sh, dev.id, ctrl.id, page);
     const bits = [hwName(dev.id, ctrl)];
     if(ctrl.sub) bits.push("(" + ctrl.sub + ")");
     if(e && e.t) bits.push("→ " + e.t);
     const n = numLabel(ctrl, e);
     if(n) bits.push("· " + n + (e.ch ? " canal " + e.ch : ""));
     if(e && e.cm) bits.push("· " + e.cm);
+    const eo = entryOf(sh, dev.id, ctrl.id, pageOf(page) === "shift" ? "maps" : "shift");
+    if(eo && eo.t) bits.push((pageOf(page) === "shift" ? "  |  page normale : " : "  |  Shift : ") + eo.t);
     return bits.join(" ");
   }
 
@@ -1054,19 +1112,24 @@
       board.appendChild(n);
     });
 
+    const page = pageOf(opts.page || store.page);
+    const other = page === "shift" ? "maps" : "shift";
+
     dev.controls.forEach(ctrl => {
-      const e = entryOf(sh, dev.id, ctrl.id), on = isSet(e);
+      const e = entryOf(sh, dev.id, ctrl.id, page), on = isSet(e);
+      const eo = entryOf(sh, dev.id, ctrl.id, other), onOther = isSet(eo);
       const isKey = ctrl.type.indexOf("key-") === 0;
-      const n = el("div", isKey
-        ? "key " + (ctrl.type === "key-b" ? "b" : "w") + (on ? " assigned" : "")
-        : "ctrl t-" + ctrl.type + (on ? " assigned" : ""));
+      const n = el("div", (isKey
+        ? "key " + (ctrl.type === "key-b" ? "b" : "w")
+        : "ctrl t-" + ctrl.type) + (on ? " assigned" : "") + (onOther ? " other" : ""));
       n.style.setProperty("--x", pct(ctrl.x, dev.w));
       n.style.setProperty("--y", pct(ctrl.y, dev.h));
       n.style.setProperty("--w", pct(ctrl.w, dev.w));
       n.style.setProperty("--h", pct(ctrl.h, dev.h));
       if(on) n.style.setProperty("--cc", catColor(e.c));
+      if(onOther) n.style.setProperty("--oc", catColor(eo.c));
       n.dataset.id = ctrl.id;
-      n.title = tooltip(sh, dev, ctrl);
+      n.title = tooltip(sh, dev, ctrl, page);
 
       if(isKey){
         if(on){
@@ -1074,12 +1137,13 @@
           if(e.t) tape.appendChild(el("span", "cl", e.t));
           n.appendChild(tape);
         }
-      }else{
+      }else if(ctrl.type !== "push"){
+        if(ctrl.cls) n.classList.add(ctrl.cls);
         if(ctrl.type === "knob" || ctrl.type === "enc" || ctrl.type === "fader" || ctrl.type === "wheel"){
           n.appendChild(el("span", "cap"));
         }
         if(ctrl.led) n.appendChild(el("span", "led"));
-        n.appendChild(el("span", "cn", hwName(dev.id, ctrl)));
+        n.appendChild(el("span", "cn", shortName(dev.id, ctrl)));
         if(on && e.t) n.appendChild(el("span", "cl", e.t));
         else if(ctrl.sub) n.appendChild(el("span", "cs", ctrl.sub));
       }
@@ -1259,6 +1323,9 @@
     }
     $("viewBoard").classList.toggle("active", store.view !== "list");
     $("viewList").classList.toggle("active", store.view === "list");
+    Array.prototype.forEach.call($("pageTabs").children,
+      b => b.classList.toggle("active", b.dataset.p === store.page));
+    document.body.classList.toggle("on-shift", store.page === "shift");
     $("boardHint").hidden = store.view === "list";
     applyFilter();
     if(selected) markSelection();
@@ -1690,21 +1757,21 @@
         let added = 0;
         data.sheets.forEach(s => {
           if(!s || typeof s !== "object") return;
-          const ns = emptySheet(s.name || "Import");
+          const ns = emptySheet(s.name || "Import", s.kind, s.set);
           ns.bpm = String(s.bpm || ""); ns.daw = String(s.daw || ""); ns.notes = String(s.notes || "");
-          DEVICES.forEach(d => {
-            const src = (s.maps && s.maps[d.id]) || {};
+          DEVICES.forEach(d => PAGES.forEach(pg => {
+            const src = (s[pg.id] && s[pg.id][d.id]) || {};
             Object.keys(src).forEach(k => {
               if(!d.controls.some(c => c.id === k)) return;
               const e = src[k] || {};
-              ns.maps[d.id][k] = {
+              ns[pg.id][d.id][k] = {
                 t:String(e.t || ""), c:CAT_BY_ID[e.c] ? e.c : "other",
                 kind:e.kind === "note" ? "note" : (e.kind === "cc" ? "cc" : ""),
                 num:e.num == null ? "" : String(e.num), ch:e.ch == null ? "" : String(e.ch),
                 cm:String(e.cm || "")
               };
             });
-          });
+          }));
           store.sheets.push(ns); added++;
         });
         if(data.labels && typeof data.labels === "object"){
@@ -1779,10 +1846,30 @@
     return fitText(ctx, text, max);
   }
 
-  function drawTemplate(dev, s, themeName){
+  function drawTemplate(dev, s, themeName, pageId){
     const P = THEMES[themeName] || THEMES.dark;
-    const S = 2.6, M = 46, HEAD = 168, LEG = 104;
+    const page = pageOf(pageId || store.page);
+    const S = 2.6, M = 46, HEAD = 168;
     const bx = M, by = M + HEAD;
+
+    // Ce qui va sous le plan : la légende des couleurs, et les appuis d'encodeur
+    // qui n'ont pas la place d'écrire leur nom sur le dessin.
+    const map = (s[page] && s[page][dev.id]) || {};
+    const used = [];
+    const pushes = [];
+    dev.controls.forEach(c => {
+      const e = map[c.id];
+      if(!isSet(e)) return;
+      const cid = e.c || "other";
+      if(used.indexOf(cid) === -1) used.push(cid);
+      if(c.type === "push" && e.t) pushes.push(hwName(dev.id, c) + " · " + e.t);
+    });
+    used.sort((a, b) => CATS.findIndex(c => c.id === a) - CATS.findIndex(c => c.id === b));
+    const legW = used.reduce((n, id) => n + (CAT_BY_ID[id] || CAT_BY_ID.other).name.length * 13 + 52, 0);
+    const boardW = Math.round(dev.w * S);
+    const legRows = Math.max(1, Math.ceil(legW / boardW));
+    const LEG = 60 + legRows * 40 + (pushes.length ? 46 : 0);
+
     const cv = document.createElement("canvas");
     cv.width = Math.round(dev.w * S + M * 2);
     cv.height = Math.round(by + dev.h * S + LEG + M);
@@ -1799,6 +1886,7 @@
     ctx.font = "700 " + Math.round(46 * labelScale()) + "px " + labelFont();
     ctx.fillText(caseOf((s.kind === "set" ? "SET — " : "") + s.name), M, M + 34);
     const bits = [dev.name];
+    if(page === "shift") bits.push("PAGE SHIFT");
     if(s.kind !== "set" && s.set) bits.push("Set " + s.set);
     if(s.bpm) bits.push(s.bpm + " BPM");
     if(s.daw) bits.push(s.daw);
@@ -1864,14 +1952,21 @@
     /* ---- contrôles ---- */
     const nameSize = Math.round(U(10.2)), labSize = Math.round(U(12) * labelScale());
     dev.controls.forEach(c => {
-      const e = entryOf(s, dev.id, c.id), on = isSet(e);
+      const e = entryOf(s, dev.id, c.id, page), on = isSet(e);
       const col = on ? catColor(e.c) : null;
       const x = X(c.x), y = Y(c.y), w = U(c.w), h = U(c.h);
       const cx = x + w / 2;
       let textTop = y;
 
+      if(c.type === "push"){
+        ctx.beginPath(); ctx.arc(cx, y + h / 2, w / 2, 0, 7);
+        ctx.fillStyle = col || P.skirt; ctx.fill();
+        ctx.strokeStyle = P.capEdge; ctx.lineWidth = 1.2; ctx.stroke();
+        return;
+      }
+
       if(c.type === "knob" || c.type === "enc"){
-        const rad = h * 0.29, ccy = y + rad + U(1);
+        const rad = h * (c.cls === "sm" ? 0.23 : 0.29), ccy = y + rad + U(1);
         ctx.beginPath(); ctx.arc(cx, ccy, rad + U(2.2), 0, 7); ctx.fillStyle = P.skirt; ctx.fill();
         const g2 = ctx.createRadialGradient(cx - rad * 0.3, ccy - rad * 0.4, rad * 0.1, cx, ccy, rad);
         g2.addColorStop(0, P.capA); g2.addColorStop(1, P.capB);
@@ -1918,13 +2013,13 @@
         const inner = w - U(3);
         if(on && e.t){
           ctx.fillStyle = P.t2; ctx.font = "400 " + Math.round(nameSize * 0.92) + "px 'JetBrains Mono', monospace";
-          ctx.fillText(fitText(ctx, hwName(dev.id, c), inner), cx, y + h * 0.32);
+          ctx.fillText(fitText(ctx, shortName(dev.id, c), inner), cx, y + h * 0.32);
           ctx.fillStyle = col;
           const bt = shrinkToFit(ctx, caseOf(e.t), inner, labSize, labelFont(), labelWeight());
           ctx.fillText(bt, cx, y + h * 0.72);
         }else{
           ctx.fillStyle = P.t1; ctx.font = "400 " + nameSize + "px 'JetBrains Mono', monospace";
-          ctx.fillText(fitText(ctx, hwName(dev.id, c), inner), cx, y + h / 2);
+          ctx.fillText(fitText(ctx, shortName(dev.id, c), inner), cx, y + h / 2);
         }
         return;
       }else if(c.type === "key-w" || c.type === "key-b"){
@@ -1960,12 +2055,13 @@
       // étiquettes sous les rotatifs, faders et molettes
       ctx.textAlign = "center";
       ctx.fillStyle = on ? P.t1 : P.t2;
-      ctx.font = "400 " + nameSize + "px 'JetBrains Mono', monospace";
-      ctx.fillText(fitText(ctx, hwName(dev.id, c), w), cx, textTop + nameSize * 0.6);
+      const ns = c.cls === "sm" ? Math.round(nameSize * 0.88) : nameSize;
+      ctx.font = "400 " + ns + "px 'JetBrains Mono', monospace";
+      ctx.fillText(fitText(ctx, shortName(dev.id, c), w), cx, textTop + ns * 0.6);
       if(on && e.t){
         ctx.fillStyle = col;
         const t = shrinkToFit(ctx, caseOf(e.t), w + U(5), labSize, labelFont(), labelWeight());
-        ctx.fillText(t, cx, textTop + nameSize * 0.6 + labSize * 1.15);
+        ctx.fillText(t, cx, textTop + ns * 0.6 + labSize * 1.15);
       }else if(c.sub){
         ctx.fillStyle = P.t2;
         ctx.font = "400 " + Math.round(nameSize * 0.95) + "px 'Inter', sans-serif";
@@ -1974,17 +2070,9 @@
     });
 
     /* ---- légende des couleurs réellement utilisées ---- */
-    const map = (s.maps && s.maps[dev.id]) || {};
-    const used = [];
-    Object.keys(map).forEach(k => {
-      if(!isSet(map[k])) return;
-      const c = map[k].c || "other";
-      if(used.indexOf(c) === -1) used.push(c);
-    });
     let lx = M, ly = by + U(dev.h) + 46;
     ctx.textAlign = "left";
     ctx.font = "600 22px 'Inter', sans-serif";
-    used.sort((a, b) => CATS.findIndex(c => c.id === a) - CATS.findIndex(c => c.id === b));
     used.map(id => CAT_BY_ID[id] || CAT_BY_ID.other).forEach(cat => {
       const tw = ctx.measureText(cat.name.toUpperCase()).width;
       if(lx + tw + 46 > cv.width - M){ lx = M; ly += 40; }
@@ -1994,6 +2082,13 @@
       ctx.fillText(cat.name.toUpperCase(), lx + 26, ly);
       lx += tw + 52;
     });
+
+    if(pushes.length){
+      ly += 42;
+      ctx.fillStyle = P.t2;
+      ctx.font = "400 20px 'JetBrains Mono', monospace";
+      ctx.fillText(fitText(ctx, "APPUIS :  " + pushes.join("   ·   ").toUpperCase(), cv.width - M * 2), M, ly);
+    }
     return cv;
   }
 
@@ -2003,7 +2098,8 @@
     const back = el("div", "backup");
     const box = el("div", "backup-box img-box");
     const head = el("div", "img-head");
-    head.appendChild(el("p", null, "Template à garder pour tes lives — " + dev.name));
+    head.appendChild(el("p", null, "Template à garder pour tes lives — " + dev.name
+      + (store.page === "shift" ? " · page Shift" : "")));
     const themeBtn = el("button", "btn", "Fond clair");
     const dl = el("a", "btn primary");
     dl.textContent = "Télécharger le PNG";
@@ -2018,12 +2114,13 @@
     document.body.appendChild(back);
 
     function paint(){
-      const cv = drawTemplate(dev, s, theme);
+      const cv = drawTemplate(dev, s, theme, store.page);
       const url = cv.toDataURL("image/png");
       img.src = url;
       dl.href = url;
       dl.download = "template-" + (s.name || "fiche").toLowerCase().replace(/[^a-z0-9]+/gi, "-")
-                  + "-" + dev.short.toLowerCase().replace(/[^a-z0-9]+/gi, "-") + ".png";
+                  + "-" + dev.short.toLowerCase().replace(/[^a-z0-9]+/gi, "-")
+                  + (store.page === "shift" ? "-shift" : "") + ".png";
       themeBtn.textContent = theme === "dark" ? "Fond clair" : "Fond sombre";
     }
     themeBtn.addEventListener("click", () => { theme = theme === "dark" ? "light" : "dark"; paint(); });
@@ -2043,10 +2140,15 @@
   }
 
   function addSheetPages(root, s){
-    const used = DEVICES.filter(d => countIn(s, d.id) > 0);
-    const devs = used.length ? used : [device()];
+    // Chaque appareil sort une page par couche renseignée : normale puis Shift.
+    const jobs = [];
+    DEVICES.forEach(d => PAGES.forEach(pg => {
+      if(countIn(s, d.id, pg.id) > 0) jobs.push({dev:d, page:pg});
+    }));
+    if(!jobs.length) jobs.push({dev:device(), page:PAGES[0]});
 
-    devs.forEach((dev, i) => {
+    jobs.forEach((job, i) => {
+      const dev = job.dev, pg = job.page;
       const page = el("div", "p-page");
 
       const head = el("div", "p-head");
@@ -2054,6 +2156,7 @@
       head.appendChild(h);
       const meta = el("div", "meta");
       const bits = [dev.name];
+      if(pg.id === "shift") bits.push("PAGE SHIFT");
       if(s.kind !== "set" && s.set) bits.unshift("Set " + s.set);
       if(s.bpm) bits.push(s.bpm + " BPM");
       if(s.daw) bits.push(s.daw);
@@ -2064,7 +2167,7 @@
 
       if(s.notes && i === 0) page.appendChild(el("p", "p-notes", s.notes));
 
-      page.appendChild(renderBoard(dev, {interactive:false, sheet:s}));
+      page.appendChild(renderBoard(dev, {interactive:false, sheet:s, page:pg.id}));
 
       const table = el("table", "p-table");
       const thead = el("thead"), tr = el("tr");
@@ -2073,13 +2176,13 @@
       const tb = el("tbody");
       let rows = 0;
       dev.groups.forEach(g => {
-        const list = dev.controls.filter(c => c.group === g.id && isSet(entryOf(s, dev.id, c.id)));
+        const list = dev.controls.filter(c => c.group === g.id && isSet(entryOf(s, dev.id, c.id, pg.id)));
         if(!list.length) return;
         const gt = el("tr");
         const gtd = el("td", "p-sec", g.name);
         gtd.colSpan = 5; gt.appendChild(gtd); tb.appendChild(gt);
         list.forEach(c => {
-          const e = entryOf(s, dev.id, c.id);
+          const e = entryOf(s, dev.id, c.id, pg.id);
           const r = el("tr");
           const c1 = el("td", "pn");
           const dot = el("span", "p-cat");
@@ -2273,6 +2376,13 @@
     if($("styleMenu").hidden) return;
     if(ev.target.closest(".menu-wrap")) return;
     $("styleMenu").hidden = true;
+  });
+
+  Array.prototype.forEach.call($("pageTabs").children, b => {
+    b.addEventListener("click", () => {
+      store.page = pageOf(b.dataset.p);
+      closePop(true); closeEditor(); save(); render();
+    });
   });
 
   $("imgBtn").addEventListener("click", showTemplateImage);

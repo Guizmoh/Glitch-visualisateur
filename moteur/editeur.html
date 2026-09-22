@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Editeur de cartes</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗺️</text></svg>">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { display: block; padding: 16px 20px 40px; }
+  .barre { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .barre h1 { font-size: 13px; }
+  .barre a { color: var(--texte-doux); font-size: 11px; text-decoration: none; border-bottom: 1px dotted var(--bord); }
+  .barre a:hover { color: var(--accent); }
+  .atelier { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .atelier { grid-template-columns: 1fr; } }
+  .panneau { background: var(--surface); border: 1px solid var(--bord); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; }
+  .panneau h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin: 0 0 8px; }
+  #toile { image-rendering: pixelated; cursor: crosshair; width: 100%; max-width: 640px; border: 2px solid var(--bord); border-radius: 4px; background: #000; }
+  .palette { display: flex; flex-wrap: wrap; gap: 4px; }
+  .case-palette { width: 38px; height: 38px; border: 2px solid var(--bord); border-radius: 4px; background: #000; cursor: pointer; position: relative; padding: 0; }
+  .case-palette canvas { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+  .case-palette.choisie { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(242,193,75,.3); }
+  .case-palette b { position: absolute; bottom: -1px; right: 1px; font-size: 9px; color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+  .ligne { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; font-size: 11px; color: var(--texte-doux); }
+  .ligne label { width: 62px; flex: none; }
+  input, select, textarea { background: #0e0c18; color: var(--texte); border: 1px solid var(--bord); border-radius: 4px; padding: 4px 6px; font-family: inherit; font-size: 11px; width: 100%; }
+  textarea { height: 190px; resize: vertical; white-space: pre; }
+  button { background: var(--bord); color: var(--texte); border: none; border-radius: 4px; padding: 7px 10px; font-family: inherit; font-size: 11px; cursor: pointer; }
+  button:hover { background: #3c3560; }
+  button.principal { background: var(--accent); color: #16131f; font-weight: 700; }
+  .outils { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .outils button.actif { background: var(--accent); color: #16131f; }
+  .info { font-size: 10px; color: var(--texte-doux); line-height: 1.5; }
+  .liste-entites { max-height: 130px; overflow-y: auto; font-size: 10px; }
+  .liste-entites div { display: flex; justify-content: space-between; gap: 6px; padding: 2px 0; border-bottom: 1px solid #221d38; }
+  .liste-entites button { padding: 0 5px; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div class="barre">
+  <h1>Editeur de cartes</h1>
+  <a href="index.html">← Retour au jeu</a>
+  <a href="GUIDE-ENFANT.md">Guide</a>
+  <span class="info">Clique pour peindre · clic droit pour effacer</span>
+</div>
+
+<div class="atelier">
+  <div>
+    <div class="outils">
+      <button data-outil="pinceau" class="actif">Pinceau</button>
+      <button data-outil="remplir">Pot de peinture</button>
+      <button data-outil="pipette">Pipette</button>
+      <button data-outil="entite">Placer une entite</button>
+      <button id="btn-grille">Grille</button>
+      <button id="btn-vider">Tout effacer</button>
+    </div>
+    <canvas id="toile" width="320" height="192"></canvas>
+    <p class="info" id="position">case : —</p>
+  </div>
+
+  <div>
+    <div class="panneau">
+      <h2>Decor</h2>
+      <div class="palette" id="palette-tuiles"></div>
+    </div>
+
+    <div class="panneau">
+      <h2>Entites</h2>
+      <div class="ligne"><label>Type</label><select id="type-entite"></select></div>
+      <div class="ligne" id="ligne-detail"><label id="label-detail">Espece</label><select id="detail-entite"></select></div>
+      <p class="info">Choisis l'outil « Placer une entite », puis clique sur la carte.</p>
+      <div class="liste-entites" id="liste-entites"></div>
+    </div>
+
+    <div class="panneau">
+      <h2>Salle</h2>
+      <div class="ligne"><label>Charger</label><select id="salle-existante"></select></div>
+      <div class="ligne"><label>Nom</label><input id="nom-salle" value="ma-salle"></div>
+      <div class="ligne"><label>Titre</label><input id="titre-salle" value="Ma nouvelle salle"></div>
+      <div class="ligne"><label>Musique</label><select id="musique-salle"></select></div>
+      <div class="ligne"><label>Nord</label><input id="sortie-nord" placeholder="(vide)"></div>
+      <div class="ligne"><label>Sud</label><input id="sortie-sud" placeholder="(vide)"></div>
+      <div class="ligne"><label>Est</label><input id="sortie-est" placeholder="(vide)"></div>
+      <div class="ligne"><label>Ouest</label><input id="sortie-ouest" placeholder="(vide)"></div>
+      <div class="ligne"><label>Grilles V</label><select id="verrou-salle">
+        <option value="">jamais</option>
+        <option value="ennemis">quand tous les ennemis sont vaincus</option>
+      </select></div>
+    </div>
+
+    <div class="panneau">
+      <h2>Resultat</h2>
+      <div class="outils">
+        <button class="principal" id="btn-tester">▶ Tester</button>
+        <button id="btn-copier">Copier le code</button>
+      </div>
+      <textarea id="sortie" readonly></textarea>
+      <p class="info">Colle ce bloc dans <b>src/contenu/cartes.js</b>, entre les autres salles.</p>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { construireTuileset, imageTuile, TAILLE_TUILE } from './src/monde/tuileset.js';
+import { TUILES } from './src/contenu/tuiles.js';
+import { SPRITES, PALETTE } from './src/contenu/sprites.js';
+import { ENNEMIS } from './src/contenu/ennemis.js';
+import { OBJETS } from './src/contenu/objets.js';
+import { DIALOGUES } from './src/contenu/dialogues.js';
+import { MUSIQUES } from './src/contenu/musiques.js';
+import { CARTES } from './src/contenu/cartes.js';
+import { Atlas } from './src/noyau/pixels.js';
+
+const LARGEUR = 20;
+const HAUTEUR = 12;
+
+construireTuileset();
+const atlas = new Atlas(PALETTE);
+for (const [nom, motif] of Object.entries(SPRITES)) atlas.ajouterMotif(nom, motif);
+
+const toile = document.getElementById('toile');
+const ctx = toile.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+let grille = Array.from({ length: HAUTEUR }, () => Array(LARGEUR).fill('.'));
+let entites = [];
+let symboleChoisi = '.';
+let outil = 'pinceau';
+let afficherGrille = true;
+let dessineEnCours = false;
+
+/* ---------------- Palette de tuiles ---------------- */
+const paletteDiv = document.getElementById('palette-tuiles');
+for (const [symbole, def] of Object.entries(TUILES)) {
+  const bouton = document.createElement('button');
+  bouton.className = 'case-palette' + (symbole === '.' ? ' choisie' : '');
+  bouton.title = `${def.nom}  (${symbole})`;
+  bouton.dataset.symbole = symbole;
+  const mini = document.createElement('canvas');
+  mini.width = mini.height = TAILLE_TUILE;
+  mini.getContext('2d').drawImage(imageTuile(symbole, 0, 0), 0, 0);
+  bouton.append(mini);
+  const etiquette = document.createElement('b');
+  etiquette.textContent = symbole;
+  bouton.append(etiquette);
+  bouton.addEventListener('click', () => {
+    symboleChoisi = symbole;
+    document.querySelectorAll('.case-palette').forEach((b) => b.classList.remove('choisie'));
+    bouton.classList.add('choisie');
+  });
+  paletteDiv.append(bouton);
+}
+
+/* ---------------- Palette d'entites ---------------- */
+const TYPES_ENTITES = {
+  ennemi: { label: 'Espece', options: () => Object.keys(ENNEMIS), champ: 'espece' },
+  coffre: { label: 'Contenu', options: () => Object.keys(OBJETS), champ: 'contenu' },
+  pnj: { label: 'Dialogue', options: () => Object.keys(DIALOGUES), champ: 'dialogue' },
+  objet: { label: 'Objet', options: () => Object.keys(OBJETS), champ: 'objet' },
+  bloc: { label: null },
+  panneau: { label: null },
+};
+const selType = document.getElementById('type-entite');
+const selDetail = document.getElementById('detail-entite');
+const labelDetail = document.getElementById('label-detail');
+const ligneDetail = document.getElementById('ligne-detail');
+for (const type of Object.keys(TYPES_ENTITES)) {
+  selType.append(new Option(type, type));
+}
+function majDetail() {
+  const def = TYPES_ENTITES[selType.value];
+  selDetail.innerHTML = '';
+  if (!def.label) {
+    ligneDetail.style.display = 'none';
+    return;
+  }
+  ligneDetail.style.display = 'flex';
+  labelDetail.textContent = def.label;
+  for (const option of def.options()) selDetail.append(new Option(option, option));
+}
+selType.addEventListener('change', majDetail);
+majDetail();
+
+/* ---------------- Musiques ---------------- */
+const selMusique = document.getElementById('musique-salle');
+selMusique.append(new Option('(aucune)', ''));
+for (const nom of Object.keys(MUSIQUES)) selMusique.append(new Option(nom, nom));
+
+/* ---------------- Salles existantes ---------------- */
+const selSalle = document.getElementById('salle-existante');
+selSalle.append(new Option('(nouvelle salle vide)', ''));
+for (const nom of Object.keys(CARTES)) selSalle.append(new Option(nom, nom));
+selSalle.addEventListener('change', () => {
+  const nom = selSalle.value;
+  if (!nom) {
+    grille = Array.from({ length: HAUTEUR }, () => Array(LARGEUR).fill('.'));
+    entites = [];
+  } else {
+    const salle = CARTES[nom];
+    grille = salle.decor.map((ligne) => ligne.padEnd(LARGEUR, '.').slice(0, LARGEUR).split(''));
+    while (grille.length < HAUTEUR) grille.push(Array(LARGEUR).fill('.'));
+    entites = JSON.parse(JSON.stringify(salle.entites || []));
+    document.getElementById('nom-salle').value = nom;
+    document.getElementById('titre-salle').value = salle.titre || '';
+    selMusique.value = salle.musique || '';
+    document.getElementById('verrou-salle').value = salle.verrou || '';
+    for (const dir of ['nord', 'sud', 'est', 'ouest']) {
+      document.getElementById(`sortie-${dir}`).value = (salle.sorties || {})[dir] || '';
+    }
+  }
+  dessiner();
+  majSortie();
+});
+
+/* ---------------- Dessin ---------------- */
+function dessiner() {
+  ctx.clearRect(0, 0, toile.width, toile.height);
+  for (let l = 0; l < HAUTEUR; l++) {
+    for (let c = 0; c < LARGEUR; c++) {
+      const image = imageTuile(grille[l][c], c, l);
+      if (image) ctx.drawImage(image, c * TAILLE_TUILE, l * TAILLE_TUILE);
+    }
+  }
+  for (const e of entites) {
+    const image = atlas.image(spritePour(e));
+    const x = e.x * TAILLE_TUILE;
+    const y = e.y * TAILLE_TUILE;
+    ctx.fillStyle = 'rgba(242,193,75,0.25)';
+    ctx.fillRect(x, y, TAILLE_TUILE, TAILLE_TUILE);
+    if (image) {
+      ctx.drawImage(image, x + (TAILLE_TUILE - image.width) / 2, y + (TAILLE_TUILE - image.height) / 2);
+    }
+  }
+  if (afficherGrille) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    for (let c = 0; c <= LARGEUR; c++) {
+      ctx.beginPath(); ctx.moveTo(c * TAILLE_TUILE + 0.5, 0); ctx.lineTo(c * TAILLE_TUILE + 0.5, toile.height); ctx.stroke();
+    }
+    for (let l = 0; l <= HAUTEUR; l++) {
+      ctx.beginPath(); ctx.moveTo(0, l * TAILLE_TUILE + 0.5); ctx.lineTo(toile.width, l * TAILLE_TUILE + 0.5); ctx.stroke();
+    }
+  }
+}
+
+function spritePour(e) {
+  if (e.type === 'ennemi') return `${(ENNEMIS[e.espece] || {}).sprite || e.espece}_0`;
+  if (e.type === 'coffre') return 'coffre_ferme';
+  if (e.type === 'pnj') return e.sprite || 'villageois_0';
+  if (e.type === 'objet') return (OBJETS[e.objet] || {}).sprite || 'rubis';
+  if (e.type === 'panneau') return 'icone_epee';
+  return 'etincelle';
+}
+
+/* ---------------- Souris ---------------- */
+function caseSousLaSouris(evenement) {
+  const rect = toile.getBoundingClientRect();
+  const x = Math.floor(((evenement.clientX - rect.left) / rect.width) * LARGEUR);
+  const y = Math.floor(((evenement.clientY - rect.top) / rect.height) * HAUTEUR);
+  return { c: Math.max(0, Math.min(LARGEUR - 1, x)), l: Math.max(0, Math.min(HAUTEUR - 1, y)) };
+}
+
+function agir(evenement, effacer = false) {
+  const { c, l } = caseSousLaSouris(evenement);
+  if (outil === 'pipette') {
+    symboleChoisi = grille[l][c];
+    document.querySelectorAll('.case-palette').forEach((b) => {
+      b.classList.toggle('choisie', b.dataset.symbole === symboleChoisi);
+    });
+  } else if (outil === 'entite') {
+    entites = entites.filter((e) => !(e.x === c && e.y === l));
+    if (!effacer) {
+      const type = selType.value;
+      const def = TYPES_ENTITES[type];
+      const entite = { type, x: c, y: l };
+      if (def.champ) entite[def.champ] = selDetail.value;
+      if (type === 'panneau') entite.texte = ['A toi d\'ecrire !'];
+      if (type === 'pnj') entite.sprite = 'villageois_0';
+      entites.push(entite);
+    }
+  } else if (outil === 'remplir') {
+    remplir(c, l, grille[l][c], effacer ? '.' : symboleChoisi);
+  } else {
+    grille[l][c] = effacer ? '.' : symboleChoisi;
+  }
+  dessiner();
+  majSortie();
+}
+
+function remplir(c, l, cible, remplacement) {
+  if (cible === remplacement) return;
+  const aFaire = [[c, l]];
+  while (aFaire.length) {
+    const [x, y] = aFaire.pop();
+    if (x < 0 || y < 0 || x >= LARGEUR || y >= HAUTEUR) continue;
+    if (grille[y][x] !== cible) continue;
+    grille[y][x] = remplacement;
+    aFaire.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+  }
+}
+
+toile.addEventListener('contextmenu', (e) => e.preventDefault());
+toile.addEventListener('pointerdown', (e) => { dessineEnCours = true; agir(e, e.button === 2); });
+toile.addEventListener('pointermove', (e) => {
+  const { c, l } = caseSousLaSouris(e);
+  document.getElementById('position').textContent = `case : x=${c}  y=${l}   (lettre « ${grille[l][c]} »)`;
+  if (dessineEnCours && outil !== 'entite' && outil !== 'pipette') agir(e, e.buttons === 2);
+});
+window.addEventListener('pointerup', () => { dessineEnCours = false; });
+
+document.querySelectorAll('[data-outil]').forEach((bouton) => {
+  bouton.addEventListener('click', () => {
+    outil = bouton.dataset.outil;
+    document.querySelectorAll('[data-outil]').forEach((b) => b.classList.remove('actif'));
+    bouton.classList.add('actif');
+  });
+});
+document.getElementById('btn-grille').addEventListener('click', () => { afficherGrille = !afficherGrille; dessiner(); });
+document.getElementById('btn-vider').addEventListener('click', () => {
+  if (!confirm('Tout effacer ?')) return;
+  grille = Array.from({ length: HAUTEUR }, () => Array(LARGEUR).fill('.'));
+  entites = [];
+  dessiner(); majSortie();
+});
+
+/* ---------------- Export ---------------- */
+function donneesSalle() {
+  const sorties = {};
+  for (const dir of ['nord', 'sud', 'est', 'ouest']) {
+    const valeur = document.getElementById(`sortie-${dir}`).value.trim();
+    if (valeur) sorties[dir] = valeur;
+  }
+  const salle = {
+    titre: document.getElementById('titre-salle').value,
+    decor: grille.map((ligne) => ligne.join('')),
+  };
+  if (selMusique.value) salle.musique = selMusique.value;
+  if (Object.keys(sorties).length) salle.sorties = sorties;
+  if (document.getElementById('verrou-salle').value) salle.verrou = document.getElementById('verrou-salle').value;
+  if (entites.length) salle.entites = entites;
+  return salle;
+}
+
+function majSortie() {
+  const nom = document.getElementById('nom-salle').value.trim() || 'ma-salle';
+  const salle = donneesSalle();
+  const lignes = [];
+  lignes.push(`  '${nom}': {`);
+  lignes.push(`    titre: '${(salle.titre || '').replace(/'/g, "\\'")}',`);
+  if (salle.musique) lignes.push(`    musique: '${salle.musique}',`);
+  if (salle.verrou) lignes.push(`    verrou: '${salle.verrou}',`);
+  lignes.push('    decor: [');
+  for (const ligne of salle.decor) lignes.push(`      '${ligne}',`);
+  lignes.push('    ],');
+  if (salle.sorties) {
+    const paires = Object.entries(salle.sorties).map(([d, v]) => `${d}: '${v}'`).join(', ');
+    lignes.push(`    sorties: { ${paires} },`);
+  }
+  if (salle.entites) {
+    lignes.push('    entites: [');
+    for (const e of salle.entites) {
+      const champs = Object.entries(e)
+        .map(([cle, valeur]) => `${cle}: ${JSON.stringify(valeur).replace(/"/g, "'")}`)
+        .join(', ');
+      lignes.push(`      { ${champs} },`);
+    }
+    lignes.push('    ],');
+  }
+  lignes.push('  },');
+  document.getElementById('sortie').value = lignes.join('\n');
+
+  // Liste cliquable des entites
+  const liste = document.getElementById('liste-entites');
+  liste.innerHTML = '';
+  entites.forEach((e, index) => {
+    const ligne = document.createElement('div');
+    const detail = e.espece || e.contenu || e.dialogue || e.objet || '';
+    ligne.innerHTML = `<span>${e.type} ${detail} (${e.x},${e.y})</span>`;
+    const supprimer = document.createElement('button');
+    supprimer.textContent = '✕';
+    supprimer.addEventListener('click', () => { entites.splice(index, 1); dessiner(); majSortie(); });
+    ligne.append(supprimer);
+    liste.append(ligne);
+  });
+
+  localStorage.setItem('zeldalike:brouillon-editeur', JSON.stringify({ nom, salle }));
+}
+
+for (const id of ['nom-salle', 'titre-salle', 'musique-salle', 'verrou-salle', 'sortie-nord', 'sortie-sud', 'sortie-est', 'sortie-ouest']) {
+  document.getElementById(id).addEventListener('input', majSortie);
+}
+
+document.getElementById('btn-copier').addEventListener('click', async () => {
+  const zone = document.getElementById('sortie');
+  zone.select();
+  try { await navigator.clipboard.writeText(zone.value); } catch { document.execCommand('copy'); }
+  const bouton = document.getElementById('btn-copier');
+  bouton.textContent = 'Copie !';
+  setTimeout(() => { bouton.textContent = 'Copier le code'; }, 1200);
+});
+
+document.getElementById('btn-tester').addEventListener('click', () => {
+  localStorage.setItem('zeldalike:salle-test', JSON.stringify(donneesSalle()));
+  window.open('index.html?salle=__test__', '_blank');
+});
+
+/* ---------------- Reprise du brouillon ---------------- */
+const brouillon = localStorage.getItem('zeldalike:brouillon-editeur');
+if (brouillon) {
+  try {
+    const { nom, salle } = JSON.parse(brouillon);
+    grille = salle.decor.map((ligne) => ligne.split(''));
+    entites = salle.entites || [];
+    document.getElementById('nom-salle').value = nom;
+    document.getElementById('titre-salle').value = salle.titre || '';
+    selMusique.value = salle.musique || '';
+    document.getElementById('verrou-salle').value = salle.verrou || '';
+    for (const dir of ['nord', 'sud', 'est', 'ouest']) {
+      document.getElementById(`sortie-${dir}`).value = (salle.sorties || {})[dir] || '';
+    }
+  } catch { /* brouillon illisible : on repart de zero */ }
+}
+
+dessiner();
+majSortie();
+</script>
+</body>
+</html>

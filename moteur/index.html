@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Moteur Zelda-like</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h1>La Legende du Fragment</h1>
+
+<div class="zone-jeu">
+  <canvas id="jeu"></canvas>
+</div>
+
+<div class="aide">
+  <span><b>Fleches</b> ou <b>ZQSD</b> : marcher</span>
+  <span><b>Espace</b> : epee / parler / ouvrir</span>
+  <span><b>C</b> : objet equipe</span>
+  <span><b>P</b> : pause</span>
+</div>
+
+<!-- Commandes pour les ecrans tactiles -->
+<div class="tactile">
+  <div class="croix">
+    <div class="touche vide"></div>
+    <div class="touche" data-action="haut">▲</div>
+    <div class="touche vide"></div>
+    <div class="touche" data-action="gauche">◀</div>
+    <div class="touche vide"></div>
+    <div class="touche" data-action="droite">▶</div>
+    <div class="touche vide"></div>
+    <div class="touche" data-action="bas">▼</div>
+    <div class="touche" data-action="pause">⏸</div>
+  </div>
+  <div class="boutons">
+    <div class="touche ronde" data-action="objet">B</div>
+    <div class="touche ronde" data-action="attaque">A</div>
+  </div>
+</div>
+
+<div class="liens">
+  <a href="editeur.html">Editeur de cartes</a>
+  <a href="README.md">Documentation</a>
+  <a href="GUIDE-ENFANT.md">Guide pour debuter</a>
+</div>
+
+<script type="module">
+  import { demarrer } from './src/main.js';
+  demarrer(document.getElementById('jeu'));
+</script>
+
+</body>
+</html>

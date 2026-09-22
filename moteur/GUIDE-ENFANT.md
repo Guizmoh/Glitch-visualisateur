@@ -308,6 +308,100 @@ positionDepart: { x: 147, y: 131 },
 
 ---
 
+---
+
+# 🎬 « Pourquoi c'est pas encore beau ? »
+
+Deux questions reviennent tout le temps quand on fabrique un jeu. Voici les
+vraies réponses.
+
+## 1. « On peut le faire plus réaliste ? »
+
+Regarde bien ton jeu préféré. Est-ce que Link, dans *Breath of the Wild*,
+ressemble à une vraie personne ? Non. Il a des cheveux en gros blocs, une peau
+d'une seule couleur, un trait sombre tout autour de lui. Et Minecraft, c'est
+des cubes. Et Mario, c'est un bonhomme avec une moustache en trois pixels.
+
+Ce sont parmi les jeux les plus aimés du monde. **Ce n'est pas un accident.
+C'est un choix.**
+
+**Une photo et un dessin ne racontent pas la même chose.** Une photo de ton
+chien montre ton chien. Un dessin de ton chien peut montrer qu'il est rigolo,
+qu'il fait toujours la même bêtise, que tu l'aimes. Le dessin *choisit* ce
+qu'il montre. La photo, elle, montre tout — y compris ce qui ne sert à rien.
+
+**Et surtout : le presque-vrai est plus moche que le pas-vrai du tout.**
+Un personnage de dessin animé ne peut pas « rater ». Tom et Jerry ne
+ressemblent à aucun vrai chat ni à aucune vraie souris, et personne n'a jamais
+trouvé ça bizarre. Mais un personnage qui essaie d'être réaliste et qui rate
+de 5 % — un œil un peu mort, une bouche un peu raide — devient tout de suite
+inquiétant. Plus tu t'approches du vrai, plus les petits défauts se voient.
+
+**Le réalisme vieillit mal, le style ne vieillit pas.** Les jeux qui, il y a
+quinze ans, essayaient d'être « super réalistes » sont ceux qu'on trouve les
+plus moches aujourd'hui. *The Wind Waker* est sorti en 2002 avec ses gros
+traits de dessin animé : il est toujours magnifique.
+
+**Et puis il y a le prix.** *Breath of the Wild*, c'est environ 300 personnes
+pendant 5 ans. Toi, tu as des idées et tes soirées. Avec des idées, tu peux
+battre 300 personnes sur le style. Tu ne les battras jamais sur le réalisme.
+
+Donc la bonne question n'est pas : « est-ce que ça fait vrai ? »
+La bonne question est : **« est-ce qu'on reconnaît tout de suite ce que c'est,
+et est-ce que ça donne envie ? »**
+
+## 2. « Pourquoi ce n'est pas fini du premier coup ? »
+
+Parce que **rien** n'est jamais fini du premier coup. Rien. Jamais. Nulle part.
+
+Regarde ce qui s'est passé pour la maquette 3D de ton village :
+
+| Essai | Ce que ça donnait |
+|---|---|
+| 1 | Un sol tout plat, tout vert, et le bonnet du héros à l'envers |
+| 2 | Des collines — mais tout était mou, comme des coussins |
+| 3 | Des textures — mais elles s'étiraient sur les falaises |
+| 4 | Des contours à l'encre, des falaises en escalier |
+
+Quatre fois. Et ce n'est **toujours** pas fini.
+
+Chez Pixar, la première version d'une scène, c'est des blocs gris sans visage
+qui glissent les uns vers les autres. Ils la regardent comme ça pendant des
+mois. Un dessinateur commence par une patate et deux traits avant de faire un
+personnage. Personne ne casse les œufs et ne voit le gâteau apparaître.
+
+**Une ébauche est censée être moche.** C'est son travail. Si ta première
+version est déjà jolie, c'est mauvais signe : ça veut dire que tu n'as pas osé
+essayer grand-chose.
+
+Et la règle la plus importante de toutes :
+
+> **Un truc moche qui existe vaut mille fois mieux qu'un truc magnifique dans
+> ta tête.**
+
+Un truc moche, on peut le réparer. On peut le montrer à quelqu'un. On peut y
+jouer. Un truc qui n'existe pas, on ne peut rien en faire.
+
+## 3. Alors, on fait quoi de cette envie ?
+
+Cette envie que ça soit plus beau, elle est très bonne. Il faut juste la
+diriger au bon endroit. Essaie de la transformer en **« plus amusant »** :
+
+- Le coffre fait-il un bruit qui donne envie de l'ouvrir ?
+- Quand on tue un monstre, est-ce qu'il explose joliment ?
+- Y a-t-il un secret derrière un buisson, quelque part ?
+- Est-ce qu'on comprend où aller sans que personne ne l'explique ?
+
+Chacune de ces choses prend cinq minutes et rend le jeu **beaucoup** meilleur.
+Refaire tous les graphismes en réaliste prendrait cinq ans et rendrait le jeu
+moins bien.
+
+Et quand tu feras essayer ton jeu à un copain, écoute bien ce qu'il dira.
+Il ne dira jamais : « l'herbe ne fait pas assez vraie ».
+Il dira : « j'ai pas compris où il fallait aller » — et **ça**, c'est le vrai
+problème à régler.
+
+
 ## 🆘 Ça ne marche plus !
 
 | Ce qui se passe | Ce qu'il faut vérifier |

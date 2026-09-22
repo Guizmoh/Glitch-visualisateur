@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maquette 3D — Village de Feuillebois</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌳</text></svg>">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0a12;
+               font-family: ui-monospace, Menlo, monospace; color: #fff; }
+  canvas { display: block; }
+
+  /* --- Interface facon Ocarina of Time -------------------------------- */
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .coeurs { position: absolute; top: 18px; left: 20px; display: flex; gap: 3px; }
+  .coeurs canvas { width: 26px; height: 26px; image-rendering: pixelated;
+                   filter: drop-shadow(0 2px 2px rgba(0,0,0,.6)); }
+  .rubis { position: absolute; bottom: 20px; left: 22px; display: flex; align-items: center; gap: 6px;
+           font-size: 22px; letter-spacing: 2px; text-shadow: 0 2px 3px #000; }
+  .rubis canvas { width: 26px; height: 26px; image-rendering: pixelated; }
+  .boutons { position: absolute; top: 16px; right: 22px; display: flex; flex-direction: column;
+             align-items: center; gap: 10px; }
+  .rond { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center;
+          justify-content: center; font-weight: 700; font-size: 15px; letter-spacing: 1px;
+          border: 2px solid rgba(255,255,255,.75); box-shadow: 0 3px 8px rgba(0,0,0,.5); }
+  .rond.b { background: rgba(46,168,84,.85); }
+  .rond.a { background: rgba(70,130,220,.85); }
+  .cbuttons { display: flex; gap: 6px; }
+  .rond.c { width: 34px; height: 34px; background: rgba(240,200,60,.85); color: #3a2c00; font-size: 12px; }
+  .titre { position: absolute; top: 40%; left: 0; right: 0; text-align: center;
+           font-size: 34px; letter-spacing: 4px; text-shadow: 0 3px 10px rgba(0,0,0,.8);
+           color: #ffeeb0; animation: fondu 6s ease forwards; }
+  .titre small { display: block; font-size: 13px; letter-spacing: 2px; color: #cfe8ff; margin-top: 8px; }
+  @keyframes fondu { 0%,55% { opacity: 1; } 100% { opacity: 0; } }
+  .aide { position: absolute; bottom: 18px; right: 22px; font-size: 11px; color: #cfe8ff;
+          opacity: .75; text-align: right; line-height: 1.7; text-shadow: 0 1px 2px #000; }
+  .retour { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); font-size: 11px;
+            color: #cfe8ff; opacity: .6; text-decoration: none; z-index: 5; }
+</style>
+</head>
+<body>
+
+<div class="hud">
+  <div class="coeurs" id="coeurs"></div>
+  <div class="rubis"><canvas id="icone-rubis"></canvas><span>000</span></div>
+  <div class="boutons">
+    <div class="rond b">B</div>
+    <div class="cbuttons">
+      <div class="rond c">C</div>
+      <div class="rond c">C</div>
+      <div class="rond c">C</div>
+    </div>
+    <div class="rond a">A</div>
+  </div>
+  <div class="titre">Village de Feuillebois<small>Maquette 3D — ce que donnerait le jeu en vue Ocarina of Time</small></div>
+  <div class="aide">Fleches / ZQSD : marcher<br>A / E : tourner la camera</div>
+</div>
+<a class="retour" href="index.html">← revenir au jeu 2D</a>
+
+<script type="module">
+/* =========================================================================
+   maquette-3d.html — À QUOI RESSEMBLERAIT LE JEU EN 3D ?
+   Cette page n'est PAS le moteur : c'est une maquette. Elle relit les
+   MEMES donnees que le jeu 2D (la carte du village dans contenu/cartes.js,
+   les couleurs des tuiles, les sprites du HUD) et les affiche en volume,
+   dans l'esprit des jeux N64 : peu de polygones, textures minuscules,
+   brouillard pour cacher l'horizon.
+   ========================================================================= */
+
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { CARTES } from './src/contenu/cartes.js';
+import { TUILES } from './src/contenu/tuiles.js';
+import { fabriquerTuile, Atlas } from './src/noyau/pixels.js';
+import { SPRITES, PALETTE } from './src/contenu/sprites.js';
+
+const SALLE = CARTES.village;
+const GRILLE = SALLE.decor.map((ligne) => ligne.split(''));
+const LARGEUR = GRILLE[0].length;
+const PROFONDEUR = GRILLE.length;
+const CASE = 2; // une case du jeu 2D = 2 unites en 3D
+
+/* ---------------------------------------------------------------- Scene */
+const scene = new THREE.Scene();
+const COULEUR_HORIZON = 0xbfe4f5;
+scene.fog = new THREE.Fog(COULEUR_HORIZON, 22, 70); // le brouillard typique du N64
+
+// Un ciel degrade : une grosse sphere peinte de l'interieur.
+const ciel = new THREE.Mesh(
+  new THREE.SphereGeometry(120, 24, 16),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: {
+      hautCiel: { value: new THREE.Color(0x4a9fd8) },
+      basCiel: { value: new THREE.Color(COULEUR_HORIZON) },
+    },
+    vertexShader: 'varying vec3 pos; void main(){ pos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: 'uniform vec3 hautCiel; uniform vec3 basCiel; varying vec3 pos;'
+      + 'void main(){ float h = clamp(pos.y / 60.0 + 0.15, 0.0, 1.0);'
+      + 'gl_FragColor = vec4(mix(basCiel, hautCiel, h), 1.0); }',
+  })
+);
+scene.add(ciel);
+
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 200);
+const rendu = new THREE.WebGLRenderer({ antialias: true });
+rendu.setSize(innerWidth, innerHeight);
+rendu.setPixelRatio(Math.min(devicePixelRatio, 2));
+rendu.shadowMap.enabled = true;
+rendu.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.append(rendu.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  rendu.setSize(innerWidth, innerHeight);
+});
+
+/* -------------------------------------------------------------- Lumiere */
+scene.add(new THREE.HemisphereLight(0xcfe9ff, 0x4a7a3a, 1.0));
+const soleil = new THREE.DirectionalLight(0xfff2cc, 1.7);
+soleil.position.set(34, 26, 2);
+soleil.castShadow = true;
+soleil.shadow.mapSize.set(2048, 2048);
+soleil.shadow.bias = -0.0015;
+// La "boite d'ombre" doit englober le village, sinon aucune ombre ne s'affiche.
+const zone = soleil.shadow.camera;
+zone.left = -26; zone.right = 26; zone.top = 26; zone.bottom = -26; zone.near = 1; zone.far = 90;
+zone.updateProjectionMatrix();
+soleil.target.position.set(20, 0, 12);
+scene.add(soleil, soleil.target);
+
+/* -------------------------------------------- Textures venues du jeu 2D */
+function texture(symbole, repetitions = 1) {
+  const canvas = fabriquerTuile(TUILES[symbole], 16, symbole.charCodeAt(0));
+  const t = new THREE.CanvasTexture(canvas);
+  t.magFilter = THREE.NearestFilter;         // gros pixels, comme sur N64
+  t.minFilter = THREE.NearestMipmapLinearFilter;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(repetitions, repetitions);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/* ----------------------------------------------------------------- Sol  */
+const sol = new THREE.Mesh(
+  new THREE.PlaneGeometry(LARGEUR * CASE, PROFONDEUR * CASE),
+  new THREE.MeshLambertMaterial({ map: texture('.', LARGEUR) })
+);
+sol.rotation.x = -Math.PI / 2;
+sol.position.set((LARGEUR * CASE) / 2, 0, (PROFONDEUR * CASE) / 2);
+sol.receiveShadow = true;
+scene.add(sol);
+
+// L'herbe deborde au loin pour que l'horizon ne soit pas coupe net.
+const lointain = new THREE.Mesh(
+  new THREE.PlaneGeometry(400, 400),
+  new THREE.MeshLambertMaterial({ color: 0x3f7f3a })
+);
+lointain.rotation.x = -Math.PI / 2;
+lointain.position.set(20, -0.05, 12);
+scene.add(lointain);
+
+// Quelques collines au loin, juste pour que l'horizon respire.
+const matColline = new THREE.MeshLambertMaterial({ color: 0x2f6b34, flatShading: true });
+for (let i = 0; i < 14; i++) {
+  const angle = (i / 14) * Math.PI * 2;
+  const rayon = 52 + Math.random() * 16;
+  const colline = new THREE.Mesh(new THREE.ConeGeometry(9 + Math.random() * 7, 5 + Math.random() * 6, 5), matColline);
+  colline.position.set(20 + Math.cos(angle) * rayon, 0, 12 + Math.sin(angle) * rayon);
+  scene.add(colline);
+}
+
+/* ------------------------------------------------- Briques du decor 3D */
+const materiaux = {
+  chemin: new THREE.MeshLambertMaterial({ map: texture(':', 1) }),
+  pierre: new THREE.MeshLambertMaterial({ map: texture('#', 1) }),
+  ecorce: new THREE.MeshLambertMaterial({ color: 0x6b4423 }),
+  feuillage: new THREE.MeshLambertMaterial({ color: 0x2f7d3a, flatShading: true }),
+  feuillage2: new THREE.MeshLambertMaterial({ color: 0x3f9a45, flatShading: true }),
+  buisson: new THREE.MeshLambertMaterial({ color: 0x357f36, flatShading: true }),
+  rocher: new THREE.MeshLambertMaterial({ color: 0x8b8f9c, flatShading: true }),
+  fleur: new THREE.MeshLambertMaterial({ color: 0xf2c14b }),
+  bois: new THREE.MeshLambertMaterial({ color: 0x8b5a3c }),
+  or: new THREE.MeshLambertMaterial({ color: 0xe0b34a }),
+};
+
+const geos = {
+  tronc: new THREE.CylinderGeometry(0.22, 0.34, 2.0, 6),
+  houppier: new THREE.IcosahedronGeometry(1.15, 0),
+  houppierHaut: new THREE.IcosahedronGeometry(0.8, 0),
+  buisson: new THREE.IcosahedronGeometry(0.62, 0),
+  rocher: new THREE.DodecahedronGeometry(0.62, 0),
+  mur: new THREE.BoxGeometry(CASE, 2.4, CASE),
+  fleur: new THREE.SphereGeometry(0.08, 5, 4),
+};
+
+function poser(objet, col, ligne, y = 0) {
+  objet.position.set(col * CASE + CASE / 2, y, ligne * CASE + CASE / 2);
+  scene.add(objet);
+  return objet;
+}
+
+function arbre(col, ligne) {
+  const groupe = new THREE.Group();
+  const tronc = new THREE.Mesh(geos.tronc, materiaux.ecorce);
+  tronc.position.y = 1;
+  tronc.castShadow = true;
+  const bas = new THREE.Mesh(geos.houppier, materiaux.feuillage);
+  bas.position.y = 2.4;
+  bas.scale.set(1, 0.85, 1);
+  bas.castShadow = true;
+  const haut = new THREE.Mesh(geos.houppierHaut, materiaux.feuillage2);
+  haut.position.y = 3.3;
+  haut.castShadow = true;
+  groupe.add(tronc, bas, haut);
+  groupe.rotation.y = Math.random() * Math.PI;
+  groupe.scale.setScalar(0.85 + Math.random() * 0.35);
+  return poser(groupe, col, ligne);
+}
+
+/* ------------------------------------------- Construction depuis la carte */
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    const lettre = GRILLE[ligne][col];
+    switch (lettre) {
+      case 'T': arbre(col, ligne); break;
+      case 'o': {
+        const b = new THREE.Mesh(geos.buisson, materiaux.buisson);
+        b.castShadow = true; b.scale.set(1, 0.8, 1);
+        poser(b, col, ligne, 0.45);
+        break;
+      }
+      case '%': {
+        const r = new THREE.Mesh(geos.rocher, materiaux.rocher);
+        r.castShadow = true; r.rotation.set(Math.random(), Math.random(), Math.random());
+        poser(r, col, ligne, 0.5);
+        break;
+      }
+      case '#': case 'W': {
+        const m = new THREE.Mesh(geos.mur, materiaux.pierre);
+        m.castShadow = true; m.receiveShadow = true;
+        poser(m, col, ligne, 1.2);
+        break;
+      }
+      case ':': {
+        const dalle = new THREE.Mesh(new THREE.PlaneGeometry(CASE, CASE), materiaux.chemin);
+        dalle.rotation.x = -Math.PI / 2;
+        dalle.receiveShadow = true;
+        poser(dalle, col, ligne, 0.02);
+        break;
+      }
+      case ',': {
+        for (let i = 0; i < 5; i++) {
+          const f = new THREE.Mesh(geos.fleur, materiaux.fleur);
+          f.position.set(
+            col * CASE + Math.random() * CASE,
+            0.12,
+            ligne * CASE + Math.random() * CASE
+          );
+          scene.add(f);
+        }
+        break;
+      }
+      default: break;
+    }
+  }
+}
+
+/* ------------------------------------------------------- Les personnages */
+function personnage({ tunique, cheveux = 0xf3d264, chapeau = null, peau = 0xf7c9a3, taille = 1 }) {
+  const g = new THREE.Group();
+  const matTunique = new THREE.MeshLambertMaterial({ color: tunique });
+  const matPeau = new THREE.MeshLambertMaterial({ color: peau });
+
+  const jambeG = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.5, 0.18), new THREE.MeshLambertMaterial({ color: 0x6b4a2f }));
+  jambeG.position.set(-0.11, 0.25, 0);
+  const jambeD = jambeG.clone();
+  jambeD.position.x = 0.11;
+
+  const corps = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.36, 0.62, 8), matTunique);
+  corps.position.y = 0.8;
+  corps.castShadow = true;
+
+  const brasG = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.42, 6), matPeau);
+  brasG.position.set(-0.3, 0.82, 0);
+  brasG.rotation.z = 0.28;
+  const brasD = brasG.clone();
+  brasD.position.x = 0.3;
+  brasD.rotation.z = -0.28;
+
+  const tete = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), matPeau);
+  tete.position.y = 1.3;
+  tete.castShadow = true;
+
+  const nuque = new THREE.Mesh(new THREE.SphereGeometry(0.25, 10, 8), new THREE.MeshLambertMaterial({ color: cheveux }));
+  nuque.position.set(0, 1.32, -0.05);
+  nuque.scale.set(1, 0.85, 0.85);
+
+  // Deux yeux et des oreilles pointues : c'est peu de chose, mais sans ca
+  // un personnage low-poly n'a pas de visage.
+  const matOeil = new THREE.MeshBasicMaterial({ color: 0x21243a });
+  for (const cote of [-1, 1]) {
+    const oeil = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), matOeil);
+    oeil.position.set(0.085 * cote, 1.33, 0.215);
+    g.add(oeil);
+    const oreille = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.2, 4), matPeau);
+    oreille.position.set(0.235 * cote, 1.34, 0.02);
+    oreille.rotation.z = -0.9 * cote;
+    g.add(oreille);
+  }
+
+  g.add(jambeG, jambeD, corps, brasG, brasD, nuque, tete);
+
+  if (chapeau) {
+    // On decale la geometrie pour que la BASE du cone soit a l'origine :
+    // sinon la moitie du bonnet retombe sur le visage.
+    const formeBonnet = new THREE.ConeGeometry(0.26, 0.85, 8).translate(0, 0.42, 0);
+    const bonnet = new THREE.Mesh(formeBonnet, new THREE.MeshLambertMaterial({ color: chapeau }));
+    // Le bonnet retombe DANS LE DOS (c'est tout le look).
+    bonnet.position.set(0, 1.38, -0.04);
+    bonnet.rotation.x = -1.15;
+    bonnet.castShadow = true;
+    g.add(bonnet);
+  }
+  g.scale.setScalar(taille);
+  g.userData.bras = [brasG, brasD];
+  g.userData.jambes = [jambeG, jambeD];
+  return g;
+}
+
+/* Le heros, avec son epee et son bouclier dans le dos */
+const heros = personnage({ tunique: 0x3fae55, chapeau: 0x3fae55 });
+const bouclier = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.16, 0.6, 6, 1, false),
+  new THREE.MeshLambertMaterial({ color: 0x3f63b5, flatShading: true }));
+bouclier.position.set(0, 0.9, -0.33);
+bouclier.rotation.x = Math.PI / 2;
+bouclier.castShadow = true;
+const blason = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.1, 0.36, 6, 1, false),
+  new THREE.MeshLambertMaterial({ color: 0xd3d8e2, flatShading: true }));
+blason.position.set(0, 0.95, -0.38);
+blason.rotation.x = Math.PI / 2;
+const fourreau = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.66, 0.09),
+  new THREE.MeshLambertMaterial({ color: 0x5b4636 }));
+fourreau.position.set(-0.2, 1.05, -0.3);
+fourreau.rotation.z = -0.4;
+const poignee = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.22, 0.07), materiaux.or);
+poignee.position.set(-0.32, 1.42, -0.33);
+poignee.rotation.z = -0.4;
+heros.add(bouclier, blason, fourreau, poignee);
+heros.position.set(9.4 * CASE, 0, 8.4 * CASE);
+scene.add(heros);
+
+/* Les villageois, aux memes endroits que dans le jeu 2D */
+for (const e of SALLE.entites) {
+  if (e.type !== 'pnj') continue;
+  const estSage = e.dialogue === 'sage';
+  const pnj = personnage({
+    tunique: estSage ? 0x8a5ad9 : 0x4a90d9,
+    cheveux: estSage ? 0xf4f1de : 0x8b5a3c,
+    taille: estSage ? 1.05 : 0.95,
+  });
+  pnj.position.set(e.x * CASE + CASE / 2, 0, e.y * CASE + CASE / 2);
+  pnj.rotation.y = Math.PI;
+  scene.add(pnj);
+}
+
+/* Le coffre du village */
+const coffreDonnees = SALLE.entites.find((e) => e.type === 'coffre');
+if (coffreDonnees) {
+  const coffre = new THREE.Group();
+  const caisse = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.7, 0.8), materiaux.bois);
+  caisse.position.y = 0.35;
+  caisse.castShadow = true;
+  const couvercle = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.28, 0.85),
+    new THREE.MeshLambertMaterial({ color: 0xa9763f }));
+  couvercle.position.y = 0.82;
+  couvercle.castShadow = true;
+  const serrure = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.22, 0.06), materiaux.or);
+  serrure.position.set(0, 0.6, 0.43);
+  coffre.add(caisse, couvercle, serrure);
+  coffre.position.set(coffreDonnees.x * CASE + CASE / 2, 0, coffreDonnees.y * CASE + CASE / 2);
+  scene.add(coffre);
+}
+
+/* Le panneau */
+const panneauDonnees = SALLE.entites.find((e) => e.type === 'panneau');
+if (panneauDonnees) {
+  const p = new THREE.Group();
+  const poteau = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 1, 6), materiaux.bois);
+  poteau.position.y = 0.5;
+  const planche = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.6, 0.08),
+    new THREE.MeshLambertMaterial({ color: 0xc08552 }));
+  planche.position.y = 1.05;
+  planche.castShadow = true;
+  p.add(poteau, planche);
+  p.position.set(panneauDonnees.x * CASE + CASE / 2, 0, panneauDonnees.y * CASE + CASE / 2);
+  scene.add(p);
+}
+
+/* ----------------------------------------- HUD : les sprites du jeu 2D  */
+const atlas = new Atlas(PALETTE);
+for (const [nom, motif] of Object.entries(SPRITES)) atlas.ajouterMotif(nom, motif);
+function collerSprite(parent, nom) {
+  const source = atlas.image(nom);
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width;
+  canvas.height = source.height;
+  canvas.getContext('2d').drawImage(source, 0, 0);
+  parent.append(canvas);
+}
+const conteneurCoeurs = document.getElementById('coeurs');
+for (let i = 0; i < 3; i++) collerSprite(conteneurCoeurs, 'coeur');
+const iconeRubis = document.getElementById('icone-rubis');
+iconeRubis.width = iconeRubis.height = 8;
+iconeRubis.getContext('2d').drawImage(atlas.image('rubis'), 0, 0);
+
+/* ------------------------------------------------- Deplacement + camera */
+const touches = new Set();
+addEventListener('keydown', (e) => touches.add(e.code));
+addEventListener('keyup', (e) => touches.delete(e.code));
+
+let angleCamera = 0;
+let distanceCamera = 8.5;
+let hauteurCamera = 4.6;
+const cible = new THREE.Vector3();
+
+function estSolide(x, z) {
+  const col = Math.floor(x / CASE);
+  const ligne = Math.floor(z / CASE);
+  if (col < 0 || ligne < 0 || col >= LARGEUR || ligne >= PROFONDEUR) return true;
+  const def = TUILES[GRILLE[ligne][col]];
+  return !!(def && def.solide);
+}
+
+const horloge = new THREE.Clock();
+function animer() {
+  requestAnimationFrame(animer);
+  const dt = Math.min(horloge.getDelta(), 0.05);
+  const t = horloge.getElapsedTime();
+
+  if (touches.has('KeyA')) angleCamera -= dt * 1.4;
+  if (touches.has('KeyE')) angleCamera += dt * 1.4;
+
+  let avant = 0;
+  let cote = 0;
+  if (touches.has('ArrowUp') || touches.has('KeyW') || touches.has('KeyZ')) avant += 1;
+  if (touches.has('ArrowDown') || touches.has('KeyS')) avant -= 1;
+  if (touches.has('ArrowLeft') || touches.has('KeyQ')) cote -= 1;
+  if (touches.has('ArrowRight') || touches.has('KeyD')) cote += 1;
+
+  const bouge = avant !== 0 || cote !== 0;
+  if (bouge) {
+    const direction = Math.atan2(cote, avant) + angleCamera;
+    const vitesse = 4.4 * dt;
+    const dx = Math.sin(direction) * vitesse;
+    const dz = Math.cos(direction) * vitesse;
+    if (!estSolide(heros.position.x + dx * 3, heros.position.z)) heros.position.x += dx;
+    if (!estSolide(heros.position.x, heros.position.z + dz * 3)) heros.position.z += dz;
+    // Le heros pivote doucement vers sa direction de marche.
+    const cibleAngle = direction;
+    heros.rotation.y += Math.atan2(Math.sin(cibleAngle - heros.rotation.y), Math.cos(cibleAngle - heros.rotation.y)) * 0.2;
+  }
+
+  // Balancement des bras et des jambes
+  const cadence = bouge ? Math.sin(t * 11) : Math.sin(t * 1.6) * 0.15;
+  heros.userData.jambes[0].rotation.x = cadence * 0.7;
+  heros.userData.jambes[1].rotation.x = -cadence * 0.7;
+  heros.userData.bras[0].rotation.x = -cadence * 0.6;
+  heros.userData.bras[1].rotation.x = cadence * 0.6;
+  heros.position.y = bouge ? Math.abs(Math.sin(t * 11)) * 0.05 : 0;
+
+  // Camera facon Ocarina : un peu en hauteur, derriere l'epaule
+  cible.copy(heros.position);
+  camera.position.lerp(new THREE.Vector3(
+    cible.x - Math.sin(angleCamera) * distanceCamera,
+    cible.y + hauteurCamera,
+    cible.z - Math.cos(angleCamera) * distanceCamera
+  ), 0.1);
+  camera.lookAt(cible.x, cible.y + 1.3, cible.z);
+
+  rendu.render(scene, camera);
+}
+animer();
+window.maquette = { scene, camera, heros, rendu, reglerCamera: (a, d, h = 4.6) => { angleCamera = a; distanceCamera = d; hauteurCamera = h; } };
+</script>
+</body>
+</html>

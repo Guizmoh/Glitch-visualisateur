@@ -11,6 +11,7 @@ Tout — code, commentaires, noms de variables — est en français.
 |---|---|
 | **Jouer** | `index.html` |
 | **Dessiner des cartes** | `editeur.html` |
+| **Voir la même carte en 3D** | `maquette-3d.html` |
 | **Premiers pas (enfant)** | [GUIDE-ENFANT.md](GUIDE-ENFANT.md) |
 | **Recettes (« comment faire … ? »)** | [RECETTES.md](RECETTES.md) |
 
@@ -36,6 +37,17 @@ npx http-server -p 8000
 Dans VS Code, l'extension **Live Server** fait la même chose en un clic.
 Une fois publié sur GitHub Pages, le jeu est directement accessible à
 l'adresse `…/moteur/`.
+
+### La maquette 3D
+
+`maquette-3d.html` n'est pas le moteur : c'est une **maquette**, pour montrer
+à quoi ressemblerait le jeu en vue Ocarina of Time. Elle relit les mêmes
+données que le jeu 2D (la carte du village dans `contenu/cartes.js`, les
+couleurs des tuiles, les sprites du HUD) et les affiche en volume, en
+low-poly N64 : brouillard, textures 16×16 en filtrage « plus proche voisin »,
+ciel dégradé. On s'y promène avec les flèches, A et E tournent la caméra.
+Elle charge Three.js depuis un CDN — c'est la seule partie du projet qui
+dépend d'Internet.
 
 ### Raccourcis utiles
 

@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maquette 3D détaillée — Plaine de Feuillebois</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⛰️</text></svg>">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0a12;
+               font-family: ui-monospace, Menlo, monospace; color: #fff; }
+  canvas { display: block; }
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .vignette { position: absolute; inset: 0;
+              background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.42) 100%); }
+  .coeurs { position: absolute; top: 22px; left: 26px; display: flex; gap: 2px; }
+  .coeurs canvas { width: 22px; height: 22px; image-rendering: pixelated;
+                   filter: drop-shadow(0 2px 3px rgba(0,0,0,.7)); }
+  .endurance { position: absolute; bottom: 74px; right: 90px; width: 74px; height: 74px; }
+  .endurance svg { transform: rotate(-90deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+  .boussole { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+              display: flex; gap: 26px; font-size: 12px; letter-spacing: 3px; opacity: .8;
+              text-shadow: 0 2px 4px #000; }
+  .boussole b { color: #ffd98a; }
+  .titre { position: absolute; top: 38%; left: 0; right: 0; text-align: center; }
+  .titre span { font-size: 15px; letter-spacing: 8px; color: #ffe9b8; text-transform: uppercase;
+                text-shadow: 0 3px 12px rgba(0,0,0,.9); }
+  .titre h1 { margin: 10px 0 0; font-size: 40px; font-weight: 400; letter-spacing: 6px;
+              color: #fff8e6; text-shadow: 0 4px 16px rgba(0,0,0,.9); }
+  .titre { animation: fondu 8s ease forwards; }
+  @keyframes fondu { 0%,55% { opacity: 1; } 100% { opacity: 0; } }
+  .aide { position: absolute; bottom: 20px; right: 24px; font-size: 11px; opacity: .6;
+          text-align: right; line-height: 1.8; text-shadow: 0 1px 3px #000; }
+  .retour { position: fixed; top: 16px; right: 24px; font-size: 11px; color: #cfe8ff;
+            opacity: .55; text-decoration: none; z-index: 5; }
+  .chargement { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+                background: #0b0a12; font-size: 13px; letter-spacing: 2px; color: #ffd98a; z-index: 9; }
+</style>
+</head>
+<body>
+
+<div class="chargement" id="chargement">SCULPTURE DU TERRAIN…</div>
+
+<div class="hud">
+  <div class="vignette"></div>
+  <div class="coeurs" id="coeurs"></div>
+  <div class="endurance">
+    <svg viewBox="0 0 74 74" width="74" height="74">
+      <circle cx="37" cy="37" r="30" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="7"/>
+      <circle cx="37" cy="37" r="30" fill="none" stroke="#9fe870" stroke-width="7"
+              stroke-linecap="round" stroke-dasharray="188" stroke-dashoffset="34"/>
+    </svg>
+  </div>
+  <div class="boussole"><span>O</span><b>N</b><span>E</span></div>
+  <div class="titre"><span>Plaine de</span><h1>Feuillebois</h1></div>
+  <div class="aide">Fleches / ZQSD : marcher · Maj : courir<br>A / E : tourner · R / F : hauteur de camera</div>
+</div>
+<a class="retour" href="index.html">← le jeu 2D</a>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+/* =========================================================================
+   maquette-3d-detaillee.html — JUSQU'OU PEUT-ON POUSSER LE RENDU ?
+   Meme carte que le jeu 2D, mais avec les techniques qui donnent aux jeux
+   modernes leur cachet :
+     - un TERRAIN sculpte par du bruit (fBm), pas un plan plat
+     - de l'HERBE en dizaines de milliers de brins, agitee par le vent
+     - un CIEL calcule par un shader (degrade, halo solaire, nuages)
+     - un eclairage d'heure doree, des ombres douces, du brouillard aerien
+     - un ombrage CEL (a bandes) + lumiere de contour sur les personnages
+     - une exposition cinema (tone mapping ACES)
+   Tout est genere par le code : aucune texture, aucun modele 3D telecharge.
+   ========================================================================= */
+
+import * as THREE from 'three';
+import { CARTES } from './src/contenu/cartes.js';
+import { TUILES } from './src/contenu/tuiles.js';
+import { Atlas, creerCanvas } from './src/noyau/pixels.js';
+import { SPRITES, PALETTE } from './src/contenu/sprites.js';
+
+/* ===================================================================== */
+/* 1. BRUIT — la base de tout paysage genere                             */
+/* ===================================================================== */
+
+function alea(x, y) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function bruitDouux(x, y) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = alea(xi, yi);
+  const b = alea(xi + 1, yi);
+  const c = alea(xi, yi + 1);
+  const d = alea(xi + 1, yi + 1);
+  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+}
+
+/** fBm : on empile plusieurs bruits de plus en plus fins. */
+function fbm(x, y, octaves = 5) {
+  let valeur = 0;
+  let amplitude = 0.5;
+  let frequence = 1;
+  for (let i = 0; i < octaves; i++) {
+    valeur += bruitDouux(x * frequence, y * frequence) * amplitude;
+    amplitude *= 0.5;
+    frequence *= 2;
+  }
+  return valeur;
+}
+
+/* ===================================================================== */
+/* 2. LE TERRAIN                                                         */
+/* ===================================================================== */
+
+const SALLE = CARTES.village;
+const GRILLE = SALLE.decor.map((l) => l.split(''));
+const LARGEUR = GRILLE[0].length;
+const PROFONDEUR = GRILLE.length;
+const CASE = 2.4;
+const CENTRE = new THREE.Vector2((LARGEUR * CASE) / 2, (PROFONDEUR * CASE) / 2);
+const RAYON_VILLAGE = 30;
+const TAILLE_MONDE = 320;
+
+/** Hauteur du sol en tout point. Le village, lui, reste bien plat. */
+function hauteurTerrain(x, z) {
+  const collines = (fbm(x * 0.008, z * 0.008, 5) - 0.5) * 46;
+  const relief = (fbm(x * 0.035, z * 0.035, 3) - 0.5) * 3.2;
+  let h = collines + relief;
+  // Aplatissement progressif autour du village.
+  const d = Math.hypot(x - CENTRE.x, z - CENTRE.y);
+  const melange = THREE.MathUtils.smoothstep(d, RAYON_VILLAGE * 0.45, RAYON_VILLAGE * 1.5);
+  h *= 0.1 + 0.9 * melange; // le village reste jouable, sans etre une crepe
+  // Bosses fines partout : c'est ce qui empeche le sol de paraitre lisse.
+  h += (fbm(x * 0.12, z * 0.12, 2) - 0.5) * 0.55;
+  return h;
+}
+
+function normaleTerrain(x, z, pas = 0.6) {
+  const hx = hauteurTerrain(x + pas, z) - hauteurTerrain(x - pas, z);
+  const hz = hauteurTerrain(x, z + pas) - hauteurTerrain(x, z - pas);
+  return new THREE.Vector3(-hx, 2 * pas, -hz).normalize();
+}
+
+/* ===================================================================== */
+/* 3. SCENE, CAMERA, RENDU                                               */
+/* ===================================================================== */
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.25, 900);
+
+const rendu = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+rendu.setSize(innerWidth, innerHeight);
+rendu.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+rendu.shadowMap.enabled = true;
+rendu.shadowMap.type = THREE.PCFSoftShadowMap;
+// Exposition facon cinema : c'est ce qui donne les belles hautes lumieres.
+rendu.toneMapping = THREE.ACESFilmicToneMapping;
+rendu.toneMappingExposure = 1.0;
+rendu.outputColorSpace = THREE.SRGBColorSpace;
+document.body.append(rendu.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  rendu.setSize(innerWidth, innerHeight);
+});
+
+/* --- Heure doree : le soleil est bas et chaud ------------------------ */
+const DIRECTION_SOLEIL = new THREE.Vector3(0.55, 0.24, -0.78).normalize();
+const COULEUR_SOLEIL = new THREE.Color(0xffd9a0);
+const COULEUR_HORIZON = new THREE.Color(0xf6d9b4);
+const COULEUR_BRUME = new THREE.Color(0xc7d9e8);
+
+scene.fog = new THREE.FogExp2(0xbfd4e4, 0.0052);
+
+const soleil = new THREE.DirectionalLight(COULEUR_SOLEIL, 2.35);
+soleil.position.copy(DIRECTION_SOLEIL).multiplyScalar(90);
+soleil.castShadow = true;
+soleil.shadow.mapSize.set(2048, 2048);
+soleil.shadow.bias = -0.0009;
+soleil.shadow.normalBias = 0.05;
+const boite = soleil.shadow.camera;
+boite.left = -34; boite.right = 34; boite.top = 34; boite.bottom = -34;
+boite.near = 1; boite.far = 220;
+boite.updateProjectionMatrix();
+scene.add(soleil, soleil.target);
+
+scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x516b40, 0.95));
+const appoint = new THREE.DirectionalLight(0x9ec8ff, 0.35); // lumiere du ciel, en contre
+appoint.position.set(-40, 30, 50);
+scene.add(appoint);
+
+/* ===================================================================== */
+/* 4. LE CIEL (shader maison)                                            */
+/* ===================================================================== */
+
+const ciel = new THREE.Mesh(
+  new THREE.SphereGeometry(600, 32, 24),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    uniforms: {
+      soleil: { value: DIRECTION_SOLEIL },
+      temps: { value: 0 },
+    },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vDir = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 soleil;
+      uniform float temps;
+      varying vec3 vDir;
+
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float bruit(vec2 p){
+        vec2 i = floor(p), f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1,0)), u.x),
+                   mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x), u.y);
+      }
+      float fbm(vec2 p){
+        float v = 0.0, a = 0.5;
+        for (int i = 0; i < 5; i++) { v += bruit(p) * a; p *= 2.02; a *= 0.5; }
+        return v;
+      }
+
+      void main() {
+        vec3 d = normalize(vDir);
+        float h = max(d.y, 0.0);
+
+        // Degrade : brume chaude en bas, bleu profond au zenith.
+        vec3 zenith  = vec3(0.16, 0.38, 0.72);
+        vec3 horizon = vec3(0.92, 0.82, 0.70);
+        vec3 couleur = mix(horizon, zenith, pow(h, 0.42));
+
+        // Halo puis disque solaire.
+        float s = max(dot(d, normalize(soleil)), 0.0);
+        couleur += vec3(1.0, 0.62, 0.30) * pow(s, 6.0) * 0.55;
+        couleur += vec3(1.0, 0.86, 0.62) * pow(s, 160.0) * 2.2;
+        couleur += vec3(1.0, 0.95, 0.85) * smoothstep(0.9995, 0.9999, s) * 8.0;
+
+        // Nuages : du fBm projete sur le dome, qui derive lentement.
+        if (d.y > 0.02) {
+          vec2 uv = d.xz / (d.y + 0.28) * 0.9 + vec2(temps * 0.004, temps * 0.002);
+          float n = fbm(uv * 1.4);
+          float nuage = smoothstep(0.52, 0.86, n) * smoothstep(0.02, 0.22, d.y);
+          vec3 tonNuage = mix(vec3(0.62, 0.60, 0.66), vec3(1.0, 0.94, 0.86), pow(s, 2.0) * 0.8 + 0.35);
+          couleur = mix(couleur, tonNuage, nuage * 0.82);
+        }
+        gl_FragColor = vec4(couleur, 1.0);
+      }`,
+  })
+);
+ciel.frustumCulled = false;
+scene.add(ciel);
+
+/* ===================================================================== */
+/* 5. MATIERES : ombrage cel + lumiere de contour                        */
+/* ===================================================================== */
+
+/**
+ * Ombrage "cel" : au lieu d'un degrade continu, la lumiere est decoupee en
+ * quelques bandes. Plus une lumiere de contour (rim light) qui detache le
+ * personnage du decor. C'est la recette des jeux stylises modernes.
+ */
+function matiereCel(couleur, options = {}) {
+  const { contour = 0.55, bandes = 3.0 } = options;
+  return new THREE.ShaderMaterial({
+    fog: true,
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      {
+        teinte: { value: new THREE.Color(couleur) },
+        soleil: { value: DIRECTION_SOLEIL },
+        couleurSoleil: { value: COULEUR_SOLEIL },
+        couleurCiel: { value: new THREE.Color(0x9ec8ff) },
+        forceContour: { value: contour },
+        nbBandes: { value: bandes },
+      },
+    ]),
+    vertexShader: `
+      varying vec3 vNormale;
+      varying vec3 vVersCamera;
+      #include <fog_pars_vertex>
+      void main() {
+        vNormale = normalize(normalMatrix * normal);
+        vec4 vueP = modelViewMatrix * vec4(position, 1.0);
+        vVersCamera = normalize(-vueP.xyz);
+        #include <begin_vertex>
+        #include <project_vertex>
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform vec3 teinte, soleil, couleurSoleil, couleurCiel;
+      uniform float forceContour, nbBandes;
+      varying vec3 vNormale;
+      varying vec3 vVersCamera;
+      #include <fog_pars_fragment>
+      void main() {
+        vec3 N = normalize(vNormale);
+        vec3 L = normalize((viewMatrix * vec4(soleil, 0.0)).xyz);
+        float diffus = max(dot(N, L), 0.0);
+        // On "escalier-ise" l'eclairage : c'est ca, le cel shading.
+        float bandes = floor(diffus * nbBandes + 0.35) / nbBandes;
+        vec3 couleur = teinte * (0.45 + 0.55 * bandes) * mix(vec3(1.0), couleurSoleil, 0.55);
+        // Lumiere du ciel par le dessus
+        couleur += teinte * couleurCiel * (0.5 + 0.5 * N.y) * 0.22;
+        // Lumiere de contour
+        float contour = pow(1.0 - max(dot(N, normalize(vVersCamera)), 0.0), 3.0);
+        couleur += couleurSoleil * contour * forceContour;
+        gl_FragColor = vec4(couleur, 1.0);
+        #include <fog_fragment>
+      }`,
+  });
+}
+
+/* ===================================================================== */
+/* 6. LES TEXTURES DU SOL (fabriquees pixel par pixel)                   */
+/* ===================================================================== */
+
+/** Bruit qui se raccorde parfaitement d'un bord a l'autre : la texture
+    peut donc etre repetee a l'infini sans coupure visible. */
+function bruitPeriodique(x, y, periode) {
+  const enroule = (v) => ((v % periode) + periode) % periode;
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = alea(enroule(xi), enroule(yi));
+  const b = alea(enroule(xi + 1), enroule(yi));
+  const c = alea(enroule(xi), enroule(yi + 1));
+  const d = alea(enroule(xi + 1), enroule(yi + 1));
+  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+}
+
+function fbmPeriodique(x, y, octaves = 4, periodeDepart = 4) {
+  let valeur = 0;
+  let amplitude = 0.5;
+  let periode = periodeDepart;
+  for (let i = 0; i < octaves; i++) {
+    valeur += bruitPeriodique(x * periode, y * periode, periode) * amplitude;
+    amplitude *= 0.5;
+    periode *= 2;
+  }
+  return valeur;
+}
+
+const TAILLE_TEXTURE = 256;
+
+function textureProcedurale(calculer) {
+  const { canvas, ctx } = creerCanvas(TAILLE_TEXTURE, TAILLE_TEXTURE);
+  const image = ctx.createImageData(TAILLE_TEXTURE, TAILLE_TEXTURE);
+  for (let y = 0; y < TAILLE_TEXTURE; y++) {
+    for (let x = 0; x < TAILLE_TEXTURE; x++) {
+      const [r, v, b] = calculer(x / TAILLE_TEXTURE, y / TAILLE_TEXTURE);
+      const i = (y * TAILLE_TEXTURE + x) * 4;
+      image.data[i] = r; image.data[i + 1] = v; image.data[i + 2] = b; image.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  const t = new THREE.CanvasTexture(canvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = rendu.capabilities.getMaxAnisotropy();
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Herbe : un fond vert module, plus de fines stries dans un sens.
+const texHerbe = textureProcedurale((u, v) => {
+  const touffes = fbmPeriodique(u, v, 4, 5);
+  const brins = bruitPeriodique(u * 64, v * 12, 64);
+  const sec = Math.pow(fbmPeriodique(u + 3.1, v + 7.7, 3, 3), 2);
+  const melange = touffes * 0.65 + brins * 0.35;
+  const r = 48 + melange * 92 + sec * 74;
+  const g = 84 + melange * 108 - sec * 6;
+  const b = 32 + melange * 48 + sec * 18;
+  return [r, g, b];
+});
+
+// Terre : brun, avec des cailloux clairs semes dedans.
+const texTerre = textureProcedurale((u, v) => {
+  const grain = fbmPeriodique(u, v, 5, 6);
+  const cailloux = bruitPeriodique(u * 40, v * 40, 40);
+  const pierre = cailloux > 0.86 ? (cailloux - 0.86) * 5 : 0;
+  const r = 104 + grain * 64 + pierre * 90;
+  const g = 80 + grain * 52 + pierre * 88;
+  const b = 54 + grain * 34 + pierre * 84;
+  return [r, g, b];
+});
+
+// Roche : gris froid, strie horizontalement comme un affleurement.
+const texRoche = textureProcedurale((u, v) => {
+  const strates = fbmPeriodique(u * 0.6, v * 3.0, 4, 4);
+  const fissures = Math.abs(bruitPeriodique(u * 18, v * 9, 18) - 0.5);
+  const sombre = fissures < 0.06 ? 0.55 : 1;
+  const base = (92 + strates * 78) * sombre;
+  return [base * 1.04, base * 1.01, base * 0.95];
+});
+
+/* ===================================================================== */
+/* 7. LE SOL                                                             */
+/* ===================================================================== */
+
+const SEGMENTS = 190;
+const geoTerrain = new THREE.PlaneGeometry(TAILLE_MONDE, TAILLE_MONDE, SEGMENTS, SEGMENTS);
+geoTerrain.rotateX(-Math.PI / 2);
+{
+  const pos = geoTerrain.attributes.position;
+  const couleurs = [];
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i) + CENTRE.x;
+    const z = pos.getZ(i) + CENTRE.y;
+    const h = hauteurTerrain(x, z);
+    pos.setXYZ(i, pos.getX(i), h, pos.getZ(i));
+    // La couleur des sommets ne sert plus qu'a nuancer : le detail vient
+    // des textures. Creux plus sombres, crêtes plus claires et plus chaudes.
+    const variation = fbm(x * 0.05, z * 0.05, 3);
+    const altitude = THREE.MathUtils.clamp(h / 22, -1, 1);
+    const luminosite = 0.82 + variation * 0.3 + altitude * 0.12;
+    c.setRGB(luminosite * 1.03, luminosite, luminosite * 0.93);
+    couleurs.push(c.r, c.g, c.b);
+  }
+  geoTerrain.setAttribute('color', new THREE.Float32BufferAttribute(couleurs, 3));
+  geoTerrain.computeVertexNormals();
+}
+/**
+ * Le materiau du sol. On part d'un materiau standard de three.js (pour
+ * garder gratuitement les ombres, le brouillard et les lumieres), et on
+ * greffe dedans notre melange de textures : herbe a plat, roche sur les
+ * pentes, terre par plaques. Chaque texture est plaquee DEUX FOIS, a deux
+ * echelles differentes : c'est l'astuce qui casse l'effet "papier peint".
+ */
+const matiereSol = new THREE.MeshLambertMaterial({ vertexColors: true });
+matiereSol.onBeforeCompile = (shader) => {
+  shader.uniforms.texHerbe = { value: texHerbe };
+  shader.uniforms.texTerre = { value: texTerre };
+  shader.uniforms.texRoche = { value: texRoche };
+
+  shader.vertexShader = `varying vec3 vMonde;\nvarying vec3 vNormaleMonde;\n${shader.vertexShader}`
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vMonde = (modelMatrix * vec4(transformed, 1.0)).xyz;
+      vNormaleMonde = normalize(mat3(modelMatrix) * normal);`);
+
+  shader.fragmentShader = `
+    uniform sampler2D texHerbe;
+    uniform sampler2D texTerre;
+    uniform sampler2D texRoche;
+    varying vec3 vMonde;
+    varying vec3 vNormaleMonde;
+    ${shader.fragmentShader}`
+    .replace('#include <color_fragment>', `#include <color_fragment>
+      vec2 uvLarge = vMonde.xz * 0.028;
+      vec2 uvFine  = vMonde.xz * 0.19;
+      vec3 herbe = mix(texture2D(texHerbe, uvLarge).rgb, texture2D(texHerbe, uvFine).rgb, 0.5);
+      vec3 terre = mix(texture2D(texTerre, uvLarge).rgb, texture2D(texTerre, uvFine).rgb, 0.5);
+      vec3 roche = mix(texture2D(texRoche, uvLarge * 0.5).rgb, texture2D(texRoche, uvFine * 0.5).rgb, 0.5);
+
+      float pente = 1.0 - clamp(vNormaleMonde.y, 0.0, 1.0);
+      float masqueRoche = smoothstep(0.16, 0.40, pente);
+      float plaques = texture2D(texTerre, vMonde.xz * 0.0055).r;
+      float masqueTerre = smoothstep(0.52, 0.78, plaques) * (1.0 - masqueRoche);
+
+      vec3 sol = mix(herbe, terre, masqueTerre * 0.85);
+      sol = mix(sol, roche, masqueRoche);
+      diffuseColor.rgb *= sol * 1.35;`);
+};
+
+const terrain = new THREE.Mesh(geoTerrain, matiereSol);
+terrain.position.set(CENTRE.x, 0, CENTRE.y);
+terrain.receiveShadow = true;
+scene.add(terrain);
+
+/* ===================================================================== */
+/* 8. L'HERBE — 34 000 brins agites par le vent                          */
+/* ===================================================================== */
+
+const NB_BRINS = 34000;
+const RAYON_HERBE = 30;
+
+const brin = new THREE.BufferGeometry();
+// Un brin = un losange etroit : 4 sommets, 2 triangles.
+brin.setAttribute('position', new THREE.Float32BufferAttribute([
+  -0.032, 0, 0, 0.032, 0, 0, -0.014, 0.46, 0, 0.014, 0.46, 0,
+], 3));
+brin.setIndex([0, 1, 2, 2, 1, 3]);
+
+const geoHerbe = new THREE.InstancedBufferGeometry();
+geoHerbe.index = brin.index;
+geoHerbe.attributes.position = brin.attributes.position;
+{
+  const decalages = new Float32Array(NB_BRINS * 3);
+  const variations = new Float32Array(NB_BRINS * 3);
+  let n = 0;
+  for (let i = 0; i < NB_BRINS; i++) {
+    // Disque autour du village, densite plus forte au centre.
+    const angle = Math.random() * Math.PI * 2;
+    const rayon = Math.sqrt(Math.random()) * RAYON_HERBE;
+    const x = CENTRE.x + Math.cos(angle) * rayon;
+    const z = CENTRE.y + Math.sin(angle) * rayon;
+    // Pas d'herbe sur les pentes trop raides ni sur les chemins.
+    const col = Math.floor(x / CASE);
+    const ligne = Math.floor(z / CASE);
+    const lettre = (GRILLE[ligne] && GRILLE[ligne][col]) || null;
+    if (lettre === ':' || lettre === 'T') continue;
+    decalages[n * 3] = x;
+    decalages[n * 3 + 1] = hauteurTerrain(x, z);
+    decalages[n * 3 + 2] = z;
+    variations[n * 3] = Math.random();
+    variations[n * 3 + 1] = Math.random() * Math.PI;
+    // Les brins raccourcissent vers le bord : sinon on voit un disque d'herbe.
+    variations[n * 3 + 2] = 1 - THREE.MathUtils.smoothstep(rayon, RAYON_HERBE * 0.62, RAYON_HERBE);
+    n++;
+  }
+  geoHerbe.instanceCount = n;
+  geoHerbe.setAttribute('decalage', new THREE.InstancedBufferAttribute(decalages.slice(0, n * 3), 3));
+  geoHerbe.setAttribute('variation', new THREE.InstancedBufferAttribute(variations.slice(0, n * 3), 3));
+}
+
+const matiereHerbe = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  fog: true,
+  uniforms: THREE.UniformsUtils.merge([
+    THREE.UniformsLib.fog,
+    {
+      temps: { value: 0 },
+      soleil: { value: DIRECTION_SOLEIL },
+      basHerbe: { value: new THREE.Color(0x3d6b28) },
+      hautHerbe: { value: new THREE.Color(0x93c750) },
+      couleurSoleil: { value: COULEUR_SOLEIL },
+    },
+  ]),
+  vertexShader: `
+    attribute vec3 decalage;
+    attribute vec3 variation;
+    uniform float temps;
+    varying float vHaut;
+    varying float vLumiere;
+    #include <fog_pars_vertex>
+    void main() {
+      vec3 p = position;
+      float haut = p.y / 0.46;
+      vHaut = haut;
+
+      // Chaque brin a sa taille et son orientation.
+      float echelle = (0.65 + variation.x * 0.85) * (0.15 + 0.85 * variation.z);
+      float angle = variation.y * 2.0;
+      float ca = cos(angle), sa = sin(angle);
+      p.xz = vec2(p.x * ca - p.z * sa, p.x * sa + p.z * ca);
+      p *= echelle;
+
+      // Le vent : deux ondes qui traversent la plaine.
+      float onde = sin(temps * 1.5 + decalage.x * 0.16 + decalage.z * 0.11)
+                 + sin(temps * 2.7 + decalage.z * 0.3) * 0.4;
+      float pliage = haut * haut * (0.42 + variation.x * 0.3);
+      p.x += onde * pliage;
+      p.z += onde * pliage * 0.5;
+
+      vec3 monde = p + decalage;
+      // Un brin pris de face capte plus de lumiere.
+      // Legere variation d'un brin a l'autre, mais aucun ne doit etre noir.
+      vLumiere = 0.78 + 0.22 * abs(sin(angle * 1.7));
+
+      // Le morceau <fog_vertex> de three.js attend une variable qui
+      // s'appelle exactement "mvPosition" : c'est pour ca qu'on la nomme ainsi.
+      vec4 mvPosition = modelViewMatrix * vec4(monde, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+      #include <fog_vertex>
+    }`,
+  fragmentShader: `
+    uniform vec3 basHerbe, hautHerbe, couleurSoleil;
+    varying float vHaut;
+    varying float vLumiere;
+    #include <fog_pars_fragment>
+    void main() {
+      vec3 couleur = mix(basHerbe, hautHerbe, vHaut * vHaut);
+      couleur *= (0.72 + 0.28 * vLumiere) * mix(vec3(1.0), couleurSoleil, 0.5);
+      gl_FragColor = vec4(couleur, 1.0);
+      #include <fog_fragment>
+    }`,
+});
+// Un truc de metier : sans ca, three.js retire l'herbe de l'ecran des que
+// le centre de l'objet sort du champ.
+const herbe = new THREE.Mesh(geoHerbe, matiereHerbe);
+herbe.frustumCulled = false;
+scene.add(herbe);
+
+/* ===================================================================== */
+/* 9. ARBRES, ROCHERS, BUISSONS (instancies)                             */
+/* ===================================================================== */
+
+function instancier(geometrie, matiere, placements, ombre = true) {
+  const maille = new THREE.InstancedMesh(geometrie, matiere, placements.length);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler();
+  const s = new THREE.Vector3();
+  placements.forEach((p, i) => {
+    e.set(0, p.rotation || 0, 0);
+    q.setFromEuler(e);
+    s.setScalar(p.echelle || 1);
+    m.compose(new THREE.Vector3(p.x, p.y, p.z), q, s);
+    maille.setMatrixAt(i, m);
+  });
+  maille.castShadow = ombre;
+  maille.receiveShadow = true;
+  maille.frustumCulled = false;
+  scene.add(maille);
+  return maille;
+}
+
+/* --- Ou poser les arbres ? Ceux de la carte, plus une foret alentour --- */
+const placementsArbres = [];
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    if (GRILLE[ligne][col] !== 'T') continue;
+    const x = col * CASE + CASE / 2;
+    const z = ligne * CASE + CASE / 2;
+    placementsArbres.push({ x, y: hauteurTerrain(x, z), z, rotation: Math.random() * 6.28, echelle: 0.9 + Math.random() * 0.5 });
+  }
+}
+// Une foret qui s'etend au-dela, semee par le bruit.
+for (let i = 0; i < 1400; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const rayon = 48 + Math.sqrt(Math.random()) * 110;
+  const x = CENTRE.x + Math.cos(angle) * rayon;
+  const z = CENTRE.y + Math.sin(angle) * rayon;
+  const densite = fbm(x * 0.012, z * 0.012, 3);
+  if (densite < 0.52) continue;                    // clairieres
+  if (normaleTerrain(x, z).y < 0.86) continue;     // pas sur les falaises
+  placementsArbres.push({ x, y: hauteurTerrain(x, z), z, rotation: Math.random() * 6.28, echelle: 0.8 + Math.random() * 0.9 });
+}
+
+const geoTronc = new THREE.CylinderGeometry(0.22, 0.4, 3.0, 7).translate(0, 1.5, 0);
+const geoFeuillage = new THREE.IcosahedronGeometry(1.18, 1);
+geoFeuillage.scale(1.05, 0.8, 1.05);
+geoFeuillage.translate(0, 3.5, 0);
+const geoFeuillage2 = new THREE.IcosahedronGeometry(0.82, 1).translate(0, 4.5, 0);
+
+instancier(geoTronc, matiereCel(0x6b5238, { contour: 0.15, bandes: 3 }), placementsArbres);
+instancier(geoFeuillage, matiereCel(0x35702b, { contour: 0.22, bandes: 3 }), placementsArbres);
+instancier(geoFeuillage2, matiereCel(0x498a2e, { contour: 0.26, bandes: 3 }), placementsArbres);
+
+/* --- Rochers --- */
+const placementsRochers = [];
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    if (GRILLE[ligne][col] !== '%') continue;
+    const x = col * CASE + CASE / 2;
+    const z = ligne * CASE + CASE / 2;
+    placementsRochers.push({ x, y: hauteurTerrain(x, z) + 0.4, z, rotation: Math.random() * 6.28, echelle: 0.9 + Math.random() * 0.4 });
+  }
+}
+for (let i = 0; i < 260; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const rayon = 26 + Math.sqrt(Math.random()) * 120;
+  const x = CENTRE.x + Math.cos(angle) * rayon;
+  const z = CENTRE.y + Math.sin(angle) * rayon;
+  placementsRochers.push({ x, y: hauteurTerrain(x, z) + 0.2, z, rotation: Math.random() * 6.28, echelle: 0.5 + Math.random() * 1.6 });
+}
+instancier(new THREE.DodecahedronGeometry(0.85, 0), matiereCel(0x9a9c9b, { contour: 0.18, bandes: 4 }), placementsRochers);
+
+/* --- Buissons --- */
+const placementsBuissons = [];
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    if (GRILLE[ligne][col] !== 'o') continue;
+    const x = col * CASE + CASE / 2;
+    const z = ligne * CASE + CASE / 2;
+    placementsBuissons.push({ x, y: hauteurTerrain(x, z) + 0.45, z, rotation: Math.random() * 6.28, echelle: 0.85 + Math.random() * 0.3 });
+  }
+}
+for (let i = 0; i < 420; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const rayon = 12 + Math.sqrt(Math.random()) * 70;
+  const x = CENTRE.x + Math.cos(angle) * rayon;
+  const z = CENTRE.y + Math.sin(angle) * rayon;
+  if (normaleTerrain(x, z).y < 0.9) continue;
+  placementsBuissons.push({ x, y: hauteurTerrain(x, z) + 0.4, z, rotation: Math.random() * 6.28, echelle: 0.6 + Math.random() * 0.7 });
+}
+instancier(new THREE.IcosahedronGeometry(0.75, 0), matiereCel(0x4b8a33, { contour: 0.45 }), placementsBuissons);
+
+/* ===================================================================== */
+/* 10. LE CHEMIN DU VILLAGE                                               */
+/* ===================================================================== */
+
+const matChemin = matiereCel(0xa07a4e, { contour: 0.12, bandes: 4 });
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    if (GRILLE[ligne][col] !== ':') continue;
+    const x = col * CASE + CASE / 2;
+    const z = ligne * CASE + CASE / 2;
+    const dalle = new THREE.Mesh(new THREE.CircleGeometry(CASE * 0.78, 7), matChemin);
+    dalle.rotation.x = -Math.PI / 2;
+    dalle.rotation.z = Math.random() * 3;
+    dalle.position.set(x, hauteurTerrain(x, z) + 0.06, z);
+    dalle.receiveShadow = true;
+    scene.add(dalle);
+  }
+}
+
+/* ===================================================================== */
+/* 11. UN LAC ET UNE TOUR AU LOIN (des points de repere)                 */
+/* ===================================================================== */
+
+const lac = new THREE.Mesh(
+  new THREE.CircleGeometry(34, 48),
+  new THREE.ShaderMaterial({
+    transparent: true,
+    fog: true,
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      { temps: { value: 0 }, soleil: { value: DIRECTION_SOLEIL } },
+    ]),
+    vertexShader: `
+      varying vec3 vMonde;
+      #include <fog_pars_vertex>
+      void main() {
+        vMonde = (modelMatrix * vec4(position, 1.0)).xyz;
+        #include <begin_vertex>
+        #include <project_vertex>
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform float temps;
+      uniform vec3 soleil;
+      varying vec3 vMonde;
+      #include <fog_pars_fragment>
+      void main() {
+        float rides = sin(vMonde.x * 1.6 + temps * 1.4) * 0.5
+                    + sin(vMonde.z * 2.1 - temps * 1.1) * 0.5;
+        vec3 profond = vec3(0.07, 0.24, 0.36);
+        vec3 surface = vec3(0.35, 0.66, 0.78);
+        vec3 couleur = mix(profond, surface, 0.45 + rides * 0.18);
+        // Un eclat de soleil sur l'eau
+        couleur += vec3(1.0, 0.85, 0.6) * pow(max(rides, 0.0), 6.0) * 0.5;
+        gl_FragColor = vec4(couleur, 0.9);
+        #include <fog_fragment>
+      }`,
+  })
+);
+lac.rotation.x = -Math.PI / 2;
+lac.position.set(CENTRE.x - 96, hauteurTerrain(CENTRE.x - 96, CENTRE.y + 74) + 1.2, CENTRE.y + 74);
+scene.add(lac);
+
+// Une tour de guet sur une colline : l'oeil a besoin d'un point d'accroche.
+{
+  const x = CENTRE.x + 104;
+  const z = CENTRE.y - 92;
+  const y = hauteurTerrain(x, z);
+  const tour = new THREE.Group();
+  const fut = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 3.4, 26, 8), matiereCel(0x9a968a, { contour: 0.3 }));
+  fut.position.y = 13;
+  const couronne = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 3.2, 3.4, 8), matiereCel(0x6f6a5e, { contour: 0.6 }));
+  couronne.position.y = 27;
+  const fanion = new THREE.Mesh(new THREE.ConeGeometry(2.2, 5, 8), matiereCel(0xc9a24a, { contour: 0.8 }));
+  fanion.position.y = 31;
+  tour.add(fut, couronne, fanion);
+  tour.position.set(x, y, z);
+  scene.add(tour);
+}
+
+/* ===================================================================== */
+/* 12. LES PERSONNAGES                                                   */
+/* ===================================================================== */
+
+function personnage({ tunique, cheveux = 0xe8c85a, chapeau = null, peau = 0xf3c6a0, taille = 1 }) {
+  const g = new THREE.Group();
+  const matTunique = matiereCel(tunique, { contour: 0.7 });
+  const matPeau = matiereCel(peau, { contour: 0.6 });
+  const matCuir = matiereCel(0x6b4a2f, { contour: 0.4 });
+
+  const jambeG = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.4, 3, 6), matCuir);
+  jambeG.position.set(-0.12, 0.3, 0);
+  jambeG.castShadow = true;
+  const jambeD = jambeG.clone();
+  jambeD.position.x = 0.12;
+
+  const corps = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.37, 0.66, 10), matTunique);
+  corps.position.y = 0.84;
+  corps.castShadow = true;
+
+  const ceinture = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.1, 10), matCuir);
+  ceinture.position.y = 0.6;
+
+  const brasG = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.3, 3, 6), matPeau);
+  brasG.position.set(-0.32, 0.84, 0);
+  brasG.rotation.z = 0.24;
+  brasG.castShadow = true;
+  const brasD = brasG.clone();
+  brasD.position.x = 0.32;
+  brasD.rotation.z = -0.24;
+
+  const tete = new THREE.Mesh(new THREE.SphereGeometry(0.235, 14, 12), matPeau);
+  tete.position.y = 1.32;
+  tete.castShadow = true;
+
+  const chevelure = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 10), matiereCel(cheveux, { contour: 0.7 }));
+  chevelure.position.set(0, 1.35, -0.045);
+  chevelure.scale.set(1, 0.9, 0.88);
+
+  const matOeil = new THREE.MeshBasicMaterial({ color: 0x1b2036 });
+  g.add(jambeG, jambeD, corps, ceinture, brasG, brasD, chevelure, tete);
+  for (const cote of [-1, 1]) {
+    const oeil = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), matOeil);
+    oeil.position.set(0.082 * cote, 1.345, 0.208);
+    const oreille = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.19, 4), matPeau);
+    oreille.position.set(0.228 * cote, 1.35, 0.015);
+    oreille.rotation.z = -0.95 * cote;
+    g.add(oeil, oreille);
+  }
+
+  if (chapeau) {
+    const forme = new THREE.ConeGeometry(0.255, 0.9, 10).translate(0, 0.45, 0);
+    const bonnet = new THREE.Mesh(forme, matiereCel(chapeau, { contour: 0.75 }));
+    bonnet.position.set(0, 1.4, -0.04);
+    bonnet.rotation.x = -1.2;
+    bonnet.castShadow = true;
+    g.add(bonnet);
+  }
+
+  g.scale.setScalar(taille);
+  g.userData.bras = [brasG, brasD];
+  g.userData.jambes = [jambeG, jambeD];
+  return g;
+}
+
+const heros = personnage({ tunique: 0x3fae55, chapeau: 0x35994a });
+{
+  const bouclier = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.17, 0.62, 6),
+    matiereCel(0x3f63b5, { contour: 0.8 })
+  );
+  bouclier.position.set(0, 0.92, -0.33);
+  bouclier.rotation.x = Math.PI / 2;
+  bouclier.castShadow = true;
+  const blason = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.19, 0.1, 0.36, 6),
+    matiereCel(0xdde3ee, { contour: 0.6 })
+  );
+  blason.position.set(0, 0.97, -0.385);
+  blason.rotation.x = Math.PI / 2;
+  const fourreau = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.68, 0.085), matiereCel(0x4e3b2a));
+  fourreau.position.set(-0.2, 1.08, -0.31);
+  fourreau.rotation.z = -0.42;
+  const poignee = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.22, 0.065), matiereCel(0xd8b455, { contour: 0.9 }));
+  poignee.position.set(-0.33, 1.45, -0.34);
+  poignee.rotation.z = -0.42;
+  heros.add(bouclier, blason, fourreau, poignee);
+}
+heros.position.set(CENTRE.x - 2, 0, CENTRE.y + 5);
+scene.add(heros);
+
+for (const e of SALLE.entites) {
+  if (e.type !== 'pnj') continue;
+  const estSage = e.dialogue === 'sage';
+  const pnj = personnage({
+    tunique: estSage ? 0x7b4fc4 : 0x4a8fd9,
+    cheveux: estSage ? 0xe9e6de : 0x8b5a3c,
+    taille: estSage ? 1.06 : 0.96,
+  });
+  const x = e.x * CASE + CASE / 2;
+  const z = e.y * CASE + CASE / 2;
+  pnj.position.set(x, hauteurTerrain(x, z), z);
+  pnj.rotation.y = Math.PI * 0.85;
+  scene.add(pnj);
+}
+
+/* Le coffre */
+{
+  const d = SALLE.entites.find((e) => e.type === 'coffre');
+  const x = d.x * CASE + CASE / 2;
+  const z = d.y * CASE + CASE / 2;
+  const coffre = new THREE.Group();
+  const caisse = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.72, 0.85), matiereCel(0x7a5433, { contour: 0.4 }));
+  caisse.position.y = 0.36;
+  caisse.castShadow = true;
+  const couvercle = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 1.2, 10, 1, false, 0, Math.PI), matiereCel(0x8f6540, { contour: 0.5 }));
+  couvercle.rotation.z = Math.PI / 2;
+  couvercle.position.y = 0.72;
+  couvercle.castShadow = true;
+  const ferrure = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.07), matiereCel(0xd8b455, { contour: 0.9 }));
+  ferrure.position.set(0, 0.62, 0.44);
+  coffre.add(caisse, couvercle, ferrure);
+  coffre.position.set(x, hauteurTerrain(x, z), z);
+  coffre.rotation.y = 0.3;
+  scene.add(coffre);
+}
+
+/* ===================================================================== */
+/* 13. HUD : les coeurs du jeu 2D                                        */
+/* ===================================================================== */
+
+const atlas = new Atlas(PALETTE);
+for (const [nom, motif] of Object.entries(SPRITES)) atlas.ajouterMotif(nom, motif);
+const conteneurCoeurs = document.getElementById('coeurs');
+for (let i = 0; i < 7; i++) {
+  const source = atlas.image('coeur');
+  const c = document.createElement('canvas');
+  c.width = source.width;
+  c.height = source.height;
+  c.getContext('2d').drawImage(source, 0, 0);
+  conteneurCoeurs.append(c);
+}
+
+/* ===================================================================== */
+/* 14. DEPLACEMENT ET CAMERA                                             */
+/* ===================================================================== */
+
+const touches = new Set();
+addEventListener('keydown', (e) => touches.add(e.code));
+addEventListener('keyup', (e) => touches.delete(e.code));
+
+let angleCamera = 0.4;
+let distanceCamera = 9;
+let hauteurCamera = 4.2;
+
+const horloge = new THREE.Clock();
+const positionCamera = new THREE.Vector3();
+
+function animer() {
+  requestAnimationFrame(animer);
+  const dt = Math.min(horloge.getDelta(), 0.05);
+  const t = horloge.getElapsedTime();
+
+  ciel.material.uniforms.temps.value = t;
+  matiereHerbe.uniforms.temps.value = t;
+  lac.material.uniforms.temps.value = t;
+
+  if (touches.has('KeyA')) angleCamera -= dt * 1.2;
+  if (touches.has('KeyE')) angleCamera += dt * 1.2;
+  if (touches.has('KeyR')) hauteurCamera = Math.min(14, hauteurCamera + dt * 6);
+  if (touches.has('KeyF')) hauteurCamera = Math.max(1.4, hauteurCamera - dt * 6);
+
+  let avant = 0;
+  let cote = 0;
+  if (touches.has('ArrowUp') || touches.has('KeyW') || touches.has('KeyZ')) avant += 1;
+  if (touches.has('ArrowDown') || touches.has('KeyS')) avant -= 1;
+  if (touches.has('ArrowLeft') || touches.has('KeyQ')) cote -= 1;
+  if (touches.has('ArrowRight') || touches.has('KeyD')) cote += 1;
+  const courir = touches.has('ShiftLeft') || touches.has('ShiftRight');
+
+  const bouge = avant !== 0 || cote !== 0;
+  if (bouge) {
+    const direction = Math.atan2(cote, avant) + angleCamera;
+    const vitesse = (courir ? 11 : 5) * dt;
+    heros.position.x += Math.sin(direction) * vitesse;
+    heros.position.z += Math.cos(direction) * vitesse;
+    const ecart = direction - heros.rotation.y;
+    heros.rotation.y += Math.atan2(Math.sin(ecart), Math.cos(ecart)) * 0.18;
+  }
+  // Le heros epouse le relief.
+  heros.position.y = hauteurTerrain(heros.position.x, heros.position.z);
+
+  const cadence = bouge ? Math.sin(t * (courir ? 15 : 10)) : Math.sin(t * 1.4) * 0.12;
+  heros.userData.jambes[0].rotation.x = cadence * 0.75;
+  heros.userData.jambes[1].rotation.x = -cadence * 0.75;
+  heros.userData.bras[0].rotation.x = -cadence * 0.65;
+  heros.userData.bras[1].rotation.x = cadence * 0.65;
+
+  // L'ombre suit le joueur : une petite boite d'ombre = des ombres nettes.
+  soleil.target.position.copy(heros.position);
+  soleil.position.copy(heros.position).addScaledVector(DIRECTION_SOLEIL, 90);
+
+  positionCamera.set(
+    heros.position.x - Math.sin(angleCamera) * distanceCamera,
+    heros.position.y + hauteurCamera,
+    heros.position.z - Math.cos(angleCamera) * distanceCamera
+  );
+  // La camera ne rentre pas dans le sol.
+  const solSousCamera = hauteurTerrain(positionCamera.x, positionCamera.z) + 1.6;
+  positionCamera.y = Math.max(positionCamera.y, solSousCamera);
+  camera.position.lerp(positionCamera, 0.12);
+  camera.lookAt(heros.position.x, heros.position.y + 1.5, heros.position.z);
+
+  ciel.position.copy(camera.position);
+  rendu.render(scene, camera);
+}
+
+document.getElementById('chargement').remove();
+animer();
+
+window.maquette = {
+  scene, camera, heros, rendu,
+  reglerCamera: (angle, distance, hauteur) => {
+    angleCamera = angle;
+    distanceCamera = distance;
+    if (hauteur !== undefined) hauteurCamera = hauteur;
+  },
+  placerHeros: (x, z) => { heros.position.x = x; heros.position.z = z; },
+  centre: CENTRE,
+};
+</script>
+</body>
+</html>

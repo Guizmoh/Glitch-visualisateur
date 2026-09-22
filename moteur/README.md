@@ -11,7 +11,8 @@ Tout — code, commentaires, noms de variables — est en français.
 |---|---|
 | **Jouer** | `index.html` |
 | **Dessiner des cartes** | `editeur.html` |
-| **Voir la même carte en 3D** | `maquette-3d.html` |
+| **Voir la même carte en 3D** | `maquette-3d.html` (style N64) |
+| **… en beaucoup plus détaillé** | `maquette-3d-detaillee.html` |
 | **Premiers pas (enfant)** | [GUIDE-ENFANT.md](GUIDE-ENFANT.md) |
 | **Recettes (« comment faire … ? »)** | [RECETTES.md](RECETTES.md) |
 
@@ -48,6 +49,14 @@ low-poly N64 : brouillard, textures 16×16 en filtrage « plus proche voisin »,
 ciel dégradé. On s'y promène avec les flèches, A et E tournent la caméra.
 Elle charge Three.js depuis un CDN — c'est la seule partie du projet qui
 dépend d'Internet.
+
+`maquette-3d-detaillee.html` pousse le même exercice beaucoup plus loin :
+terrain sculpté par du bruit fractal (fBm) au lieu d'un sol plat, textures de
+sol générées pixel par pixel (herbe, terre, roche) mélangées selon la pente,
+30 000 brins d'herbe instanciés et animés par un shader de vent, ciel calculé
+(dégradé, halo solaire, nuages fBm), ombrage *cel* à bandes avec lumière de
+contour, éclairage d'heure dorée, brouillard aérien et exposition ACES.
+Toujours zéro fichier d'image : tout est fabriqué par le code au démarrage.
 
 ### Raccourcis utiles
 

@@ -51,11 +51,14 @@ Elle charge Three.js depuis un CDN — c'est la seule partie du projet qui
 dépend d'Internet.
 
 `maquette-3d-detaillee.html` pousse le même exercice beaucoup plus loin :
-terrain sculpté par du bruit fractal (fBm) au lieu d'un sol plat, textures de
-sol générées pixel par pixel (herbe, terre, roche) mélangées selon la pente,
-30 000 brins d'herbe instanciés et animés par un shader de vent, ciel calculé
-(dégradé, halo solaire, nuages fBm), ombrage *cel* à bandes avec lumière de
-contour, éclairage d'heure dorée, brouillard aérien et exposition ACES.
+véritable cel shading (rampe de tons à 4 paliers + contours à l'encre par
+coque inversée), terrain sculpté par du bruit fractal et *terrassé* pour
+produire des plateaux à parois verticales, textures de sol générées pixel par
+pixel (herbe, terre, roche) mélangées selon la pente et plaquées en
+**projection triplanaire** pour ne pas s'étirer sur les falaises, 56 000 brins
+d'herbe instanciés et animés par un shader de vent, deux essences d'arbres,
+ciel calculé (dégradé, halo solaire, nuages fBm), éclairage d'heure dorée,
+brouillard aérien raccordé à la couleur de l'horizon et exposition ACES.
 Toujours zéro fichier d'image : tout est fabriqué par le code au démarrage.
 
 ### Raccourcis utiles

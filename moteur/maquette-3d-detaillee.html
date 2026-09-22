@@ -103,6 +103,21 @@ function bruitDouux(x, y) {
   return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
 }
 
+/** Bruit "en crete" : au lieu de bosses rondes, il produit des aretes vives.
+    C'est lui qui donne les falaises plutot que des collines en coussin. */
+function bruitCrete(x, y, octaves = 4) {
+  let valeur = 0;
+  let amplitude = 0.5;
+  let frequence = 1;
+  for (let i = 0; i < octaves; i++) {
+    const n = 1 - Math.abs(bruitDouux(x * frequence, y * frequence) * 2 - 1);
+    valeur += n * n * amplitude;
+    amplitude *= 0.5;
+    frequence *= 2.1;
+  }
+  return valeur;
+}
+
 /** fBm : on empile plusieurs bruits de plus en plus fins. */
 function fbm(x, y, octaves = 5) {
   let valeur = 0;
@@ -131,9 +146,23 @@ const TAILLE_MONDE = 320;
 
 /** Hauteur du sol en tout point. Le village, lui, reste bien plat. */
 function hauteurTerrain(x, z) {
-  const collines = (fbm(x * 0.008, z * 0.008, 5) - 0.5) * 46;
-  const relief = (fbm(x * 0.035, z * 0.035, 3) - 0.5) * 3.2;
-  let h = collines + relief;
+  const collines = (fbm(x * 0.008, z * 0.008, 5) - 0.5) * 44;
+  // Les cretes ne sortent que sur les hauteurs : plaine douce en bas,
+  // reliefs casses en haut.
+  const force = THREE.MathUtils.smoothstep(collines, 2, 16);
+  const cretes = bruitCrete(x * 0.016, z * 0.016, 4) * 26 * force;
+  // Des "mesas" a moyenne echelle : c'est elles qui, une fois terrassees,
+  // deviennent des plateaux a parois verticales.
+  const mesas = (fbm(x * 0.03 + 5.5, z * 0.03 + 2.2, 3) - 0.5) * 20;
+  const relief = (fbm(x * 0.08, z * 0.08, 3) - 0.5) * 1.8;
+  let h = collines + cretes + mesas + relief;
+
+  // Terrassement : on "escalier-ise" le relief. Les paliers deviennent des
+  // plateaux, et le saut entre deux paliers devient une falaise.
+  const pas = 5.0;
+  const marches = Math.floor(h / pas) * pas + pas * 0.5;
+  const force2 = THREE.MathUtils.smoothstep(Math.abs(h), 2, 9);
+  h = THREE.MathUtils.lerp(h, marches, 0.88 * force2);
   // Aplatissement progressif autour du village.
   const d = Math.hypot(x - CENTRE.x, z - CENTRE.y);
   const melange = THREE.MathUtils.smoothstep(d, RAYON_VILLAGE * 0.45, RAYON_VILLAGE * 1.5);
@@ -179,7 +208,9 @@ const COULEUR_SOLEIL = new THREE.Color(0xffd9a0);
 const COULEUR_HORIZON = new THREE.Color(0xf6d9b4);
 const COULEUR_BRUME = new THREE.Color(0xc7d9e8);
 
-scene.fog = new THREE.FogExp2(0xbfd4e4, 0.0052);
+// La couleur doit etre CELLE DE L'HORIZON DU CIEL, sinon on voit une
+// couture nette la ou le terrain s'arrete.
+scene.fog = new THREE.FogExp2(0xe6d2b4, 0.0046);
 
 const soleil = new THREE.DirectionalLight(COULEUR_SOLEIL, 2.35);
 soleil.position.copy(DIRECTION_SOLEIL).multiplyScalar(90);
@@ -271,59 +302,105 @@ scene.add(ciel);
 /* ===================================================================== */
 
 /**
- * Ombrage "cel" : au lieu d'un degrade continu, la lumiere est decoupee en
- * quelques bandes. Plus une lumiere de contour (rim light) qui detache le
- * personnage du decor. C'est la recette des jeux stylises modernes.
+ * LA RAMPE DE TONS. C'est le coeur du cel shading : au lieu d'un degrade
+ * continu, la lumiere ne peut prendre que ces quelques valeurs. On la donne
+ * a three.js sous forme d'une minuscule image de 4 pixels, lue au plus
+ * proche voisin (donc sans aucun adoucissement).
  */
-function matiereCel(couleur, options = {}) {
-  const { contour = 0.55, bandes = 3.0 } = options;
+const degradeToon = new THREE.DataTexture(
+  new Uint8Array([44, 104, 188, 255]), 4, 1, THREE.RedFormat
+);
+degradeToon.minFilter = THREE.NearestFilter;
+degradeToon.magFilter = THREE.NearestFilter;
+degradeToon.needsUpdate = true;
+
+/** Matiere d'encre pour les contours (voir ajouterContour plus bas). */
+function matiereContour(epaisseur, couleur = 0x191823) {
   return new THREE.ShaderMaterial({
+    side: THREE.BackSide,   // on ne voit que l'interieur de la coque gonflee
     fog: true,
     uniforms: THREE.UniformsUtils.merge([
       THREE.UniformsLib.fog,
-      {
-        teinte: { value: new THREE.Color(couleur) },
-        soleil: { value: DIRECTION_SOLEIL },
-        couleurSoleil: { value: COULEUR_SOLEIL },
-        couleurCiel: { value: new THREE.Color(0x9ec8ff) },
-        forceContour: { value: contour },
-        nbBandes: { value: bandes },
-      },
+      { epaisseur: { value: epaisseur }, encre: { value: new THREE.Color(couleur) } },
     ]),
     vertexShader: `
-      varying vec3 vNormale;
-      varying vec3 vVersCamera;
+      uniform float epaisseur;
+      #include <common>
       #include <fog_pars_vertex>
       void main() {
-        vNormale = normalize(normalMatrix * normal);
-        vec4 vueP = modelViewMatrix * vec4(position, 1.0);
-        vVersCamera = normalize(-vueP.xyz);
+        #include <beginnormal_vertex>
         #include <begin_vertex>
+        transformed += objectNormal * epaisseur;  // on gonfle le long des normales
         #include <project_vertex>
         #include <fog_vertex>
       }`,
     fragmentShader: `
-      uniform vec3 teinte, soleil, couleurSoleil, couleurCiel;
-      uniform float forceContour, nbBandes;
-      varying vec3 vNormale;
-      varying vec3 vVersCamera;
+      uniform vec3 encre;
+      #include <common>
       #include <fog_pars_fragment>
       void main() {
-        vec3 N = normalize(vNormale);
-        vec3 L = normalize((viewMatrix * vec4(soleil, 0.0)).xyz);
-        float diffus = max(dot(N, L), 0.0);
-        // On "escalier-ise" l'eclairage : c'est ca, le cel shading.
-        float bandes = floor(diffus * nbBandes + 0.35) / nbBandes;
-        vec3 couleur = teinte * (0.45 + 0.55 * bandes) * mix(vec3(1.0), couleurSoleil, 0.55);
-        // Lumiere du ciel par le dessus
-        couleur += teinte * couleurCiel * (0.5 + 0.5 * N.y) * 0.22;
-        // Lumiere de contour
-        float contour = pow(1.0 - max(dot(N, normalize(vVersCamera)), 0.0), 3.0);
-        couleur += couleurSoleil * contour * forceContour;
-        gl_FragColor = vec4(couleur, 1.0);
+        gl_FragColor = vec4(encre, 1.0);
         #include <fog_fragment>
       }`,
   });
+}
+
+/**
+ * CONTOUR A L'ENCRE, methode de la "coque inversee" : on redessine l'objet
+ * une deuxieme fois, legerement gonfle, en noir, et en ne gardant que ses
+ * faces arriere. Il depasse tout autour : c'est le trait.
+ */
+function ajouterContour(maille, epaisseur = 0.05) {
+  const materiau = matiereContour(epaisseur);
+  let contour;
+  if (maille.isInstancedMesh) {
+    contour = new THREE.InstancedMesh(maille.geometry, materiau, maille.count);
+    contour.instanceMatrix = maille.instanceMatrix; // on partage les positions
+  } else {
+    contour = new THREE.Mesh(maille.geometry, materiau);
+  }
+  contour.frustumCulled = maille.frustumCulled;
+  contour.castShadow = false;
+  contour.receiveShadow = false;
+  contour.renderOrder = -1;
+  maille.add(contour); // enfant : il suit l'objet automatiquement
+  return maille;
+}
+
+/** Applique un contour a toutes les mailles d'un groupe (un personnage). */
+function contournerGroupe(groupe, epaisseur = 0.028) {
+  const mailles = [];
+  groupe.traverse((o) => { if (o.isMesh) mailles.push(o); });
+  for (const m of mailles) ajouterContour(m, epaisseur);
+  return groupe;
+}
+
+/**
+ * Ombrage cel : MeshToonMaterial de three.js (qui apporte gratuitement les
+ * ombres portees, le brouillard et les lumieres) + la rampe de tons ci-dessus
+ * + une lumiere de contour greffee dans le shader.
+ */
+function matiereCel(couleur, options = {}) {
+  const { contour = 0.5 } = options;
+  const materiau = new THREE.MeshToonMaterial({
+    color: couleur,
+    gradientMap: degradeToon,
+  });
+  materiau.onBeforeCompile = (shader) => {
+    shader.uniforms.forceRim = { value: contour * 0.42 };
+    shader.uniforms.couleurRim = { value: new THREE.Color(0xfff0d8) };
+    shader.fragmentShader = `
+      uniform float forceRim;
+      uniform vec3 couleurRim;
+      ${shader.fragmentShader}`
+      .replace('#include <fog_fragment>', `
+        // Lumiere de contour : les bords qui s'eloignent de la camera
+        // recoivent un liseré clair. C'est ce qui detache du decor.
+        float bordure = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.5);
+        gl_FragColor.rgb += couleurRim * bordure * forceRim;
+        #include <fog_fragment>`);
+  };
+  return materiau;
 }
 
 /* ===================================================================== */
@@ -382,7 +459,8 @@ function textureProcedurale(calculer) {
 // Herbe : un fond vert module, plus de fines stries dans un sens.
 const texHerbe = textureProcedurale((u, v) => {
   const touffes = fbmPeriodique(u, v, 4, 5);
-  const brins = bruitPeriodique(u * 64, v * 12, 64);
+  const brins = bruitPeriodique(u * 40, v * 40, 40) * 0.7
+              + bruitPeriodique(u * 70, v * 14, 70) * 0.3;
   const sec = Math.pow(fbmPeriodique(u + 3.1, v + 7.7, 3, 3), 2);
   const melange = touffes * 0.65 + brins * 0.35;
   const r = 48 + melange * 92 + sec * 74;
@@ -404,11 +482,15 @@ const texTerre = textureProcedurale((u, v) => {
 
 // Roche : gris froid, strie horizontalement comme un affleurement.
 const texRoche = textureProcedurale((u, v) => {
-  const strates = fbmPeriodique(u * 0.6, v * 3.0, 4, 4);
-  const fissures = Math.abs(bruitPeriodique(u * 18, v * 9, 18) - 0.5);
-  const sombre = fissures < 0.06 ? 0.55 : 1;
-  const base = (92 + strates * 78) * sombre;
-  return [base * 1.04, base * 1.01, base * 0.95];
+  // Des bandes horizontales (comme des couches geologiques) plutot que du
+  // bruit isotrope : c'est ce qui fait "lire" une paroi rocheuse.
+  const strates = fbmPeriodique(u * 0.5, v * 3.2, 4, 4);
+  const grain = fbmPeriodique(u * 2.0, v * 2.0, 3, 8);
+  // Joints reguliers entre les couches.
+  const position = ((v * 5) % 1 + 1) % 1;
+  const joint = Math.min(position, 1 - position) < 0.045 ? 0.62 : 1;
+  const base = (86 + strates * 82 + grain * 26) * joint;
+  return [base * 1.06, base * 1.0, base * 0.9];
 });
 
 /* ===================================================================== */
@@ -427,12 +509,19 @@ geoTerrain.rotateX(-Math.PI / 2);
     const z = pos.getZ(i) + CENTRE.y;
     const h = hauteurTerrain(x, z);
     pos.setXYZ(i, pos.getX(i), h, pos.getZ(i));
-    // La couleur des sommets ne sert plus qu'a nuancer : le detail vient
-    // des textures. Creux plus sombres, crêtes plus claires et plus chaudes.
+    // La couleur des sommets nuance de grandes zones ; le detail vient des
+    // textures. Sans ca, tout le paysage serait du meme vert.
     const variation = fbm(x * 0.05, z * 0.05, 3);
+    const zones = fbm(x * 0.013 + 11.3, z * 0.013 + 4.7, 3);
     const altitude = THREE.MathUtils.clamp(h / 22, -1, 1);
-    const luminosite = 0.82 + variation * 0.3 + altitude * 0.12;
-    c.setRGB(luminosite * 1.03, luminosite, luminosite * 0.93);
+    const luminosite = 0.78 + variation * 0.34 + altitude * 0.14;
+    c.setRGB(luminosite, luminosite, luminosite);
+    // Plaques d'herbe seche, et hauteurs qui tirent vers le froid.
+    c.lerp(new THREE.Color(0xd8c070), THREE.MathUtils.smoothstep(zones, 0.54, 0.8) * 0.7);
+    c.lerp(new THREE.Color(0x93a6ba), THREE.MathUtils.smoothstep(h, 16, 34) * 0.55);
+    // Les parois raides virent au mineral chaud.
+    const pente = 1 - normaleTerrain(x, z).y;
+    c.lerp(new THREE.Color(0xb49a7c), THREE.MathUtils.smoothstep(pente, 0.2, 0.5) * 0.85);
     couleurs.push(c.r, c.g, c.b);
   }
   geoTerrain.setAttribute('color', new THREE.Float32BufferAttribute(couleurs, 3));
@@ -445,7 +534,7 @@ geoTerrain.rotateX(-Math.PI / 2);
  * pentes, terre par plaques. Chaque texture est plaquee DEUX FOIS, a deux
  * echelles differentes : c'est l'astuce qui casse l'effet "papier peint".
  */
-const matiereSol = new THREE.MeshLambertMaterial({ vertexColors: true });
+const matiereSol = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: degradeToon });
 matiereSol.onBeforeCompile = (shader) => {
   shader.uniforms.texHerbe = { value: texHerbe };
   shader.uniforms.texTerre = { value: texTerre };
@@ -468,10 +557,20 @@ matiereSol.onBeforeCompile = (shader) => {
       vec2 uvFine  = vMonde.xz * 0.19;
       vec3 herbe = mix(texture2D(texHerbe, uvLarge).rgb, texture2D(texHerbe, uvFine).rgb, 0.5);
       vec3 terre = mix(texture2D(texTerre, uvLarge).rgb, texture2D(texTerre, uvFine).rgb, 0.5);
-      vec3 roche = mix(texture2D(texRoche, uvLarge * 0.5).rgb, texture2D(texRoche, uvFine * 0.5).rgb, 0.5);
+
+      // PROJECTION TRIPLANAIRE pour la roche : on plaque la texture selon les
+      // trois axes et on melange d'apres la normale. Sans ca, la texture est
+      // etiree verticalement sur les falaises (le defaut classique).
+      vec3 n = abs(normalize(vNormaleMonde));
+      vec3 poids = n / max(n.x + n.y + n.z, 0.0001);
+      float k = 0.075;
+      vec3 rocheX = texture2D(texRoche, vMonde.zy * k).rgb;
+      vec3 rocheY = texture2D(texRoche, vMonde.xz * k).rgb;
+      vec3 rocheZ = texture2D(texRoche, vMonde.xy * k).rgb;
+      vec3 roche = rocheX * poids.x + rocheY * poids.y + rocheZ * poids.z;
 
       float pente = 1.0 - clamp(vNormaleMonde.y, 0.0, 1.0);
-      float masqueRoche = smoothstep(0.16, 0.40, pente);
+      float masqueRoche = smoothstep(0.13, 0.34, pente);
       float plaques = texture2D(texTerre, vMonde.xz * 0.0055).r;
       float masqueTerre = smoothstep(0.52, 0.78, plaques) * (1.0 - masqueRoche);
 
@@ -489,8 +588,8 @@ scene.add(terrain);
 /* 8. L'HERBE — 34 000 brins agites par le vent                          */
 /* ===================================================================== */
 
-const NB_BRINS = 34000;
-const RAYON_HERBE = 30;
+const NB_BRINS = 56000;
+const RAYON_HERBE = 48;
 
 const brin = new THREE.BufferGeometry();
 // Un brin = un losange etroit : 4 sommets, 2 triangles.
@@ -509,7 +608,7 @@ geoHerbe.attributes.position = brin.attributes.position;
   for (let i = 0; i < NB_BRINS; i++) {
     // Disque autour du village, densite plus forte au centre.
     const angle = Math.random() * Math.PI * 2;
-    const rayon = Math.sqrt(Math.random()) * RAYON_HERBE;
+    const rayon = Math.pow(Math.random(), 0.72) * RAYON_HERBE; // dense au centre
     const x = CENTRE.x + Math.cos(angle) * rayon;
     const z = CENTRE.y + Math.sin(angle) * rayon;
     // Pas d'herbe sur les pentes trop raides ni sur les chemins.
@@ -517,13 +616,14 @@ geoHerbe.attributes.position = brin.attributes.position;
     const ligne = Math.floor(z / CASE);
     const lettre = (GRILLE[ligne] && GRILLE[ligne][col]) || null;
     if (lettre === ':' || lettre === 'T') continue;
+    if (normaleTerrain(x, z).y < 0.82) continue; // rien sur les falaises
     decalages[n * 3] = x;
     decalages[n * 3 + 1] = hauteurTerrain(x, z);
     decalages[n * 3 + 2] = z;
     variations[n * 3] = Math.random();
     variations[n * 3 + 1] = Math.random() * Math.PI;
     // Les brins raccourcissent vers le bord : sinon on voit un disque d'herbe.
-    variations[n * 3 + 2] = 1 - THREE.MathUtils.smoothstep(rayon, RAYON_HERBE * 0.62, RAYON_HERBE);
+    variations[n * 3 + 2] = 1 - THREE.MathUtils.smoothstep(rayon, RAYON_HERBE * 0.7, RAYON_HERBE);
     n++;
   }
   geoHerbe.instanceCount = n;
@@ -603,7 +703,7 @@ scene.add(herbe);
 /* 9. ARBRES, ROCHERS, BUISSONS (instancies)                             */
 /* ===================================================================== */
 
-function instancier(geometrie, matiere, placements, ombre = true) {
+function instancier(geometrie, matiere, placements, ombre = true, contour = 0) {
   const maille = new THREE.InstancedMesh(geometrie, matiere, placements.length);
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
@@ -620,6 +720,7 @@ function instancier(geometrie, matiere, placements, ombre = true) {
   maille.receiveShadow = true;
   maille.frustumCulled = false;
   scene.add(maille);
+  if (contour > 0) ajouterContour(maille, contour);
   return maille;
 }
 
@@ -645,15 +746,30 @@ for (let i = 0; i < 1400; i++) {
   placementsArbres.push({ x, y: hauteurTerrain(x, z), z, rotation: Math.random() * 6.28, echelle: 0.8 + Math.random() * 0.9 });
 }
 
-const geoTronc = new THREE.CylinderGeometry(0.22, 0.4, 3.0, 7).translate(0, 1.5, 0);
-const geoFeuillage = new THREE.IcosahedronGeometry(1.18, 1);
-geoFeuillage.scale(1.05, 0.8, 1.05);
-geoFeuillage.translate(0, 3.5, 0);
-const geoFeuillage2 = new THREE.IcosahedronGeometry(0.82, 1).translate(0, 4.5, 0);
+// Deux especes, pour que la foret ne soit pas une rangee de sucettes.
+const feuillus = placementsArbres.filter((_, i) => i % 3 !== 0);
+const coniferes = placementsArbres.filter((_, i) => i % 3 === 0);
 
-instancier(geoTronc, matiereCel(0x6b5238, { contour: 0.15, bandes: 3 }), placementsArbres);
-instancier(geoFeuillage, matiereCel(0x35702b, { contour: 0.22, bandes: 3 }), placementsArbres);
-instancier(geoFeuillage2, matiereCel(0x498a2e, { contour: 0.26, bandes: 3 }), placementsArbres);
+const geoTronc = new THREE.CylinderGeometry(0.2, 0.38, 3.0, 6).translate(0, 1.5, 0);
+const matTronc = matiereCel(0x6b5238, { contour: 0.15 });
+
+// Feuillu : deux masses aplaties et decalees -> silhouette irreguliere.
+const geoHouppier = new THREE.IcosahedronGeometry(1.25, 0);
+geoHouppier.scale(1.15, 0.62, 1.05);
+geoHouppier.translate(0, 3.5, 0);
+const geoHouppier2 = new THREE.IcosahedronGeometry(0.95, 0);
+geoHouppier2.scale(1.0, 0.72, 0.95);
+geoHouppier2.translate(0.45, 4.35, -0.3);
+
+// Conifere : deux cones empiles, tres graphiques.
+const geoConeBas = new THREE.ConeGeometry(1.35, 2.9, 7).translate(0, 3.1, 0);
+const geoConeHaut = new THREE.ConeGeometry(0.85, 2.2, 7).translate(0, 4.9, 0);
+
+instancier(geoTronc, matTronc, placementsArbres, true, 0.032);
+instancier(geoHouppier, matiereCel(0x34702c, { contour: 0.3 }), feuillus, true, 0.05);
+instancier(geoHouppier2, matiereCel(0x437f30, { contour: 0.34 }), feuillus, true, 0.045);
+instancier(geoConeBas, matiereCel(0x24563a, { contour: 0.28 }), coniferes, true, 0.05);
+instancier(geoConeHaut, matiereCel(0x2e6741, { contour: 0.32 }), coniferes, true, 0.045);
 
 /* --- Rochers --- */
 const placementsRochers = [];
@@ -672,7 +788,7 @@ for (let i = 0; i < 260; i++) {
   const z = CENTRE.y + Math.sin(angle) * rayon;
   placementsRochers.push({ x, y: hauteurTerrain(x, z) + 0.2, z, rotation: Math.random() * 6.28, echelle: 0.5 + Math.random() * 1.6 });
 }
-instancier(new THREE.DodecahedronGeometry(0.85, 0), matiereCel(0x9a9c9b, { contour: 0.18, bandes: 4 }), placementsRochers);
+instancier(new THREE.DodecahedronGeometry(0.85, 0), matiereCel(0x9a9c9b, { contour: 0.2 }), placementsRochers, true, 0.04);
 
 /* --- Buissons --- */
 const placementsBuissons = [];
@@ -692,7 +808,7 @@ for (let i = 0; i < 420; i++) {
   if (normaleTerrain(x, z).y < 0.9) continue;
   placementsBuissons.push({ x, y: hauteurTerrain(x, z) + 0.4, z, rotation: Math.random() * 6.28, echelle: 0.6 + Math.random() * 0.7 });
 }
-instancier(new THREE.IcosahedronGeometry(0.75, 0), matiereCel(0x4b8a33, { contour: 0.45 }), placementsBuissons);
+instancier(new THREE.IcosahedronGeometry(0.75, 0), matiereCel(0x437d2e, { contour: 0.4 }), placementsBuissons, true, 0.035);
 
 /* ===================================================================== */
 /* 10. LE CHEMIN DU VILLAGE                                               */
@@ -770,6 +886,7 @@ scene.add(lac);
   const fanion = new THREE.Mesh(new THREE.ConeGeometry(2.2, 5, 8), matiereCel(0xc9a24a, { contour: 0.8 }));
   fanion.position.y = 31;
   tour.add(fut, couronne, fanion);
+  for (const piece of [fut, couronne, fanion]) ajouterContour(piece, 0.12);
   tour.position.set(x, y, z);
   scene.add(tour);
 }
@@ -834,6 +951,7 @@ function personnage({ tunique, cheveux = 0xe8c85a, chapeau = null, peau = 0xf3c6
   }
 
   g.scale.setScalar(taille);
+  contournerGroupe(g, 0.022);
   g.userData.bras = [brasG, brasD];
   g.userData.jambes = [jambeG, jambeD];
   return g;
@@ -861,6 +979,7 @@ const heros = personnage({ tunique: 0x3fae55, chapeau: 0x35994a });
   poignee.position.set(-0.33, 1.45, -0.34);
   poignee.rotation.z = -0.42;
   heros.add(bouclier, blason, fourreau, poignee);
+  for (const piece of [bouclier, blason, fourreau, poignee]) ajouterContour(piece, 0.02);
 }
 heros.position.set(CENTRE.x - 2, 0, CENTRE.y + 5);
 scene.add(heros);
@@ -896,6 +1015,7 @@ for (const e of SALLE.entites) {
   const ferrure = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.07), matiereCel(0xd8b455, { contour: 0.9 }));
   ferrure.position.set(0, 0.62, 0.44);
   coffre.add(caisse, couvercle, ferrure);
+  for (const piece of [caisse, couvercle, ferrure]) ajouterContour(piece, 0.025);
   coffre.position.set(x, hauteurTerrain(x, z), z);
   coffre.rotation.y = 0.3;
   scene.add(coffre);
@@ -1002,6 +1122,7 @@ window.maquette = {
     if (hauteur !== undefined) hauteurCamera = hauteur;
   },
   placerHeros: (x, z) => { heros.position.x = x; heros.position.z = z; },
+  hauteurTerrain,
   centre: CENTRE,
 };
 </script>

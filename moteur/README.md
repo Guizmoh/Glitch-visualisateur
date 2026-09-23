@@ -69,9 +69,11 @@ retomber à plat sur une pente descendante garde (et augmente) la vitesse,
 retomber en piqué la détruit. Les constantes sont réunies en haut de
 `REGLAGES_PLANCHE`, faites pour être bidouillées.
 
-Commandes : flèches pour diriger, **Espace** (maintenu) pour charger le saut,
-**Maj** pour se baisser, **R** pour remonter en haut d'une pente, **B** pour
-descendre de la planche.
+Commandes : **flèches ou ZQSD** pour diriger, **Espace** (maintenu = plus haut)
+pour sauter, **Maj** pour se baisser, **R** pour remonter en haut d'une pente,
+**B** pour descendre de la planche. La caméra se tourne à la souris (glisser)
+et la molette règle la distance — aucune lettre n'est utilisée pour la caméra,
+pour ne pas entrer en conflit avec ZQSD sur un clavier AZERTY.
 
 ### Raccourcis utiles
 

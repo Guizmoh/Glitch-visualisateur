@@ -71,9 +71,9 @@
     </span>
   </div>
   <div class="aide">
-    <b>EN PLANCHE</b> — Flèches : diriger · <b>Espace</b> (maintenir) : charger le saut<br>
-    <b>Maj</b> : se baisser (on glisse plus vite) · <b>R</b> : remonter en haut<br>
-    <b>B</b> : descendre de la planche (marche à pied)
+    <b>Flèches</b> ou <b>ZQSD</b> : diriger · <b>Espace</b> (maintenir = plus haut) : sauter<br>
+    <b>Maj</b> : se baisser, on glisse plus vite · <b>R</b> : remonter en haut d'une pente<br>
+    <b>B</b> : descendre de la planche · glisser la <b>souris</b> : tourner la caméra
   </div>
 </div>
 <a class="retour" href="index.html">← le jeu 2D</a>
@@ -168,29 +168,30 @@ const TAILLE_MONDE = 320;
 
 /** Hauteur du sol en tout point. Le village, lui, reste bien plat. */
 function hauteurTerrain(x, z) {
-  const collines = (fbm(x * 0.008, z * 0.008, 5) - 0.5) * 44;
-  // Les cretes ne sortent que sur les hauteurs : plaine douce en bas,
-  // reliefs casses en haut.
-  const force = THREE.MathUtils.smoothstep(collines, 2, 16);
-  const cretes = bruitCrete(x * 0.016, z * 0.016, 4) * 26 * force;
-  // Des "mesas" a moyenne echelle : c'est elles qui, une fois terrassees,
-  // deviennent des plateaux a parois verticales.
-  const mesas = (fbm(x * 0.03 + 5.5, z * 0.03 + 2.2, 3) - 0.5) * 20;
-  const relief = (fbm(x * 0.08, z * 0.08, 3) - 0.5) * 1.8;
-  let h = collines + cretes + mesas + relief;
+  // Trois echelles qui s'additionnent, de la plus ample a la plus fine.
+  const collines = (fbm(x * 0.008, z * 0.008, 5) - 0.5) * 40;   // les grandes formes
+  const vallons = (fbm(x * 0.021 + 3.3, z * 0.021 + 8.1, 3) - 0.5) * 13; // le vallonnement
+  const bosses = (fbm(x * 0.055, z * 0.055, 2) - 0.5) * 2.6;    // les petits tremplins
 
-  // Terrassement : on "escalier-ise" le relief. Les paliers deviennent des
-  // plateaux, et le saut entre deux paliers devient une falaise.
+  // Les cretes rocheuses ne sortent que TRES haut : en bas, on veut du
+  // terrain roulant sur lequel la planche file sans accrocher.
+  const altitude = collines + vallons;
+  const forceCretes = THREE.MathUtils.smoothstep(altitude, 10, 24);
+  const cretes = bruitCrete(x * 0.014, z * 0.014, 4) * 22 * forceCretes;
+
+  let h = collines + vallons + bosses + cretes;
+
+  // Terrassement : uniquement en altitude, et bien plus doux qu'avant.
+  // Les falaises restent du decor ; la zone de jeu, elle, reste lisse.
   const pas = 5.0;
   const marches = Math.floor(h / pas) * pas + pas * 0.5;
-  const force2 = THREE.MathUtils.smoothstep(Math.abs(h), 2, 9);
-  h = THREE.MathUtils.lerp(h, marches, 0.88 * force2);
+  h = THREE.MathUtils.lerp(h, marches, 0.38 * THREE.MathUtils.smoothstep(h, 11, 26));
   // Aplatissement progressif autour du village.
   const d = Math.hypot(x - CENTRE.x, z - CENTRE.y);
   const melange = THREE.MathUtils.smoothstep(d, RAYON_VILLAGE * 0.45, RAYON_VILLAGE * 1.5);
   h *= 0.1 + 0.9 * melange; // le village reste jouable, sans etre une crepe
-  // Bosses fines partout : c'est ce qui empeche le sol de paraitre lisse.
-  h += (fbm(x * 0.12, z * 0.12, 2) - 0.5) * 0.55;
+  // Un grain tres fin, juste pour que le sol ne soit pas une surface parfaite.
+  h += (fbm(x * 0.12, z * 0.12, 2) - 0.5) * 0.4;
   return h;
 }
 
@@ -1076,8 +1077,8 @@ for (let i = 0; i < 7; i++) {
  */
 const REGLAGES_PLANCHE = {
   gravite: 30,             // plus fort que la vraie gravite : ca repond mieux
-  frottementSol: 0.55,     // freinage naturel sur le sol (par seconde)
-  frottementRentre: 0.06,  // quand on se baisse (Maj) : on glisse presque sans frein
+  frottementSol: 0.42,     // freinage naturel sur le sol (par seconde)
+  frottementRentre: 0.05,  // quand on se baisse (Maj) : on glisse presque sans frein
   frottementAir: 0.015,
   poussee: 7,              // acceleration quand on appuie sur avant
   freinage: 16,
@@ -1085,8 +1086,8 @@ const REGLAGES_PLANCHE = {
   forceSaut: 8.5,          // saut de base
   bonusCharge: 9,          // saut supplementaire si on a charge
   chargeMax: 0.5,          // duree de charge maximale, en secondes
-  vitesseMax: 62,
-  seuilMur: 1.5,           // au-dela, c'est un mur : on ne grimpe pas
+  vitesseMax: 55,
+  seuilMur: 1.25,          // au-dela, c'est un mur : on ne grimpe pas
   bonusParfait: 1.07,      // vitesse gagnee sur un atterrissage parfait
   hauteurPlanche: 0.18,    // la planche flotte un peu au-dessus du sol
 };
@@ -1278,11 +1279,11 @@ function majSurf(dt) {
   const p = heros.position;
   const v = planche.v;
 
-  const gauche = touches.has('ArrowLeft') || touches.has('KeyQ') || touches.has('KeyA');
-  const droite = touches.has('ArrowRight') || touches.has('KeyD');
-  const avance = touches.has('ArrowUp') || touches.has('KeyW') || touches.has('KeyZ');
-  const freine = touches.has('ArrowDown') || touches.has('KeyS');
-  const rentre = touches.has('ShiftLeft') || touches.has('ShiftRight');
+  const gauche = demande('gauche');
+  const droite = demande('droite');
+  const avance = demande('haut');
+  const freine = demande('bas');
+  const rentre = demande('baisser');
 
   // --- 1. Le saut : on accumule la charge tant que la touche est tenue.
   //     Le saut lui-meme part au RELACHEMENT (voir l'ecouteur 'keyup') :
@@ -1298,18 +1299,23 @@ function majSurf(dt) {
   let pivot = 0;
   if (gauche) pivot += agilite * dt;
   if (droite) pivot -= agilite * dt;
-  if (pivot !== 0 && vitesseHorizontale > 0.2) {
+  if (pivot !== 0 && vitesseHorizontale > 0.8) {
+    // En mouvement : on fait pivoter la VITESSE (on incline la planche).
     const c = Math.cos(pivot);
     const si = Math.sin(pivot);
     const nx = v.x * c + v.z * si;
     const nz = -v.x * si + v.z * c;
     v.x = nx;
     v.z = nz;
+  } else if (pivot !== 0) {
+    // A l'arret : on se tourne simplement sur place, sinon on est prisonnier
+    // de la direction dans laquelle on s'est immobilise.
+    heros.rotation.y += pivot * 1.6;
   }
   planche.roulis = THREE.MathUtils.lerp(planche.roulis, pivot * 26, 0.12);
 
   // --- 3. Pousser / freiner dans l'axe de la planche
-  if (vitesseHorizontale > 0.3) {
+  if (vitesseHorizontale > 0.8) {
     const ix = v.x / vitesseHorizontale;
     const iz = v.z / vitesseHorizontale;
     if (avance && planche.auSol) { v.x += ix * R.poussee * dt; v.z += iz * R.poussee * dt; }
@@ -1319,6 +1325,7 @@ function majSurf(dt) {
       v.z -= iz * frein;
     }
   } else if (avance) {
+    // Depart a l'arret : on pousse dans la direction du regard.
     v.x += Math.sin(heros.rotation.y) * R.poussee * dt;
     v.z += Math.cos(heros.rotation.y) * R.poussee * dt;
   }
@@ -1331,6 +1338,7 @@ function majSurf(dt) {
 
   // --- 5. Integration par petits pas (sinon on traverse les falaises)
   const etaitEnAir = !planche.auSol;
+  let enVol = etaitEnAir;   // devient faux des le premier vrai contact
   let contact = false;
   let alignementContact = 1;
   const nbPas = Math.max(1, Math.ceil((v.length() * dt) / 0.45));
@@ -1368,15 +1376,22 @@ function majSurf(dt) {
       const vitesse = v.length();
       const versLeSol = v.dot(N);
       if (versLeSol < 0) {
-        // ALIGNEMENT : 1 = on arrive a plat sur la pente, 0 = on arrive dessus
-        // perpendiculairement. C'est LA note de l'atterrissage.
-        const alignement = 1 - Math.min(1, Math.abs(versLeSol) / Math.max(vitesse, 0.001));
-        alignementContact = Math.min(alignementContact, alignement);
-        // On enleve la composante qui rentre dans le sol...
-        v.addScaledVector(N, -versLeSol);
-        // ... et on perd d'autant plus de vitesse qu'on est arrive mal.
-        const perte = THREE.MathUtils.lerp(0.6, 0, Math.pow(alignement, 0.6));
-        v.multiplyScalar(1 - perte);
+        if (enVol) {
+          // VRAI ATTERRISSAGE. Alignement : 1 = on arrive a plat sur la pente,
+          // 0 = on arrive dessus perpendiculairement. C'est LA note.
+          const alignement = 1 - Math.min(1, Math.abs(versLeSol) / Math.max(vitesse, 0.001));
+          alignementContact = Math.min(alignementContact, alignement);
+          v.addScaledVector(N, -versLeSol);
+          // On perd d'autant plus de vitesse qu'on est arrive mal.
+          const perte = THREE.MathUtils.lerp(0.6, 0, Math.pow(alignement, 0.6));
+          v.multiplyScalar(1 - perte);
+          enVol = false;
+        } else {
+          // On roulait deja : la gravite a juste pousse un peu dans le sol,
+          // on l'annule SANS aucune penalite. (Appliquer la penalite ici
+          // freinait la planche a chaque image sur terrain plat.)
+          v.addScaledVector(N, -versLeSol);
+        }
       }
       planche.normale.copy(N);
       contact = true;
@@ -1441,7 +1456,27 @@ function majSurf(dt) {
 /* 15. DEPLACEMENT ET CAMERA                                             */
 /* ===================================================================== */
 
+/**
+ * Les codes clavier de la norme Web designent des POSITIONS de touches,
+ * nommees d'apres le clavier americain. Sur un AZERTY, la touche marquee
+ * "Z" occupe la position appelee "KeyW", et la touche "Q" la position
+ * "KeyA". On accepte donc les deux jeux de positions : ZQSD et WASD
+ * tombent alors exactement sur les memes touches physiques.
+ */
+const TOUCHES = {
+  haut: ['ArrowUp', 'KeyW', 'KeyZ'],
+  bas: ['ArrowDown', 'KeyS'],
+  gauche: ['ArrowLeft', 'KeyA', 'KeyQ'],
+  droite: ['ArrowRight', 'KeyD'],
+  baisser: ['ShiftLeft', 'ShiftRight'],
+};
+
 const touches = new Set();
+/** Cette commande est-elle demandee ? */
+function demande(nom) {
+  return TOUCHES[nom].some((code) => touches.has(code));
+}
+
 addEventListener('keydown', (e) => {
   touches.add(e.code);
   if (e.repeat) return;
@@ -1461,6 +1496,20 @@ addEventListener('keyup', (e) => {
 let angleCamera = 0.4;
 let distanceCamera = 9;
 let hauteurCamera = 4.2;
+
+/* --- La camera se pilote a la souris : universel, quel que soit le clavier */
+let sourisEnfoncee = false;
+rendu.domElement.addEventListener('pointerdown', () => { sourisEnfoncee = true; });
+addEventListener('pointerup', () => { sourisEnfoncee = false; });
+addEventListener('pointercancel', () => { sourisEnfoncee = false; });
+addEventListener('pointermove', (e) => {
+  if (!sourisEnfoncee) return;
+  angleCamera -= e.movementX * 0.006;
+  hauteurCamera = THREE.MathUtils.clamp(hauteurCamera + e.movementY * 0.035, 1.2, 16);
+});
+addEventListener('wheel', (e) => {
+  distanceCamera = THREE.MathUtils.clamp(distanceCamera + e.deltaY * 0.012, 3.5, 30);
+}, { passive: true });
 
 const horloge = new THREE.Clock();
 const positionCamera = new THREE.Vector3();
@@ -1494,18 +1543,15 @@ function animer() {
     camera.updateProjectionMatrix();
   } else {
     /* ================= A PIED ================= */
-    if (touches.has('KeyA')) angleCamera -= dt * 1.2;
-    if (touches.has('KeyE')) angleCamera += dt * 1.2;
-    if (touches.has('KeyR')) hauteurCamera = Math.min(14, hauteurCamera + dt * 6);
-    if (touches.has('KeyF')) hauteurCamera = Math.max(1.4, hauteurCamera - dt * 6);
-
+    // La camera se tourne a la SOURIS (voir plus bas) : aucune lettre n'est
+    // utilisee, donc rien ne peut entrer en conflit avec ZQSD ou WASD.
     let avant = 0;
     let cote = 0;
-    if (touches.has('ArrowUp') || touches.has('KeyW') || touches.has('KeyZ')) avant += 1;
-    if (touches.has('ArrowDown') || touches.has('KeyS')) avant -= 1;
-    if (touches.has('ArrowLeft') || touches.has('KeyQ')) cote -= 1;
-    if (touches.has('ArrowRight') || touches.has('KeyD')) cote += 1;
-    const courir = touches.has('ShiftLeft') || touches.has('ShiftRight');
+    if (demande('haut')) avant += 1;
+    if (demande('bas')) avant -= 1;
+    if (demande('gauche')) cote -= 1;
+    if (demande('droite')) cote += 1;
+    const courir = demande('baisser');
 
     const bouge = avant !== 0 || cote !== 0;
     if (bouge) {
@@ -1577,6 +1623,8 @@ window.maquette = {
   planche,
   REGLAGES_PLANCHE,
   remonterEnHaut,
+  touches,          // pour piloter la planche depuis un test
+  majSurf,          // pour faire avancer la physique sans attendre le rendu
   centre: CENTRE,
 };
 </script>

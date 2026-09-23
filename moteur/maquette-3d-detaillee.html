@@ -17,7 +17,7 @@
                    filter: drop-shadow(0 2px 3px rgba(0,0,0,.7)); }
   .endurance { position: absolute; bottom: 74px; right: 90px; width: 74px; height: 74px; }
   .endurance svg { transform: rotate(-90deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
-  .boussole { position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+  .boussole { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%);
               display: flex; gap: 26px; font-size: 12px; letter-spacing: 3px; opacity: .8;
               text-shadow: 0 2px 4px #000; }
   .boussole b { color: #ffd98a; }
@@ -44,6 +44,17 @@
                 font-size: 20px; letter-spacing: 3px; color: #cfeaff; opacity: 0;
                 text-shadow: 0 3px 10px rgba(0,0,0,.9); }
   .chrono-air.visible { opacity: .95; }
+  .temoin { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: .8; }
+  .temoin .croix { display: grid; grid-template-columns: repeat(3, 26px);
+                   grid-template-rows: repeat(2, 24px); justify-items: center; align-items: center; }
+  .temoin [data-c="haut"] { grid-column: 2; grid-row: 1; }
+  .temoin [data-c="gauche"] { grid-column: 1; grid-row: 2; }
+  .temoin [data-c="bas"] { grid-column: 2; grid-row: 2; }
+  .temoin [data-c="droite"] { grid-column: 3; grid-row: 2; }
+  .temoin span { font-size: 15px; color: rgba(255,255,255,.3); transition: color .08s, text-shadow .08s; }
+  .temoin span.on { color: #8ef07a; text-shadow: 0 0 10px rgba(142,240,122,.9); }
+  .temoin .codes { font-size: 10px; color: #cfeaff; opacity: .55; min-height: 13px; letter-spacing: 1px; }
   .retour { position: fixed; top: 16px; right: 24px; font-size: 11px; color: #cfe8ff;
             opacity: .55; text-decoration: none; z-index: 5; }
   .chargement { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -1082,7 +1093,7 @@ const REGLAGES_PLANCHE = {
   frottementAir: 0.015,
   poussee: 7,              // acceleration quand on appuie sur avant
   freinage: 16,
-  virage: 2.6,             // agilite ; elle baisse quand on va vite
+  virage: 3.1,             // agilite ; elle baisse quand on va vite
   forceSaut: 8.5,          // saut de base
   bonusCharge: 9,          // saut supplementaire si on a charge
   chargeMax: 0.5,          // duree de charge maximale, en secondes
@@ -1295,7 +1306,7 @@ function majSurf(dt) {
   // --- 2. Tourner : on fait pivoter le VECTEUR VITESSE, pas le personnage.
   //     Plus on va vite, moins on tourne : c'est ce qui donne le poids.
   const vitesseHorizontale = Math.hypot(v.x, v.z);
-  const agilite = (R.virage * (planche.auSol ? 1 : 0.4)) / (1 + vitesseHorizontale * 0.05);
+  const agilite = (R.virage * (planche.auSol ? 1 : 0.45)) / (1 + vitesseHorizontale * 0.03);
   let pivot = 0;
   if (gauche) pivot += agilite * dt;
   if (droite) pivot -= agilite * dt;
@@ -1464,34 +1475,73 @@ function majSurf(dt) {
  * tombent alors exactement sur les memes touches physiques.
  */
 const TOUCHES = {
-  haut: ['ArrowUp', 'KeyW', 'KeyZ'],
-  bas: ['ArrowDown', 'KeyS'],
-  gauche: ['ArrowLeft', 'KeyA', 'KeyQ'],
-  droite: ['ArrowRight', 'KeyD'],
-  baisser: ['ShiftLeft', 'ShiftRight'],
+  // A GAUCHE : les POSITIONS de touches (nommees d'apres le clavier US).
+  // A DROITE : les LETTRES reellement produites.
+  // On accepte les deux, donc AZERTY, QWERTY et QWERTZ marchent sans reglage.
+  haut: { positions: ['ArrowUp', 'KeyW', 'KeyZ'], lettres: ['z', 'w'] },
+  bas: { positions: ['ArrowDown', 'KeyS'], lettres: ['s'] },
+  gauche: { positions: ['ArrowLeft', 'KeyA', 'KeyQ'], lettres: ['q', 'a'] },
+  droite: { positions: ['ArrowRight', 'KeyD'], lettres: ['d'] },
+  baisser: { positions: ['ShiftLeft', 'ShiftRight'], lettres: [] },
 };
 
 const touches = new Set();
+
 /** Cette commande est-elle demandee ? */
 function demande(nom) {
-  return TOUCHES[nom].some((code) => touches.has(code));
+  const t = TOUCHES[nom];
+  return t.positions.some((c) => touches.has(c)) || t.lettres.some((l) => touches.has(l));
+}
+
+/** Quelles etiquettes ce clavier a-t-il envoyees pour cette touche ? */
+function etiquettes(e) {
+  const liste = [e.code];
+  if (e.key && e.key.length === 1) liste.push(e.key.toLowerCase());
+  return liste;
 }
 
 addEventListener('keydown', (e) => {
-  touches.add(e.code);
+  for (const etiquette of etiquettes(e)) touches.add(etiquette);
+  // Les fleches feraient defiler la page sur certains navigateurs.
+  if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
   if (e.repeat) return;
   // Les actions "une seule fois" sont traitees ICI et pas dans la boucle :
   // sinon un appui tres bref tombe entre deux images et se perd.
-  if (e.code === 'KeyB') basculerPlanche();
-  if (e.code === 'KeyR' && planche.actif) remonterEnHaut();
-});
+  if (e.code === 'KeyB' || e.key === 'b' || e.key === 'B') basculerPlanche();
+  if ((e.code === 'KeyR' || e.key === 'r' || e.key === 'R') && planche.actif) remonterEnHaut();
+}, { passive: false });
+
 addEventListener('keyup', (e) => {
-  touches.delete(e.code);
+  for (const etiquette of etiquettes(e)) touches.delete(etiquette);
   if (e.code === 'Space' && planche.actif) {
     if (planche.auSol) sauter();
     else planche.charge = 0;
   }
 });
+
+// Si la fenetre perd le focus (clic ailleurs, alt-tab), le "relachement" de
+// la touche n'arrive jamais : la planche tournerait toute seule sans fin.
+addEventListener('blur', () => touches.clear());
+document.addEventListener('visibilitychange', () => { if (document.hidden) touches.clear(); });
+
+/* --- Temoin des commandes : on voit tout de suite ce que le clavier envoie */
+const temoin = document.createElement('div');
+temoin.className = 'temoin';
+temoin.innerHTML = `
+  <div class="croix">
+    <span data-c="haut">▲</span>
+    <span data-c="gauche">◀</span>
+    <span data-c="bas">▼</span>
+    <span data-c="droite">▶</span>
+  </div>
+  <div class="codes"></div>`;
+document.querySelector('.hud').append(temoin);
+function majTemoin() {
+  for (const bouton of temoin.querySelectorAll('[data-c]')) {
+    bouton.classList.toggle('on', demande(bouton.dataset.c));
+  }
+  temoin.querySelector('.codes').textContent = [...touches].join(' ');
+}
 
 let angleCamera = 0.4;
 let distanceCamera = 9;
@@ -1575,6 +1625,7 @@ function animer() {
     camera.updateProjectionMatrix();
   }
 
+  majTemoin();
   majPoussiere(dt);
   if (minuteurVerdict > 0) {
     minuteurVerdict -= dt;
@@ -1624,6 +1675,8 @@ window.maquette = {
   REGLAGES_PLANCHE,
   remonterEnHaut,
   touches,          // pour piloter la planche depuis un test
+  demande,          // pour verifier une commande sans dependre de l'affichage
+  TOUCHES,
   majSurf,          // pour faire avancer la physique sans attendre le rendu
   centre: CENTRE,
 };

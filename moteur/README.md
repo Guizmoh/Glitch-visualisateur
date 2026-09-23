@@ -61,6 +61,18 @@ ciel calculé (dégradé, halo solaire, nuages fBm), éclairage d'heure dorée,
 brouillard aérien raccordé à la couleur de l'horizon et exposition ACES.
 Toujours zéro fichier d'image : tout est fabriqué par le code au démarrage.
 
+Elle contient aussi un **overboard** jouable, pour surfer le relief. Toute la
+mécanique tient en trois règles : la gravité pousse le long de la pente ; on
+décolle quand le sol se dérobe plus vite qu'on ne tombe ; à l'atterrissage on
+ne conserve que la vitesse *parallèle* au sol. La troisième fait tout le jeu —
+retomber à plat sur une pente descendante garde (et augmente) la vitesse,
+retomber en piqué la détruit. Les constantes sont réunies en haut de
+`REGLAGES_PLANCHE`, faites pour être bidouillées.
+
+Commandes : flèches pour diriger, **Espace** (maintenu) pour charger le saut,
+**Maj** pour se baisser, **R** pour remonter en haut d'une pente, **B** pour
+descendre de la planche.
+
 ### Raccourcis utiles
 
 | Adresse | Effet |

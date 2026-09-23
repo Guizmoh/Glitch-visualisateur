@@ -30,6 +30,20 @@
   @keyframes fondu { 0%,55% { opacity: 1; } 100% { opacity: 0; } }
   .aide { position: absolute; bottom: 20px; right: 24px; font-size: 11px; opacity: .6;
           text-align: right; line-height: 1.8; text-shadow: 0 1px 3px #000; }
+  .compteur { position: absolute; bottom: 22px; left: 26px; text-shadow: 0 3px 8px rgba(0,0,0,.8); }
+  .compteur .vitesse { font-size: 44px; font-weight: 700; line-height: 1; color: #fff8e6;
+                       font-variant-numeric: tabular-nums; }
+  .compteur .unite { font-size: 12px; letter-spacing: 3px; opacity: .7; }
+  .compteur .combo { font-size: 13px; letter-spacing: 2px; color: #8ef07a; margin-top: 4px; min-height: 16px; }
+  .verdict { position: absolute; top: 30%; left: 0; right: 0; text-align: center;
+             font-size: 34px; font-weight: 700; letter-spacing: 4px; opacity: 0;
+             text-shadow: 0 4px 14px rgba(0,0,0,.9); transition: opacity .18s; }
+  .verdict small { display: block; font-size: 14px; letter-spacing: 2px; font-weight: 400; margin-top: 6px; }
+  .verdict.visible { opacity: 1; }
+  .chrono-air { position: absolute; top: 42%; left: 0; right: 0; text-align: center;
+                font-size: 20px; letter-spacing: 3px; color: #cfeaff; opacity: 0;
+                text-shadow: 0 3px 10px rgba(0,0,0,.9); }
+  .chrono-air.visible { opacity: .95; }
   .retour { position: fixed; top: 16px; right: 24px; font-size: 11px; color: #cfe8ff;
             opacity: .55; text-decoration: none; z-index: 5; }
   .chargement { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -51,8 +65,16 @@
     </svg>
   </div>
   <div class="boussole"><span>O</span><b>N</b><span>E</span></div>
-  <div class="titre"><span>Plaine de</span><h1>Feuillebois</h1></div>
-  <div class="aide">Fleches / ZQSD : marcher · Maj : courir<br>A / E : tourner · R / F : hauteur de camera</div>
+  <div class="titre"><span>Plaine de</span><h1>Feuillebois</h1>
+    <span style="font-size:12px;letter-spacing:2px;display:block;margin-top:14px;color:#cfeaff">
+      descends les pentes · saute sur les bosses · atterris À PLAT pour garder ta vitesse
+    </span>
+  </div>
+  <div class="aide">
+    <b>EN PLANCHE</b> — Flèches : diriger · <b>Espace</b> (maintenir) : charger le saut<br>
+    <b>Maj</b> : se baisser (on glisse plus vite) · <b>R</b> : remonter en haut<br>
+    <b>B</b> : descendre de la planche (marche à pied)
+  </div>
 </div>
 <a class="retour" href="index.html">← le jeu 2D</a>
 
@@ -1038,12 +1060,403 @@ for (let i = 0; i < 7; i++) {
 }
 
 /* ===================================================================== */
-/* 14. DEPLACEMENT ET CAMERA                                             */
+/* 14. L'OVERBOARD : glisser, decoller, atterrir                         */
+/* ===================================================================== */
+
+/**
+ * TOUT LE JEU TIENT DANS TROIS REGLES :
+ *   1. la gravite pousse le long de la pente -> on accelere en descente ;
+ *   2. quand le sol se derobe plus vite qu'on ne tombe, on DECOLLE ;
+ *   3. a l'atterrissage, on ne garde que la vitesse PARALLELE au sol.
+ * La troisieme est la plus importante : atterrir a plat sur une pente qui
+ * descend conserve (et meme augmente) la vitesse, atterrir "en piqué" contre
+ * la pente la detruit. C'est ce qui fait tout l'interet du jeu.
+ *
+ * Ces nombres sont faits pour etre tripatouilles !
+ */
+const REGLAGES_PLANCHE = {
+  gravite: 30,             // plus fort que la vraie gravite : ca repond mieux
+  frottementSol: 0.55,     // freinage naturel sur le sol (par seconde)
+  frottementRentre: 0.06,  // quand on se baisse (Maj) : on glisse presque sans frein
+  frottementAir: 0.015,
+  poussee: 7,              // acceleration quand on appuie sur avant
+  freinage: 16,
+  virage: 2.6,             // agilite ; elle baisse quand on va vite
+  forceSaut: 8.5,          // saut de base
+  bonusCharge: 9,          // saut supplementaire si on a charge
+  chargeMax: 0.5,          // duree de charge maximale, en secondes
+  vitesseMax: 62,
+  seuilMur: 1.5,           // au-dela, c'est un mur : on ne grimpe pas
+  bonusParfait: 1.07,      // vitesse gagnee sur un atterrissage parfait
+  hauteurPlanche: 0.18,    // la planche flotte un peu au-dessus du sol
+};
+
+const planche = {
+  actif: true,
+  v: new THREE.Vector3(),
+  auSol: true,
+  tempsAir: 0,
+  charge: 0,
+  combo: 0,
+  record: 0,
+  normale: new THREE.Vector3(0, 1, 0),
+  roulis: 0,
+  maille: null,
+};
+
+/** Hauteur de glisse en un point (le sol + l'epaisseur de la planche). */
+function solGlisse(x, z) {
+  return hauteurTerrain(x, z) + REGLAGES_PLANCHE.hauteurPlanche;
+}
+
+/* --- La planche elle-meme ------------------------------------------- */
+{
+  const g = new THREE.Group();
+  const corps = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.09, 1.35), matiereCel(0x2a2d44, { contour: 0.6 }));
+  ajouterContour(corps, 0.02);
+  const dessus = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.035, 1.12), matiereCel(0xe0663f, { contour: 0.5 }));
+  dessus.position.y = 0.06;
+  ajouterContour(dessus, 0.014);
+  // La lueur sous la planche : un simple rectangle lumineux, ca suffit.
+  const lueur = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.62, 1.55),
+    new THREE.MeshBasicMaterial({ color: 0x7ee0e8, transparent: true, opacity: 0.5, depthWrite: false })
+  );
+  lueur.rotation.x = -Math.PI / 2;
+  lueur.position.y = -0.14;
+  g.add(corps, dessus, lueur);
+  g.position.y = -0.09;
+  planche.maille = g;
+  heros.add(g);
+}
+
+/* --- Poussiere : un petit stock d'eclats recycles en boucle ---------- */
+const NB_POUSSIERE = 150;
+const poussiere = {
+  maille: new THREE.InstancedMesh(
+    new THREE.IcosahedronGeometry(0.17, 0),
+    matiereCel(0xd9cdb4, { contour: 0 }),
+    NB_POUSSIERE
+  ),
+  grains: [],
+  curseur: 0,
+  _m: new THREE.Matrix4(),
+  _q: new THREE.Quaternion(),
+  _s: new THREE.Vector3(),
+  _p: new THREE.Vector3(),
+};
+poussiere.maille.frustumCulled = false;
+poussiere.maille.castShadow = false;
+scene.add(poussiere.maille);
+for (let i = 0; i < NB_POUSSIERE; i++) {
+  poussiere.grains.push({ x: 0, y: -999, z: 0, vx: 0, vy: 0, vz: 0, vie: 0, duree: 1, taille: 1 });
+}
+
+function emettrePoussiere(x, y, z, nombre, force = 1) {
+  for (let i = 0; i < nombre; i++) {
+    const grain = poussiere.grains[poussiere.curseur];
+    poussiere.curseur = (poussiere.curseur + 1) % NB_POUSSIERE;
+    grain.x = x + (Math.random() - 0.5) * 0.6;
+    grain.y = y + Math.random() * 0.25;
+    grain.z = z + (Math.random() - 0.5) * 0.6;
+    grain.vx = (Math.random() - 0.5) * 3 * force;
+    grain.vy = (0.6 + Math.random() * 2.2) * force;
+    grain.vz = (Math.random() - 0.5) * 3 * force;
+    grain.duree = 0.45 + Math.random() * 0.5;
+    grain.vie = grain.duree;
+    grain.taille = 0.5 + Math.random() * 0.8;
+  }
+}
+
+function majPoussiere(dt) {
+  for (let i = 0; i < NB_POUSSIERE; i++) {
+    const grain = poussiere.grains[i];
+    let echelle = 0;
+    if (grain.vie > 0) {
+      grain.vie -= dt;
+      grain.x += grain.vx * dt;
+      grain.y += grain.vy * dt;
+      grain.z += grain.vz * dt;
+      grain.vy -= 9 * dt;
+      echelle = Math.max(0, grain.vie / grain.duree) * grain.taille;
+    }
+    poussiere._p.set(grain.x, grain.y, grain.z);
+    poussiere._s.setScalar(echelle);
+    poussiere._m.compose(poussiere._p, poussiere._q, poussiere._s);
+    poussiere.maille.setMatrixAt(i, poussiere._m);
+  }
+  poussiere.maille.instanceMatrix.needsUpdate = true;
+}
+
+/* --- Affichage ------------------------------------------------------- */
+const zoneHud = document.querySelector('.hud');
+const affichageCompteur = document.createElement('div');
+affichageCompteur.className = 'compteur';
+affichageCompteur.innerHTML = '<div class="vitesse">0</div><div class="unite">KM/H</div><div class="combo"></div>';
+zoneHud.append(affichageCompteur);
+const affichageVerdict = document.createElement('div');
+affichageVerdict.className = 'verdict';
+zoneHud.append(affichageVerdict);
+const affichageAir = document.createElement('div');
+affichageAir.className = 'chrono-air';
+zoneHud.append(affichageAir);
+
+let minuteurVerdict = 0;
+function montrerVerdict(titre, detail, couleur) {
+  affichageVerdict.innerHTML = `${titre}<small>${detail}</small>`;
+  affichageVerdict.style.color = couleur;
+  affichageVerdict.classList.add('visible');
+  minuteurVerdict = 1.4;
+}
+
+/* --- L'atterrissage : le coeur du jeu -------------------------------- */
+function atterrir(alignement, tempsAir) {
+  const force = Math.min(2.5, planche.v.length() / 14);
+  emettrePoussiere(heros.position.x, heros.position.y, heros.position.z, 16, force);
+  camera.userData.secousse = Math.min(0.5, tempsAir * 0.35);
+
+  if (alignement > 0.93) {
+    planche.combo++;
+    planche.v.multiplyScalar(REGLAGES_PLANCHE.bonusParfait);
+    montrerVerdict('PARFAIT !', `${tempsAir.toFixed(1)} s en l'air · +vitesse`, '#8ef07a');
+  } else if (alignement > 0.76) {
+    montrerVerdict('BIEN', `${tempsAir.toFixed(1)} s en l'air`, '#ffd76a');
+  } else {
+    planche.combo = 0;
+    montrerVerdict('RATÉ', 'atterris à plat sur la pente !', '#ff7a6a');
+  }
+  if (tempsAir > planche.record) planche.record = tempsAir;
+}
+
+function sauter() {
+  const R = REGLAGES_PLANCHE;
+  const force = R.forceSaut + (planche.charge / R.chargeMax) * R.bonusCharge;
+  // On saute le long de la NORMALE du sol : sur une pente, ca projette vers
+  // l'avant en plus de vers le haut. Sauter pile sur la bosse envoie loin.
+  planche.v.addScaledVector(planche.normale, force);
+  planche.charge = 0;
+  planche.auSol = false;
+  emettrePoussiere(heros.position.x, heros.position.y, heros.position.z, 8, 1);
+}
+
+/** Monter sur la planche ou en descendre. */
+function basculerPlanche() {
+  planche.actif = !planche.actif;
+  planche.v.set(0, 0, 0);
+  planche.charge = 0;
+  planche.maille.visible = planche.actif;
+  heros.rotation.set(0, heros.rotation.y, 0);
+  heros.scale.y = 1;
+  heros.userData.jambes[0].rotation.z = 0;
+  heros.userData.jambes[1].rotation.z = 0;
+  heros.userData.bras[0].rotation.z = 0.24;
+  heros.userData.bras[1].rotation.z = -0.24;
+  montrerVerdict(planche.actif ? 'EN PLANCHE' : 'À PIED', planche.actif ? 'Espace pour sauter' : 'B pour remonter dessus', '#7ee0e8');
+}
+
+/** Cherche un bon point de depart : haut, degage, et bien pentu. */
+function remonterEnHaut() {
+  let meilleur = null;
+  for (let i = 0; i < 2500; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const rayon = 45 + Math.random() * 95;
+    const x = CENTRE.x + Math.cos(angle) * rayon;
+    const z = CENTRE.y + Math.sin(angle) * rayon;
+    const h = hauteurTerrain(x, z);
+    const note = h + normaleTerrain(x, z).y * -8;
+    if (!meilleur || note > meilleur.note) meilleur = { x, z, h, note };
+  }
+  heros.position.set(meilleur.x, solGlisse(meilleur.x, meilleur.z), meilleur.z);
+  planche.v.set(0, 0, 0);
+  planche.combo = 0;
+  montrerVerdict('EN HAUT !', 'descends la pente et prends de la vitesse', '#7ee0e8');
+}
+
+/* --- La physique ----------------------------------------------------- */
+function majSurf(dt) {
+  const R = REGLAGES_PLANCHE;
+  const p = heros.position;
+  const v = planche.v;
+
+  const gauche = touches.has('ArrowLeft') || touches.has('KeyQ') || touches.has('KeyA');
+  const droite = touches.has('ArrowRight') || touches.has('KeyD');
+  const avance = touches.has('ArrowUp') || touches.has('KeyW') || touches.has('KeyZ');
+  const freine = touches.has('ArrowDown') || touches.has('KeyS');
+  const rentre = touches.has('ShiftLeft') || touches.has('ShiftRight');
+
+  // --- 1. Le saut : on accumule la charge tant que la touche est tenue.
+  //     Le saut lui-meme part au RELACHEMENT (voir l'ecouteur 'keyup') :
+  //     une tape tres breve serait sinon perdue entre deux images.
+  if (touches.has('Space') && planche.auSol) {
+    planche.charge = Math.min(R.chargeMax, planche.charge + dt);
+  }
+
+  // --- 2. Tourner : on fait pivoter le VECTEUR VITESSE, pas le personnage.
+  //     Plus on va vite, moins on tourne : c'est ce qui donne le poids.
+  const vitesseHorizontale = Math.hypot(v.x, v.z);
+  const agilite = (R.virage * (planche.auSol ? 1 : 0.4)) / (1 + vitesseHorizontale * 0.05);
+  let pivot = 0;
+  if (gauche) pivot += agilite * dt;
+  if (droite) pivot -= agilite * dt;
+  if (pivot !== 0 && vitesseHorizontale > 0.2) {
+    const c = Math.cos(pivot);
+    const si = Math.sin(pivot);
+    const nx = v.x * c + v.z * si;
+    const nz = -v.x * si + v.z * c;
+    v.x = nx;
+    v.z = nz;
+  }
+  planche.roulis = THREE.MathUtils.lerp(planche.roulis, pivot * 26, 0.12);
+
+  // --- 3. Pousser / freiner dans l'axe de la planche
+  if (vitesseHorizontale > 0.3) {
+    const ix = v.x / vitesseHorizontale;
+    const iz = v.z / vitesseHorizontale;
+    if (avance && planche.auSol) { v.x += ix * R.poussee * dt; v.z += iz * R.poussee * dt; }
+    if (freine && planche.auSol) {
+      const frein = Math.min(R.freinage * dt, vitesseHorizontale);
+      v.x -= ix * frein;
+      v.z -= iz * frein;
+    }
+  } else if (avance) {
+    v.x += Math.sin(heros.rotation.y) * R.poussee * dt;
+    v.z += Math.cos(heros.rotation.y) * R.poussee * dt;
+  }
+
+  // --- 4. Gravite et frottements
+  v.y -= R.gravite * dt;
+  const frottement = planche.auSol ? (rentre ? R.frottementRentre : R.frottementSol) : R.frottementAir;
+  v.multiplyScalar(Math.max(0, 1 - frottement * dt));
+  if (v.length() > R.vitesseMax) v.setLength(R.vitesseMax);
+
+  // --- 5. Integration par petits pas (sinon on traverse les falaises)
+  const etaitEnAir = !planche.auSol;
+  let contact = false;
+  let alignementContact = 1;
+  const nbPas = Math.max(1, Math.ceil((v.length() * dt) / 0.45));
+  const dtPas = dt / nbPas;
+
+  for (let i = 0; i < nbPas; i++) {
+    const ancienX = p.x;
+    const ancienZ = p.z;
+    const ancienY = p.y;
+    p.x += v.x * dtPas;
+    p.y += v.y * dtPas;
+    p.z += v.z * dtPas;
+
+    const sol = solGlisse(p.x, p.z);
+
+    // Un mur : le sol monte d'un coup. On ne le grimpe pas, on s'y cogne.
+    if (sol - ancienY > R.seuilMur && p.y < sol) {
+      p.x = ancienX;
+      p.z = ancienZ;
+      const perdue = Math.hypot(v.x, v.z);
+      v.x *= 0.2;
+      v.z *= 0.2;
+      if (perdue > 9) {
+        emettrePoussiere(p.x, p.y + 0.4, p.z, 10, 1.4);
+        camera.userData.secousse = 0.3;
+        planche.combo = 0;
+        montrerVerdict('AÏE !', 'il fallait contourner...', '#ff7a6a');
+      }
+      continue;
+    }
+
+    if (p.y <= sol) {
+      p.y = sol;
+      const N = normaleTerrain(p.x, p.z);
+      const vitesse = v.length();
+      const versLeSol = v.dot(N);
+      if (versLeSol < 0) {
+        // ALIGNEMENT : 1 = on arrive a plat sur la pente, 0 = on arrive dessus
+        // perpendiculairement. C'est LA note de l'atterrissage.
+        const alignement = 1 - Math.min(1, Math.abs(versLeSol) / Math.max(vitesse, 0.001));
+        alignementContact = Math.min(alignementContact, alignement);
+        // On enleve la composante qui rentre dans le sol...
+        v.addScaledVector(N, -versLeSol);
+        // ... et on perd d'autant plus de vitesse qu'on est arrive mal.
+        const perte = THREE.MathUtils.lerp(0.6, 0, Math.pow(alignement, 0.6));
+        v.multiplyScalar(1 - perte);
+      }
+      planche.normale.copy(N);
+      contact = true;
+    }
+  }
+
+  // --- 6. Bilan de l'image
+  if (contact && etaitEnAir && planche.tempsAir > 0.3) atterrir(alignementContact, planche.tempsAir);
+  planche.auSol = contact;
+  planche.tempsAir = contact ? 0 : planche.tempsAir + dt;
+  if (!contact) planche.charge = 0;
+
+  // On ne sort pas du monde.
+  const distance = Math.hypot(p.x - CENTRE.x, p.z - CENTRE.y);
+  if (distance > TAILLE_MONDE / 2 - 12) remonterEnHaut();
+
+  // --- 7. Orientation du personnage et de la planche
+  if (vitesseHorizontale > 0.6) {
+    const cap = Math.atan2(v.x, v.z);
+    const ecart = cap - heros.rotation.y;
+    heros.rotation.y += Math.atan2(Math.sin(ecart), Math.cos(ecart)) * Math.min(1, dt * 9);
+  }
+  const devant = new THREE.Vector3(Math.sin(heros.rotation.y), 0, Math.cos(heros.rotation.y));
+  const tangage = planche.auSol
+    ? -Math.asin(THREE.MathUtils.clamp(planche.normale.dot(devant), -0.9, 0.9))
+    : THREE.MathUtils.clamp(-v.y / 40, -0.5, 0.5);
+  heros.rotation.x = THREE.MathUtils.lerp(heros.rotation.x, tangage, 0.16);
+  heros.rotation.z = THREE.MathUtils.lerp(heros.rotation.z, planche.roulis, 0.16);
+
+  // Position accroupie quand on se baisse, jambes ecartees sur la planche
+  const accroupi = rentre && planche.auSol ? 0.82 : 1;
+  heros.scale.y = THREE.MathUtils.lerp(heros.scale.y, accroupi, 0.15);
+  heros.userData.jambes[0].rotation.z = 0.28;
+  heros.userData.jambes[1].rotation.z = -0.28;
+  heros.userData.jambes[0].rotation.x = 0;
+  heros.userData.jambes[1].rotation.x = 0;
+  const equilibre = Math.min(1, v.length() / 30);
+  heros.userData.bras[0].rotation.z = 0.25 + equilibre * 0.9;
+  heros.userData.bras[1].rotation.z = -0.25 - equilibre * 0.9;
+
+  // --- 8. Effets
+  const vitesseFinale = v.length();
+  if (planche.auSol && vitesseFinale > 7 && Math.random() < vitesseFinale * 0.06 * dt * 60 / 60) {
+    emettrePoussiere(p.x - v.x * 0.03, p.y, p.z - v.z * 0.03, 1, 0.5 + vitesseFinale / 40);
+  }
+  planche.maille.children[2].material.opacity = 0.25 + Math.min(0.5, vitesseFinale / 50);
+
+  // --- 9. Compteur
+  const kmh = Math.round(vitesseFinale * 3.6);
+  affichageCompteur.querySelector('.vitesse').textContent = kmh;
+  affichageCompteur.querySelector('.combo').textContent =
+    planche.combo > 1 ? `x${planche.combo} atterrissages parfaits` : '';
+  if (!planche.auSol && planche.tempsAir > 0.35) {
+    affichageAir.textContent = `${planche.tempsAir.toFixed(1)} s`;
+    affichageAir.classList.add('visible');
+  } else {
+    affichageAir.classList.remove('visible');
+  }
+}
+
+/* ===================================================================== */
+/* 15. DEPLACEMENT ET CAMERA                                             */
 /* ===================================================================== */
 
 const touches = new Set();
-addEventListener('keydown', (e) => touches.add(e.code));
-addEventListener('keyup', (e) => touches.delete(e.code));
+addEventListener('keydown', (e) => {
+  touches.add(e.code);
+  if (e.repeat) return;
+  // Les actions "une seule fois" sont traitees ICI et pas dans la boucle :
+  // sinon un appui tres bref tombe entre deux images et se perd.
+  if (e.code === 'KeyB') basculerPlanche();
+  if (e.code === 'KeyR' && planche.actif) remonterEnHaut();
+});
+addEventListener('keyup', (e) => {
+  touches.delete(e.code);
+  if (e.code === 'Space' && planche.actif) {
+    if (planche.auSol) sauter();
+    else planche.charge = 0;
+  }
+});
 
 let angleCamera = 0.4;
 let distanceCamera = 9;
@@ -1061,36 +1474,66 @@ function animer() {
   matiereHerbe.uniforms.temps.value = t;
   lac.material.uniforms.temps.value = t;
 
-  if (touches.has('KeyA')) angleCamera -= dt * 1.2;
-  if (touches.has('KeyE')) angleCamera += dt * 1.2;
-  if (touches.has('KeyR')) hauteurCamera = Math.min(14, hauteurCamera + dt * 6);
-  if (touches.has('KeyF')) hauteurCamera = Math.max(1.4, hauteurCamera - dt * 6);
+  if (planche.actif) {
+    /* ================= EN PLANCHE ================= */
+    majSurf(dt);
 
-  let avant = 0;
-  let cote = 0;
-  if (touches.has('ArrowUp') || touches.has('KeyW') || touches.has('KeyZ')) avant += 1;
-  if (touches.has('ArrowDown') || touches.has('KeyS')) avant -= 1;
-  if (touches.has('ArrowLeft') || touches.has('KeyQ')) cote -= 1;
-  if (touches.has('ArrowRight') || touches.has('KeyD')) cote += 1;
-  const courir = touches.has('ShiftLeft') || touches.has('ShiftRight');
+    // La camera se place d'elle-meme derriere le sens de la glisse, et
+    // s'ecarte quand ca va vite : c'est ce qui donne la sensation de vitesse.
+    const vitesse = planche.v.length();
+    const part = Math.min(1, vitesse / REGLAGES_PLANCHE.vitesseMax);
+    if (Math.hypot(planche.v.x, planche.v.z) > 1.2) {
+      const cap = Math.atan2(planche.v.x, planche.v.z);
+      const ecart = cap - angleCamera;
+      angleCamera += Math.atan2(Math.sin(ecart), Math.cos(ecart)) * Math.min(1, dt * 2.2);
+    }
+    distanceCamera = 6.5 + part * 4.5;
+    hauteurCamera = 2.2 + part * 1.4;
+    const champCible = 55 + part * 28;   // le grand-angle "etire" l'image
+    camera.fov += (champCible - camera.fov) * Math.min(1, dt * 3);
+    camera.updateProjectionMatrix();
+  } else {
+    /* ================= A PIED ================= */
+    if (touches.has('KeyA')) angleCamera -= dt * 1.2;
+    if (touches.has('KeyE')) angleCamera += dt * 1.2;
+    if (touches.has('KeyR')) hauteurCamera = Math.min(14, hauteurCamera + dt * 6);
+    if (touches.has('KeyF')) hauteurCamera = Math.max(1.4, hauteurCamera - dt * 6);
 
-  const bouge = avant !== 0 || cote !== 0;
-  if (bouge) {
-    const direction = Math.atan2(cote, avant) + angleCamera;
-    const vitesse = (courir ? 11 : 5) * dt;
-    heros.position.x += Math.sin(direction) * vitesse;
-    heros.position.z += Math.cos(direction) * vitesse;
-    const ecart = direction - heros.rotation.y;
-    heros.rotation.y += Math.atan2(Math.sin(ecart), Math.cos(ecart)) * 0.18;
+    let avant = 0;
+    let cote = 0;
+    if (touches.has('ArrowUp') || touches.has('KeyW') || touches.has('KeyZ')) avant += 1;
+    if (touches.has('ArrowDown') || touches.has('KeyS')) avant -= 1;
+    if (touches.has('ArrowLeft') || touches.has('KeyQ')) cote -= 1;
+    if (touches.has('ArrowRight') || touches.has('KeyD')) cote += 1;
+    const courir = touches.has('ShiftLeft') || touches.has('ShiftRight');
+
+    const bouge = avant !== 0 || cote !== 0;
+    if (bouge) {
+      const direction = Math.atan2(cote, avant) + angleCamera;
+      const vitesse = (courir ? 11 : 5) * dt;
+      heros.position.x += Math.sin(direction) * vitesse;
+      heros.position.z += Math.cos(direction) * vitesse;
+      const ecart = direction - heros.rotation.y;
+      heros.rotation.y += Math.atan2(Math.sin(ecart), Math.cos(ecart)) * 0.18;
+    }
+    heros.position.y = hauteurTerrain(heros.position.x, heros.position.z);
+
+    const cadence = bouge ? Math.sin(t * (courir ? 15 : 10)) : Math.sin(t * 1.4) * 0.12;
+    heros.userData.jambes[0].rotation.x = cadence * 0.75;
+    heros.userData.jambes[1].rotation.x = -cadence * 0.75;
+    heros.userData.bras[0].rotation.x = -cadence * 0.65;
+    heros.userData.bras[1].rotation.x = cadence * 0.65;
+
+    const champCible = 55;
+    camera.fov += (champCible - camera.fov) * Math.min(1, dt * 3);
+    camera.updateProjectionMatrix();
   }
-  // Le heros epouse le relief.
-  heros.position.y = hauteurTerrain(heros.position.x, heros.position.z);
 
-  const cadence = bouge ? Math.sin(t * (courir ? 15 : 10)) : Math.sin(t * 1.4) * 0.12;
-  heros.userData.jambes[0].rotation.x = cadence * 0.75;
-  heros.userData.jambes[1].rotation.x = -cadence * 0.75;
-  heros.userData.bras[0].rotation.x = -cadence * 0.65;
-  heros.userData.bras[1].rotation.x = cadence * 0.65;
+  majPoussiere(dt);
+  if (minuteurVerdict > 0) {
+    minuteurVerdict -= dt;
+    if (minuteurVerdict <= 0) affichageVerdict.classList.remove('visible');
+  }
 
   // L'ombre suit le joueur : une petite boite d'ombre = des ombres nettes.
   soleil.target.position.copy(heros.position);
@@ -1104,8 +1547,16 @@ function animer() {
   // La camera ne rentre pas dans le sol.
   const solSousCamera = hauteurTerrain(positionCamera.x, positionCamera.z) + 1.6;
   positionCamera.y = Math.max(positionCamera.y, solSousCamera);
-  camera.position.lerp(positionCamera, 0.12);
-  camera.lookAt(heros.position.x, heros.position.y + 1.5, heros.position.z);
+  camera.position.lerp(positionCamera, planche.actif ? 0.16 : 0.12);
+
+  // Petite secousse a l'atterrissage et dans les chocs.
+  const secousse = camera.userData.secousse || 0;
+  if (secousse > 0) {
+    camera.position.x += (Math.random() - 0.5) * secousse;
+    camera.position.y += (Math.random() - 0.5) * secousse;
+    camera.userData.secousse = Math.max(0, secousse - dt * 2.2);
+  }
+  camera.lookAt(heros.position.x, heros.position.y + 1.4, heros.position.z);
 
   ciel.position.copy(camera.position);
   rendu.render(scene, camera);
@@ -1123,6 +1574,9 @@ window.maquette = {
   },
   placerHeros: (x, z) => { heros.position.x = x; heros.position.z = z; },
   hauteurTerrain,
+  planche,
+  REGLAGES_PLANCHE,
+  remonterEnHaut,
   centre: CENTRE,
 };
 </script>

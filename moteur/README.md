@@ -38,8 +38,18 @@ deux versions**, et l'éditeur de cartes sert aux deux.
 src/rendu3d/
 ├── materiaux.js   cel shading, contours à l'encre, textures des tuiles
 ├── formes.js      à quoi ressemble, en volume, chaque tuile et chaque entité
+├── ambiance.js    ciel calculé, herbe animée par le vent, paysage lointain
 └── vue3d.js       la scène : décor, entités, caméra
 ```
+
+L'ambiance mérite un mot. Le sol de la zone jouable reste **plat** — c'est ce
+qui garde les collisions simples et strictement identiques à la version 2D.
+Mais rien n'oblige le *reste* du monde à l'être : au-delà des murs de la salle
+s'étendent une prairie, une forêt semée par du bruit fractal et des collines,
+sous un ciel calculé par un shader (dégradé, halo solaire, nuages qui dérivent).
+De l'herbe instanciée ondule au vent — dense au-dehors, discrète dans la salle,
+pour que le terrain de jeu reste lisible. C'est la règle que suivent les vrais
+jeux : la zone jouable est sage, le décor lointain fait le spectacle.
 
 ## Démarrer
 

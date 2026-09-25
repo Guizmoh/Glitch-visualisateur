@@ -13,7 +13,8 @@
 import * as THREE from 'three';
 import { TAILLE_TUILE } from '../monde/tuileset.js';
 import { TUILES } from '../contenu/tuiles.js';
-import { matiereToon, ajouterContour } from './materiaux.js';
+import { matiereToon, ajouterContour, RAMPE_TONS } from './materiaux.js';
+import { Ambiance, DIRECTION_SOLEIL } from './ambiance.js';
 import {
   morceauxDeTuile, creuxDeTuile, creerPersonnage, creerMonstre, creerCoffre,
   creerPanneau, creerBloc, creerRamassable, creerProjectile, creerLameEpee,
@@ -36,11 +37,11 @@ export class Vue3D {
     this.camera = new THREE.PerspectiveCamera(46, 16 / 9, 0.1, 200);
 
     /* --- Lumieres : un soleil chaud et un ciel froid ------------------ */
-    this.ambiance = new THREE.HemisphereLight(0xcfe8ff, 0x4a4a55, 1.0);
-    this.scene.add(this.ambiance);
+    this.lumiereAmbiante = new THREE.HemisphereLight(0xcfe8ff, 0x4a4a55, 1.0);
+    this.scene.add(this.lumiereAmbiante);
 
-    this.soleil = new THREE.DirectionalLight(0xfff0d0, 2.2);
-    this.soleil.position.set(8, 16, 6);
+    this.soleil = new THREE.DirectionalLight(0xffe9c0, 2.6);
+    this.soleil.position.copy(DIRECTION_SOLEIL).multiplyScalar(30);
     this.soleil.castShadow = true;
     this.soleil.shadow.mapSize.set(2048, 2048);
     this.soleil.shadow.bias = -0.0012;
@@ -55,6 +56,9 @@ export class Vue3D {
     this.decor = new THREE.Group();
     this.groupeEntites = new THREE.Group();
     this.scene.add(this.decor, this.groupeEntites);
+
+    // Le ciel, l'herbe et le paysage lointain.
+    this.ambiance = new Ambiance(this.scene, this.rendu);
 
     this.entites = new Map();   // id d'entite -> objet 3D
     this.carte = null;
@@ -97,7 +101,7 @@ export class Vue3D {
     texture.anisotropy = this.rendu.capabilities.getMaxAnisotropy();
     const sol = new THREE.Mesh(
       new THREE.PlaneGeometry(L, H),
-      new THREE.MeshToonMaterial({ map: texture })
+      new THREE.MeshToonMaterial({ map: texture, gradientMap: RAMPE_TONS })
     );
     sol.rotation.x = -Math.PI / 2;
     sol.position.set(L / 2, 0, H / 2);
@@ -105,14 +109,17 @@ export class Vue3D {
     this.decor.add(sol);
     this.textureSol = texture;
 
-    /* --- Au-dela de la salle : du vide sombre, pour cadrer l'image ---- */
-    const alentour = new THREE.Mesh(
-      new THREE.PlaneGeometry(220, 220),
-      new THREE.MeshBasicMaterial({ color: interieur ? 0x07060b : 0x1b2a1a })
-    );
-    alentour.rotation.x = -Math.PI / 2;
-    alentour.position.set(L / 2, -0.35, H / 2);
-    this.decor.add(alentour);
+    /* --- Dedans : du noir autour. Dehors : c'est Ambiance qui s'en charge. */
+    if (interieur) {
+      const alentour = new THREE.Mesh(
+        new THREE.PlaneGeometry(220, 220),
+        new THREE.MeshBasicMaterial({ color: 0x07060b })
+      );
+      alentour.rotation.x = -Math.PI / 2;
+      alentour.position.set(L / 2, -0.35, H / 2);
+      this.decor.add(alentour);
+    }
+    this.ambiance.configurer(carte, interieur);
 
     /* --- Les creux : eau, lave, trous --------------------------------- */
     const creux = new Map();
@@ -185,23 +192,24 @@ export class Vue3D {
     if (interieur) {
       this.scene.background = fond;
       this.scene.fog = new THREE.Fog(fond.getHex(), 12, 34);
-      this.ambiance.intensity = 1.15;
-      this.ambiance.groundColor.setHex(0x4a3a28);
-      this.ambiance.color.setHex(0xffe6c0);
+      this.lumiereAmbiante.intensity = 1.15;
+      this.lumiereAmbiante.groundColor.setHex(0x4a3a28);
+      this.lumiereAmbiante.color.setHex(0xffe6c0);
       this.soleil.intensity = 1.9;
     } else {
-      const ciel = new THREE.Color(0x8ec9e8);
-      this.scene.background = ciel;
-      this.scene.fog = new THREE.Fog(ciel.getHex(), 22, 60);
-      this.ambiance.intensity = 1.25;
-      this.ambiance.color.setHex(0xcfe8ff);
-      this.ambiance.groundColor.setHex(0x5d7040);
-      this.soleil.intensity = 2.3;
+      // Dehors : c'est le dome de ciel qui fait le fond, et le brouillard
+      // prend la couleur de l'horizon pour que tout se raccorde.
+      this.scene.background = null;
+      this.scene.fog = new THREE.Fog(0xedd9bd, 45, 190);
+      this.lumiereAmbiante.intensity = 1.5;   // les ombres restent lisibles
+      this.lumiereAmbiante.color.setHex(0xdcefff);
+      this.lumiereAmbiante.groundColor.setHex(0x6d8050);
+      this.soleil.intensity = 2.1;
     }
 
     // L'ombre se cale sur la salle.
     this.soleil.target.position.set(L / 2, 0, H / 2);
-    this.soleil.position.set(L / 2 + 8, 16, H / 2 + 6);
+    this.soleil.position.set(L / 2, 0, H / 2).addScaledVector(DIRECTION_SOLEIL, 28);
     this.premierCadrage = true;
   }
 
@@ -410,6 +418,7 @@ export class Vue3D {
     }
     this.synchroniser(jeu, dt);
     this.cadrerSalle(jeu.carte, jeu.joueur, dt);
+    this.ambiance.maj(dt, this.camera);
     this.rendu.render(this.scene, this.camera);
   }
 }

@@ -9,7 +9,8 @@ Tout — code, commentaires, noms de variables — est en français.
 
 | | |
 |---|---|
-| **Jouer** | `index.html` |
+| **Jouer (3D)** | `index3d.html` — la version de référence |
+| **Jouer (2D)** | `index.html` — même jeu, vue de dessus |
 | **Dessiner des cartes** | `editeur.html` |
 | **Voir la même carte en 3D** | `maquette-3d.html` (style N64) |
 | **… en beaucoup plus détaillé** | `maquette-3d-detaillee.html` |
@@ -17,6 +18,28 @@ Tout — code, commentaires, noms de variables — est en français.
 | **Recettes (« comment faire … ? »)** | [RECETTES.md](RECETTES.md) |
 
 ---
+
+## Les deux affichages, un seul jeu
+
+Le jeu existe en **2D** et en **3D**, et c'est **exactement le même jeu** : mêmes
+salles, mêmes ennemis, mêmes coffres, mêmes dialogues, mêmes règles. Seul
+l'affichage change.
+
+C'est possible parce que la simulation reste plate : les entités vivent dans un
+monde en pixels vu de dessus, et la vue 3D se contente de *regarder* ce monde et
+de le redessiner en volume (16 pixels = 1 case = 1 unité 3D). Le fichier
+`src/rendu3d/vue3d.js` est le seul à savoir que la 3D existe ; `src/jeu/` n'en
+sait rien.
+
+Conséquence pratique : **tout ce qu'on crée dans `contenu/` apparaît dans les
+deux versions**, et l'éditeur de cartes sert aux deux.
+
+```
+src/rendu3d/
+├── materiaux.js   cel shading, contours à l'encre, textures des tuiles
+├── formes.js      à quoi ressemble, en volume, chaque tuile et chaque entité
+└── vue3d.js       la scène : décor, entités, caméra
+```
 
 ## Démarrer
 

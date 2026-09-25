@@ -8,13 +8,21 @@
 import { borner, melange, hasard } from './maths.js';
 
 export class Ecran {
-  constructor(canvas, largeur = 320, hauteur = 192) {
+  /**
+   * options.transparent : le canvas laisse voir ce qu'il y a derriere
+   *                       (on s'en sert pour poser l'interface sur la 3D)
+   * options.remplir     : il occupe toute la fenetre au lieu d'un
+   *                       agrandissement par nombre entier
+   */
+  constructor(canvas, largeur = 320, hauteur = 192, options = {}) {
     this.canvas = canvas;
     this.largeur = largeur;
     this.hauteur = hauteur;
+    this.transparent = !!options.transparent;
+    this.remplir = !!options.remplir;
     canvas.width = largeur;
     canvas.height = hauteur;
-    this.ctx = canvas.getContext('2d', { alpha: false });
+    this.ctx = canvas.getContext('2d', { alpha: this.transparent });
     this.ctx.imageSmoothingEnabled = false; // pixels bien carres !
     this.echelle = 1;
     this.redimensionner();
@@ -23,6 +31,12 @@ export class Ecran {
 
   /** Agrandit le canvas par un nombre entier pour garder des pixels nets. */
   redimensionner() {
+    if (this.remplir) {
+      this.canvas.style.width = '100%';
+      this.canvas.style.height = '100%';
+      this.ctx.imageSmoothingEnabled = false;
+      return;
+    }
     const parent = this.canvas.parentElement || document.body;
     const dispoL = parent.clientWidth || window.innerWidth;
     const dispoH = parent.clientHeight || window.innerHeight;
@@ -34,6 +48,11 @@ export class Ecran {
   }
 
   effacer(couleur = '#000000') {
+    if (this.transparent) {
+      // On efface vraiment : la 3D doit rester visible derriere.
+      this.ctx.clearRect(0, 0, this.largeur, this.hauteur);
+      return;
+    }
     this.ctx.fillStyle = couleur;
     this.ctx.fillRect(0, 0, this.largeur, this.hauteur);
   }

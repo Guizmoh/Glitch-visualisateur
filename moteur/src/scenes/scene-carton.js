@@ -75,6 +75,8 @@ export class SceneCarton extends Scene {
     this.moteur.audio.jouer('menu');
     if (this.suivante) {
       this.moteur.changerScene(this.suivante());
+    } else if (this.moteur.lancerPartie) {
+      this.moteur.lancerPartie({});
     } else {
       import('./scene-jeu.js').then(({ SceneJeu }) => {
         this.moteur.changerScene(new SceneJeu());

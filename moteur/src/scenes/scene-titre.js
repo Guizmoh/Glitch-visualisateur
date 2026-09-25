@@ -60,8 +60,11 @@ export class SceneTitre extends Scene {
       this.moteur.audio.reveiller();
       this.moteur.audio.jouer('secret');
       const continuer = this.aUneSauvegarde && this.choix === 0;
+      // lancerPartie est fourni par la page : version 2D ou version 3D.
+      const lancer = this.moteur.lancerPartie
+        || ((donnees) => this.moteur.changerScene(new SceneJeu(), donnees));
       if (continuer) {
-        this.moteur.changerScene(new SceneJeu(), { charger: true });
+        lancer({ charger: true });
       } else {
         // Nouvelle partie : on raconte d'abord ce qui s'est passe cette nuit-la.
         Sauvegarde.effacer('partie');

@@ -10,8 +10,8 @@ import { audio } from './audio.js';
 import { evenements } from './evenements.js';
 
 export class Moteur {
-  constructor({ canvas, largeur = 320, hauteur = 192 }) {
-    this.ecran = new Ecran(canvas, largeur, hauteur);
+  constructor({ canvas, largeur = 320, hauteur = 192, ecran = {} }) {
+    this.ecran = new Ecran(canvas, largeur, hauteur, ecran);
     this.entrees = new Entrees(window);
     this.audio = audio;
     this.evenements = evenements;
@@ -80,6 +80,7 @@ export class Moteur {
     if (dt > 0.05) dt = 0.05;
     dt *= this.ralenti;
 
+    this.dt = dt;  // utile aux scenes qui dessinent en 3D
     this.tempsTotal += dt;
     this.images++;
     this._compteurFps++;

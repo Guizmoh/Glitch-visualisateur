@@ -35,6 +35,9 @@ export class Carte {
     this._canvasSol = null;
     this._canvasDessus = null;
     this._aRedessiner = true;
+    // Incremente a chaque modification : l'affichage 3D s'en sert pour
+    // savoir qu'il doit reconstruire la salle.
+    this.version = 0;
   }
 
   get largeurPixels() {
@@ -93,6 +96,7 @@ export class Carte {
     if (!this.dansLaCarte(col, ligne)) return;
     this.grille[ligne][col] = symbole;
     this._aRedessiner = true;
+    this.version++;
   }
 
   /** Trouve toutes les cases qui portent une lettre donnee. */
@@ -142,6 +146,14 @@ export class Carte {
     this._canvasSol = sol.canvas;
     this._canvasDessus = dessus.canvas;
     this._aRedessiner = false;
+  }
+
+  /** L'image du sol de la salle, telle que dessinee en 2D.
+      L'affichage 3D la plaque directement sur le sol : le grain du jeu 2D
+      se retrouve ainsi tel quel sous les pieds du heros. */
+  imageSol() {
+    if (this._aRedessiner) this._rendre();
+    return this._canvasSol;
   }
 
   dessinerSol(ctx) {

@@ -74,7 +74,7 @@ export const CARTES = {
     entites: [
       { type: 'pnj', dialogue: 'pypa', sprite: 'sage_0', x: 9, y: 4, nom: 'Pypa' },
       { type: 'pnj', dialogue: 'villageois', sprite: 'villageois_0', x: 4, y: 8, errant: true },
-      { type: 'pnj', dialogue: 'marchande', sprite: 'villageois_0', x: 14, y: 3, errant: false },
+      { type: 'pnj', dialogue: 'marchande', sprite: 'villageois_0', x: 16, y: 8, errant: false },
       { type: 'panneau', x: 8, y: 9, texte: ['Village de Feuillebois.', 'Le donjon est au nord-est.'] },
       { type: 'coffre', x: 2, y: 2, contenu: 'rubis_bleu', drapeau: 'coffre-village' },
     ],

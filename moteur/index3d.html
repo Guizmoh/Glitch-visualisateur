@@ -2,74 +2,13 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>La Legende de Night — 3D</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗡️</text></svg>">
-<style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #07060b;
-               font-family: ui-monospace, Menlo, monospace; color: #f4f1de; }
-  #scene, #hud { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  /* La 3D est au fond, l'interface du jeu est posee par-dessus. */
-  #scene { z-index: 0; }
-  #hud { z-index: 1; image-rendering: pixelated; pointer-events: none; }
-  .aide { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 2;
-          font-size: 11px; color: #cfe8ff; opacity: .55; text-align: center;
-          text-shadow: 0 1px 3px #000; pointer-events: none; }
-  .aide b { color: #f2c14b; }
-  .liens { position: fixed; top: 10px; right: 14px; z-index: 3; font-size: 11px; display: flex; gap: 12px; }
-  .liens a { color: #cfe8ff; opacity: .5; text-decoration: none; }
-  .liens a:hover { opacity: 1; }
-
-  /* Commandes tactiles */
-  .tactile { position: fixed; inset: auto 0 0 0; z-index: 4; display: none;
-             justify-content: space-between; align-items: flex-end; padding: 14px 18px; }
-  .croix { display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); gap: 2px; }
-  .boutons { display: flex; gap: 10px; }
-  .touche { display: flex; align-items: center; justify-content: center;
-            background: rgba(22,19,31,.7); border: 2px solid rgba(255,255,255,.25);
-            border-radius: 10px; color: #f4f1de; font-size: 18px; font-weight: 700; }
-  .touche.actif { background: rgba(242,193,75,.85); color: #16131f; }
-  .touche.ronde { width: 64px; height: 64px; border-radius: 50%; }
-  .touche.vide { background: none; border: none; }
-  @media (pointer: coarse) { .tactile { display: flex; } .aide { display: none; } }
-</style>
+<!-- La version 3D EST le jeu : cette page ne sert plus qu'a ne pas casser
+     les anciens liens. Elle renvoie vers index.html. -->
+<meta http-equiv="refresh" content="0; url=index.html">
+<link rel="canonical" href="index.html">
+<title>La Legende de Night</title>
 </head>
-<body>
-
-<canvas id="scene"></canvas>
-<canvas id="hud"></canvas>
-
-<div class="liens">
-  <a href="index.html">version 2D</a>
-  <a href="editeur.html">éditeur</a>
-  <a href="SCENARIO.md">scénario</a>
-</div>
-
-<div class="aide">
-  <b>Flèches</b> ou <b>ZQSD</b> : marcher · <b>Espace</b> : épée, parler, ouvrir · <b>C</b> : objet · <b>P</b> : pause
-</div>
-
-<div class="tactile">
-  <div class="croix">
-    <div class="touche vide"></div><div class="touche" data-action="haut">▲</div><div class="touche vide"></div>
-    <div class="touche" data-action="gauche">◀</div><div class="touche vide"></div><div class="touche" data-action="droite">▶</div>
-    <div class="touche vide"></div><div class="touche" data-action="bas">▼</div><div class="touche" data-action="pause">⏸</div>
-  </div>
-  <div class="boutons">
-    <div class="touche ronde" data-action="objet">B</div>
-    <div class="touche ronde" data-action="attaque">A</div>
-  </div>
-</div>
-
-<script type="importmap">
-{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
-</script>
-<script type="module">
-  import { demarrer } from './src/main3d.js';
-  demarrer({
-    canvas3d: document.getElementById('scene'),
-    canvasHud: document.getElementById('hud'),
-  });
-</script>
+<body style="background:#07060b;color:#cfe8ff;font-family:ui-monospace,monospace;padding:40px">
+  <p>Le jeu a demenage&nbsp;: <a href="index.html" style="color:#f2c14b">ouvrir La Legende de Night</a>.</p>
 </body>
 </html>

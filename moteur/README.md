@@ -9,8 +9,8 @@ Tout — code, commentaires, noms de variables — est en français.
 
 | | |
 |---|---|
-| **Jouer (3D)** | `index3d.html` — la version de référence |
-| **Jouer (2D)** | `index.html` — même jeu, vue de dessus |
+| **Jouer** | `index.html` — le jeu, en 3D |
+| **Version 2D** | `index2d.html` — même jeu, vue de dessus |
 | **Dessiner des cartes** | `editeur.html` |
 | **Voir la même carte en 3D** | `maquette-3d.html` (style N64) |
 | **… en beaucoup plus détaillé** | `maquette-3d-detaillee.html` |

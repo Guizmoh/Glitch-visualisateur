@@ -1,0 +1,2522 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- ===== DEBUT ARTEFACT ===== -->
+<title>Carnet de mariages</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --papier:#F0F3ED; --carte:#FBFCF9; --carte2:#F5F8F1; --voile:rgba(27,34,28,.38);
+  --trait:#DCE3D6; --trait-fort:#C2CCBA;
+  --encre:#1B221C; --encre2:#414C42; --sourdine:#707C71;
+  --vert:#3C6B4E; --vert-fond:#E3EDE2; --vert-trait:#B5CBB7;
+  --laiton:#8A6726; --laiton-fond:#F2EBD9; --laiton-trait:#DECBA1;
+  --ardoise:#3E5E7B; --ardoise-fond:#E3EAF1; --ardoise-trait:#BACDDC;
+  --brique:#95423C; --brique-fond:#F5E2E0; --brique-trait:#E0BCB8;
+  --rl:14px; --rm:9px; --rs:5px;
+  --serif:'Instrument Serif','Iowan Old Style',Georgia,'Times New Roman',serif;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --ombre:0 1px 2px rgba(27,34,28,.05), 0 10px 28px -16px rgba(27,34,28,.30);
+  --ombre-haut:0 2px 6px rgba(27,34,28,.08), 0 24px 60px -24px rgba(27,34,28,.45);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --papier:#12160F; --carte:#191E19; --carte2:#1F251F; --voile:rgba(0,0,0,.6);
+    --trait:#2B322C; --trait-fort:#3B443C;
+    --encre:#E8EEE5; --encre2:#C1CBBF; --sourdine:#8D998C;
+    --vert:#83BB99; --vert-fond:#1C2921; --vert-trait:#31503E;
+    --laiton:#CCA95F; --laiton-fond:#282216; --laiton-trait:#514328;
+    --ardoise:#93B5D0; --ardoise-fond:#192129; --ardoise-trait:#2F4253;
+    --brique:#D2897F; --brique-fond:#291B19; --brique-trait:#543330;
+    --ombre:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -16px rgba(0,0,0,.7);
+    --ombre-haut:0 2px 6px rgba(0,0,0,.5), 0 24px 60px -24px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --papier:#12160F; --carte:#191E19; --carte2:#1F251F; --voile:rgba(0,0,0,.6);
+  --trait:#2B322C; --trait-fort:#3B443C;
+  --encre:#E8EEE5; --encre2:#C1CBBF; --sourdine:#8D998C;
+  --vert:#83BB99; --vert-fond:#1C2921; --vert-trait:#31503E;
+  --laiton:#CCA95F; --laiton-fond:#282216; --laiton-trait:#514328;
+  --ardoise:#93B5D0; --ardoise-fond:#192129; --ardoise-trait:#2F4253;
+  --brique:#D2897F; --brique-fond:#291B19; --brique-trait:#543330;
+  --ombre:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -16px rgba(0,0,0,.7);
+  --ombre-haut:0 2px 6px rgba(0,0,0,.5), 0 24px 60px -24px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+body{
+  margin:0; background:var(--papier); color:var(--encre);
+  font:400 15px/1.55 var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{margin:0; text-wrap:balance; font-weight:400}
+p{margin:0}
+button,input,select,textarea{font:inherit; color:inherit}
+a{color:var(--vert)}
+:focus-visible{outline:2px solid var(--vert); outline-offset:2px; border-radius:3px}
+.nb{font-variant-numeric:tabular-nums}
+
+/* ---------- ossature ---------- */
+.enveloppe{max-width:1240px; margin:0 auto; padding-inline:18px}
+.fronton{
+  position:sticky; top:env(safe-area-inset-top,0px); z-index:30;
+  background:color-mix(in srgb, var(--papier) 88%, transparent);
+  backdrop-filter:blur(12px); border-bottom:1px solid var(--trait);
+}
+.fronton-int{display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding-block:12px}
+.marque{font:400 30px/1 var(--serif); letter-spacing:.2px; white-space:nowrap}
+.marque em{font-style:italic; color:var(--vert)}
+.onglets{display:flex; gap:2px; flex-wrap:wrap; margin-left:auto}
+.onglet{
+  border:0; background:transparent; color:var(--sourdine); cursor:pointer;
+  padding:7px 12px; border-radius:var(--rm); font-size:14px; font-weight:500;
+  display:inline-flex; align-items:center; gap:6px;
+}
+.onglet:hover{background:var(--carte2); color:var(--encre)}
+.onglet[aria-selected="true"]{background:var(--carte); color:var(--encre); box-shadow:var(--ombre)}
+.compteur{
+  font:500 11px/1 var(--mono); background:var(--brique-fond); color:var(--brique);
+  border:1px solid var(--brique-trait); border-radius:99px; padding:3px 6px;
+}
+.onglet[aria-selected="true"] .compteur{background:var(--brique); color:var(--carte); border-color:transparent}
+
+/* ---------- ajout eclair ---------- */
+.eclair{margin-block:18px 14px}
+.eclair-boite{
+  background:var(--carte); border:1px solid var(--trait); border-radius:var(--rl);
+  box-shadow:var(--ombre); padding:14px 16px;
+}
+.eclair-titre{
+  font:500 11px/1 var(--mono); letter-spacing:.09em; text-transform:uppercase;
+  color:var(--sourdine); margin-bottom:9px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+}
+.eclair-rang{display:flex; gap:10px; align-items:stretch; flex-wrap:wrap}
+#eclair-saisie{
+  flex:1 1 320px; min-width:0; background:var(--carte2); border:1px solid var(--trait);
+  border-radius:var(--rm); padding:11px 13px; font-size:15px;
+}
+#eclair-saisie::placeholder{color:var(--sourdine); opacity:.75}
+#eclair-saisie:focus{border-color:var(--vert-trait); background:var(--carte)}
+.jetons{display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; min-height:0}
+.jeton{
+  font:400 12px/1 var(--mono); padding:4px 9px; border-radius:99px;
+  background:var(--vert-fond); color:var(--vert); border:1px solid var(--vert-trait);
+  display:inline-flex; gap:6px; align-items:center;
+}
+.jeton b{font-weight:500; opacity:.62; font-size:10px; letter-spacing:.06em; text-transform:uppercase}
+.jeton.gris{background:var(--carte2); color:var(--sourdine); border-color:var(--trait)}
+
+/* ---------- boutons ---------- */
+.btn{
+  border:1px solid var(--trait-fort); background:var(--carte); color:var(--encre);
+  padding:10px 15px; border-radius:var(--rm); cursor:pointer; font-size:14px; font-weight:500;
+  display:inline-flex; align-items:center; gap:7px; white-space:nowrap; transition:background .12s, border-color .12s;
+}
+.btn:hover{background:var(--carte2); border-color:var(--sourdine)}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+.btn-plein{background:var(--vert); border-color:var(--vert); color:var(--carte)}
+:root[data-theme="dark"] .btn-plein, :root:not([data-theme="light"]) .btn-plein{color:#101610}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]) .btn-plein{color:#FBFCF9}}
+.btn-plein:hover{background:var(--vert); border-color:var(--vert); filter:brightness(1.08)}
+.btn-fin{padding:6px 10px; font-size:13px; border-radius:var(--rs)}
+.btn-nu{border-color:transparent; background:transparent; color:var(--sourdine)}
+.btn-nu:hover{background:var(--carte2); color:var(--encre); border-color:transparent}
+.btn-risque:hover{background:var(--brique-fond); border-color:var(--brique-trait); color:var(--brique)}
+
+/* ---------- indicateurs ---------- */
+.indics{display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:10px; margin-bottom:18px}
+.indic{
+  background:var(--carte); border:1px solid var(--trait); border-radius:var(--rm);
+  padding:12px 14px; display:flex; flex-direction:column; gap:3px; min-width:0;
+}
+.indic-lib{font:500 10px/1.3 var(--mono); letter-spacing:.09em; text-transform:uppercase; color:var(--sourdine)}
+.indic-val{font:400 27px/1.15 var(--serif); font-variant-numeric:tabular-nums; overflow-wrap:anywhere}
+.indic-note{font-size:12.5px; color:var(--sourdine); overflow-wrap:anywhere}
+.indic.souligne{border-color:var(--vert-trait); background:var(--vert-fond)}
+.indic.souligne .indic-val{color:var(--vert)}
+.indic.alerte{border-color:var(--brique-trait); background:var(--brique-fond)}
+.indic.alerte .indic-val{color:var(--brique)}
+
+/* ---------- filtres ---------- */
+.filtres{display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:14px}
+.champ-recherche{flex:1 1 220px; min-width:0; position:relative}
+.champ-recherche input{width:100%; padding:9px 13px; border:1px solid var(--trait); border-radius:var(--rm); background:var(--carte)}
+select.mini, input.mini{
+  padding:9px 11px; border:1px solid var(--trait); border-radius:var(--rm);
+  background:var(--carte); font-size:14px; max-width:100%;
+}
+
+/* ---------- liste des mariages ---------- */
+.liste{display:flex; flex-direction:column; gap:8px; list-style:none; margin:0 0 24px; padding:0}
+.ligne{
+  background:var(--carte); border:1px solid var(--trait); border-radius:var(--rm);
+  padding:12px 14px; display:grid; gap:4px 14px; cursor:pointer;
+  grid-template-columns:76px minmax(0,1fr); align-items:center; text-align:left; width:100%;
+  font:inherit; color:inherit; transition:border-color .12s, box-shadow .12s;
+}
+.ligne:hover{border-color:var(--trait-fort); box-shadow:var(--ombre)}
+.ligne:focus-visible{outline:2px solid var(--vert); outline-offset:1px}
+.cartouche{
+  grid-row:span 2; text-align:center; border-right:1px solid var(--trait); padding-right:12px;
+  align-self:stretch; display:flex; flex-direction:column; justify-content:center; gap:1px;
+}
+.cartouche-j{font:400 26px/1 var(--serif); font-variant-numeric:tabular-nums}
+.cartouche-m{font:500 10px/1.2 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--sourdine)}
+.cartouche-a{font:400 11px/1.2 var(--mono); color:var(--sourdine)}
+.ligne-haut{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; min-width:0}
+.couple{font:400 21px/1.2 var(--serif); min-width:0; overflow-wrap:anywhere}
+.ligne-bas{display:flex; align-items:center; gap:8px 14px; flex-wrap:wrap; font-size:13px; color:var(--sourdine); min-width:0}
+.ligne-bas .sous{display:inline-flex; align-items:center; gap:5px; min-width:0}
+.montant{font:500 14px/1 var(--mono); color:var(--encre2); font-variant-numeric:tabular-nums}
+.pastille{
+  font:500 11px/1 var(--mono); letter-spacing:.04em; padding:4px 8px; border-radius:99px;
+  border:1px solid; white-space:nowrap;
+}
+.p-vert{background:var(--vert-fond); color:var(--vert); border-color:var(--vert-trait)}
+.p-laiton{background:var(--laiton-fond); color:var(--laiton); border-color:var(--laiton-trait)}
+.p-ardoise{background:var(--ardoise-fond); color:var(--ardoise); border-color:var(--ardoise-trait)}
+.p-brique{background:var(--brique-fond); color:var(--brique); border-color:var(--brique-trait)}
+.p-neutre{background:var(--carte2); color:var(--sourdine); border-color:var(--trait)}
+.compte-a-rebours{font:500 11px/1 var(--mono); color:var(--vert); white-space:nowrap}
+.compte-a-rebours.passe{color:var(--sourdine)}
+.compte-a-rebours.proche{color:var(--brique)}
+@media (max-width:620px){
+  .ligne{grid-template-columns:62px minmax(0,1fr)}
+  .cartouche-j{font-size:22px}
+  .couple{font-size:19px}
+}
+.vide{
+  text-align:center; padding:46px 20px; color:var(--sourdine);
+  border:1px dashed var(--trait-fort); border-radius:var(--rl); background:var(--carte);
+}
+.vide h3{font:400 22px/1.3 var(--serif); color:var(--encre); margin-bottom:6px}
+
+/* ---------- tableur ---------- */
+.cadre-table{
+  overflow-x:auto; border:1px solid var(--trait); border-radius:var(--rm);
+  background:var(--carte); margin-bottom:0;
+}
+table.grille{border-collapse:collapse; width:100%; min-width:900px; font-size:13.5px}
+table.grille th, table.grille td{
+  padding:9px 11px; text-align:left; border-bottom:1px solid var(--trait); white-space:nowrap;
+}
+table.grille thead th{
+  position:sticky; top:0; background:var(--carte2); z-index:2;
+  font:500 10.5px/1.3 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+  color:var(--sourdine); cursor:pointer; user-select:none; border-bottom:1px solid var(--trait-fort);
+}
+table.grille thead th:hover{color:var(--encre)}
+table.grille thead th.nontri{cursor:default}
+table.grille thead th .fleche{opacity:.45; font-size:9px; margin-left:3px}
+table.grille td.num, table.grille th.num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums}
+table.grille tbody tr{cursor:pointer}
+table.grille tbody tr:hover{background:var(--carte2)}
+table.grille tbody tr.choisie{background:var(--vert-fond)}
+table.grille tbody tr:last-child td{border-bottom:0}
+table.grille td.nom{white-space:normal; min-width:150px; font-weight:500}
+.case-choix{width:34px; text-align:center}
+.case-choix input{width:15px; height:15px; accent-color:var(--vert); cursor:pointer}
+.barre-somme{
+  position:sticky; bottom:0; display:flex; gap:8px 22px; flex-wrap:wrap; align-items:center;
+  background:var(--carte2); border:1px solid var(--trait); border-top:0;
+  border-radius:0 0 var(--rm) var(--rm); padding:11px 14px; margin-bottom:24px; font-size:13px;
+}
+.barre-somme .bs{display:inline-flex; align-items:baseline; gap:7px}
+.barre-somme .bs-lib{font:500 10px/1 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--sourdine)}
+.barre-somme .bs-val{font:500 15px/1 var(--mono); font-variant-numeric:tabular-nums}
+.barre-somme .bs-val.vert{color:var(--vert)}
+
+/* ---------- analyse ---------- */
+.bloc{background:var(--carte); border:1px solid var(--trait); border-radius:var(--rl); padding:18px; margin-bottom:16px}
+.bloc-titre{
+  font:500 10.5px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+  color:var(--sourdine); margin-bottom:14px; display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+}
+.bloc-titre .btn{margin-left:auto}
+.segments{display:flex; gap:3px; flex-wrap:wrap; background:var(--carte2); padding:3px; border-radius:var(--rm); border:1px solid var(--trait)}
+.segment{border:0; background:transparent; color:var(--sourdine); padding:6px 11px; border-radius:var(--rs); cursor:pointer; font-size:13px; font-weight:500}
+.segment[aria-pressed="true"]{background:var(--carte); color:var(--encre); box-shadow:var(--ombre)}
+.graphe{display:flex; align-items:flex-end; gap:2px; height:190px; position:relative; padding-top:22px}
+.graphe-grille{position:absolute; inset:22px 0 20px 0; pointer-events:none}
+.graphe-grille span{position:absolute; left:0; right:0; border-top:1px dashed var(--trait); font:400 10px/1 var(--mono); color:var(--sourdine); padding-left:2px}
+.colonne{flex:1 1 0; min-width:0; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:5px; height:100%; position:relative}
+.barre{
+  width:min(100%,46px); background:var(--vert); border-radius:4px 4px 0 0; min-height:2px;
+  transition:filter .12s; position:relative;
+}
+.colonne:hover .barre{filter:brightness(1.15)}
+.colonne.zero .barre{background:var(--trait-fort)}
+.colonne-lib{font:400 10.5px/1 var(--mono); color:var(--sourdine); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%}
+.colonne-val{
+  position:absolute; top:-20px; font:500 11px/1 var(--mono); color:var(--encre2);
+  white-space:nowrap; opacity:0; transition:opacity .12s;
+}
+.colonne.pic .colonne-val, .colonne:hover .colonne-val{opacity:1}
+.legende-graphe{font-size:12px; color:var(--sourdine); margin-top:10px}
+.cadre-mini{overflow-x:auto; -webkit-overflow-scrolling:touch; margin-inline:-2px; padding-inline:2px}
+.mini-table{width:100%; min-width:430px; border-collapse:collapse; font-size:13.5px}
+.mini-table th, .mini-table td{padding:8px 10px; border-bottom:1px solid var(--trait); text-align:left}
+.mini-table th{font:500 10px/1.3 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--sourdine)}
+.mini-table td.num, .mini-table th.num{text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums}
+.mini-table tr.total td{border-top:1px solid var(--trait-fort); border-bottom:0; font-weight:600; background:var(--carte2)}
+.mini-table tbody tr:last-child td{border-bottom:0}
+.duo{display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:16px}
+.jauge{height:5px; background:var(--carte2); border-radius:99px; overflow:hidden; min-width:54px; border:1px solid var(--trait)}
+.jauge i{display:block; height:100%; background:var(--vert)}
+
+/* ---------- a faire ---------- */
+.groupe-titre{
+  font:500 10.5px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+  color:var(--sourdine); margin:20px 0 9px; display:flex; align-items:center; gap:9px;
+}
+.groupe-titre.urgent{color:var(--brique)}
+.tache{
+  display:flex; gap:11px; align-items:flex-start; background:var(--carte);
+  border:1px solid var(--trait); border-radius:var(--rm); padding:11px 13px; margin-bottom:7px;
+}
+.tache.retard{border-left:3px solid var(--brique)}
+.tache.info{border-left:3px solid var(--laiton)}
+.tache input[type=checkbox]{width:17px; height:17px; margin-top:2px; accent-color:var(--vert); cursor:pointer; flex:none}
+.tache-corps{flex:1 1 auto; min-width:0}
+.tache-lib{font-size:14.5px; overflow-wrap:anywhere}
+.tache-meta{font-size:12.5px; color:var(--sourdine); margin-top:2px; display:flex; gap:5px 11px; flex-wrap:wrap; align-items:center}
+.tache-meta .qui{cursor:pointer; text-decoration:underline; text-underline-offset:2px; text-decoration-color:var(--trait-fort)}
+.tache-meta .qui:hover{color:var(--encre)}
+.tache-date{font:500 11px/1 var(--mono); color:var(--sourdine); white-space:nowrap; flex:none; padding-top:3px}
+.tache-date.retard{color:var(--brique)}
+
+/* ---------- agenda ---------- */
+.mois-grille{display:grid; grid-template-columns:repeat(auto-fill,minmax(232px,1fr)); gap:12px}
+.mois{background:var(--carte); border:1px solid var(--trait); border-radius:var(--rm); padding:12px 13px; min-height:96px}
+.mois.plein{border-color:var(--vert-trait)}
+.mois h3{
+  font:500 10.5px/1 var(--mono); letter-spacing:.09em; text-transform:uppercase;
+  color:var(--sourdine); margin-bottom:9px; display:flex; justify-content:space-between; gap:8px;
+}
+.mois.plein h3{color:var(--vert)}
+.evt{display:flex; gap:9px; align-items:baseline; padding:5px 0; border-top:1px solid var(--trait); cursor:pointer; font-size:13.5px}
+.evt:first-of-type{border-top:0}
+.evt:hover .evt-nom{color:var(--vert)}
+.evt-j{font:500 11px/1.4 var(--mono); color:var(--sourdine); flex:none; width:38px}
+.evt-nom{min-width:0; overflow-wrap:anywhere}
+.evt-pt{width:6px; height:6px; border-radius:99px; flex:none; align-self:center}
+
+/* ---------- reglages ---------- */
+.reglage-rang{display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:11px 0; border-bottom:1px solid var(--trait)}
+.reglage-rang:last-child{border-bottom:0}
+.reglage-lib{flex:1 1 240px; min-width:0}
+.reglage-lib b{font-weight:500; display:block; font-size:14.5px}
+.reglage-lib span{font-size:12.5px; color:var(--sourdine)}
+.reglage-rang input[type=number], .reglage-rang input[type=text], .reglage-rang select{
+  width:132px; padding:8px 10px; border:1px solid var(--trait); border-radius:var(--rm); background:var(--carte2);
+}
+.listes-modif{display:flex; gap:6px; flex-wrap:wrap; margin-top:4px}
+.etiq{
+  display:inline-flex; align-items:center; gap:6px; font-size:13px; padding:5px 9px;
+  background:var(--carte2); border:1px solid var(--trait); border-radius:99px;
+}
+.etiq button{border:0; background:transparent; color:var(--sourdine); cursor:pointer; padding:0 1px; font-size:15px; line-height:1}
+.etiq button:hover{color:var(--brique)}
+textarea.modele{
+  width:100%; min-height:128px; padding:11px 13px; border:1px solid var(--trait);
+  border-radius:var(--rm); background:var(--carte2); font:400 13.5px/1.6 var(--sans); resize:vertical;
+}
+.etat-connecteur{display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:11px 0; border-bottom:1px solid var(--trait)}
+.etat-connecteur:last-child{border-bottom:0}
+.voyant{width:8px; height:8px; border-radius:99px; background:var(--trait-fort); flex:none}
+.voyant.ok{background:var(--vert)}
+.voyant.ko{background:var(--brique)}
+.voyant.attente{background:var(--laiton)}
+
+/* ---------- fiche laterale ---------- */
+.fond-fiche{position:fixed; inset:0; background:var(--voile); z-index:40; animation:apparait .15s ease}
+@keyframes apparait{from{opacity:0}to{opacity:1}}
+.fiche{
+  position:fixed; top:0; right:0; bottom:0; width:min(560px,100%); z-index:41;
+  background:var(--papier); border-left:1px solid var(--trait); box-shadow:var(--ombre-haut);
+  display:flex; flex-direction:column; animation:glisse .18s ease;
+}
+@keyframes glisse{from{transform:translateX(22px); opacity:.4}to{transform:none; opacity:1}}
+@media (prefers-reduced-motion:reduce){.fiche,.fond-fiche{animation:none}}
+.fiche-tete{
+  padding:14px 18px calc(14px + env(safe-area-inset-top,0px)); padding-top:calc(14px + env(safe-area-inset-top,0px));
+  border-bottom:1px solid var(--trait); background:var(--carte); display:flex; gap:12px; align-items:flex-start;
+}
+.fiche-tete h2{font:400 26px/1.15 var(--serif); flex:1 1 auto; min-width:0; overflow-wrap:anywhere}
+.fiche-corps{flex:1 1 auto; overflow-y:auto; padding:16px 18px calc(24px + env(safe-area-inset-bottom,0px)); -webkit-overflow-scrolling:touch}
+.fiche-pied{
+  border-top:1px solid var(--trait); background:var(--carte); padding:11px 18px;
+  padding-bottom:calc(11px + env(safe-area-inset-bottom,0px)); display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+}
+.section{margin-bottom:20px}
+.section > h3{
+  font:500 10.5px/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+  color:var(--sourdine); margin-bottom:10px; padding-bottom:7px; border-bottom:1px solid var(--trait);
+  display:flex; align-items:center; gap:9px;
+}
+.grille-champs{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
+.champ{display:flex; flex-direction:column; gap:4px; min-width:0}
+.champ.large{grid-column:1/-1}
+.champ label{font:500 10px/1.3 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--sourdine)}
+.champ input, .champ select, .champ textarea{
+  width:100%; padding:9px 11px; border:1px solid var(--trait); border-radius:var(--rm);
+  background:var(--carte); font-size:14.5px;
+}
+.champ textarea{min-height:88px; resize:vertical; line-height:1.55}
+.champ input:focus, .champ select:focus, .champ textarea:focus{border-color:var(--vert-trait)}
+.champ .aide{font-size:11.5px; color:var(--sourdine)}
+.calcul{
+  background:var(--carte2); border:1px solid var(--trait); border-radius:var(--rm);
+  padding:11px 13px; display:flex; flex-direction:column; gap:7px; margin-top:10px;
+}
+.calcul-rang{display:flex; justify-content:space-between; gap:12px; font-size:13.5px; align-items:baseline}
+.calcul-rang b{font:500 14px/1 var(--mono); font-variant-numeric:tabular-nums}
+.calcul-rang.fort{border-top:1px solid var(--trait-fort); padding-top:7px}
+.calcul-rang.fort b{font-size:16px; color:var(--vert)}
+.calcul-rang.du b{color:var(--brique)}
+.puces{display:flex; gap:6px; flex-wrap:wrap}
+.puce{
+  font-size:13px; padding:6px 11px; border-radius:99px; border:1px solid var(--trait);
+  background:var(--carte); cursor:pointer; color:var(--sourdine);
+}
+.puce[aria-pressed="true"]{background:var(--vert-fond); border-color:var(--vert-trait); color:var(--vert); font-weight:500}
+.mini-rang{
+  display:flex; gap:8px; align-items:center; padding:7px 0; border-bottom:1px solid var(--trait); font-size:13.5px;
+}
+.mini-rang:last-of-type{border-bottom:0}
+.mini-rang .grandit{flex:1 1 auto; min-width:0; overflow-wrap:anywhere}
+.mini-rang .mont{font:500 13.5px/1 var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap}
+.mini-rang input{padding:6px 9px; border:1px solid var(--trait); border-radius:var(--rs); background:var(--carte); font-size:13.5px; min-width:0}
+.mini-rang .sup{border:0; background:transparent; color:var(--sourdine); cursor:pointer; font-size:16px; line-height:1; padding:2px 4px; flex:none}
+.mini-rang .sup:hover{color:var(--brique)}
+.avert{
+  display:flex; gap:9px; align-items:flex-start; background:var(--brique-fond); color:var(--brique);
+  border:1px solid var(--brique-trait); border-radius:var(--rm); padding:10px 12px; font-size:13.5px; margin-bottom:12px;
+}
+.avert.doux{background:var(--laiton-fond); color:var(--laiton); border-color:var(--laiton-trait)}
+.avert.calme{background:var(--ardoise-fond); color:var(--ardoise); border-color:var(--ardoise-trait)}
+.avert b{font-weight:600}
+.actions-rang{display:flex; gap:7px; flex-wrap:wrap}
+.resultat-mcp{font-size:13px; color:var(--sourdine); margin-top:9px; overflow-wrap:anywhere}
+.resultat-mcp ul{margin:6px 0 0; padding-left:17px}
+.resultat-mcp li{margin-bottom:3px}
+
+/* ---------- divers ---------- */
+.toast{
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:calc(20px + env(safe-area-inset-bottom,0px)); z-index:60;
+  background:var(--encre); color:var(--papier); padding:11px 17px; border-radius:99px;
+  font-size:14px; box-shadow:var(--ombre-haut); max-width:calc(100% - 36px); text-align:center;
+}
+.badge-stockage{font:400 11px/1 var(--mono); color:var(--sourdine); display:inline-flex; align-items:center; gap:6px}
+.pied{
+  padding:22px 0 34px; color:var(--sourdine); font-size:12.5px;
+  border-top:1px solid var(--trait); margin-top:8px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+}
+.sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
+</style>
+</head>
+<body>
+<header class="fronton">
+  <div class="enveloppe fronton-int">
+    <div class="marque">Carnet de <em>mariages</em></div>
+    <nav class="onglets" role="tablist" id="onglets">
+      <button class="onglet" role="tab" data-vue="mariages" aria-selected="true">Mariages</button>
+      <button class="onglet" role="tab" data-vue="tableur" aria-selected="false">Tableau</button>
+      <button class="onglet" role="tab" data-vue="analyse" aria-selected="false">Analyse</button>
+      <button class="onglet" role="tab" data-vue="afaire" aria-selected="false">À faire <span class="compteur" id="compteur-afaire" hidden>0</span></button>
+      <button class="onglet" role="tab" data-vue="agenda" aria-selected="false">Agenda</button>
+      <button class="onglet" role="tab" data-vue="reglages" aria-selected="false">Réglages</button>
+    </nav>
+  </div>
+</header>
+
+<main class="enveloppe">
+
+  <section class="eclair">
+    <div class="eclair-boite">
+      <div class="eclair-titre">
+        <span>Ajout éclair</span>
+        <span style="text-transform:none; letter-spacing:0; font-family:var(--sans); font-size:12.5px">Colle une ligne, tout est reconnu tout seul.</span>
+      </div>
+      <div class="eclair-rang">
+        <input id="eclair-saisie" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Camille &amp; Théo · 13/06/2026 · Château de Rambures · 06 12 34 56 78 · 3400 € · 120 invités">
+        <button class="btn btn-plein" id="eclair-ajout">Ajouter</button>
+        <button class="btn" id="eclair-vide" title="Créer une fiche vierge">Fiche vierge</button>
+      </div>
+      <div class="jetons" id="eclair-jetons"></div>
+    </div>
+  </section>
+
+  <div class="indics" id="indicateurs"></div>
+
+  <!-- ====== vue mariages ====== -->
+  <section id="vue-mariages">
+    <div class="filtres">
+      <div class="champ-recherche">
+        <input type="search" id="recherche" placeholder="Chercher un nom, un lieu, une ville, un téléphone…" autocomplete="off">
+      </div>
+      <select class="mini" id="f-statut" aria-label="Filtrer par statut"></select>
+      <select class="mini" id="f-annee" aria-label="Filtrer par année"></select>
+      <select class="mini" id="f-tri" aria-label="Trier">
+        <option value="date-asc">Date croissante</option>
+        <option value="date-desc">Date décroissante</option>
+        <option value="prix-desc">Prix décroissant</option>
+        <option value="reste-desc">Reste à encaisser</option>
+        <option value="maj-desc">Modifiés récemment</option>
+      </select>
+    </div>
+    <ul class="liste" id="liste"></ul>
+  </section>
+
+  <!-- ====== vue tableur ====== -->
+  <section id="vue-tableur" hidden>
+    <div class="filtres">
+      <div class="champ-recherche">
+        <input type="search" id="recherche2" placeholder="Filtrer les lignes…" autocomplete="off">
+      </div>
+      <select class="mini" id="f-statut2" aria-label="Filtrer par statut"></select>
+      <select class="mini" id="f-annee2" aria-label="Filtrer par année"></select>
+      <button class="btn" id="tout-cocher">Tout cocher</button>
+      <button class="btn" id="rien-cocher">Rien cocher</button>
+      <button class="btn" id="export-csv">Exporter en CSV</button>
+    </div>
+    <div class="cadre-table"><table class="grille" id="grille"></table></div>
+    <div class="barre-somme" id="barre-somme"></div>
+  </section>
+
+  <!-- ====== vue analyse ====== -->
+  <section id="vue-analyse" hidden></section>
+
+  <!-- ====== vue a faire ====== -->
+  <section id="vue-afaire" hidden></section>
+
+  <!-- ====== vue agenda ====== -->
+  <section id="vue-agenda" hidden></section>
+
+  <!-- ====== vue reglages ====== -->
+  <section id="vue-reglages" hidden></section>
+
+  <footer class="pied">
+    <span class="badge-stockage" id="badge-stockage"></span>
+    <span id="pied-compte"></span>
+  </footer>
+</main>
+
+<div id="zone-fiche"></div>
+<div id="zone-toast"></div>
+<script>
+"use strict";
+/* =======================================================================
+   Carnet de mariages — base de données, calculs et automatisations
+   ======================================================================= */
+
+/* ---------- constantes ---------- */
+const STATUTS = {
+  demande:  {l:'Demande',      c:'p-ardoise'},
+  devis:    {l:'Devis envoyé', c:'p-ardoise'},
+  option:   {l:'Option posée', c:'p-laiton'},
+  confirme: {l:'Confirmé',     c:'p-vert'},
+  termine:  {l:'Terminé',      c:'p-neutre'},
+  annule:   {l:'Annulé',       c:'p-brique'}
+};
+const ORDRE_STATUTS = ['demande','devis','option','confirme','termine','annule'];
+const COMPTE_CA = ['confirme','termine'];
+const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const MOIS_PLATS = ['janvier','fevrier','mars','avril','mai','juin','juillet','aout','septembre','octobre','novembre','decembre'];
+const MOIS_COURTS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+
+const REGLAGES_DEFAUT = {
+  acomptePct: 30,
+  soldeJours: 30,
+  relanceJours: 7,
+  tarifCible: 60,
+  formules: [
+    {nom:'Essentielle', prix:1500, heures:12},
+    {nom:'Complète',    prix:2400, heures:20},
+    {nom:'Prestige',    prix:3600, heures:32}
+  ],
+  prestations: ['Préparatifs','Mairie','Cérémonie','Photos de couple','Cocktail','Repas','Soirée','Album','Drone'],
+  sources: ['Bouche à oreille','Instagram','Site web','Salon du mariage','Recommandation du lieu','Mariages.net','Autre'],
+  modeleTaches: [
+    {label:'Envoyer le devis',                    offset:-240},
+    {label:'Relancer si pas de réponse',          offset:-225},
+    {label:'Contrat signé + acompte encaissé',    offset:-180},
+    {label:'Repérage du lieu',                    offset:-60},
+    {label:'Rendez-vous de préparation',          offset:-30},
+    {label:'Encaisser le solde',                  offset:-30},
+    {label:'Valider le déroulé de la journée',    offset:-14},
+    {label:'Confirmer les horaires avec le lieu', offset:-7},
+    {label:'Livraison',                           offset:45},
+    {label:'Message de remerciement',             offset:60}
+  ],
+  modeleTemps: [
+    {libelle:'Rendez-vous et échanges', heures:3},
+    {libelle:'Repérage',                heures:2},
+    {libelle:'Journée du mariage',      heures:10},
+    {libelle:'Post-production',         heures:12}
+  ],
+  modeleFrais: [],
+  calendrier: 'primary',
+  signature: '',
+  modeles: {
+    devis: "Bonjour {prenoms},\n\nMerci beaucoup pour votre message : c'est avec grand plaisir que je note la date du {date}{lieuPhrase}.\n\nVoici ma proposition :\n{prestationsListe}\nTarif : {prix}\nAcompte à la réservation : {acompte} ({acomptePct} %)\nSolde : {solde}, à régler au plus tard le {dateSolde}.\n\nLa date reste ouverte tant que le contrat n'est pas signé. Dites-moi si vous souhaitez qu'on en discute de vive voix.\n\nBien à vous,\n{signature}",
+    relance: "Bonjour {prenoms},\n\nJe reviens vers vous au sujet de votre mariage du {date}. J'ai toujours la date de libre, mais je préfère vous prévenir : j'ai d'autres demandes sur cette période.\n\nSouhaitez-vous que je maintienne l'option encore quelques jours ?\n\nBien à vous,\n{signature}",
+    confirmation: "Bonjour {prenoms},\n\nC'est noté, votre date du {date} est réservée : merci pour votre confiance.\n\nRécapitulatif :\n- Date : {date}\n- Lieu : {lieu}\n- Prestation : {prix}\n- Acompte reçu : {acompte}\n- Solde de {solde} à régler avant le {dateSolde}\n\nJe reviens vers vous vers {dateRdv} pour caler le déroulé de la journée.\n\nBien à vous,\n{signature}",
+    solde: "Bonjour {prenoms},\n\nPlus que {jours} jours avant le grand jour !\n\nPetit point pratique : il reste {solde} à régler avant le {dateSolde}.\n\nDites-moi si vous avez la moindre question sur le déroulé.\n\nBien à vous,\n{signature}"
+  }
+};
+
+const MARIAGE_VIDE = () => ({
+  id:'', cree:'', maj:'', statut:'demande',
+  a:'', b:'', date:'', heureDebut:'', heureFin:'',
+  tel:'', email:'', adresse:'',
+  lieuNom:'', lieuAdresse:'', lieuCp:'', lieuVille:'', lieuTel:'', lieuContact:'',
+  ceremonieLieu:'', ceremonieHeure:'', mairieHeure:'',
+  invites:null, formule:'', prestations:[],
+  prix:0, deplacement:0,
+  frais:[], temps:[], paiements:[],
+  source:'', demandeLe:'', devisLe:'', contratLe:'',
+  notes:'', taches:[], gcalLien:''
+});
+
+/* ---------- petits utilitaires ---------- */
+const $  = (s, r) => (r||document).querySelector(s);
+const $$ = (s, r) => Array.from((r||document).querySelectorAll(s));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const e = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nb = v => { const n = parseFloat(String(v==null?'':v).replace(/\s| /g,'').replace(',','.')); return isFinite(n) ? n : 0; };
+
+const nf0 = new Intl.NumberFormat('fr-FR', {maximumFractionDigits:0});
+const nf1 = new Intl.NumberFormat('fr-FR', {maximumFractionDigits:1});
+const euro = n => nf0.format(Math.round(n||0)) + ' €';
+const heures = n => (Math.round((n||0)*10)/10 === Math.round(n||0) ? nf0.format(n||0) : nf1.format(n||0)) + ' h';
+
+const jourDe = iso => { const p = String(iso||'').split('-'); return new Date(+p[0], +p[1]-1, +p[2]); };
+const isoDe  = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const iso3   = (y,m,d) => y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+const aujourdhui = () => isoDe(new Date());
+const estDate = iso => /^\d{4}-\d{2}-\d{2}$/.test(String(iso||''));
+const plusJours = (iso, n) => { const d = jourDe(iso); d.setDate(d.getDate() + n); return isoDe(d); };
+const ecartJours = (a, b) => Math.round((jourDe(b) - jourDe(a)) / 86400000);
+const versAujourdhui = iso => estDate(iso) ? ecartJours(aujourdhui(), iso) : null;
+
+const fmtLong  = iso => estDate(iso) ? jourDe(iso).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}) : '—';
+const fmtMoyen = iso => estDate(iso) ? jourDe(iso).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short',year:'numeric'}) : '—';
+const fmtCourt = iso => estDate(iso) ? jourDe(iso).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '';
+
+const ACCENTS = 'àáâãäåçèéêëìíîïñòóôõöùúûüýÿÀÁÂÃÄÅÇÈÉÊËÌÍÎÏÑÒÓÔÕÖÙÚÛÜÝ';
+const SANS    = 'aaaaaaceeeeiiiinooooouuuuyyAAAAAACEEEEIIIINOOOOOUUUUY';
+const aplati = s => String(s==null?'':s).replace(/./g, c => { const i = ACCENTS.indexOf(c); return i < 0 ? c : SANS[i]; });
+const norm = s => aplati(s).toLowerCase().replace(/\s+/g,' ').trim();
+const capi = s => String(s||'').replace(/(^|[\s'’\-])([a-zà-ÿ])/g, (m,p,c) => p + c.toUpperCase());
+
+function fmtTel(t){
+  let d = String(t||'').replace(/[^\d+]/g,'');
+  if (/^\+33\d{9}$/.test(d)) d = '0' + d.slice(3);
+  if (/^0\d{9}$/.test(d)) return d.replace(/(\d{2})(?=\d)/g, '$1 ');
+  return String(t||'').trim();
+}
+const couple = m => [m.a, m.b].filter(Boolean).join(' & ') || 'Sans nom';
+const lieuCourt = m => [m.lieuNom, m.lieuVille].filter(Boolean).join(', ');
+
+/* ---------- calculs dérivés ---------- */
+function calc(m){
+  const prix = nb(m.prix), depl = nb(m.deplacement);
+  const total = prix + depl;
+  const encaisse  = (m.paiements||[]).reduce((s,p) => s + nb(p.montant), 0);
+  const fraisTot  = (m.frais||[]).reduce((s,f) => s + nb(f.montant), 0);
+  const heuresTot = (m.temps||[]).reduce((s,t) => s + nb(t.heures), 0);
+  const acompteDu = Math.round(total * nb(Etat.reglages.acomptePct) / 100);
+  const benefice  = total - fraisTot;
+  return {
+    prix, depl, total, encaisse, fraisTot, heuresTot, acompteDu,
+    reste: total - encaisse,
+    benefice,
+    tauxHoraire: heuresTot > 0 ? benefice / heuresTot : null,
+    marge: total > 0 ? benefice / total : null,
+    jours: versAujourdhui(m.date),
+    dateSolde: estDate(m.date) ? plusJours(m.date, -nb(Etat.reglages.soldeJours)) : ''
+  };
+}
+
+/* ---------- état global ---------- */
+const Etat = {
+  mariages: new Map(),
+  reglages: JSON.parse(JSON.stringify(REGLAGES_DEFAUT)),
+  vue: 'mariages',
+  ficheId: null,
+  edition: false,
+  choix: new Set(),
+  tri: {col:'date', sens:1},
+  periode: {mode:'annee', de:'', a:'', statuts:['confirme','termine']},
+  anneeAgenda: new Date().getFullYear(),
+  mcp: null, telech: null, connecteurs: {}
+};
+
+/* ---------- stockage : nuage (db) ou local ---------- */
+const Stock = {
+  mode: 'memoire', db: null, files: new Map(), pret: false,
+
+  async init(){
+    let db = null;
+    try { db = window.claude && claude.use ? await claude.use('db') : null; } catch(_){ db = null; }
+    if (db){
+      this.db = db; this.mode = 'nuage';
+      try {
+        db.collection('mariages').onSnapshot(snap => {
+          Etat.mariages = new Map();
+          snap.docs.forEach(d => { const v = d.data(); if (v) Etat.mariages.set(d.id, Object.assign(MARIAGE_VIDE(), v, {id:d.id})); });
+          this.pret = true; rendreTout();
+        }, err => { annonce('Synchronisation interrompue (' + err.code + ')'); });
+        db.doc('config/reglages').onSnapshot(snap => {
+          if (snap.exists){
+            const v = snap.data() || {};
+            Etat.reglages = Object.assign(JSON.parse(JSON.stringify(REGLAGES_DEFAUT)), v,
+              {modeles: Object.assign({}, REGLAGES_DEFAUT.modeles, v.modeles || {})});
+          }
+          rendreTout();
+        }, () => {});
+      } catch(_){}
+      return;
+    }
+    try {
+      const brut = localStorage.getItem('carnet-mariages-v1');
+      if (brut){
+        const d = JSON.parse(brut);
+        (d.mariages||[]).forEach(m => Etat.mariages.set(m.id, Object.assign(MARIAGE_VIDE(), m)));
+        if (d.reglages) Etat.reglages = Object.assign(JSON.parse(JSON.stringify(REGLAGES_DEFAUT)), d.reglages,
+          {modeles: Object.assign({}, REGLAGES_DEFAUT.modeles, d.reglages.modeles || {})});
+      }
+      this.mode = 'local';
+    } catch(_){ this.mode = 'memoire'; }
+    this.pret = true;
+  },
+
+  sauveLocal(){
+    if (this.mode !== 'local') return;
+    try {
+      localStorage.setItem('carnet-mariages-v1', JSON.stringify({
+        mariages: Array.from(Etat.mariages.values()), reglages: Etat.reglages
+      }));
+    } catch(_){ annonce('Sauvegarde impossible : espace de stockage plein.'); }
+  },
+
+  async ecrire(id){
+    const m = Etat.mariages.get(id);
+    if (!m) return;
+    m.maj = new Date().toISOString();
+    if (this.mode !== 'nuage') return this.sauveLocal();
+    if (this.files.has(id)) { this.files.set(id, true); return; }
+    this.files.set(id, false);
+    try {
+      while (true){
+        const co = Etat.mariages.get(id);
+        if (!co) break;
+        await this.db.collection('mariages').doc(id).set(JSON.parse(JSON.stringify(co)));
+        if (!this.files.get(id)) break;   // rien n'a bougé pendant l'écriture
+        this.files.set(id, false);        // une modification est arrivée : on réécrit
+      }
+    } catch(err){ annonce(msgDb(err)); }
+    finally { this.files.delete(id); }
+  },
+
+  async supprimer(id){
+    Etat.mariages.delete(id);
+    if (this.mode === 'nuage'){ try { await this.db.collection('mariages').doc(id).delete(); } catch(err){ annonce(msgDb(err)); } }
+    else this.sauveLocal();
+  },
+
+  async ecrireReglages(){
+    if (this.mode !== 'nuage') return this.sauveLocal();
+    try { await this.db.doc('config/reglages').set(JSON.parse(JSON.stringify(Etat.reglages))); }
+    catch(err){ annonce(msgDb(err)); }
+  }
+};
+
+function msgDb(err){
+  const c = err && err.code;
+  if (c === 'quota_exceeded')    return 'Base pleine : supprime d’anciennes fiches avant d’en créer.';
+  if (c === 'resource_exhausted') return 'Trop d’écritures d’un coup. Attends deux secondes et réessaie.';
+  if (c === 'invalid_argument')   return 'Enregistrement refusé : tu n’as pas les droits d’écriture sur cette page.';
+  if (c === 'revoked')            return 'Accès retiré pendant la session. Recharge la page.';
+  return 'Enregistrement impossible pour le moment. Réessaie dans un instant.';
+}
+
+let minuteurEcriture = null;
+function enregistrer(id, tout){
+  if (tout) { clearTimeout(minuteurEcriture); return Stock.ecrire(id); }
+  clearTimeout(minuteurEcriture);
+  minuteurEcriture = setTimeout(() => Stock.ecrire(id), 550);
+}
+
+/* ---------- toasts ---------- */
+let minuteurToast = null;
+function annonce(txt){
+  const z = $('#zone-toast');
+  z.innerHTML = '<div class="toast" role="status">' + e(txt) + '</div>';
+  clearTimeout(minuteurToast);
+  minuteurToast = setTimeout(() => { z.innerHTML = ''; }, 3600);
+}
+
+/* =======================================================================
+   Ajout éclair : une ligne de texte libre → une fiche complète
+   ======================================================================= */
+const MOTS_LIEU = /(ch[âa]teau|domaine|manoir|bastide|abbaye|moulin|ferme|grange|salle|villa|h[ôo]tel|logis|prieur[ée]|orangerie|verger|parc|jardin|golf|cabane|g[îi]te|auberge|relais|pavillon|maison|mairie|[ée]glise|clos|mas\b)/i;
+const MOTS_JOUR = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i;
+
+function anneeProbable(mois, jour){
+  const now = new Date(), y = now.getFullYear();
+  const candidat = new Date(y, mois-1, jour);
+  const auj = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return candidat < auj ? y + 1 : y;
+}
+
+function analyser(txt){
+  const out = {a:'', b:'', date:'', lieu:'', tel:'', email:'', prix:null, invites:null, cp:''};
+  if (!String(txt||'').trim()) return out;
+  let s = ' ' + String(txt).replace(/[ ]/g,' ').replace(/\s+/g,' ').trim() + ' ';
+
+  const coupe = (re, surAplati) => {
+    const cible = surAplati ? aplati(s) : s;
+    const m = cible.match(re);
+    if (!m) return null;
+    s = s.slice(0, m.index) + ' § ' + s.slice(m.index + m[0].length);
+    return m;
+  };
+
+  let m;
+  if ((m = coupe(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i))) out.email = m[0].toLowerCase();
+  if ((m = coupe(/(?:\+33[ .\-]?|0)[1-9](?:[ .\-]?\d{2}){4}/))) out.tel = fmtTel(m[0]);
+
+  if ((m = coupe(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/)))            out.date = iso3(+m[1], +m[2], +m[3]);
+  else if ((m = coupe(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\b/))){
+    let y = +m[3]; if (y < 100) y += 2000;
+    out.date = iso3(y, +m[2], +m[1]);
+  }
+  else if ((m = coupe(new RegExp('\\b(\\d{1,2})(?:er)?\\s+(' + MOIS_PLATS.join('|') + ')\\.?(?:\\s+(\\d{4}))?', 'i'), true))){
+    const mo = MOIS_PLATS.indexOf(m[2].toLowerCase()) + 1;
+    const y = m[3] ? +m[3] : anneeProbable(mo, +m[1]);
+    out.date = iso3(y, mo, +m[1]);
+  }
+  if (out.date && !estDate(out.date)) out.date = '';
+  coupe(MOTS_JOUR, true);
+
+  if ((m = coupe(/\b(\d{2,4})\s*(?:invit\w*|pers\w*|couverts?)\b/i))) out.invites = +m[1];
+
+  if ((m = coupe(/(\d[\d  .]*\d|\d)\s*(?:€|eur(?:os?)?\b)/i))) out.prix = nb(String(m[1]).replace(/[ .]/g,''));
+  else if ((m = coupe(/€\s*(\d[\d  .]*\d|\d)/)))               out.prix = nb(String(m[1]).replace(/[ .]/g,''));
+  else if ((m = coupe(/(?:^|\s)(\d{3,6})(?=\s|$)/))){
+    const n = +m[1];
+    if (/^\d{5}$/.test(m[1]) && n >= 1000) out.cp = m[1];
+    else if (n >= 150 && n <= 60000) out.prix = n;
+  }
+
+  const morceaux = s.split(/[§,;·|]+/)
+    .map(x => x.replace(/^[\s.\-–]+|[\s.\-–]+$/g,''))
+    .filter(x => x.length > 1);
+
+  let iNoms = morceaux.findIndex(c => /\s(?:&|\+|et)\s/i.test(c) && !MOTS_LIEU.test(c));
+  if (iNoms < 0) iNoms = morceaux.findIndex(c => /\s(?:&|\+|et)\s/i.test(c));
+  if (iNoms >= 0){
+    const parts = morceaux[iNoms].split(/\s*(?:&|\+|\bet\b)\s*/i).map(x => x.trim()).filter(Boolean);
+    const gauche = String(parts[0] || '').split(/\s+/);
+    const droite = String(parts[1] || '').split(/\s+/);
+    out.a = capi(gauche.length > 2 ? gauche[gauche.length - 1] : gauche.join(' '));
+    out.b = capi(droite.slice(0, 2).join(' '));
+    morceaux.splice(iNoms, 1);
+  }
+
+  let iLieu = morceaux.findIndex(c => MOTS_LIEU.test(c));
+  if (iLieu < 0) iLieu = morceaux.findIndex(c => /^(à|au|aux|chez)\s+/i.test(c));
+  if (iLieu < 0 && morceaux.length) iLieu = morceaux.indexOf(morceaux.slice().sort((x,y) => y.length - x.length)[0]);
+  if (iLieu >= 0){
+    out.lieu = morceaux[iLieu].replace(/^(à|au|aux|chez)\s+/i,'').trim();
+    morceaux.splice(iLieu, 1);
+  }
+  if (!out.a && morceaux.length) out.a = capi(morceaux.shift());
+  return out;
+}
+
+/* ---------- carnet de lieux déduit des fiches ---------- */
+function carnetLieux(){
+  const carnet = new Map();
+  Array.from(Etat.mariages.values())
+    .sort((x,y) => String(x.maj||'').localeCompare(String(y.maj||'')))
+    .forEach(m => {
+      if (!m.lieuNom) return;
+      const cle = norm(m.lieuNom);
+      const p = carnet.get(cle) || {nom:m.lieuNom, adresse:'', cp:'', ville:'', tel:'', contact:'', fiches:[]};
+      p.nom = m.lieuNom;
+      ['adresse','cp','ville','tel','contact'].forEach(k => {
+        const v = m['lieu' + k.charAt(0).toUpperCase() + k.slice(1)];
+        if (v) p[k] = v;
+      });
+      p.fiches.push(m);
+      carnet.set(cle, p);
+    });
+  return carnet;
+}
+
+function completerLieu(m){
+  if (!m.lieuNom) return false;
+  const p = carnetLieux().get(norm(m.lieuNom));
+  if (!p) return false;
+  let touche = false;
+  [['lieuAdresse','adresse'], ['lieuCp','cp'], ['lieuVille','ville'], ['lieuTel','tel'], ['lieuContact','contact']]
+    .forEach(([champ, cle]) => { if (!m[champ] && p[cle]){ m[champ] = p[cle]; touche = true; } });
+  return touche;
+}
+
+/* ---------- génération et mise à jour des tâches ---------- */
+function genererTaches(m){
+  if (!estDate(m.date)) return;
+  m.taches = m.taches || [];
+  (Etat.reglages.modeleTaches || []).forEach(mod => {
+    const existante = m.taches.find(t => t.label === mod.label && t.offset != null);
+    const ech = plusJours(m.date, nb(mod.offset));
+    if (existante){ if (!existante.fait) existante.echeance = ech; }
+    else m.taches.push({id:uid(), label:mod.label, echeance:ech, offset:nb(mod.offset), fait:false});
+  });
+  m.taches.sort((x,y) => String(x.echeance).localeCompare(String(y.echeance)));
+}
+
+function appliquerFormule(m, nom){
+  const f = (Etat.reglages.formules || []).find(x => x.nom === nom);
+  if (!f) return;
+  m.formule = nom;
+  if (!nb(m.prix)) m.prix = nb(f.prix);
+  if (!(m.temps || []).length && nb(f.heures)){
+    m.temps = (Etat.reglages.modeleTemps || []).map(t => ({id:uid(), libelle:t.libelle, heures:nb(t.heures)}));
+    const somme = m.temps.reduce((s,t) => s + t.heures, 0);
+    if (!somme) m.temps = [{id:uid(), libelle:'Prestation', heures:nb(f.heures)}];
+  }
+}
+
+/* ---------- conflits de date ---------- */
+function conflits(m){
+  if (!estDate(m.date) || m.statut === 'annule') return [];
+  return Array.from(Etat.mariages.values())
+    .filter(o => o.id !== m.id && o.date === m.date && o.statut !== 'annule');
+}
+
+/* ---------- alertes calculées ---------- */
+function alertes(m){
+  const c = calc(m), r = Etat.reglages, liste = [];
+  const pousse = (t, txt, date, niveau) => liste.push({type:t, texte:txt, date:date || '', niveau:niveau || 'info', m});
+  if (m.statut === 'annule' || m.statut === 'termine') return liste;
+
+  if (!estDate(m.date)) pousse('date', 'Date à fixer', '', 'info');
+  if (!m.tel && !m.email) pousse('contact', 'Aucun téléphone ni e-mail', '', 'info');
+  if (conflits(m).length) pousse('conflit', 'Deux mariages le même jour (' + fmtCourt(m.date) + ')', m.date, 'urgent');
+
+  if (m.statut === 'demande' && estDate(m.demandeLe)){
+    const age = -versAujourdhui(m.demandeLe);
+    if (age >= nb(r.relanceJours)) pousse('devis', 'Demande reçue il y a ' + age + ' jours, devis pas encore envoyé', m.demandeLe, 'urgent');
+  }
+  if ((m.statut === 'devis' || m.statut === 'option') && estDate(m.devisLe)){
+    const age = -versAujourdhui(m.devisLe);
+    if (age >= nb(r.relanceJours)) pousse('relance', 'Devis envoyé il y a ' + age + ' jours, sans réponse', m.devisLe, 'urgent');
+  }
+  if (m.statut === 'confirme'){
+    if (!m.contratLe) pousse('contrat', 'Contrat non signé', '', 'info');
+    if (c.encaisse < c.acompteDu) pousse('acompte', 'Acompte de ' + euro(c.acompteDu - c.encaisse) + ' pas encore encaissé', '', 'info');
+    if (c.jours != null && c.jours <= nb(r.soldeJours) && c.reste > 0)
+      pousse('solde', 'Solde de ' + euro(c.reste) + ' à encaisser avant le ' + fmtCourt(c.dateSolde), c.dateSolde, 'urgent');
+    if (c.jours != null && c.jours < 0) pousse('bilan', 'Mariage passé : passer la fiche en « Terminé »', m.date, 'info');
+  }
+  if (c.jours != null && c.jours < 0 && c.reste > 0 && m.statut !== 'annule')
+    pousse('impaye', 'Impayé de ' + euro(c.reste) + ' après le mariage', m.date, 'urgent');
+  return liste;
+}
+
+function toutAFaire(){
+  const items = [];
+  Etat.mariages.forEach(m => {
+    if (m.statut === 'annule') return;
+    (m.taches || []).forEach(t => {
+      if (t.fait) return;
+      items.push({genre:'tache', id:t.id, texte:t.label, date:t.echeance || '', m, niveau:'tache'});
+    });
+    alertes(m).forEach(a => items.push({genre:'alerte', id:a.type, texte:a.texte, date:a.date, m, niveau:a.niveau}));
+  });
+  const auj = aujourdhui();
+  items.forEach(i => { i.retard = i.date ? i.date < auj : (i.niveau === 'urgent'); });
+  items.sort((x,y) => {
+    if (x.retard !== y.retard) return x.retard ? -1 : 1;
+    const dx = x.date || '9999', dy = y.date || '9999';
+    return dx === dy ? String(x.texte).localeCompare(String(y.texte)) : dx.localeCompare(dy);
+  });
+  return items;
+}
+function nbAFaire(){
+  const limite = plusJours(aujourdhui(), 21);
+  return toutAFaire().filter(i => i.retard || !i.date || i.date <= limite).length;
+}
+
+/* =======================================================================
+   Sélection, filtres et rendu des listes
+   ======================================================================= */
+function tousTries(){
+  return Array.from(Etat.mariages.values()).sort((x,y) => {
+    const dx = x.date || '9999-99-99', dy = y.date || '9999-99-99';
+    return dx === dy ? String(x.cree).localeCompare(String(y.cree)) : dx.localeCompare(dy);
+  });
+}
+
+function anneesDisponibles(){
+  const s = new Set();
+  Etat.mariages.forEach(m => { if (estDate(m.date)) s.add(m.date.slice(0,4)); });
+  s.add(String(new Date().getFullYear()));
+  return Array.from(s).sort();
+}
+
+function filtrer(recherche, statut, annee){
+  const q = norm(recherche || '');
+  return tousTries().filter(m => {
+    if (statut && statut !== 'tous'){
+      if (statut === 'actifs'){ if (!['demande','devis','option','confirme'].includes(m.statut)) return false; }
+      else if (m.statut !== statut) return false;
+    }
+    if (annee && annee !== 'toutes' && String(m.date||'').slice(0,4) !== annee) return false;
+    if (!q) return true;
+    const foin = norm([m.a, m.b, m.lieuNom, m.lieuVille, m.lieuAdresse, m.tel, m.email, m.source, m.formule, m.notes, fmtCourt(m.date)].join(' '));
+    return q.split(' ').every(mot => foin.includes(mot));
+  });
+}
+
+function remplirSelects(){
+  const selStatuts = ['<option value="actifs">En cours</option>', '<option value="tous">Tous les statuts</option>']
+    .concat(ORDRE_STATUTS.map(k => '<option value="' + k + '">' + e(STATUTS[k].l) + '</option>')).join('');
+  const selAnnees = ['<option value="toutes">Toutes les années</option>']
+    .concat(anneesDisponibles().map(a => '<option value="' + a + '">' + a + '</option>')).join('');
+  [['#f-statut', selStatuts], ['#f-statut2', selStatuts], ['#f-annee', selAnnees], ['#f-annee2', selAnnees]].forEach(([sel, html]) => {
+    const el = $(sel); if (!el) return;
+    const garde = el.value;
+    el.innerHTML = html;
+    if (garde && Array.from(el.options).some(o => o.value === garde)) el.value = garde;
+  });
+}
+
+function rendreIndicateurs(){
+  const auj = aujourdhui(), annee = String(new Date().getFullYear());
+  const tous = Array.from(Etat.mariages.values());
+  const prochain = tous.filter(m => estDate(m.date) && m.date >= auj && ['confirme','option'].includes(m.statut))
+                       .sort((x,y) => x.date.localeCompare(y.date))[0];
+  const delAnnee = tous.filter(m => String(m.date||'').slice(0,4) === annee && COMPTE_CA.includes(m.statut));
+  const ca = delAnnee.reduce((s,m) => s + calc(m).total, 0);
+  const heuresAn = delAnnee.reduce((s,m) => s + calc(m).heuresTot, 0);
+  const reste = tous.filter(m => COMPTE_CA.includes(m.statut)).reduce((s,m) => s + Math.max(0, calc(m).reste), 0);
+  const aFaire = nbAFaire();
+
+  const cases = [];
+  if (prochain){
+    const j = versAujourdhui(prochain.date);
+    cases.push({lib:'Prochain mariage', val: j === 0 ? "Aujourd'hui" : 'J−' + j, note: couple(prochain) + ' · ' + fmtMoyen(prochain.date), style:'souligne', id:prochain.id});
+  } else {
+    cases.push({lib:'Prochain mariage', val:'—', note:'Aucune date confirmée à venir'});
+  }
+  cases.push({lib:'Signés en ' + annee, val: String(delAnnee.length), note: delAnnee.length ? 'Panier moyen ' + euro(ca / delAnnee.length) : 'Rien de signé pour l’instant'});
+  cases.push({lib:"Chiffre d'affaires " + annee, val: euro(ca), note: heuresAn ? heures(heuresAn) + ' de travail' : 'Heures non renseignées'});
+  cases.push({lib:'Reste à encaisser', val: euro(reste), note: reste > 0 ? 'Sur les mariages signés' : 'Tout est réglé', style: reste > 0 ? '' : 'souligne'});
+  cases.push({lib:'À faire', val: String(aFaire), note: aFaire ? 'Échéances et relances' : 'Rien d’urgent', style: aFaire ? 'alerte' : 'souligne', vue:'afaire'});
+
+  $('#indicateurs').innerHTML = cases.map(c =>
+    '<div class="indic ' + (c.style || '') + '"' + (c.id ? ' data-ouvre="' + e(c.id) + '" style="cursor:pointer"' : c.vue ? ' data-va="' + c.vue + '" style="cursor:pointer"' : '') + '>' +
+      '<span class="indic-lib">' + e(c.lib) + '</span>' +
+      '<span class="indic-val nb">' + e(c.val) + '</span>' +
+      '<span class="indic-note">' + e(c.note) + '</span>' +
+    '</div>').join('');
+
+  const cpt = $('#compteur-afaire');
+  cpt.textContent = String(aFaire);
+  cpt.hidden = aFaire === 0;
+}
+
+function pastille(m){
+  const s = STATUTS[m.statut] || STATUTS.demande;
+  return '<span class="pastille ' + s.c + '">' + e(s.l) + '</span>';
+}
+
+function rendreListe(){
+  const liste = filtrer($('#recherche').value, $('#f-statut').value, $('#f-annee').value);
+  const tri = $('#f-tri').value;
+  liste.sort((x,y) => {
+    const cx = calc(x), cy = calc(y);
+    if (tri === 'date-desc')  return String(y.date||'').localeCompare(String(x.date||''));
+    if (tri === 'prix-desc')  return cy.total - cx.total;
+    if (tri === 'reste-desc') return cy.reste - cx.reste;
+    if (tri === 'maj-desc')   return String(y.maj||'').localeCompare(String(x.maj||''));
+    return String(x.date||'9999').localeCompare(String(y.date||'9999'));
+  });
+
+  const el = $('#liste');
+  const nbEx = Array.from(Etat.mariages.values()).filter(x => x.exemple).length;
+  const banniere = nbEx
+    ? '<li><div class="avert calme"><span>•</span><div style="flex:1 1 auto">' +
+      nbEx + ' fiche' + (nbEx > 1 ? 's' : '') + ' d’exemple pour te montrer le fonctionnement — ' +
+      '<button class="btn btn-fin" id="sup-exemples" style="margin-left:6px">Les supprimer</button></div></div></li>'
+    : '';
+  if (!liste.length){
+    el.innerHTML = banniere + '<li><div class="vide"><h3>Aucune fiche ici</h3>' +
+      '<p>Colle une ligne dans l’ajout éclair ci-dessus — nom, date, lieu, téléphone et prix sont reconnus tout seuls.</p></div></li>';
+    return;
+  }
+  el.innerHTML = banniere + liste.map(m => {
+    const c = calc(m), d = estDate(m.date) ? jourDe(m.date) : null;
+    const conflit = conflits(m).length;
+    let rebours = '', cls = '';
+    if (c.jours != null){
+      if (c.jours < 0){ rebours = 'passé'; cls = 'passe'; }
+      else if (c.jours === 0){ rebours = "aujourd'hui"; cls = 'proche'; }
+      else { rebours = 'J−' + c.jours; cls = c.jours <= 30 ? 'proche' : ''; }
+    }
+    return '<li><button class="ligne" data-ouvre="' + e(m.id) + '">' +
+      '<span class="cartouche">' +
+        (d ? '<span class="cartouche-j nb">' + d.getDate() + '</span><span class="cartouche-m">' + e(MOIS_COURTS[d.getMonth()]) + '</span><span class="cartouche-a nb">' + d.getFullYear() + '</span>'
+           : '<span class="cartouche-m">date<br>à fixer</span>') +
+      '</span>' +
+      '<span class="ligne-haut"><span class="couple">' + e(couple(m)) + '</span>' + pastille(m) +
+        (m.exemple ? '<span class="pastille p-neutre">Exemple</span>' : '') +
+        (conflit ? '<span class="pastille p-brique">Doublon de date</span>' : '') +
+        (rebours ? '<span class="compte-a-rebours ' + cls + '">' + e(rebours) + '</span>' : '') +
+      '</span>' +
+      '<span class="ligne-bas">' +
+        (lieuCourt(m) ? '<span class="sous">' + e(lieuCourt(m)) + '</span>' : '<span class="sous">Lieu à définir</span>') +
+        (m.tel ? '<span class="sous nb">' + e(m.tel) + '</span>' : '') +
+        (c.total ? '<span class="sous"><span class="montant">' + e(euro(c.total)) + '</span>' +
+            (c.reste > 0 && COMPTE_CA.includes(m.statut) ? ' <span style="color:var(--brique)">reste ' + e(euro(c.reste)) + '</span>' : '') + '</span>' : '') +
+        (c.heuresTot ? '<span class="sous">' + e(heures(c.heuresTot)) + '</span>' : '') +
+      '</span></button></li>';
+  }).join('');
+}
+
+/* ---------- tableur ---------- */
+const COLONNES = [
+  {cle:'date',     lib:'Date',       num:false, val:m => m.date || '', aff:m => fmtCourt(m.date) || '—'},
+  {cle:'couple',   lib:'Mariés',     num:false, val:m => norm(couple(m)), aff:m => e(couple(m)), nom:true},
+  {cle:'statut',   lib:'Statut',     num:false, val:m => ORDRE_STATUTS.indexOf(m.statut), aff:m => pastille(m)},
+  {cle:'lieu',     lib:'Lieu',       num:false, val:m => norm(m.lieuNom), aff:m => e(m.lieuNom || '—')},
+  {cle:'ville',    lib:'Ville',      num:false, val:m => norm(m.lieuVille), aff:m => e(m.lieuVille || '—')},
+  {cle:'invites',  lib:'Invités',    num:true,  val:m => nb(m.invites), aff:m => m.invites ? nf0.format(m.invites) : '—'},
+  {cle:'prix',     lib:'Prix',       num:true,  val:m => calc(m).total, aff:m => euro(calc(m).total), somme:'euro'},
+  {cle:'frais',    lib:'Frais',      num:true,  val:m => calc(m).fraisTot, aff:m => calc(m).fraisTot ? euro(calc(m).fraisTot) : '—', somme:'euro'},
+  {cle:'benefice', lib:'Bénéfice',   num:true,  val:m => calc(m).benefice, aff:m => euro(calc(m).benefice), somme:'euro'},
+  {cle:'encaisse', lib:'Encaissé',   num:true,  val:m => calc(m).encaisse, aff:m => euro(calc(m).encaisse), somme:'euro'},
+  {cle:'reste',    lib:'Reste',      num:true,  val:m => calc(m).reste, aff:m => calc(m).reste ? euro(calc(m).reste) : '—', somme:'euro'},
+  {cle:'heures',   lib:'Heures',     num:true,  val:m => calc(m).heuresTot, aff:m => calc(m).heuresTot ? heures(calc(m).heuresTot) : '—', somme:'heures'},
+  {cle:'taux',     lib:'€ / heure',  num:true,  val:m => calc(m).tauxHoraire || 0, aff:m => { const t = calc(m).tauxHoraire; return t == null ? '—' : nf0.format(Math.round(t)) + ' €'; }},
+  {cle:'source',   lib:'Source',     num:false, val:m => norm(m.source), aff:m => e(m.source || '—')}
+];
+
+function lignesTableur(){
+  const l = filtrer($('#recherche2').value, $('#f-statut2').value, $('#f-annee2').value);
+  const col = COLONNES.find(c => c.cle === Etat.tri.col) || COLONNES[0];
+  return l.sort((x,y) => {
+    const vx = col.val(x), vy = col.val(y);
+    const r = (typeof vx === 'number' && typeof vy === 'number') ? vx - vy : String(vx).localeCompare(String(vy));
+    return r * Etat.tri.sens;
+  });
+}
+
+function rendreTableur(){
+  const lignes = lignesTableur();
+  const tete = '<thead><tr><th class="case-choix nontri"><input type="checkbox" id="coche-tout" aria-label="Tout cocher"></th>' +
+    COLONNES.map(c => '<th class="' + (c.num ? 'num' : '') + '" data-col="' + c.cle + '">' + e(c.lib) +
+      (Etat.tri.col === c.cle ? '<span class="fleche">' + (Etat.tri.sens > 0 ? '▲' : '▼') + '</span>' : '') + '</th>').join('') +
+    '</tr></thead>';
+  const corps = '<tbody>' + (lignes.length ? lignes.map(m =>
+      '<tr data-id="' + e(m.id) + '" class="' + (Etat.choix.has(m.id) ? 'choisie' : '') + '">' +
+      '<td class="case-choix"><input type="checkbox" data-coche="' + e(m.id) + '"' + (Etat.choix.has(m.id) ? ' checked' : '') + ' aria-label="Sélectionner"></td>' +
+      COLONNES.map(c => '<td class="' + (c.num ? 'num' : '') + (c.nom ? ' nom' : '') + '">' + c.aff(m) + '</td>').join('') + '</tr>'
+    ).join('') : '<tr><td colspan="' + (COLONNES.length + 1) + '" style="padding:28px; text-align:center; color:var(--sourdine)">Aucune ligne. Change les filtres ou ajoute une fiche.</td></tr>') + '</tbody>';
+  $('#grille').innerHTML = tete + corps;
+
+  const selection = Etat.choix.size ? lignes.filter(m => Etat.choix.has(m.id)) : lignes;
+  const t = selection.reduce((acc, m) => {
+    const c = calc(m);
+    acc.n++; acc.prix += c.total; acc.frais += c.fraisTot; acc.benef += c.benefice;
+    acc.enc += c.encaisse; acc.reste += c.reste; acc.h += c.heuresTot; acc.inv += nb(m.invites);
+    return acc;
+  }, {n:0, prix:0, frais:0, benef:0, enc:0, reste:0, h:0, inv:0});
+
+  const bs = (lib, val, vert) => '<span class="bs"><span class="bs-lib">' + e(lib) + '</span><span class="bs-val' + (vert ? ' vert' : '') + ' nb">' + e(val) + '</span></span>';
+  $('#barre-somme').innerHTML =
+    bs(Etat.choix.size ? 'Lignes cochées' : 'Lignes affichées', String(t.n)) +
+    bs('Σ Chiffre d’affaires', euro(t.prix)) +
+    bs('Σ Frais', euro(t.frais)) +
+    bs('Σ Bénéfice', euro(t.benef), true) +
+    bs('Σ Encaissé', euro(t.enc)) +
+    bs('Σ Reste dû', euro(t.reste)) +
+    bs('Σ Heures', heures(t.h)) +
+    bs('€ / heure', t.h ? nf0.format(Math.round(t.benef / t.h)) + ' €' : '—') +
+    bs('Panier moyen', t.n ? euro(t.prix / t.n) : '—') +
+    bs('Σ Invités', t.inv ? nf0.format(t.inv) : '—');
+}
+
+/* =======================================================================
+   Analyse : totaux sur une période, comme une feuille de calcul
+   ======================================================================= */
+function bornesPeriode(){
+  const p = Etat.periode, an = new Date().getFullYear();
+  if (p.mode === 'annee')     return {de: an + '-01-01',       a: an + '-12-31',       lib:'Année ' + an};
+  if (p.mode === 'precedente')return {de: (an-1) + '-01-01',   a: (an-1) + '-12-31',   lib:'Année ' + (an-1)};
+  if (p.mode === 'suivante')  return {de: (an+1) + '-01-01',   a: (an+1) + '-12-31',   lib:'Année ' + (an+1)};
+  if (p.mode === 'douze')     return {de: plusJours(aujourdhui(), -365), a: aujourdhui(), lib:'12 derniers mois'};
+  if (p.mode === 'perso')     return {de: p.de || '0000-01-01', a: p.a || '9999-12-31', lib:'Du ' + (fmtCourt(p.de) || '…') + ' au ' + (fmtCourt(p.a) || '…')};
+  return {de:'0000-01-01', a:'9999-12-31', lib:'Depuis le début'};
+}
+
+function fichesPeriode(){
+  const b = bornesPeriode();
+  return Array.from(Etat.mariages.values()).filter(m =>
+    estDate(m.date) && m.date >= b.de && m.date <= b.a && Etat.periode.statuts.includes(m.statut));
+}
+
+function cumul(liste){
+  return liste.reduce((acc, m) => {
+    const c = calc(m);
+    acc.n++; acc.ca += c.total; acc.frais += c.fraisTot; acc.benef += c.benefice;
+    acc.enc += c.encaisse; acc.reste += c.reste; acc.h += c.heuresTot;
+    acc.depl += c.depl; acc.inv += nb(m.invites);
+    return acc;
+  }, {n:0, ca:0, frais:0, benef:0, enc:0, reste:0, h:0, depl:0, inv:0});
+}
+
+function repartition(liste, cle){
+  const g = new Map();
+  liste.forEach(m => {
+    const k = (cle(m) || '').trim() || 'Non renseigné';
+    const p = g.get(k) || {k, n:0, ca:0, benef:0, h:0};
+    const c = calc(m);
+    p.n++; p.ca += c.total; p.benef += c.benefice; p.h += c.heuresTot;
+    g.set(k, p);
+  });
+  return Array.from(g.values()).sort((x,y) => y.ca - x.ca);
+}
+
+function tableRepartition(titre, lignes, total){
+  if (!lignes.length) return '<div class="bloc"><div class="bloc-titre">' + e(titre) + '</div><p style="color:var(--sourdine); font-size:13.5px">Rien à afficher sur cette période.</p></div>';
+  return '<div class="bloc"><div class="bloc-titre">' + e(titre) + '</div>' +
+    '<div class="cadre-mini"><table class="mini-table"><thead><tr><th>' + e(titre) + '</th><th class="num">Nb</th><th class="num">CA</th><th class="num">Bénéfice</th><th class="num">Part</th></tr></thead><tbody>' +
+    lignes.map(l => {
+      const part = total ? Math.round(l.ca / total * 100) : 0;
+      return '<tr><td>' + e(l.k) + '</td><td class="num">' + l.n + '</td><td class="num">' + e(euro(l.ca)) + '</td>' +
+        '<td class="num">' + e(euro(l.benef)) + '</td>' +
+        '<td class="num"><span style="display:inline-flex; align-items:center; gap:7px; justify-content:flex-end">' +
+        '<span class="jauge" style="width:54px"><i style="width:' + part + '%"></i></span>' + part + ' %</span></td></tr>';
+    }).join('') + '</tbody></table></div></div>';
+}
+
+function rendreAnalyse(){
+  const b = bornesPeriode(), liste = fichesPeriode(), t = cumul(liste);
+  const parMois = new Map();
+  liste.forEach(m => {
+    const k = m.date.slice(0,7);
+    const p = parMois.get(k) || {k, n:0, ca:0, frais:0, benef:0, h:0};
+    const c = calc(m);
+    p.n++; p.ca += c.total; p.frais += c.fraisTot; p.benef += c.benefice; p.h += c.heuresTot;
+    parMois.set(k, p);
+  });
+  const mois = Array.from(parMois.values()).sort((x,y) => x.k.localeCompare(y.k));
+  const maxCA = Math.max(1, ...mois.map(x => x.ca));
+  const pic = mois.reduce((best, x) => (!best || x.ca > best.ca) ? x : best, null);
+
+  const bouton = (v, lib) => '<button class="segment" data-periode="' + v + '" aria-pressed="' + (Etat.periode.mode === v) + '">' + e(lib) + '</button>';
+  const tuile = (lib, val, note, style) =>
+    '<div class="indic ' + (style || '') + '"><span class="indic-lib">' + e(lib) + '</span>' +
+    '<span class="indic-val nb">' + e(val) + '</span><span class="indic-note">' + e(note || '') + '</span></div>';
+
+  const graphe = mois.length
+    ? '<div class="graphe" id="graphe">' +
+        '<div class="graphe-grille"><span style="top:0">' + e(euro(maxCA)) + '</span><span style="top:50%">' + e(euro(maxCA/2)) + '</span><span style="top:100%">0</span></div>' +
+        mois.map(x => {
+          const h = Math.max(2, Math.round(x.ca / maxCA * 148));
+          const [an, mo] = x.k.split('-');
+          const lib = MOIS_COURTS[+mo - 1] + (mois.length > 12 ? ' ’' + an.slice(2) : '');
+          return '<div class="colonne ' + (x.ca === 0 ? 'zero' : '') + (pic && x.k === pic.k ? ' pic' : '') + '" data-mois="' + e(x.k) + '" title="' + e(lib + ' — ' + euro(x.ca) + ' · ' + x.n + ' mariage' + (x.n > 1 ? 's' : '')) + '">' +
+            '<span class="colonne-val nb">' + e(euro(x.ca)) + '</span>' +
+            '<span class="barre" style="height:' + h + 'px"></span>' +
+            '<span class="colonne-lib">' + e(lib) + '</span></div>';
+        }).join('') +
+      '</div><p class="legende-graphe">Chiffre d’affaires par mois — ' + e(b.lib.toLowerCase()) + '. Survole une colonne pour le détail.</p>'
+    : '<p style="color:var(--sourdine); font-size:13.5px">Aucun mariage sur cette période.</p>';
+
+  $('#vue-analyse').innerHTML =
+    '<div class="bloc"><div class="bloc-titre"><span>Période</span></div>' +
+      '<div class="filtres">' +
+        '<div class="segments">' + bouton('annee','Cette année') + bouton('precedente','Année passée') + bouton('suivante','Année à venir') +
+          bouton('douze','12 derniers mois') + bouton('tout','Depuis le début') + bouton('perso','Personnalisée') + '</div>' +
+        (Etat.periode.mode === 'perso'
+          ? '<input class="mini" type="date" id="periode-de" value="' + e(Etat.periode.de) + '" aria-label="Date de début">' +
+            '<input class="mini" type="date" id="periode-a" value="' + e(Etat.periode.a) + '" aria-label="Date de fin">'
+          : '') +
+      '</div>' +
+      '<div class="puces" style="margin-top:4px">' +
+        ORDRE_STATUTS.map(k => '<button class="puce" data-statut-periode="' + k + '" aria-pressed="' + Etat.periode.statuts.includes(k) + '">' + e(STATUTS[k].l) + '</button>').join('') +
+      '</div>' +
+    '</div>' +
+
+    '<div class="indics">' +
+      tuile('Mariages', String(t.n), b.lib) +
+      tuile("Chiffre d'affaires", euro(t.ca), t.n ? 'Panier moyen ' + euro(t.ca / t.n) : '—', 'souligne') +
+      tuile('Frais', euro(t.frais), t.depl ? 'dont ' + euro(t.depl) + ' de déplacement facturé' : 'Dépenses saisies') +
+      tuile('Bénéfice', euro(t.benef), t.ca ? 'Marge ' + Math.round(t.benef / t.ca * 100) + ' %' : '—', 'souligne') +
+      tuile('Heures passées', heures(t.h), t.n ? nf1.format(t.h / t.n) + ' h par mariage' : '—') +
+      tuile('€ par heure', t.h ? nf0.format(Math.round(t.benef / t.h)) + ' €' : '—',
+            t.h ? 'Objectif ' + euro(nb(Etat.reglages.tarifCible)) : 'Saisis des heures',
+            t.h && (t.benef / t.h) < nb(Etat.reglages.tarifCible) ? 'alerte' : (t.h ? 'souligne' : '')) +
+      tuile('Encaissé', euro(t.enc), t.ca ? Math.round(t.enc / Math.max(1,t.ca) * 100) + ' % du total' : '—') +
+      tuile('Reste à encaisser', euro(t.reste), t.reste > 0 ? 'À relancer' : 'Tout est réglé', t.reste > 0 ? 'alerte' : 'souligne') +
+    '</div>' +
+
+    '<div class="bloc"><div class="bloc-titre"><span>Mois par mois</span>' +
+      '<button class="btn btn-fin" id="export-analyse">Exporter en CSV</button></div>' + graphe + '</div>' +
+
+    (mois.length ? '<div class="bloc"><div class="bloc-titre">Détail mensuel</div><div class="cadre-mini"><table class="mini-table">' +
+      '<thead><tr><th>Mois</th><th class="num">Mariages</th><th class="num">CA</th><th class="num">Frais</th><th class="num">Bénéfice</th><th class="num">Heures</th><th class="num">€ / h</th></tr></thead><tbody>' +
+      mois.map(x => {
+        const [an, mo] = x.k.split('-');
+        return '<tr><td>' + e(MOIS[+mo - 1] + ' ' + an) + '</td><td class="num">' + x.n + '</td>' +
+          '<td class="num">' + e(euro(x.ca)) + '</td><td class="num">' + e(euro(x.frais)) + '</td>' +
+          '<td class="num">' + e(euro(x.benef)) + '</td><td class="num">' + e(x.h ? heures(x.h) : '—') + '</td>' +
+          '<td class="num">' + e(x.h ? nf0.format(Math.round(x.benef / x.h)) + ' €' : '—') + '</td></tr>';
+      }).join('') +
+      '<tr class="total"><td>Total</td><td class="num">' + t.n + '</td><td class="num">' + e(euro(t.ca)) + '</td>' +
+      '<td class="num">' + e(euro(t.frais)) + '</td><td class="num">' + e(euro(t.benef)) + '</td>' +
+      '<td class="num">' + e(t.h ? heures(t.h) : '—') + '</td><td class="num">' + e(t.h ? nf0.format(Math.round(t.benef / t.h)) + ' €' : '—') + '</td></tr>' +
+      '</tbody></table></div></div>' : '') +
+
+    '<div class="duo">' +
+      tableRepartition('Par lieu',       repartition(liste, m => m.lieuNom), t.ca) +
+      tableRepartition('Par source',     repartition(liste, m => m.source),  t.ca) +
+    '</div>' +
+    '<div class="duo">' +
+      tableRepartition('Par formule',    repartition(liste, m => m.formule), t.ca) +
+      tableRepartition('Par ville',      repartition(liste, m => m.lieuVille), t.ca) +
+    '</div>';
+}
+
+/* =======================================================================
+   À faire
+   ======================================================================= */
+function rendreAFaire(){
+  const items = toutAFaire(), auj = aujourdhui();
+  const semaine = plusJours(auj, 7), mois1 = plusJours(auj, 35);
+  const groupes = [
+    {t:'En retard ou urgent', f:i => i.retard, urgent:true},
+    {t:'Cette semaine',       f:i => !i.retard && i.date && i.date <= semaine},
+    {t:'Dans le mois',        f:i => !i.retard && i.date && i.date > semaine && i.date <= mois1},
+    {t:'Plus tard',           f:i => !i.retard && i.date && i.date > mois1},
+    {t:'Sans échéance',       f:i => !i.retard && !i.date}
+  ];
+  let html = '';
+  let vide = true;
+  groupes.forEach(g => {
+    const lot = items.filter(g.f);
+    if (!lot.length) return;
+    vide = false;
+    html += '<div class="groupe-titre ' + (g.urgent ? 'urgent' : '') + '">' + e(g.t) + ' <span style="font-family:var(--sans); text-transform:none; letter-spacing:0">(' + lot.length + ')</span></div>';
+    html += lot.map(i => {
+      const c = calc(i.m);
+      const retard = i.date && i.date < auj;
+      return '<div class="tache ' + (i.genre === 'alerte' ? (i.niveau === 'urgent' ? 'retard' : 'info') : (retard ? 'retard' : '')) + '">' +
+        (i.genre === 'tache'
+          ? '<input type="checkbox" data-fait="' + e(i.m.id) + '|' + e(i.id) + '" aria-label="Marquer comme fait">'
+          : '<span style="width:17px; flex:none; text-align:center; color:var(--laiton); margin-top:1px">!</span>') +
+        '<div class="tache-corps"><div class="tache-lib">' + e(i.texte) + '</div>' +
+          '<div class="tache-meta"><span class="qui" data-ouvre="' + e(i.m.id) + '">' + e(couple(i.m)) + '</span>' +
+          (estDate(i.m.date) ? '<span>mariage le ' + e(fmtCourt(i.m.date)) + (c.jours != null && c.jours >= 0 ? ' · J−' + c.jours : '') + '</span>' : '') +
+          '</div></div>' +
+        '<div class="tache-date ' + (retard ? 'retard' : '') + '">' + e(i.date ? fmtCourt(i.date) : '—') + '</div>' +
+      '</div>';
+    }).join('');
+  });
+  $('#vue-afaire').innerHTML = vide
+    ? '<div class="vide"><h3>Rien ne traîne</h3><p>Aucune échéance en retard, aucune relance à faire. Les tâches se créent automatiquement dès qu’une fiche a une date.</p></div>'
+    : html;
+}
+
+/* =======================================================================
+   Agenda
+   ======================================================================= */
+function rendreAgenda(){
+  const an = Etat.anneeAgenda;
+  const dedans = Array.from(Etat.mariages.values()).filter(m => String(m.date||'').slice(0,4) === String(an));
+  const annees = anneesDisponibles();
+  if (!annees.includes(String(an))) annees.push(String(an));
+  annees.sort();
+
+  const cases = [];
+  for (let i = 0; i < 12; i++){
+    const duMois = dedans.filter(m => +m.date.slice(5,7) === i + 1).sort((x,y) => x.date.localeCompare(y.date));
+    const ca = duMois.filter(m => COMPTE_CA.includes(m.statut)).reduce((s,m) => s + calc(m).total, 0);
+    cases.push('<div class="mois ' + (duMois.length ? 'plein' : '') + '">' +
+      '<h3><span>' + e(MOIS[i]) + '</span>' + (ca ? '<span class="nb">' + e(euro(ca)) + '</span>' : '') + '</h3>' +
+      (duMois.length ? duMois.map(m => {
+        const s = STATUTS[m.statut] || STATUTS.demande;
+        const couleur = s.c === 'p-vert' ? 'var(--vert)' : s.c === 'p-laiton' ? 'var(--laiton)' : s.c === 'p-brique' ? 'var(--brique)' : s.c === 'p-ardoise' ? 'var(--ardoise)' : 'var(--trait-fort)';
+        return '<div class="evt" data-ouvre="' + e(m.id) + '">' +
+          '<span class="evt-j nb">' + e(String(+m.date.slice(8,10)).padStart(2,'0') + ' ' + ['di','lu','ma','me','je','ve','sa'][jourDe(m.date).getDay()]) + '</span>' +
+          '<span class="evt-pt" style="background:' + couleur + '"></span>' +
+          '<span class="evt-nom">' + e(couple(m)) + (m.lieuNom ? ' <span style="color:var(--sourdine)">· ' + e(m.lieuNom) + '</span>' : '') + '</span></div>';
+      }).join('') : '<p style="color:var(--sourdine); font-size:13px">Libre</p>') +
+    '</div>');
+  }
+
+  const caAn = dedans.filter(m => COMPTE_CA.includes(m.statut)).reduce((s,m) => s + calc(m).total, 0);
+  const samedis = dedans.filter(m => jourDe(m.date).getDay() === 6).length;
+
+  $('#vue-agenda').innerHTML =
+    '<div class="bloc"><div class="bloc-titre">' +
+      '<span>Année</span>' +
+      '<div class="segments">' + annees.map(a => '<button class="segment" data-annee-agenda="' + a + '" aria-pressed="' + (String(an) === a) + '">' + a + '</button>').join('') + '</div>' +
+      '<span style="text-transform:none; letter-spacing:0; font-family:var(--sans); font-size:13px">' +
+        e(dedans.length + ' mariage' + (dedans.length > 1 ? 's' : '') + ' · ' + euro(caAn) + (samedis ? ' · ' + samedis + ' samedi' + (samedis > 1 ? 's' : '') : '')) + '</span>' +
+      '<button class="btn btn-fin" id="gcal-annee">Tout envoyer vers Google Agenda</button>' +
+    '</div>' +
+    '<div id="gcal-retour" class="resultat-mcp"></div></div>' +
+    '<div class="mois-grille">' + cases.join('') + '</div>';
+}
+
+/* =======================================================================
+   Fiche détaillée
+   ======================================================================= */
+function ouvrirFiche(id){
+  if (!Etat.mariages.has(id)) return;
+  Etat.ficheId = id;
+  Etat.edition = false;
+  rendreFiche();
+  document.body.style.overflow = 'hidden';
+}
+function fermerFiche(){
+  if (Etat.ficheId) enregistrer(Etat.ficheId, true);
+  Etat.ficheId = null; Etat.edition = false;
+  $('#zone-fiche').innerHTML = '';
+  document.body.style.overflow = '';
+  rendreTout();
+}
+
+function listeMini(m, liste, colonnes, ajoutLib){
+  const rangs = (m[liste] || []).map((r, i) =>
+    '<div class="mini-rang">' +
+      colonnes.map(c => '<' + (c.k === 'libelle' ? 'span class="grandit"' : 'span') + '>' +
+        '<input data-liste="' + liste + '" data-idx="' + i + '" data-k="' + c.k + '" type="' + c.type + '" ' +
+        (c.type === 'number' ? 'step="' + (c.step || '1') + '" inputmode="decimal" ' : '') +
+        'style="width:' + c.w + '" value="' + e(r[c.k] == null ? '' : r[c.k]) + '" placeholder="' + e(c.ph || '') + '" aria-label="' + e(c.ph || c.k) + '">' +
+      '</span>').join('') +
+      '<button class="sup" data-sup="' + liste + '|' + i + '" title="Supprimer" aria-label="Supprimer la ligne">×</button>' +
+    '</div>').join('');
+  return rangs + '<button class="btn btn-fin" data-ajout="' + liste + '" style="margin-top:8px">+ ' + e(ajoutLib) + '</button>';
+}
+
+function rendreFiche(){
+  const m = Etat.mariages.get(Etat.ficheId);
+  if (!m) return;
+  const c = calc(m), conflit = conflits(m), alertesM = alertes(m);
+  const carnet = carnetLieux();
+  const listeLieux = Array.from(carnet.values()).map(p => '<option value="' + e(p.nom) + '"></option>').join('');
+  const villes = Array.from(new Set(Array.from(Etat.mariages.values()).map(x => x.lieuVille).filter(Boolean)))
+    .map(v => '<option value="' + e(v) + '"></option>').join('');
+
+  const ch = (cle, lib, type, opts) => {
+    opts = opts || {};
+    const v = m[cle] == null ? '' : m[cle];
+    return '<div class="champ' + (opts.large ? ' large' : '') + '"><label for="f-' + cle + '">' + e(lib) + '</label>' +
+      (type === 'textarea'
+        ? '<textarea id="f-' + cle + '" data-c="' + cle + '" placeholder="' + e(opts.ph || '') + '">' + e(v) + '</textarea>'
+        : type === 'select'
+        ? '<select id="f-' + cle + '" data-c="' + cle + '">' + opts.options + '</select>'
+        : '<input id="f-' + cle + '" data-c="' + cle + '" type="' + type + '" value="' + e(v) + '" placeholder="' + e(opts.ph || '') + '"' +
+          (opts.list ? ' list="' + opts.list + '"' : '') + (type === 'number' ? ' step="' + (opts.step || '1') + '" inputmode="decimal"' : '') +
+          (opts.mono ? ' class="nb"' : '') + '>') +
+      (opts.aide ? '<span class="aide">' + e(opts.aide) + '</span>' : '') + '</div>';
+  };
+
+  let rebours = '';
+  if (c.jours != null) rebours = c.jours < 0 ? 'il y a ' + (-c.jours) + ' jours' : c.jours === 0 ? "c'est aujourd'hui" : 'dans ' + c.jours + ' jours';
+
+  const html =
+  '<div class="fond-fiche" data-ferme="1"></div>' +
+  '<aside class="fiche" role="dialog" aria-modal="true" aria-label="Fiche mariage">' +
+    '<div class="fiche-tete">' +
+      '<h2>' + e(couple(m)) + '</h2>' +
+      '<button class="btn btn-fin btn-nu" data-ferme="1" aria-label="Fermer la fiche">Fermer ✕</button>' +
+    '</div>' +
+    '<div class="fiche-corps">' +
+
+      (conflit.length ? '<div class="avert"><span>⚠</span><div><b>Déjà un mariage ce jour-là :</b> ' +
+        conflit.map(o => e(couple(o)) + ' (' + e((STATUTS[o.statut]||{}).l || '') + ')').join(', ') + '</div></div>' : '') +
+      (alertesM.filter(a => a.type !== 'conflit').length
+        ? '<div class="avert doux"><span>•</span><div>' + alertesM.filter(a => a.type !== 'conflit').map(a => e(a.texte)).join('<br>') + '</div></div>' : '') +
+
+      '<div class="section"><div class="grille-champs">' +
+        ch('statut', 'Statut', 'select', {options: ORDRE_STATUTS.map(k => '<option value="' + k + '"' + (m.statut === k ? ' selected' : '') + '>' + e(STATUTS[k].l) + '</option>').join('')}) +
+        ch('date', 'Date du mariage', 'date', {aide: estDate(m.date) ? capi(fmtLong(m.date)) + ' — ' + rebours : 'Pas encore fixée'}) +
+      '</div></div>' +
+
+      '<div class="section"><h3>Les mariés</h3><div class="grille-champs">' +
+        ch('a', 'Prénom 1', 'text', {ph:'Camille'}) +
+        ch('b', 'Prénom 2', 'text', {ph:'Théo'}) +
+        ch('tel', 'Téléphone', 'tel', {ph:'06 12 34 56 78', mono:true}) +
+        ch('email', 'E-mail', 'email', {large:true, ph:'prenom@exemple.fr'}) +
+        ch('adresse', 'Adresse postale', 'text', {large:true, ph:'12 rue des Lilas, 80000 Amiens'}) +
+      '</div></div>' +
+
+      '<div class="section"><h3>Le jour J</h3><div class="grille-champs">' +
+        ch('mairieHeure', 'Mairie', 'time') +
+        ch('ceremonieHeure', 'Cérémonie', 'time') +
+        ch('heureDebut', 'Début de prestation', 'time') +
+        ch('heureFin', 'Fin de prestation', 'time') +
+        ch('ceremonieLieu', 'Lieu de cérémonie', 'text', {large:true, ph:'Église Saint-Martin, Amiens'}) +
+        ch('invites', 'Nombre d’invités', 'number') +
+      '</div></div>' +
+
+      '<div class="section"><h3>Lieu de réception</h3><div class="grille-champs">' +
+        ch('lieuNom', 'Nom du lieu', 'text', {large:true, list:'dl-lieux', ph:'Château de Rambures', aide:'Déjà connu ? L’adresse et le téléphone se remplissent tout seuls.'}) +
+        ch('lieuAdresse', 'Adresse', 'text', {large:true}) +
+        ch('lieuCp', 'Code postal', 'text', {mono:true}) +
+        ch('lieuVille', 'Ville', 'text', {list:'dl-villes'}) +
+        ch('lieuTel', 'Téléphone du lieu', 'tel', {mono:true}) +
+        ch('lieuContact', 'Interlocuteur', 'text', {ph:'Mme Dubois'}) +
+      '</div>' +
+      (m.lieuNom || m.lieuAdresse ? '<div class="actions-rang" style="margin-top:10px">' +
+        '<button class="btn btn-fin" data-copie="' + e([m.lieuNom, m.lieuAdresse, [m.lieuCp, m.lieuVille].filter(Boolean).join(' ')].filter(Boolean).join(', ')) + '">Copier l’adresse</button>' +
+        (m.lieuAdresse || m.lieuVille ? '<a class="btn btn-fin" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
+          encodeURIComponent([m.lieuNom, m.lieuAdresse, m.lieuCp, m.lieuVille].filter(Boolean).join(' ')) + '">Ouvrir dans Maps</a>' : '') +
+      '</div>' : '') +
+      '</div>' +
+
+      '<div class="section"><h3>Prestation et argent</h3><div class="grille-champs">' +
+        ch('formule', 'Formule', 'select', {options: '<option value="">— au cas par cas —</option>' +
+          (Etat.reglages.formules || []).map(f => '<option value="' + e(f.nom) + '"' + (m.formule === f.nom ? ' selected' : '') + '>' + e(f.nom + ' — ' + euro(f.prix)) + '</option>').join('')}) +
+        ch('prix', 'Prix de la prestation', 'number', {step:'10'}) +
+        ch('deplacement', 'Frais de déplacement facturés', 'number', {step:'10'}) +
+      '</div>' +
+      '<div class="puces" style="margin-top:10px">' +
+        (Etat.reglages.prestations || []).map(p => '<button class="puce" data-presta="' + e(p) + '" aria-pressed="' + ((m.prestations||[]).includes(p)) + '">' + e(p) + '</button>').join('') +
+      '</div>' +
+      '<div class="calcul">' +
+        '<div class="calcul-rang"><span>Total facturé</span><b class="nb">' + e(euro(c.total)) + '</b></div>' +
+        '<div class="calcul-rang"><span>Acompte attendu (' + e(nb(Etat.reglages.acomptePct)) + ' %)</span><b class="nb">' + e(euro(c.acompteDu)) + '</b></div>' +
+        '<div class="calcul-rang"><span>Déjà encaissé</span><b class="nb">' + e(euro(c.encaisse)) + '</b></div>' +
+        '<div class="calcul-rang ' + (c.reste > 0 ? 'du' : '') + '"><span>Reste à encaisser' + (c.dateSolde ? ' — avant le ' + e(fmtCourt(c.dateSolde)) : '') + '</span><b class="nb">' + e(euro(c.reste)) + '</b></div>' +
+        '<div class="calcul-rang"><span>Frais engagés</span><b class="nb">' + e(euro(c.fraisTot)) + '</b></div>' +
+        '<div class="calcul-rang fort"><span>Bénéfice' + (c.tauxHoraire != null ? ' — ' + e(nf0.format(Math.round(c.tauxHoraire))) + ' €/h' : '') + '</span><b class="nb">' + e(euro(c.benefice)) + '</b></div>' +
+      '</div>' +
+      '<h3 style="margin-top:16px">Paiements reçus</h3>' +
+      listeMini(m, 'paiements', [
+        {k:'libelle', type:'text', w:'100%', ph:'Acompte'},
+        {k:'date',    type:'date', w:'132px'},
+        {k:'montant', type:'number', w:'92px', step:'10', ph:'€'}
+      ], 'Ajouter un paiement') +
+      '<div class="actions-rang" style="margin-top:8px">' +
+        '<button class="btn btn-fin" id="acompte-recu">Marquer l’acompte reçu (' + e(euro(c.acompteDu)) + ')</button>' +
+        (c.reste > 0 ? '<button class="btn btn-fin" id="solde-recu">Solder (' + e(euro(c.reste)) + ')</button>' : '') +
+      '</div>' +
+      '<h3 style="margin-top:16px">Frais engagés</h3>' +
+      listeMini(m, 'frais', [
+        {k:'libelle', type:'text', w:'100%', ph:'Essence, tirages, assistant…'},
+        {k:'montant', type:'number', w:'92px', step:'5', ph:'€'}
+      ], 'Ajouter un frais') +
+      '</div>' +
+
+      '<div class="section"><h3>Temps passé — ' + e(heures(c.heuresTot)) + '</h3>' +
+        listeMini(m, 'temps', [
+          {k:'libelle', type:'text', w:'100%', ph:'Journée du mariage'},
+          {k:'heures',  type:'number', w:'80px', step:'0.5', ph:'h'}
+        ], 'Ajouter du temps') +
+        '<div class="actions-rang" style="margin-top:8px"><button class="btn btn-fin" id="temps-modele">Remplir avec le modèle des réglages</button></div>' +
+      '</div>' +
+
+      '<div class="section"><h3>Suivi commercial</h3><div class="grille-champs">' +
+        ch('source', 'Comment ils m’ont trouvé', 'text', {list:'dl-sources'}) +
+        ch('demandeLe', 'Demande reçue le', 'date') +
+        ch('devisLe', 'Devis envoyé le', 'date') +
+        ch('contratLe', 'Contrat signé le', 'date') +
+      '</div></div>' +
+
+      '<div class="section"><h3>Tâches</h3>' +
+        ((m.taches || []).length
+          ? (m.taches || []).map((t, i) =>
+              '<div class="mini-rang"><input type="checkbox" data-tache="' + i + '"' + (t.fait ? ' checked' : '') + ' style="width:16px; height:16px; accent-color:var(--vert); flex:none" aria-label="Fait">' +
+              '<span class="grandit" style="' + (t.fait ? 'text-decoration:line-through; color:var(--sourdine)' : '') + '">' + e(t.label) + '</span>' +
+              '<span class="mont" style="color:' + (t.echeance && t.echeance < aujourdhui() && !t.fait ? 'var(--brique)' : 'var(--sourdine)') + '">' + e(fmtCourt(t.echeance)) + '</span>' +
+              '<button class="sup" data-sup="taches|' + i + '" aria-label="Supprimer la tâche">×</button></div>').join('')
+          : '<p style="color:var(--sourdine); font-size:13.5px">Renseigne une date pour générer les échéances automatiquement.</p>') +
+        '<div class="actions-rang" style="margin-top:9px">' +
+          '<button class="btn btn-fin" id="taches-regen">Regénérer depuis le modèle</button>' +
+          '<button class="btn btn-fin" data-ajout="taches">+ Tâche libre</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="section"><h3>Notes et demandes particulières</h3>' +
+        '<div class="champ"><textarea id="f-notes" data-c="notes" placeholder="Allergies, contraintes de lumière, playlist, témoins, surprises…">' + e(m.notes || '') + '</textarea></div>' +
+      '</div>' +
+
+      '<div class="section"><h3>E-mail et agenda</h3>' +
+        '<div class="actions-rang">' +
+          '<button class="btn btn-fin" data-brouillon="devis">Brouillon : devis</button>' +
+          '<button class="btn btn-fin" data-brouillon="relance">Brouillon : relance</button>' +
+          '<button class="btn btn-fin" data-brouillon="confirmation">Brouillon : confirmation</button>' +
+          '<button class="btn btn-fin" data-brouillon="solde">Brouillon : solde</button>' +
+        '</div>' +
+        '<div class="actions-rang" style="margin-top:7px">' +
+          '<button class="btn btn-fin" id="gmail-fil">Retrouver nos échanges</button>' +
+          '<button class="btn btn-fin" id="gcal-ajout">Ajouter au Google Agenda</button>' +
+          '<button class="btn btn-fin" id="gcal-echeances">Y ajouter les échéances</button>' +
+          '<button class="btn btn-fin" id="gcal-verif">Vérifier ce jour dans l’agenda</button>' +
+        '</div>' +
+        (m.gcalLien ? '<p class="resultat-mcp"><a href="' + e(m.gcalLien) + '" target="_blank" rel="noopener">Voir l’évènement dans Google Agenda</a></p>' : '') +
+        '<div class="resultat-mcp" id="retour-mcp"></div>' +
+      '</div>' +
+
+    '</div>' +
+    '<div class="fiche-pied">' +
+      '<button class="btn btn-fin" id="copier-fiche">Copier la fiche</button>' +
+      '<button class="btn btn-fin" id="dupliquer">Dupliquer</button>' +
+      '<button class="btn btn-fin btn-risque" id="supprimer" style="margin-left:auto">Supprimer</button>' +
+    '</div>' +
+    '<datalist id="dl-lieux">' + listeLieux + '</datalist>' +
+    '<datalist id="dl-villes">' + villes + '</datalist>' +
+    '<datalist id="dl-sources">' + (Etat.reglages.sources || []).map(s => '<option value="' + e(s) + '"></option>').join('') + '</datalist>' +
+  '</aside>';
+
+  $('#zone-fiche').innerHTML = html;
+}
+
+/* ---------- texte récapitulatif ---------- */
+function ficheEnTexte(m){
+  const c = calc(m);
+  const l = [];
+  l.push(couple(m).toUpperCase());
+  l.push('Statut : ' + ((STATUTS[m.statut]||{}).l || ''));
+  if (estDate(m.date)) l.push('Date : ' + capi(fmtLong(m.date)));
+  if (m.mairieHeure) l.push('Mairie : ' + m.mairieHeure);
+  if (m.ceremonieHeure) l.push('Cérémonie : ' + m.ceremonieHeure + (m.ceremonieLieu ? ' — ' + m.ceremonieLieu : ''));
+  if (m.heureDebut || m.heureFin) l.push('Prestation : ' + (m.heureDebut||'?') + ' → ' + (m.heureFin||'?'));
+  if (m.lieuNom) l.push('Lieu : ' + [m.lieuNom, m.lieuAdresse, [m.lieuCp, m.lieuVille].filter(Boolean).join(' ')].filter(Boolean).join(', '));
+  if (m.lieuTel || m.lieuContact) l.push('Contact lieu : ' + [m.lieuContact, m.lieuTel].filter(Boolean).join(' — '));
+  if (m.invites) l.push('Invités : ' + m.invites);
+  if (m.tel || m.email) l.push('Contact : ' + [m.tel, m.email].filter(Boolean).join(' — '));
+  if (m.adresse) l.push('Adresse : ' + m.adresse);
+  if ((m.prestations||[]).length) l.push('Prestations : ' + m.prestations.join(', '));
+  l.push('Total : ' + euro(c.total) + ' · encaissé ' + euro(c.encaisse) + ' · reste ' + euro(c.reste));
+  if (c.heuresTot) l.push('Temps prévu : ' + heures(c.heuresTot));
+  if (m.notes) l.push('', 'Notes : ' + m.notes);
+  return l.join('\n');
+}
+
+/* =======================================================================
+   Réglages
+   ======================================================================= */
+function rendreReglages(){
+  const r = Etat.reglages;
+  const rang = (cle, titre, note, type, suffixe) =>
+    '<div class="reglage-rang"><div class="reglage-lib"><b>' + e(titre) + '</b><span>' + e(note) + '</span></div>' +
+    '<input type="' + type + '" data-r="' + cle + '" value="' + e(r[cle] == null ? '' : r[cle]) + '">' +
+    (suffixe ? '<span style="color:var(--sourdine); font-size:13px">' + e(suffixe) + '</span>' : '') + '</div>';
+
+  const etiquettes = (cle, lib) =>
+    '<div class="reglage-rang" style="align-items:flex-start"><div class="reglage-lib" style="flex:1 1 100%"><b>' + e(lib) + '</b>' +
+      '<div class="listes-modif">' + (r[cle] || []).map((v, i) =>
+        '<span class="etiq">' + e(v) + '<button data-sup-reglage="' + cle + '|' + i + '" aria-label="Retirer">×</button></span>').join('') +
+      '<button class="btn btn-fin" data-ajout-reglage="' + cle + '">+ Ajouter</button></div></div></div>';
+
+  $('#vue-reglages').innerHTML =
+    '<div class="bloc"><div class="bloc-titre">Argent et délais</div>' +
+      rang('acomptePct', 'Acompte à la réservation', 'Calculé automatiquement sur chaque fiche.', 'number', '%') +
+      rang('soldeJours', 'Solde exigible avant le mariage', 'Sert à la date limite et à l’alerte « solde ».', 'number', 'jours') +
+      rang('relanceJours', 'Relancer un devis sans réponse après', 'Déclenche l’alerte de relance.', 'number', 'jours') +
+      rang('tarifCible', 'Objectif de rémunération horaire', 'Sert de repère dans l’analyse.', 'number', '€ / h') +
+    '</div>' +
+
+    '<div class="bloc"><div class="bloc-titre">Formules</div>' +
+      '<div class="cadre-mini"><table class="mini-table"><thead><tr><th>Nom</th><th class="num">Prix</th><th class="num">Heures prévues</th><th></th></tr></thead><tbody>' +
+      (r.formules || []).map((f, i) =>
+        '<tr><td><input data-f="nom|' + i + '" type="text" value="' + e(f.nom) + '" style="width:100%; padding:6px 8px; border:1px solid var(--trait); border-radius:5px; background:var(--carte2)"></td>' +
+        '<td class="num"><input data-f="prix|' + i + '" type="number" step="10" value="' + e(f.prix) + '" style="width:92px; padding:6px 8px; border:1px solid var(--trait); border-radius:5px; background:var(--carte2); text-align:right"></td>' +
+        '<td class="num"><input data-f="heures|' + i + '" type="number" step="1" value="' + e(f.heures) + '" style="width:80px; padding:6px 8px; border:1px solid var(--trait); border-radius:5px; background:var(--carte2); text-align:right"></td>' +
+        '<td class="num"><button class="sup" data-sup-formule="' + i + '" aria-label="Supprimer">×</button></td></tr>').join('') +
+      '</tbody></table></div><button class="btn btn-fin" id="ajout-formule" style="margin-top:9px">+ Ajouter une formule</button></div>' +
+
+    '<div class="bloc"><div class="bloc-titre">Listes</div>' +
+      etiquettes('prestations', 'Prestations proposées') +
+      etiquettes('sources', 'Origines des demandes') +
+    '</div>' +
+
+    '<div class="bloc"><div class="bloc-titre">Modèle de tâches</div>' +
+      '<p style="color:var(--sourdine); font-size:13px; margin-bottom:11px">Appliqué automatiquement dès qu’une fiche a une date. Un nombre négatif = avant le mariage.</p>' +
+      '<div class="cadre-mini"><table class="mini-table"><thead><tr><th>Tâche</th><th class="num">Jours / mariage</th><th></th></tr></thead><tbody>' +
+      (r.modeleTaches || []).map((t, i) =>
+        '<tr><td><input data-mt="label|' + i + '" type="text" value="' + e(t.label) + '" style="width:100%; padding:6px 8px; border:1px solid var(--trait); border-radius:5px; background:var(--carte2)"></td>' +
+        '<td class="num"><input data-mt="offset|' + i + '" type="number" value="' + e(t.offset) + '" style="width:80px; padding:6px 8px; border:1px solid var(--trait); border-radius:5px; background:var(--carte2); text-align:right"></td>' +
+        '<td class="num"><button class="sup" data-sup-mt="' + i + '" aria-label="Supprimer">×</button></td></tr>').join('') +
+      '</tbody></table></div><button class="btn btn-fin" id="ajout-mt" style="margin-top:9px">+ Ajouter une tâche type</button></div>' +
+
+    '<div class="bloc"><div class="bloc-titre">Modèle de temps passé</div>' +
+      '<div class="cadre-mini"><table class="mini-table"><thead><tr><th>Poste</th><th class="num">Heures</th><th></th></tr></thead><tbody>' +
+      (r.modeleTemps || []).map((t, i) =>
+        '<tr><td><input data-mte="libelle|' + i + '" type="text" value="' + e(t.libelle) + '" style="width:100%; padding:6px 8px; border:1px solid var(--trait); border-radius:5px; background:var(--carte2)"></td>' +
+        '<td class="num"><input data-mte="heures|' + i + '" type="number" step="0.5" value="' + e(t.heures) + '" style="width:80px; padding:6px 8px; border:1px solid var(--trait); border-radius:5px; background:var(--carte2); text-align:right"></td>' +
+        '<td class="num"><button class="sup" data-sup-mte="' + i + '" aria-label="Supprimer">×</button></td></tr>').join('') +
+      '</tbody></table></div><button class="btn btn-fin" id="ajout-mte" style="margin-top:9px">+ Ajouter un poste</button></div>' +
+
+    '<div class="bloc"><div class="bloc-titre">E-mail et agenda</div>' +
+      '<div id="etat-connecteurs"><p style="color:var(--sourdine); font-size:13px">Vérification des connecteurs…</p></div>' +
+      '<div class="reglage-rang"><div class="reglage-lib"><b>Calendrier de destination</b><span>Laisse « primary » pour ton agenda principal, ou colle l’adresse d’un autre agenda.</span></div>' +
+        '<input type="text" data-r="calendrier" value="' + e(r.calendrier) + '"></div>' +
+      '<div class="reglage-rang" style="flex-direction:column; align-items:stretch"><div class="reglage-lib" style="flex:1 1 100%"><b>Signature des e-mails</b><span>Ajoutée à la fin de chaque brouillon.</span></div>' +
+        '<textarea class="modele" data-r="signature" style="min-height:72px">' + e(r.signature) + '</textarea></div>' +
+      Object.keys(r.modeles).map(k =>
+        '<div class="reglage-rang" style="flex-direction:column; align-items:stretch">' +
+          '<div class="reglage-lib" style="flex:1 1 100%"><b>Modèle « ' + e(k) + ' »</b>' +
+          '<span>Variables : {prenoms} {date} {lieu} {prix} {acompte} {acomptePct} {solde} {dateSolde} {dateRdv} {jours} {prestationsListe} {signature}</span></div>' +
+          '<textarea class="modele" data-modele="' + e(k) + '">' + e(r.modeles[k]) + '</textarea>' +
+        '</div>').join('') +
+    '</div>' +
+
+    '<div class="bloc"><div class="bloc-titre">Données</div>' +
+      '<div class="actions-rang">' +
+        '<button class="btn btn-fin" id="exp-csv-tout">Exporter toutes les fiches (CSV)</button>' +
+        '<button class="btn btn-fin" id="exp-json">Sauvegarde complète (JSON)</button>' +
+        '<button class="btn btn-fin" id="imp-json">Restaurer une sauvegarde</button>' +
+        '<input type="file" id="fichier-json" accept="application/json,.json" hidden>' +
+        '<button class="btn btn-fin" id="exemple">Ajouter 3 fiches d’exemple</button>' +
+      '</div>' +
+      '<p class="resultat-mcp" id="info-stockage"></p>' +
+    '</div>';
+
+  const info = $('#info-stockage');
+  if (info) info.textContent = Etat.mariages.size + ' fiche(s) · ' +
+    (Stock.mode === 'nuage' ? 'enregistrées en ligne, partagées avec cette page sur tous tes appareils.'
+     : Stock.mode === 'local' ? 'enregistrées dans ce navigateur uniquement. Pense à exporter une sauvegarde.'
+     : 'non enregistrées : ce navigateur refuse le stockage.');
+  etatConnecteurs();
+}
+
+/* =======================================================================
+   Gmail et Google Agenda
+   ======================================================================= */
+let mcpPromesse = null;
+function mcpNs(){
+  if (!mcpPromesse) mcpPromesse = (window.claude && claude.use) ? claude.use('mcp').catch(() => null) : Promise.resolve(null);
+  return mcpPromesse;
+}
+let telechPromesse = null;
+function telechNs(){
+  if (!telechPromesse) telechPromesse = (window.claude && claude.use) ? claude.use('downloads').catch(() => null) : Promise.resolve(null);
+  return telechPromesse;
+}
+const GMAIL = 'Gmail', GCAL = 'Google Calendar';
+
+function msgMcp(err, serveur){
+  const c = (err && err.code) || 'upstream_error';
+  if (c === 'needs_reauth')        return 'Reconnecte ' + serveur + ' dans claude.ai → Paramètres → Connecteurs.';
+  if (c === 'server_not_connected')return 'Ajoute ' + serveur + ' dans claude.ai → Paramètres → Connecteurs.';
+  if (c === 'selection_required')  return 'Tu as plusieurs comptes ' + serveur + '. Choisis-en un quand Claude te le demande, puis réessaie.';
+  if (c === 'server_not_found')    return serveur + ' n’existe plus côté Google.';
+  if (c === 'not_in_manifest')     return 'Cette page n’a pas l’autorisation d’utiliser ' + serveur + '.';
+  if (c === 'blocked_by_policy')   return 'La politique de ton organisation bloque ' + serveur + ' ici.';
+  if (c === 'approval_required')   return 'Cet appel demande une validation manuelle, impossible depuis une page.';
+  if (c === 'server_unavailable')  return serveur + ' ne répond pas. Réessaie dans un instant.';
+  if (c === 'tool_error')          return 'Google a refusé : ' + ((err && err.message) || 'raison non précisée');
+  if (c === 'bad_request' || c === 'transform_error') return 'Requête mal formée — signale-le.';
+  if (c === 'cancelled')           return 'Appel annulé.';
+  if (c === 'rate_limited')        return 'Trop d’appels d’un coup. Attends quelques secondes.';
+  if (c === 'consent_required')    return 'Autorise ' + serveur + ' pour cette page, puis réessaie.';
+  if (c === 'not_granted' || c === 'capability_disabled' || c === 'capability_removed')
+    return 'Les connecteurs ne sont pas disponibles dans cette vue.';
+  return serveur + ' est injoignable pour l’instant.';
+}
+
+async function etatConnecteurs(){
+  const zone = $('#etat-connecteurs');
+  if (!zone) return;
+  const mcp = await mcpNs();
+  if (!mcp){
+    zone.innerHTML = '<div class="etat-connecteur"><span class="voyant"></span><div class="reglage-lib">' +
+      '<b>Gmail et Google Agenda indisponibles ici</b><span>Ces fonctions marchent dans la page publiée sur claude.ai, pas dans un fichier ouvert en local.</span></div></div>';
+    return;
+  }
+  let liste = null;
+  try { liste = await mcp.listTools(); } catch(err){
+    zone.innerHTML = '<div class="etat-connecteur"><span class="voyant ko"></span><div class="reglage-lib">' +
+      '<b>Connecteurs illisibles</b><span>' + e(msgMcp(err, 'Google')) + '</span></div></div>';
+    return;
+  }
+  const par = {};
+  (liste.servers || []).forEach(s => { par[s.server] = s; });
+  zone.innerHTML = [GMAIL, GCAL].map(nom => {
+    const s = par[nom];
+    const etat = !s ? 'ko' : s.authStatus === 'connected' ? 'ok' : s.authStatus === 'needs_reauth' ? 'ko' : 'attente';
+    const txt = !s ? 'Pas de connecteur ' + nom + ' pour ce compte : ajoute-le dans claude.ai → Paramètres → Connecteurs.'
+      : s.authStatus === 'connected' ? 'Connecté, prêt à l’emploi.'
+      : s.authStatus === 'needs_reauth' ? 'Connexion expirée : reconnecte-le dans claude.ai → Paramètres → Connecteurs.'
+      : 'Pas encore autorisé pour cette page : la première action te demandera ton accord.';
+    return '<div class="etat-connecteur"><span class="voyant ' + etat + '"></span><div class="reglage-lib"><b>' + e(nom) + '</b><span>' + e(txt) + '</span></div></div>';
+  }).join('');
+}
+
+function remplirModele(txt, m){
+  const c = calc(m), r = Etat.reglages;
+  const vals = {
+    prenoms: [m.a, m.b].filter(Boolean).join(' et ') || 'à vous deux',
+    date: estDate(m.date) ? fmtLong(m.date) : 'votre date',
+    dateCourte: fmtCourt(m.date) || '…',
+    lieu: lieuCourt(m) || 'votre lieu de réception',
+    lieuPhrase: m.lieuNom ? ' au ' + m.lieuNom : '',
+    prix: euro(c.total), acompte: euro(c.acompteDu), acomptePct: String(nb(r.acomptePct)),
+    solde: euro(c.reste), dateSolde: fmtCourt(c.dateSolde) || '…',
+    dateRdv: estDate(m.date) ? fmtCourt(plusJours(m.date, -30)) : '…',
+    jours: c.jours != null ? String(Math.max(0, c.jours)) : '…',
+    prestationsListe: (m.prestations || []).length ? m.prestations.map(p => '- ' + p).join('\n') + '\n' : '',
+    signature: r.signature || ''
+  };
+  return String(txt || '').replace(/\{(\w+)\}/g, (s, k) => vals[k] != null ? vals[k] : s);
+}
+const SUJETS = {
+  devis:        m => 'Votre mariage du ' + (fmtCourt(m.date) || '…') + ' — ma proposition',
+  relance:      m => 'Votre mariage du ' + (fmtCourt(m.date) || '…') + ' — je reviens vers vous',
+  confirmation: m => 'C’est réservé — votre mariage du ' + (fmtCourt(m.date) || '…'),
+  solde:        m => 'Votre mariage du ' + (fmtCourt(m.date) || '…') + ' — dernier point pratique'
+};
+
+function fouiller(objet, test, prof){
+  const trouves = [];
+  const vus = new Set();
+  (function visite(o, p){
+    if (!o || p > 6 || trouves.length > 60) return;
+    if (Array.isArray(o)) return o.forEach(x => visite(x, p + 1));
+    if (typeof o !== 'object') return;
+    if (vus.has(o)) return;
+    vus.add(o);
+    if (test(o)) trouves.push(o);
+    Object.keys(o).forEach(k => visite(o[k], p + 1));
+  })(objet, 0);
+  return trouves;
+}
+function trouverLienAgenda(p){
+  let lien = '';
+  fouiller(p, o => {
+    Object.keys(o).forEach(k => {
+      const v = o[k];
+      if (!lien && typeof v === 'string' && /^https:\/\/(www\.google\.com\/calendar|calendar\.google\.com)\//.test(v)) lien = v;
+    });
+    return false;
+  });
+  return lien;
+}
+
+async function creerEvenement(m, opts){
+  const mcp = await mcpNs();
+  if (!mcp) throw {code:'capability_disabled'};
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Europe/Paris';
+  const entree = {
+    calendarId: Etat.reglages.calendrier || 'primary',
+    summary: opts.titre,
+    startTime: opts.debut,
+    endTime: opts.fin,
+    timeZone: tz
+  };
+  if (opts.lieu) entree.location = opts.lieu;
+  if (opts.description) entree.description = opts.description;
+  return mcp.callTool(GCAL, 'create_event', entree);
+}
+
+async function ajouterAuCalendrier(m){
+  if (!estDate(m.date)) { annonce('Renseigne d’abord la date du mariage.'); return; }
+  const debut = m.date + 'T' + (m.heureDebut || '14:00') + ':00';
+  const fin   = m.date + 'T' + (m.heureFin   || '23:30') + ':00';
+  const res = await creerEvenement(m, {
+    titre: 'Mariage — ' + couple(m),
+    debut, fin,
+    lieu: [m.lieuNom, m.lieuAdresse, m.lieuCp, m.lieuVille].filter(Boolean).join(', '),
+    description: ficheEnTexte(m)
+  });
+  const lien = trouverLienAgenda(res && res.payload) || trouverLienAgenda(res);
+  if (lien){ m.gcalLien = lien; enregistrer(m.id, true); }
+  return lien;
+}
+
+/* =======================================================================
+   Exports, sauvegarde, presse-papier
+   ======================================================================= */
+function ouvrirTexte(titre, contenu){
+  $('#zone-fiche').insertAdjacentHTML('beforeend',
+    '<div id="modale-texte">' +
+    '<div class="fond-fiche" data-ferme-texte="1"></div>' +
+    '<aside class="fiche" role="dialog" aria-modal="true" aria-label="' + e(titre) + '" style="width:min(680px,100%)">' +
+      '<div class="fiche-tete"><h2>' + e(titre) + '</h2>' +
+      '<button class="btn btn-fin btn-nu" data-ferme-texte="1">Fermer ✕</button></div>' +
+      '<div class="fiche-corps"><p style="color:var(--sourdine); font-size:13px; margin-bottom:9px">' +
+        'Le téléchargement direct n’est pas autorisé ici : copie le contenu et colle-le dans un fichier.</p>' +
+        '<textarea class="modele" id="texte-brut" style="min-height:380px; font-family:var(--mono); font-size:12.5px">' + e(contenu) + '</textarea></div>' +
+      '<div class="fiche-pied"><button class="btn btn-plein" data-copie-zone="texte-brut">Tout copier</button></div>' +
+    '</aside></div>');
+}
+
+async function telecharger(nom, contenu, mime){
+  const d = await telechNs();
+  if (d){
+    try { await d.save({filename:nom, data:contenu}); annonce('Fichier prêt : ' + nom); return; }
+    catch(err){
+      const c = err && err.code;
+      if (c === 'declined' || c === 'rate_limited') return;
+      if (c === 'rejected_extension' || c === 'extension_not_enabled' || c === 'unavailable'){ ouvrirTexte(nom, contenu); return; }
+      if (c === 'too_large'){ annonce('Fichier trop lourd pour être enregistré ici.'); return; }
+      ouvrirTexte(nom, contenu); return;
+    }
+  }
+  if (window.claude && window.claude.use){ ouvrirTexte(nom, contenu); return; }
+  try {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + contenu], {type: mime || 'text/plain;charset=utf-8'}));
+    a.download = nom;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  } catch(_){ ouvrirTexte(nom, contenu); }
+}
+
+const csvCell = v => '"' + String(v == null ? '' : v).replace(/"/g,'""') + '"';
+function csvDe(entetes, lignes){
+  return '﻿' + [entetes.map(csvCell).join(';')].concat(lignes.map(l => l.map(csvCell).join(';'))).join('\r\n');
+}
+
+function exporterFiches(liste){
+  const entetes = ['Date','Jour','Marié 1','Marié 2','Statut','Lieu','Adresse','CP','Ville','Tél. lieu','Contact lieu',
+    'Téléphone','E-mail','Adresse postale','Invités','Formule','Prestations','Prix','Déplacement','Total','Frais','Bénéfice',
+    'Encaissé','Reste','Heures','€/h','Source','Demande le','Devis le','Contrat le','Notes'];
+  const lignes = liste.map(m => {
+    const c = calc(m);
+    return [m.date, estDate(m.date) ? jourDe(m.date).toLocaleDateString('fr-FR',{weekday:'long'}) : '',
+      m.a, m.b, (STATUTS[m.statut]||{}).l || m.statut, m.lieuNom, m.lieuAdresse, m.lieuCp, m.lieuVille, m.lieuTel, m.lieuContact,
+      m.tel, m.email, m.adresse, m.invites || '', m.formule, (m.prestations||[]).join(' / '),
+      c.prix, c.depl, c.total, c.fraisTot, c.benefice, c.encaisse, c.reste, c.heuresTot,
+      c.tauxHoraire == null ? '' : Math.round(c.tauxHoraire), m.source, m.demandeLe, m.devisLe, m.contratLe,
+      String(m.notes||'').replace(/\r?\n/g,' ')];
+  });
+  telecharger('mariages-' + aujourdhui() + '.csv', csvDe(entetes, lignes), 'text/csv;charset=utf-8');
+}
+
+async function copier(txt, motOk){
+  try {
+    await navigator.clipboard.writeText(txt);
+    annonce(motOk || 'Copié.');
+  } catch(_){
+    ouvrirTexte('À copier à la main', txt);
+  }
+}
+
+/* ---------- création, duplication, suppression ---------- */
+function creerDepuis(donnees, ouvrir){
+  const m = Object.assign(MARIAGE_VIDE(), donnees);
+  m.id = uid();
+  m.cree = new Date().toISOString();
+  if (!m.demandeLe) m.demandeLe = aujourdhui();
+  completerLieu(m);
+  genererTaches(m);
+  Etat.mariages.set(m.id, m);
+  Stock.ecrire(m.id);
+  rendreTout();
+  if (ouvrir) ouvrirFiche(m.id);
+  return m;
+}
+
+function ajoutEclair(){
+  const champ = $('#eclair-saisie');
+  const txt = champ.value.trim();
+  if (!txt) { creerDepuis({}, true); return; }
+  const p = analyser(txt);
+  const m = creerDepuis({
+    a:p.a, b:p.b, date:p.date, lieuNom:p.lieu, lieuCp:p.cp, tel:p.tel, email:p.email,
+    prix: p.prix == null ? 0 : p.prix, invites: p.invites
+  }, false);
+  champ.value = '';
+  majJetons();
+  const doublons = conflits(m).length;
+  annonce(couple(m) + (estDate(m.date) ? ' — ' + fmtCourt(m.date) : '') + ' ajouté' + (doublons ? ' ⚠ déjà un mariage ce jour-là' : ''));
+  ouvrirFiche(m.id);
+}
+
+function majJetons(){
+  const txt = $('#eclair-saisie').value;
+  const z = $('#eclair-jetons');
+  if (!txt.trim()){ z.innerHTML = ''; return; }
+  const p = analyser(txt);
+  const j = [];
+  const noms = [p.a, p.b].filter(Boolean).join(' & ');
+  if (noms)      j.push(['Mariés', noms]);
+  if (p.date)    j.push(['Date', capi(fmtMoyen(p.date))]);
+  if (p.lieu)    j.push(['Lieu', p.lieu]);
+  if (p.tel)     j.push(['Tél', p.tel]);
+  if (p.email)   j.push(['E-mail', p.email]);
+  if (p.prix != null) j.push(['Prix', euro(p.prix)]);
+  if (p.invites) j.push(['Invités', String(p.invites)]);
+  z.innerHTML = j.length
+    ? j.map(([k,v]) => '<span class="jeton"><b>' + e(k) + '</b>' + e(v) + '</span>').join('')
+    : '<span class="jeton gris">Rien de reconnu — la fiche sera créée vide, à compléter</span>';
+}
+
+function dupliquer(m){
+  const copie = JSON.parse(JSON.stringify(m));
+  delete copie.id; copie.cree = ''; copie.maj = '';
+  copie.date = ''; copie.statut = 'demande';
+  copie.paiements = []; copie.taches = []; copie.gcalLien = '';
+  copie.demandeLe = aujourdhui(); copie.devisLe = ''; copie.contratLe = '';
+  copie.a = m.a; copie.b = m.b;
+  const neuf = creerDepuis(copie, true);
+  annonce('Fiche dupliquée — pense à mettre la date.');
+  return neuf;
+}
+
+function exemples(){
+  const auj = aujourdhui();
+  const prochain = (mois, jour) => {
+    const y = new Date().getFullYear();
+    return iso3(iso3(y, mois, jour) > auj ? y : y + 1, mois, jour);
+  };
+  const an = new Date().getFullYear();
+  void an;
+  [
+    {exemple:true, a:'Camille', b:'Théo', date:prochain(6, 13), lieuNom:'Château de Rambures', lieuVille:'Rambures', lieuCp:'80140',
+     lieuAdresse:'2 rue du Château', tel:'06 12 34 56 78', email:'camille.theo@exemple.fr', prix:2400, deplacement:120,
+     invites:120, statut:'confirme', source:'Instagram', formule:'Complète', heureDebut:'13:00', heureFin:'23:30',
+     prestations:['Préparatifs','Cérémonie','Cocktail','Soirée'], contratLe:plusJours(auj, -40),
+     paiements:[{id:uid(), libelle:'Acompte', date:plusJours(auj, -40), montant:756}],
+     frais:[{id:uid(), libelle:'Essence + péage', montant:90}],
+     temps:[{id:uid(), libelle:'Journée du mariage', heures:11},{id:uid(), libelle:'Post-production', heures:14}]},
+    {exemple:true, a:'Inès', b:'Marc', date:prochain(9, 5), lieuNom:'Domaine des Peupliers', lieuVille:'Saint-Valery-sur-Somme',
+     tel:'07 88 21 45 03', email:'ines.marc@exemple.fr', prix:1800, invites:80, statut:'devis',
+     source:'Bouche à oreille', devisLe:plusJours(aujourdhui(), -12), formule:'Essentielle',
+     temps:[{id:uid(), libelle:'Journée du mariage', heures:9}]},
+    {exemple:true, a:'Léa', b:'Sarah', date:prochain(5, 30), lieuNom:'La Grange de Vaux', lieuVille:'Amiens',
+     tel:'06 45 90 12 77', prix:3200, invites:150, statut:'option', source:'Salon du mariage', formule:'Prestige'}
+  ].forEach(d => creerDepuis(d, false));
+  annonce('Trois fiches d’exemple ajoutées.');
+}
+
+/* =======================================================================
+   Rendu général et navigation
+   ======================================================================= */
+function changerVue(v){
+  Etat.vue = v;
+  $$('#onglets .onglet').forEach(b => b.setAttribute('aria-selected', String(b.dataset.vue === v)));
+  ['mariages','tableur','analyse','afaire','agenda','reglages'].forEach(k => { $('#vue-' + k).hidden = (k !== v); });
+  $('.eclair').hidden = (v === 'reglages' || v === 'analyse');
+  $('#indicateurs').hidden = (v === 'reglages' || v === 'analyse');
+  rendreTout();
+  window.scrollTo({top:0, behavior:'instant'});
+}
+
+let minuteurRendu = null;
+function rendreTout(){
+  clearTimeout(minuteurRendu);
+  minuteurRendu = setTimeout(() => {
+    remplirSelects();
+    rendreIndicateurs();
+    if (Etat.vue === 'mariages') rendreListe();
+    if (Etat.vue === 'tableur')  rendreTableur();
+    if (Etat.vue === 'analyse')  rendreAnalyse();
+    if (Etat.vue === 'afaire')   rendreAFaire();
+    if (Etat.vue === 'agenda')   rendreAgenda();
+    if (Etat.vue === 'reglages'){
+      const dedans = document.activeElement && document.activeElement.closest && document.activeElement.closest('#vue-reglages');
+      if (!dedans) rendreReglages();
+    }
+    $('#badge-stockage').textContent = Stock.mode === 'nuage' ? 'Enregistré en ligne' : Stock.mode === 'local' ? 'Enregistré dans ce navigateur' : 'Non enregistré';
+    $('#pied-compte').textContent = Etat.mariages.size + ' fiche' + (Etat.mariages.size > 1 ? 's' : '');
+  }, 16);
+}
+
+function fiche(){ return Etat.ficheId ? Etat.mariages.get(Etat.ficheId) : null; }
+function majCalcul(){
+  const m = fiche(); if (!m) return;
+  const bloc = $('.fiche .calcul'); if (!bloc) return;
+  const c = calc(m);
+  bloc.innerHTML =
+    '<div class="calcul-rang"><span>Total facturé</span><b class="nb">' + e(euro(c.total)) + '</b></div>' +
+    '<div class="calcul-rang"><span>Acompte attendu (' + e(nb(Etat.reglages.acomptePct)) + ' %)</span><b class="nb">' + e(euro(c.acompteDu)) + '</b></div>' +
+    '<div class="calcul-rang"><span>Déjà encaissé</span><b class="nb">' + e(euro(c.encaisse)) + '</b></div>' +
+    '<div class="calcul-rang ' + (c.reste > 0 ? 'du' : '') + '"><span>Reste à encaisser' + (c.dateSolde ? ' — avant le ' + e(fmtCourt(c.dateSolde)) : '') + '</span><b class="nb">' + e(euro(c.reste)) + '</b></div>' +
+    '<div class="calcul-rang"><span>Frais engagés</span><b class="nb">' + e(euro(c.fraisTot)) + '</b></div>' +
+    '<div class="calcul-rang fort"><span>Bénéfice' + (c.tauxHoraire != null ? ' — ' + e(nf0.format(Math.round(c.tauxHoraire))) + ' €/h' : '') + '</span><b class="nb">' + e(euro(c.benefice)) + '</b></div>';
+}
+
+/* =======================================================================
+   Actions Gmail / Agenda liées à une fiche
+   ======================================================================= */
+function trouverLien(objet, re){
+  let lien = '';
+  fouiller(objet, o => {
+    Object.keys(o).forEach(k => {
+      const v = o[k];
+      if (!lien && typeof v === 'string' && re.test(v)) lien = v;
+    });
+    return false;
+  });
+  return lien;
+}
+
+async function brouillon(m, type){
+  const zone = $('#retour-mcp'); if (!zone) return;
+  const mcp = await mcpNs();
+  if (!mcp){ zone.textContent = 'Gmail n’est pas disponible dans cette vue (ouvre la page publiée sur claude.ai).'; return; }
+  const entree = {subject: SUJETS[type](m), body: remplirModele(Etat.reglages.modeles[type], m)};
+  if (m.email) entree.to = [m.email];
+  zone.textContent = 'Création du brouillon dans Gmail…';
+  try {
+    const res = await mcp.callTool(GMAIL, 'create_draft', entree);
+    const lien = trouverLien(res && res.payload, /^https:\/\/mail\.google\.com\//) || trouverLien(res, /^https:\/\/mail\.google\.com\//);
+    zone.innerHTML = 'Brouillon « ' + e(type) + ' » créé' + (m.email ? ' pour ' + e(m.email) : ' (sans destinataire : ajoute l’e-mail)') + '.' +
+      (lien ? ' <a href="' + e(lien) + '" target="_blank" rel="noopener">L’ouvrir dans Gmail</a>' : '');
+    if (type === 'devis'){
+      let bouge = false;
+      if (!m.devisLe){ m.devisLe = aujourdhui(); bouge = true; }
+      if (m.statut === 'demande'){ m.statut = 'devis'; bouge = true; }
+      if (bouge){ enregistrer(m.id, true); rendreFiche(); rendreTout(); }
+    }
+  } catch(err){ zone.textContent = msgMcp(err, GMAIL); }
+}
+
+async function chercherFil(m){
+  const zone = $('#retour-mcp'); if (!zone) return;
+  const mcp = await mcpNs();
+  if (!mcp){ zone.textContent = 'Gmail n’est pas disponible dans cette vue.'; return; }
+  const q = m.email ? ('from:' + m.email + ' OR to:' + m.email) : [m.a, m.b].filter(Boolean).join(' ');
+  if (!q){ zone.textContent = 'Renseigne un e-mail ou un prénom pour chercher.'; return; }
+  zone.textContent = 'Recherche dans Gmail…';
+  try {
+    const res = await mcp.callTool(GMAIL, 'search_threads', {query:q, pageSize:8, view:'THREAD_VIEW_MINIMAL'}, {cache:{staleTime:60000}});
+    const bruts = fouiller(res && res.payload, o => typeof o.subject === 'string' && o.subject.length > 0);
+    const vus = new Set(), fils = [];
+    bruts.forEach(o => {
+      const s = o.subject.trim();
+      if (vus.has(s) || fils.length >= 6) return;
+      vus.add(s);
+      fils.push({sujet:s, lien: o.viewUrl || o.view_url || '', extrait: (o.snippet || '').slice(0, 110)});
+    });
+    zone.innerHTML = fils.length
+      ? 'Échanges trouvés :<ul>' + fils.map(f =>
+          '<li>' + (f.lien ? '<a href="' + e(f.lien) + '" target="_blank" rel="noopener">' + e(f.sujet) + '</a>' : e(f.sujet)) +
+          (f.extrait ? ' <span style="color:var(--sourdine)">— ' + e(f.extrait) + '…</span>' : '') + '</li>').join('') + '</ul>'
+      : 'Aucun échange trouvé pour « ' + e(q) +' ».';
+  } catch(err){ zone.textContent = msgMcp(err, GMAIL); }
+}
+
+async function verifierJour(m){
+  const zone = $('#retour-mcp'); if (!zone) return;
+  if (!estDate(m.date)){ zone.textContent = 'Renseigne d’abord la date.'; return; }
+  const mcp = await mcpNs();
+  if (!mcp){ zone.textContent = 'Google Agenda n’est pas disponible dans cette vue.'; return; }
+  zone.textContent = 'Lecture de l’agenda…';
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris';
+  try {
+    const res = await mcp.callTool(GCAL, 'list_events', {
+      calendarId: Etat.reglages.calendrier || 'primary',
+      startTime: m.date + 'T00:00:00', endTime: m.date + 'T23:59:59',
+      timeZone: tz, pageSize: 10
+    }, {cache:{staleTime:30000}});
+    const evts = fouiller(res && res.payload, o => typeof o.summary === 'string' && o.summary.length > 0);
+    const vus = new Set(), noms = [];
+    evts.forEach(o => { const s = o.summary.trim(); if (!vus.has(s) && noms.length < 8){ vus.add(s); noms.push(s); } });
+    zone.innerHTML = noms.length
+      ? 'Ce jour-là, ton agenda contient déjà :<ul>' + noms.map(n => '<li>' + e(n) + '</li>').join('') + '</ul>'
+      : 'Journée libre dans ton Google Agenda.';
+  } catch(err){ zone.textContent = msgMcp(err, GCAL); }
+}
+
+async function envoyerEcheances(m){
+  const zone = $('#retour-mcp'); if (!zone) return;
+  const restantes = (m.taches || []).filter(t => !t.fait && estDate(t.echeance) && t.echeance >= aujourdhui()).slice(0, 12);
+  if (!restantes.length){ zone.textContent = 'Aucune échéance à venir sur cette fiche.'; return; }
+  const mcp = await mcpNs();
+  if (!mcp){ zone.textContent = 'Google Agenda n’est pas disponible dans cette vue.'; return; }
+  let ok = 0, dernierMsg = '';
+  for (const t of restantes){
+    zone.textContent = 'Envoi… (' + (ok + 1) + '/' + restantes.length + ')';
+    try {
+      await creerEvenement(m, {
+        titre: t.label + ' — ' + couple(m),
+        debut: t.echeance + 'T09:00:00', fin: t.echeance + 'T09:30:00',
+        description: 'Mariage ' + couple(m) + (estDate(m.date) ? ' le ' + fmtCourt(m.date) : '') + (m.lieuNom ? ' · ' + m.lieuNom : '')
+      });
+      ok++;
+    } catch(err){ dernierMsg = msgMcp(err, GCAL); break; }
+  }
+  zone.textContent = ok + ' échéance(s) ajoutée(s) à ton agenda.' + (dernierMsg ? ' Arrêt : ' + dernierMsg : '');
+}
+
+/* =======================================================================
+   Écouteurs
+   ======================================================================= */
+let attenteSuppr = null;
+
+document.addEventListener('click', async ev => {
+  const t = ev.target;
+  const dans = s => t.closest(s);
+  let el;
+
+  if (dans('[data-ferme-texte]')){ const mo = $('#modale-texte'); if (mo) mo.remove(); return; }
+  if (dans('[data-ferme]')){ fermerFiche(); return; }
+
+  if ((el = dans('[data-copie]'))){ copier(el.dataset.copie, 'Adresse copiée.'); return; }
+  if ((el = dans('[data-copie-zone]'))){ const z = document.getElementById(el.dataset.copieZone); if (z) copier(z.value, 'Copié.'); return; }
+  if ((el = dans('[data-va]'))){ changerVue(el.dataset.va); return; }
+  if ((el = dans('#onglets .onglet'))){ changerVue(el.dataset.vue); return; }
+  if ((el = dans('[data-ouvre]'))){ ouvrirFiche(el.dataset.ouvre); return; }
+
+  if (dans('#eclair-ajout')){ ajoutEclair(); return; }
+  if (dans('#sup-exemples')){
+    const ex = Array.from(Etat.mariages.values()).filter(x => x.exemple);
+    for (const x of ex) await Stock.supprimer(x.id);
+    rendreTout(); annonce(ex.length + ' fiche(s) d’exemple supprimée(s).'); return;
+  }
+  if (dans('#eclair-vide')){ creerDepuis({}, true); return; }
+
+  /* --- tableur --- */
+  if ((el = dans('#grille thead th[data-col]'))){
+    const c = el.dataset.col;
+    Etat.tri = (Etat.tri.col === c) ? {col:c, sens:-Etat.tri.sens} : {col:c, sens: c === 'date' || c === 'couple' || c === 'lieu' || c === 'ville' || c === 'source' || c === 'statut' ? 1 : -1};
+    rendreTableur(); return;
+  }
+  if ((el = dans('#grille input[data-coche]'))){
+    const id = el.dataset.coche;
+    if (el.checked) Etat.choix.add(id); else Etat.choix.delete(id);
+    rendreTableur(); ev.stopPropagation(); return;
+  }
+  if (dans('#coche-tout')){
+    const toutes = lignesTableur();
+    const plein = toutes.every(m => Etat.choix.has(m.id));
+    toutes.forEach(m => plein ? Etat.choix.delete(m.id) : Etat.choix.add(m.id));
+    rendreTableur(); return;
+  }
+  if (dans('#tout-cocher')){ lignesTableur().forEach(m => Etat.choix.add(m.id)); rendreTableur(); return; }
+  if (dans('#rien-cocher')){ Etat.choix.clear(); rendreTableur(); return; }
+  if ((el = dans('#grille tbody tr[data-id]'))){ ouvrirFiche(el.dataset.id); return; }
+  if (dans('#export-csv')){ exporterFiches(Etat.choix.size ? lignesTableur().filter(m => Etat.choix.has(m.id)) : lignesTableur()); return; }
+
+  /* --- analyse --- */
+  if ((el = dans('[data-periode]'))){ Etat.periode.mode = el.dataset.periode; rendreAnalyse(); return; }
+  if ((el = dans('[data-statut-periode]'))){
+    const k = el.dataset.statutPeriode, i = Etat.periode.statuts.indexOf(k);
+    if (i >= 0) Etat.periode.statuts.splice(i, 1); else Etat.periode.statuts.push(k);
+    rendreAnalyse(); return;
+  }
+  if (dans('#export-analyse')){
+    const b = bornesPeriode(), liste = fichesPeriode(), tot = cumul(liste);
+    const l = liste.map(m => { const c = calc(m); return [m.date, couple(m), m.lieuNom, m.lieuVille, (STATUTS[m.statut]||{}).l, c.total, c.fraisTot, c.benefice, c.heuresTot, c.tauxHoraire == null ? '' : Math.round(c.tauxHoraire)]; });
+    l.push([]); l.push(['TOTAL ' + b.lib, tot.n + ' mariages', '', '', '', tot.ca, tot.frais, tot.benef, tot.h, tot.h ? Math.round(tot.benef / tot.h) : '']);
+    telecharger('analyse-' + aujourdhui() + '.csv', csvDe(['Date','Mariés','Lieu','Ville','Statut','CA','Frais','Bénéfice','Heures','€/h'], l), 'text/csv;charset=utf-8');
+    return;
+  }
+
+  /* --- agenda --- */
+  if ((el = dans('[data-annee-agenda]'))){ Etat.anneeAgenda = +el.dataset.anneeAgenda; rendreAgenda(); return; }
+  if (dans('#gcal-annee')){
+    const zone = $('#gcal-retour');
+    const lot = Array.from(Etat.mariages.values())
+      .filter(m => String(m.date||'').slice(0,4) === String(Etat.anneeAgenda) && m.statut !== 'annule' && !m.gcalLien)
+      .sort((x,y) => x.date.localeCompare(y.date)).slice(0, 25);
+    if (!lot.length){ zone.textContent = 'Rien de nouveau à envoyer pour ' + Etat.anneeAgenda + '.'; return; }
+    let ok = 0, stop = '';
+    for (const m of lot){
+      zone.textContent = 'Envoi de ' + couple(m) + '… (' + (ok + 1) + '/' + lot.length + ')';
+      try { await ajouterAuCalendrier(m); ok++; } catch(err){ stop = msgMcp(err, GCAL); break; }
+    }
+    zone.textContent = ok + ' mariage(s) ajouté(s) à ton Google Agenda.' + (stop ? ' Arrêt : ' + stop : '');
+    return;
+  }
+
+  /* --- à faire --- */
+  if ((el = dans('[data-fait]'))){
+    const [idM, idT] = el.dataset.fait.split('|');
+    const m = Etat.mariages.get(idM); if (!m) return;
+    const tache = (m.taches || []).find(x => x.id === idT); if (!tache) return;
+    tache.fait = el.checked;
+    enregistrer(idM, true); rendreTout(); return;
+  }
+
+  /* --- réglages --- */
+  if ((el = dans('[data-sup-reglage]'))){
+    const [cle, i] = el.dataset.supReglage.split('|');
+    Etat.reglages[cle].splice(+i, 1); Stock.ecrireReglages(); rendreReglages(); return;
+  }
+  if ((el = dans('[data-ajout-reglage]'))){
+    const cle = el.dataset.ajoutReglage;
+    Etat.reglages[cle].push('Nouveau');
+    Stock.ecrireReglages(); rendreReglages();
+    const champs = $$('[data-sup-reglage^="' + cle + '|"]');
+    if (champs.length) champs[champs.length - 1].closest('.etiq').scrollIntoView({block:'nearest'});
+    return;
+  }
+  if (dans('#ajout-formule')){ Etat.reglages.formules.push({nom:'Nouvelle formule', prix:0, heures:0}); Stock.ecrireReglages(); rendreReglages(); return; }
+  if ((el = dans('[data-sup-formule]'))){ Etat.reglages.formules.splice(+el.dataset.supFormule, 1); Stock.ecrireReglages(); rendreReglages(); return; }
+  if (dans('#ajout-mt')){ Etat.reglages.modeleTaches.push({label:'Nouvelle tâche', offset:-30}); Stock.ecrireReglages(); rendreReglages(); return; }
+  if ((el = dans('[data-sup-mt]'))){ Etat.reglages.modeleTaches.splice(+el.dataset.supMt, 1); Stock.ecrireReglages(); rendreReglages(); return; }
+  if (dans('#ajout-mte')){ Etat.reglages.modeleTemps.push({libelle:'Nouveau poste', heures:1}); Stock.ecrireReglages(); rendreReglages(); return; }
+  if ((el = dans('[data-sup-mte]'))){ Etat.reglages.modeleTemps.splice(+el.dataset.supMte, 1); Stock.ecrireReglages(); rendreReglages(); return; }
+  if (dans('#exp-csv-tout')){ exporterFiches(tousTries()); return; }
+  if (dans('#exp-json')){
+    telecharger('carnet-mariages-' + aujourdhui() + '.json',
+      JSON.stringify({version:1, exporte:new Date().toISOString(), reglages:Etat.reglages, mariages:tousTries()}, null, 2),
+      'application/json'); return;
+  }
+  if (dans('#imp-json')){ $('#fichier-json').click(); return; }
+  if (dans('#exemple')){ exemples(); return; }
+
+  /* --- fiche --- */
+  const m = fiche();
+  if (!m) return;
+
+  if ((el = dans('[data-presta]'))){
+    const p = el.dataset.presta;
+    m.prestations = m.prestations || [];
+    const i = m.prestations.indexOf(p);
+    if (i >= 0) m.prestations.splice(i, 1); else m.prestations.push(p);
+    el.setAttribute('aria-pressed', String(i < 0));
+    enregistrer(m.id); return;
+  }
+  if ((el = dans('[data-ajout]'))){
+    const liste = el.dataset.ajout;
+    m[liste] = m[liste] || [];
+    if (liste === 'paiements') m.paiements.push({id:uid(), libelle: m.paiements.length ? 'Solde' : 'Acompte', date:aujourdhui(), montant:0});
+    else if (liste === 'frais') m.frais.push({id:uid(), libelle:'', montant:0});
+    else if (liste === 'temps') m.temps.push({id:uid(), libelle:'', heures:0});
+    else if (liste === 'taches') m.taches.push({id:uid(), label:'Nouvelle tâche', echeance:aujourdhui(), offset:null, fait:false});
+    enregistrer(m.id, true); rendreFiche(); return;
+  }
+  if ((el = dans('[data-sup]'))){
+    const [liste, i] = el.dataset.sup.split('|');
+    (m[liste] || []).splice(+i, 1);
+    enregistrer(m.id, true); rendreFiche(); rendreTout(); return;
+  }
+  if ((el = dans('[data-tache]'))){
+    const tache = m.taches[+el.dataset.tache];
+    if (tache){ tache.fait = el.checked; enregistrer(m.id, true); rendreFiche(); rendreTout(); }
+    return;
+  }
+  if (dans('#acompte-recu')){
+    const c = calc(m);
+    m.paiements = m.paiements || [];
+    m.paiements.push({id:uid(), libelle:'Acompte', date:aujourdhui(), montant: Math.max(0, c.acompteDu - c.encaisse)});
+    if (m.statut === 'demande' || m.statut === 'devis' || m.statut === 'option') m.statut = 'confirme';
+    if (!m.contratLe) m.contratLe = aujourdhui();
+    enregistrer(m.id, true); rendreFiche(); rendreTout(); return;
+  }
+  if (dans('#solde-recu')){
+    const c = calc(m);
+    m.paiements.push({id:uid(), libelle:'Solde', date:aujourdhui(), montant: c.reste});
+    enregistrer(m.id, true); rendreFiche(); rendreTout(); return;
+  }
+  if (dans('#temps-modele')){
+    m.temps = (Etat.reglages.modeleTemps || []).map(x => ({id:uid(), libelle:x.libelle, heures:nb(x.heures)}));
+    enregistrer(m.id, true); rendreFiche(); rendreTout(); return;
+  }
+  if (dans('#taches-regen')){ genererTaches(m); enregistrer(m.id, true); rendreFiche(); rendreTout(); return; }
+  if (dans('#copier-fiche')){ copier(ficheEnTexte(m), 'Fiche copiée, prête à coller.'); return; }
+  if (dans('#dupliquer')){ dupliquer(m); return; }
+  if ((el = dans('#supprimer'))){
+    if (attenteSuppr === m.id){
+      const nom = couple(m);
+      attenteSuppr = null;
+      await Stock.supprimer(m.id);
+      fermerFiche();
+      annonce(nom + ' supprimé.');
+    } else {
+      attenteSuppr = m.id;
+      el.textContent = 'Confirmer la suppression';
+      el.style.background = 'var(--brique-fond)'; el.style.color = 'var(--brique)'; el.style.borderColor = 'var(--brique-trait)';
+      setTimeout(() => {
+        if (attenteSuppr === m.id){ attenteSuppr = null; if (document.body.contains(el)){ el.textContent = 'Supprimer'; el.style.background = ''; el.style.color = ''; el.style.borderColor = ''; } }
+      }, 4500);
+    }
+    return;
+  }
+  if ((el = dans('[data-brouillon]'))){ brouillon(m, el.dataset.brouillon); return; }
+  if (dans('#gmail-fil')){ chercherFil(m); return; }
+  if (dans('#gcal-verif')){ verifierJour(m); return; }
+  if (dans('#gcal-echeances')){ envoyerEcheances(m); return; }
+  if (dans('#gcal-ajout')){
+    const zone = $('#retour-mcp');
+    if (!estDate(m.date)){ zone.textContent = 'Renseigne d’abord la date du mariage.'; return; }
+    zone.textContent = 'Création de l’évènement…';
+    try {
+      const lien = await ajouterAuCalendrier(m);
+      zone.innerHTML = 'Évènement créé dans Google Agenda.' + (lien ? ' <a href="' + e(lien) + '" target="_blank" rel="noopener">L’ouvrir</a>' : '');
+      if (lien) rendreFiche();
+    } catch(err){ zone.textContent = msgMcp(err, GCAL); }
+    return;
+  }
+});
+
+/* ---------- saisie au clavier ---------- */
+let minuteurFiltre = null;
+document.addEventListener('input', ev => {
+  const t = ev.target;
+
+  if (t.id === 'eclair-saisie'){ majJetons(); return; }
+
+  if (t.id === 'recherche' || t.id === 'recherche2'){
+    clearTimeout(minuteurFiltre);
+    minuteurFiltre = setTimeout(() => { if (Etat.vue === 'tableur') rendreTableur(); else rendreListe(); }, 140);
+    return;
+  }
+
+  if (t.dataset.r != null){
+    const v = t.type === 'number' ? nb(t.value) : t.value;
+    Etat.reglages[t.dataset.r] = v;
+    clearTimeout(minuteurFiltre);
+    minuteurFiltre = setTimeout(() => Stock.ecrireReglages(), 500);
+    return;
+  }
+  if (t.dataset.modele != null){
+    Etat.reglages.modeles[t.dataset.modele] = t.value;
+    clearTimeout(minuteurFiltre);
+    minuteurFiltre = setTimeout(() => Stock.ecrireReglages(), 500);
+    return;
+  }
+  for (const [attr, cible, champs] of [['f','formules',['nom','prix','heures']], ['mt','modeleTaches',['label','offset']], ['mte','modeleTemps',['libelle','heures']]]){
+    if (t.dataset[attr] != null){
+      const [k, i] = t.dataset[attr].split('|');
+      if (champs.includes(k) && Etat.reglages[cible][+i]){
+        Etat.reglages[cible][+i][k] = (k === 'prix' || k === 'heures' || k === 'offset') ? nb(t.value) : t.value;
+        clearTimeout(minuteurFiltre);
+        minuteurFiltre = setTimeout(() => Stock.ecrireReglages(), 500);
+      }
+      return;
+    }
+  }
+
+  const m = fiche();
+  if (!m) return;
+
+  if (t.dataset.c != null){
+    const cle = t.dataset.c;
+    m[cle] = (cle === 'prix' || cle === 'deplacement' || cle === 'invites') ? (t.value === '' ? (cle === 'invites' ? null : 0) : nb(t.value)) : t.value;
+    if (cle === 'a' || cle === 'b'){ const h = $('.fiche-tete h2'); if (h) h.textContent = couple(m); }
+    if (cle === 'prix' || cle === 'deplacement') majCalcul();
+    enregistrer(m.id);
+    return;
+  }
+  if (t.dataset.liste != null){
+    const liste = t.dataset.liste, i = +t.dataset.idx, k = t.dataset.k;
+    const rang = (m[liste] || [])[i];
+    if (rang){
+      rang[k] = (k === 'montant' || k === 'heures') ? nb(t.value) : t.value;
+      majCalcul();
+      enregistrer(m.id);
+    }
+    return;
+  }
+});
+
+document.addEventListener('change', ev => {
+  const t = ev.target;
+
+  if (['f-statut','f-annee','f-tri'].includes(t.id)){ rendreListe(); return; }
+  if (['f-statut2','f-annee2'].includes(t.id)){ Etat.choix.clear(); rendreTableur(); return; }
+  if (t.id === 'periode-de'){ Etat.periode.de = t.value; rendreAnalyse(); return; }
+  if (t.id === 'periode-a'){ Etat.periode.a = t.value; rendreAnalyse(); return; }
+
+  if (t.id === 'fichier-json'){
+    const f = t.files && t.files[0];
+    if (!f) return;
+    const lect = new FileReader();
+    lect.onload = async () => {
+      try {
+        const d = JSON.parse(String(lect.result));
+        const lot = Array.isArray(d) ? d : (d.mariages || []);
+        if (!lot.length) throw new Error('vide');
+        if (d.reglages){
+          Etat.reglages = Object.assign(JSON.parse(JSON.stringify(REGLAGES_DEFAUT)), d.reglages,
+            {modeles: Object.assign({}, REGLAGES_DEFAUT.modeles, d.reglages.modeles || {})});
+          await Stock.ecrireReglages();
+        }
+        let n = 0;
+        for (const brut of lot){
+          const m = Object.assign(MARIAGE_VIDE(), brut);
+          if (!m.id) m.id = uid();
+          if (!m.cree) m.cree = new Date().toISOString();
+          Etat.mariages.set(m.id, m);
+          await Stock.ecrire(m.id);
+          n++;
+        }
+        rendreTout();
+        annonce(n + ' fiche(s) restaurée(s).');
+      } catch(_){ annonce('Fichier illisible : attendu une sauvegarde JSON de ce carnet.'); }
+      t.value = '';
+    };
+    lect.readAsText(f);
+    return;
+  }
+
+  const m = fiche();
+  if (!m || t.dataset.c == null) return;
+  const cle = t.dataset.c;
+
+  if (cle === 'date'){
+    genererTaches(m);
+    enregistrer(m.id, true); rendreFiche(); rendreTout(); return;
+  }
+  if (cle === 'statut'){
+    if (m.statut === 'devis' && !m.devisLe) m.devisLe = aujourdhui();
+    if (m.statut === 'confirme' && !m.contratLe) m.contratLe = aujourdhui();
+    enregistrer(m.id, true); rendreFiche(); rendreTout(); return;
+  }
+  if (cle === 'formule'){ appliquerFormule(m, t.value); enregistrer(m.id, true); rendreFiche(); rendreTout(); return; }
+  if (cle === 'lieuNom'){
+    const rempli = completerLieu(m);
+    enregistrer(m.id, true);
+    if (rempli){ rendreFiche(); annonce('Adresse du lieu reprise d’une fiche précédente.'); }
+    rendreTout(); return;
+  }
+  if (cle === 'tel' || cle === 'lieuTel'){ m[cle] = fmtTel(t.value); t.value = m[cle]; enregistrer(m.id, true); return; }
+  if (cle === 'a' || cle === 'b'){ m[cle] = capi(t.value.trim()); t.value = m[cle]; enregistrer(m.id, true); rendreTout(); return; }
+  enregistrer(m.id, true);
+  rendreTout();
+});
+
+document.addEventListener('keydown', ev => {
+  if (ev.key === 'Escape'){
+    const mo = $('#modale-texte');
+    if (mo){ mo.remove(); return; }
+    if (Etat.ficheId) fermerFiche();
+    return;
+  }
+  if (ev.key === 'Enter' && ev.target.id === 'eclair-saisie'){ ev.preventDefault(); ajoutEclair(); }
+  if (ev.key === 'n' && (ev.metaKey || ev.ctrlKey) && !ev.shiftKey){
+    const champ = $('#eclair-saisie');
+    if (champ && !Etat.ficheId){ ev.preventDefault(); changerVue('mariages'); champ.focus(); }
+  }
+});
+
+/* =======================================================================
+   Démarrage
+   ======================================================================= */
+(async function demarrer(){
+  remplirSelects();
+  $('#f-statut').value = 'actifs';
+  $('#f-statut2').value = 'tous';
+  rendreTout();
+  await Stock.init();
+  remplirSelects();
+  $('#f-statut').value = 'actifs';
+  $('#f-statut2').value = 'tous';
+  if (!Etat.mariages.size && Stock.mode !== 'nuage') exemples();
+  rendreTout();
+  mcpNs(); telechNs();
+})();
+</script>
+</body>
+</html>

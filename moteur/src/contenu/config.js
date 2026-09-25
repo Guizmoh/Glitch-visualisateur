@@ -6,8 +6,8 @@
 
 export const CONFIG = {
   /* --- Identite ---------------------------------------------------- */
-  titre: 'La Legende du Fragment',
-  sousTitre: 'un petit Zelda-like a fabriquer soi-meme',
+  titre: 'La Legende de Night',
+  sousTitre: 'il ne se souvient plus de rien',
 
   /* --- Ecran ------------------------------------------------------- */
   largeurEcran: 320, // en pixels (20 cases de 16)
@@ -24,8 +24,8 @@ export const CONFIG = {
   tempsAvantPoussee: 0.35, // temps a pousser un bloc avant qu'il bouge
 
   /* --- Monde ------------------------------------------------------- */
-  salleDepart: 'village',
-  positionDepart: { x: 147, y: 131 }, // case (9, 8) du village
+  salleDepart: 'maison-night',
+  positionDepart: { x: 147, y: 131 }, // case (9, 8) : le lit de Night
   dureeTransition: 0.45, // glissement d'une salle a l'autre
 
   objetDeVictoire: 'fragment', // ramasser cet objet termine le jeu

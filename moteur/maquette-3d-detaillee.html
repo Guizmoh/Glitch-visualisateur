@@ -76,7 +76,7 @@
     </svg>
   </div>
   <div class="boussole"><span>O</span><b>N</b><span>E</span></div>
-  <div class="titre"><span>Plaine de</span><h1>Feuillebois</h1>
+  <div class="titre"><span>Les terres de</span><h1>Night</h1>
     <span style="font-size:12px;letter-spacing:2px;display:block;margin-top:14px;color:#cfeaff">
       descends les pentes · saute sur les bosses · atterris À PLAT pour garder ta vitesse
     </span>
@@ -929,11 +929,14 @@ scene.add(lac);
 /* 12. LES PERSONNAGES                                                   */
 /* ===================================================================== */
 
-function personnage({ tunique, cheveux = 0xe8c85a, chapeau = null, peau = 0xf3c6a0, taille = 1 }) {
+function personnage({
+  tunique, cheveux = 0xe8c85a, chapeau = null, peau = 0xf3c6a0,
+  pantalon = 0x6b4a2f, yeux = 0x1b2036, taille = 1,
+}) {
   const g = new THREE.Group();
   const matTunique = matiereCel(tunique, { contour: 0.7 });
   const matPeau = matiereCel(peau, { contour: 0.6 });
-  const matCuir = matiereCel(0x6b4a2f, { contour: 0.4 });
+  const matCuir = matiereCel(pantalon, { contour: 0.4 });
 
   const jambeG = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.4, 3, 6), matCuir);
   jambeG.position.set(-0.12, 0.3, 0);
@@ -964,7 +967,7 @@ function personnage({ tunique, cheveux = 0xe8c85a, chapeau = null, peau = 0xf3c6
   chevelure.position.set(0, 1.35, -0.045);
   chevelure.scale.set(1, 0.9, 0.88);
 
-  const matOeil = new THREE.MeshBasicMaterial({ color: 0x1b2036 });
+  const matOeil = new THREE.MeshBasicMaterial({ color: yeux });
   g.add(jambeG, jambeD, corps, ceinture, brasG, brasD, chevelure, tete);
   for (const cote of [-1, 1]) {
     const oeil = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), matOeil);
@@ -991,7 +994,13 @@ function personnage({ tunique, cheveux = 0xe8c85a, chapeau = null, peau = 0xf3c6
   return g;
 }
 
-const heros = personnage({ tunique: 0x3fae55, chapeau: 0x35994a });
+// NIGHT — 12 ans, yeux verts, haut marron, pantalon beige (voir SCENARIO.md).
+const heros = personnage({
+  tunique: 0x9a6b43,   // le haut marron
+  pantalon: 0xc9b184,  // le pantalon beige
+  cheveux: 0x5a3a22,   // bruns, en bataille
+  yeux: 0x3f9e52,      // verts
+});
 {
   const bouclier = new THREE.Mesh(
     new THREE.CylinderGeometry(0.3, 0.17, 0.62, 6),

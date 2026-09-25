@@ -19,6 +19,35 @@
    ========================================================================= */
 
 export const CARTES = {
+  /* ================== LA MAISON DE NIGHT (depart) =================== */
+  // Night se reveille ici, seul, sans aucun souvenir. Voir SCENARIO.md.
+  // Le toit est creve, les meubles sont renverses, et il y a des traces
+  // enormes sur le plancher. On ne dit rien : on montre.
+  'maison-night': {
+    titre: 'Chez toi... ?',
+    musique: null,
+    fond: '#140f0b',
+    decor: [
+      'MMMMMMMMMMMM&MMMMMMM',
+      'MPPPPPPPPPPPPPP&PPPM',
+      'MPiPPPPPPPgPPPPPPPPM',
+      'MPPPPPPPPPgPPPPP&PPM',
+      'MPPPP&PPPPgPPPPPPPPM',
+      'MPPPPPPPPPPPzPPPPPPM',
+      'MPPPPPPPPPPPPPP&PPPM',
+      'MP&PPPPgPPPPPPPPPPPM',
+      'MPPPPPPgPPPPPPPPPPPM',
+      'MPPPPPPgPPPP&PPPPPPM',
+      'MPPPPPPPPPPPPPPPPPPM',
+      'MMMMMMMMMEEMMMMMMMMM',
+    ],
+    passages: [
+      { x: 9, y: 11, vers: 'village', arrivee: [14, 4] },
+      { x: 10, y: 11, vers: 'village', arrivee: [14, 4] },
+    ],
+    entites: [],
+  },
+
   /* ================== LE VILLAGE (depart) ========================== */
   village: {
     titre: 'Village de Feuillebois',
@@ -26,9 +55,9 @@ export const CARTES = {
     fond: '#2a4a2e',
     decor: [
       'TTTTTTTT..TTTTTTTTTT',
-      'T..................T',
-      'T...o.........o....T',
-      'T.,....:::::.......T',
+      'T...........MMMMMM.T',
+      'T...o.......M&PP&M.T',
+      'T.,....:::::MMEMMM.T',
       'T......:...:.......T',
       'T......:...:........',
       'T......:::::........',
@@ -39,8 +68,11 @@ export const CARTES = {
       'TTTTTTTTTTTTTTTTTTTT',
     ],
     sorties: { est: 'plaine', nord: 'bois' },
+    passages: [
+      { x: 14, y: 3, vers: 'maison-night', arrivee: [9, 10] },
+    ],
     entites: [
-      { type: 'pnj', dialogue: 'sage', sprite: 'sage_0', x: 9, y: 4, nom: 'Sage' },
+      { type: 'pnj', dialogue: 'pypa', sprite: 'sage_0', x: 9, y: 4, nom: 'Pypa' },
       { type: 'pnj', dialogue: 'villageois', sprite: 'villageois_0', x: 4, y: 8, errant: true },
       { type: 'pnj', dialogue: 'marchande', sprite: 'villageois_0', x: 14, y: 3, errant: false },
       { type: 'panneau', x: 8, y: 9, texte: ['Village de Feuillebois.', 'Le donjon est au nord-est.'] },

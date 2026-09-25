@@ -8,38 +8,48 @@
    ========================================================================= */
 
 export const DIALOGUES = {
-  sage: {
-    titre: 'Vieux sage',
+  /* --------------------------------------------------------------------
+     PYPA — le vieux magicien, mentor de Night.
+     Son secret (il est son grand-pere) ne sera revele qu'a la toute fin :
+     ici, il en sait beaucoup trop et n'en dit presque rien. Voir SCENARIO.md.
+     -------------------------------------------------------------------- */
+  pypa: {
+    titre: 'Pypa',
     variantes: [
       {
-        // Quand le heros n'a pas encore d'epee, le sage la lui donne.
+        // Premiere rencontre : Night sort de la maison, sans rien comprendre.
         si: ({ inventaire }) => !inventaire.possede('epee'),
         pages: [
-          'Ah, te voila enfin !',
-          'Des monstres ont vole les trois FRAGMENTS DE LUMIERE du village.',
-          'Prends cette epee, jeune heros. Tu en auras besoin...',
+          'Night. Tu es debout.',
+          'Ne force pas pour te souvenir. Ca ne sert a rien, et ca fait mal.',
+          'Tiens. Prends cette vieille epee, et ne t\'eloigne pas trop du village.',
         ],
         apres: ({ inventaire, scene }) => {
           inventaire.donner('epee');
-          scene.montrerObjetTrouve('epee', 'Tu as recu l\'EPEE DE BOIS !');
+          scene.montrerObjetTrouve('epee', 'Tu as recu une VIEILLE EPEE.');
         },
       },
       {
+        // Apres le boss : il en lache un peu plus.
         si: ({ drapeau }) => drapeau('boss-vaincu'),
         pages: [
-          'Tu as vaincu le Roi Gluant ! Le village est sauve.',
-          'Tu es un vrai heros. Bravo !',
+          'Tu l\'as vaincue. C\'est bien.',
+          'Mais cette creature n\'etait qu\'un outil, Night.',
+          'Celui qui s\'en servait s\'appelle Darkness.',
+          'Et c\'est lui qui t\'a pris tes souvenirs.',
+          '... Nous en reparlerons. Pas aujourd\'hui.',
         ],
       },
       {
-        // Variante par defaut
         pages: [
-          'La grotte a l\'est mene au donjon.',
-          'Coupe les buissons avec ton epee : ils cachent parfois des rubis.',
+          'Le bois, au nord. La plaine, a l\'est. Le donjon, derriere.',
+          'Coupe les buissons : les gens y perdent des choses.',
+          'Et Night... si tu vois des traces enormes quelque part, ne les suis pas.',
         ],
       },
     ],
   },
+
 
   villageois: {
     titre: 'Villageois',
@@ -50,8 +60,9 @@ export const DIALOGUES = {
       },
       {
         pages: [
-          'Bonjour ! Fais attention aux gluants, ils rebondissent.',
-          'On dit qu\'un tresor est cache derriere les rochers.',
+          'Night ! On te croyait... enfin. On est content de te voir debout.',
+          'Ta maison... personne n\'a rien entendu, cette nuit-la. Personne.',
+          'Va voir Pypa. Il attend devant la place depuis ce matin.',
         ],
       },
     ],

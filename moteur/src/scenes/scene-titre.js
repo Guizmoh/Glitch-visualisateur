@@ -60,8 +60,15 @@ export class SceneTitre extends Scene {
       this.moteur.audio.reveiller();
       this.moteur.audio.jouer('secret');
       const continuer = this.aUneSauvegarde && this.choix === 0;
-      if (!continuer) Sauvegarde.effacer('partie');
-      this.moteur.changerScene(new SceneJeu(), { charger: continuer });
+      if (continuer) {
+        this.moteur.changerScene(new SceneJeu(), { charger: true });
+      } else {
+        // Nouvelle partie : on raconte d'abord ce qui s'est passe cette nuit-la.
+        Sauvegarde.effacer('partie');
+        import('./scene-carton.js').then(({ SceneCarton }) => {
+          this.moteur.changerScene(new SceneCarton());
+        });
+      }
     }
   }
 

@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>Glitch — visualisateur</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📺</text></svg>">
+<style>
+  :root{
+    --bg:#0a0908;
+    --surface:rgba(18,16,14,0.88);
+    --surface-haut:rgba(30,26,22,0.92);
+    --bord:#38332c;
+    --bord-clair:#4a4338;
+    --texte-0:#f5f1ec;
+    --texte-1:#a9a297;
+    --texte-2:#6f6a5f;
+    --accent:#ef6c2e;
+    --accent-doux:rgba(239,108,46,0.14);
+    --accent-bord:rgba(239,108,46,0.55);
+    --mono:ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --r:10px;
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; background:#000; }
+  body{ color:var(--texte-0); font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+
+  /* ——— l'écran ——— */
+  #ecran{ position:fixed; inset:0; width:100%; height:100%; display:block; background:#000; }
+
+  /* ——— accueil ——— */
+  .accueil{
+    position:fixed; inset:0; z-index:40; display:grid; place-items:center;
+    padding:24px; background:radial-gradient(ellipse at center, rgba(10,9,8,0.72), rgba(0,0,0,0.94));
+    transition:opacity .45s ease, visibility .45s ease;
+  }
+  .accueil.parti{ opacity:0; visibility:hidden; pointer-events:none; }
+  .carte{
+    width:100%; max-width:440px; text-align:center;
+    background:var(--surface); border:1px solid var(--bord); border-radius:14px;
+    padding:34px 28px 26px; backdrop-filter:blur(14px);
+    box-shadow:0 24px 60px rgba(0,0,0,0.6);
+  }
+  .surtitre{
+    font-family:var(--mono); font-size:0.68rem; letter-spacing:0.2em; text-transform:uppercase;
+    color:var(--accent); margin:0 0 14px;
+  }
+  .carte h1{ font-size:1.45rem; font-weight:700; letter-spacing:-0.02em; margin:0 0 10px; }
+  .carte p{ color:var(--texte-1); font-size:0.9rem; line-height:1.6; margin:0 0 6px; }
+  .boutons{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:22px 0 14px; }
+  .aide{ color:var(--texte-2); font-size:0.74rem; font-family:var(--mono); line-height:1.7; margin-top:14px; }
+  .aide kbd{
+    font-family:var(--mono); font-size:0.72rem; background:#221f1b; border:1px solid var(--bord);
+    border-bottom-width:2px; border-radius:4px; padding:1px 5px; color:var(--texte-1);
+  }
+  .avertissement{
+    margin-top:16px; padding-top:14px; border-top:1px solid var(--bord);
+    color:var(--texte-2); font-size:0.72rem; line-height:1.6;
+  }
+
+  /* ——— boutons ——— */
+  button{ font:inherit; cursor:pointer; }
+  .b{
+    display:inline-flex; align-items:center; gap:7px; padding:9px 15px;
+    background:var(--surface-haut); color:var(--texte-0);
+    border:1px solid var(--bord-clair); border-radius:var(--r);
+    font-size:0.85rem; font-weight:500; transition:background .15s, border-color .15s, color .15s;
+  }
+  .b:hover{ background:#3a342c; border-color:#5b5346; }
+  .b.primaire{
+    background:var(--accent); border-color:var(--accent); color:#1a1613; font-weight:600;
+  }
+  .b.primaire:hover{ background:#ff8442; border-color:#ff8442; }
+  .b.icone{ padding:9px 11px; }
+  .b:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ——— barre de transport ——— */
+  .barre{
+    position:fixed; z-index:30; left:50%; transform:translateX(-50%); bottom:18px;
+    width:calc(100% - 32px); max-width:740px;
+    display:flex; align-items:center; gap:12px;
+    padding:10px 12px; background:var(--surface); border:1px solid var(--bord);
+    border-radius:13px; backdrop-filter:blur(14px);
+    box-shadow:0 14px 40px rgba(0,0,0,0.55);
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  .barre.cachee, .panneau.cachee{ opacity:0; pointer-events:none; transform:translateX(-50%) translateY(14px); }
+  .panneau.cachee{ transform:translateY(14px); }
+
+  .piste{
+    flex:1; height:26px; position:relative; cursor:pointer; display:flex; align-items:center;
+  }
+  .piste .rail{ position:absolute; left:0; right:0; height:4px; background:#332e27; border-radius:99px; overflow:hidden; }
+  .piste .rempli{ position:absolute; inset:0 auto 0 0; width:0%; background:var(--accent); }
+  .piste .curseur{
+    position:absolute; top:50%; left:0%; width:11px; height:11px; margin:-6px 0 0 -5px;
+    background:var(--texte-0); border-radius:99px; box-shadow:0 0 0 3px rgba(0,0,0,0.5);
+  }
+  .temps{ font-family:var(--mono); font-size:0.74rem; color:var(--texte-1); white-space:nowrap; }
+  .vol{ width:74px; accent-color:var(--accent); }
+
+  /* ——— panneau de réglages ——— */
+  .panneau{
+    position:fixed; z-index:31; top:18px; right:18px; width:290px; max-height:calc(100vh - 36px);
+    overflow-y:auto; overscroll-behavior:contain;
+    background:var(--surface); border:1px solid var(--bord); border-radius:13px;
+    backdrop-filter:blur(14px); box-shadow:0 14px 40px rgba(0,0,0,0.55);
+    padding:14px; transition:opacity .3s ease, transform .3s ease;
+  }
+  .panneau[hidden]{ display:none; }
+  .panneau h2{
+    font-family:var(--mono); font-size:0.66rem; letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--texte-2); margin:0 0 10px; font-weight:500;
+  }
+  .panneau h2:not(:first-child){ margin-top:20px; }
+  .grille-presets{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .puce{
+    padding:8px 9px; background:#221f1b; border:1px solid var(--bord); border-radius:8px;
+    color:var(--texte-1); font-size:0.76rem; text-align:left; line-height:1.3;
+    transition:background .15s, border-color .15s, color .15s;
+  }
+  .puce:hover{ background:#2b2722; color:var(--texte-0); }
+  .puce.actif{ background:var(--accent-doux); border-color:var(--accent-bord); color:var(--texte-0); }
+  .ligne{ display:flex; align-items:center; gap:10px; margin:9px 0; }
+  .ligne label{ flex:1; font-size:0.79rem; color:var(--texte-1); }
+  .ligne input[type=range]{ width:112px; accent-color:var(--accent); }
+  .ligne .val{ font-family:var(--mono); font-size:0.7rem; color:var(--texte-2); width:30px; text-align:right; }
+  .ligne.inter{ justify-content:space-between; }
+  .interrupteur{ position:relative; width:34px; height:19px; flex:none; }
+  .interrupteur input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; }
+  .interrupteur span{
+    position:absolute; inset:0; background:#332e27; border-radius:99px; transition:background .18s;
+    pointer-events:none;
+  }
+  .interrupteur span::after{
+    content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:99px;
+    background:var(--texte-1); transition:transform .18s, background .18s;
+  }
+  .interrupteur input:checked + span{ background:var(--accent-bord); }
+  .interrupteur input:checked + span::after{ transform:translateX(15px); background:#fff; }
+  .interrupteur input:focus-visible + span{ box-shadow:0 0 0 2px var(--accent); }
+  select{
+    font:inherit; font-size:0.79rem; background:#221f1b; color:var(--texte-0);
+    border:1px solid var(--bord); border-radius:8px; padding:6px 8px; width:100%;
+  }
+  .note{ color:var(--texte-2); font-size:0.71rem; line-height:1.6; margin:12px 0 0; font-family:var(--mono); }
+
+  /* ——— dépôt de fichier ——— */
+  .depot{
+    position:fixed; inset:0; z-index:60; display:none; place-items:center;
+    background:rgba(239,108,46,0.1); backdrop-filter:blur(3px);
+    border:3px dashed var(--accent-bord);
+  }
+  .depot.visible{ display:grid; }
+  .depot span{
+    font-family:var(--mono); font-size:0.95rem; letter-spacing:0.08em; text-transform:uppercase;
+    background:var(--surface); border:1px solid var(--accent-bord); border-radius:10px; padding:14px 20px;
+  }
+
+  /* ——— coin haut gauche : titre + aide ——— */
+  .coin{
+    position:fixed; z-index:30; top:20px; left:20px; display:flex; align-items:center; gap:10px;
+    transition:opacity .3s ease;
+  }
+  .coin.cachee{ opacity:0; pointer-events:none; }
+  .coin .nom{
+    font-family:var(--mono); font-size:0.7rem; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--texte-2); background:var(--surface); border:1px solid var(--bord);
+    border-radius:8px; padding:7px 10px; max-width:46vw; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .rec{ color:#ff4d4d; }
+
+  @media (max-width:720px){
+    .panneau{ top:auto; bottom:86px; right:12px; left:12px; width:auto; max-height:52vh; }
+    .vol{ display:none; }
+    .coin{ top:12px; left:12px; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .accueil, .barre, .panneau, .coin{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="ecran"></canvas>
+
+<div class="coin cachee" id="coin">
+  <span class="nom" id="nomFichier">—</span>
+  <span class="nom rec" id="tempoinRec" hidden>● ENREGISTRE</span>
+</div>
+
+<div class="barre cachee" id="barre">
+  <button class="b icone" id="btnLecture" title="Lecture / pause (Espace)" aria-label="Lecture ou pause">▶</button>
+  <div class="piste" id="piste" role="slider" tabindex="0" aria-label="Position dans le morceau"
+       aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="rail"><div class="rempli" id="rempli"></div></div>
+    <div class="curseur" id="curseur"></div>
+  </div>
+  <span class="temps" id="temps">0:00 / 0:00</span>
+  <input class="vol" id="volume" type="range" min="0" max="100" value="85" title="Volume" aria-label="Volume">
+  <button class="b icone" id="btnReglages" title="Réglages (R)" aria-label="Réglages">⚙</button>
+  <button class="b icone" id="btnPlein" title="Plein écran (F)" aria-label="Plein écran">⛶</button>
+</div>
+
+<aside class="panneau" id="panneau" hidden aria-label="Réglages du rendu">
+  <h2>Preset</h2>
+  <div class="grille-presets" id="presets"></div>
+
+  <h2>Image de base</h2>
+  <select id="choixBase" aria-label="Image de base">
+    <option value="spectre">Spectre + forme d'onde</option>
+    <option value="mire">Mire de barres (VHS)</option>
+    <option value="texte">Titre géant</option>
+    <option value="image">Image déposée</option>
+  </select>
+
+  <h2>Rendu</h2>
+  <div class="ligne"><label for="sIntensite">Intensité</label>
+    <input id="sIntensite" type="range" min="0" max="200" value="100"><span class="val" id="vIntensite">100</span></div>
+  <div class="ligne"><label for="sRgb">Décalage RGB</label>
+    <input id="sRgb" type="range" min="0" max="200" value="100"><span class="val" id="vRgb">100</span></div>
+  <div class="ligne"><label for="sBlocs">Déchirures / blocs</label>
+    <input id="sBlocs" type="range" min="0" max="200" value="100"><span class="val" id="vBlocs">100</span></div>
+  <div class="ligne"><label for="sMosh">Datamosh</label>
+    <input id="sMosh" type="range" min="0" max="200" value="100"><span class="val" id="vMosh">100</span></div>
+  <div class="ligne"><label for="sBande">Usure de bande</label>
+    <input id="sBande" type="range" min="0" max="200" value="100"><span class="val" id="vBande">100</span></div>
+  <div class="ligne"><label for="sScan">Scanlines</label>
+    <input id="sScan" type="range" min="0" max="200" value="100"><span class="val" id="vScan">100</span></div>
+  <div class="ligne"><label for="sCourbure">Courbure d'écran</label>
+    <input id="sCourbure" type="range" min="0" max="200" value="100"><span class="val" id="vCourbure">100</span></div>
+  <div class="ligne"><label for="sGrain">Grain</label>
+    <input id="sGrain" type="range" min="0" max="200" value="100"><span class="val" id="vGrain">100</span></div>
+
+  <h2>Réaction au son</h2>
+  <div class="ligne"><label for="sReaction">Sensibilité</label>
+    <input id="sReaction" type="range" min="20" max="250" value="100"><span class="val" id="vReaction">100</span></div>
+  <div class="ligne inter"><label for="cOsd">Infos à l'écran (OSD)</label>
+    <span class="interrupteur"><input id="cOsd" type="checkbox" checked><span></span></span></div>
+  <div class="ligne inter"><label for="cFlash">Flashs sur les temps forts</label>
+    <span class="interrupteur"><input id="cFlash" type="checkbox" checked><span></span></span></div>
+
+  <h2>Qualité</h2>
+  <select id="choixQualite" aria-label="Qualité de rendu">
+    <option value="0.6">Économique (60 %)</option>
+    <option value="0.8" selected>Équilibrée (80 %)</option>
+    <option value="1">Maximale (100 %)</option>
+  </select>
+
+  <h2>Sortie</h2>
+  <div class="boutons" style="margin:0; justify-content:flex-start;">
+    <button class="b" id="btnPhoto">Image PNG</button>
+    <button class="b" id="btnEnr">Enregistrer</button>
+  </div>
+  <p class="note" id="noteEnr">L'enregistrement produit un fichier .webm (image + son).</p>
+  <p class="note">Raccourcis : <kbd>Espace</kbd> lecture · <kbd>R</kbd> réglages · <kbd>F</kbd> plein écran ·
+     <kbd>H</kbd> masquer l'interface · <kbd>1</kbd>–<kbd>5</kbd> presets</p>
+</aside>
+
+<div class="accueil" id="accueil">
+  <div class="carte">
+    <p class="surtitre">glitch · visualisateur</p>
+    <h1>Dépose un morceau</h1>
+    <p>mp3, wav, ogg, m4a, flac… Tout est lu et analysé dans ton navigateur : aucun fichier n'est envoyé nulle part.</p>
+    <div class="boutons">
+      <button class="b primaire" id="btnFichier">Choisir un fichier</button>
+      <button class="b" id="btnDemo">Écouter la démo</button>
+    </div>
+    <p class="aide">Tu peux aussi déposer une <strong>image</strong> : elle devient le fond à glitcher.<br>
+       <kbd>Espace</kbd> lecture · <kbd>R</kbd> réglages · <kbd>F</kbd> plein écran</p>
+    <p class="avertissement">Contient des flashs, du scintillement et des contrastes rapides.
+       Le curseur « Intensité » dans les réglages calme tout d'un coup.</p>
+  </div>
+</div>
+
+<div class="depot" id="depot"><span>Lâche le fichier ici</span></div>
+<input type="file" id="fichier" accept="audio/*,image/*" hidden>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════════════════
+   Glitch — visualisateur audio
+   Rendu VHS / datamosh : une image de base est dessinée en 2D, puis passée
+   dans deux nuanceurs WebGL (glitch, puis écran cathodique).
+   Aucune dépendance, aucune compilation. Tout est en français.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const $ = (id) => document.getElementById(id);
+
+const ecran      = $("ecran");
+const accueil    = $("accueil");
+const barre      = $("barre");
+const panneau    = $("panneau");
+const coin       = $("coin");
+const depot      = $("depot");
+const champFichier = $("fichier");
+
+/* ───────────────────────────── état global ───────────────────────────── */
+
+const etat = {
+  nom: "",                 // nom du morceau affiché
+  demo: false,             // la démo intégrée tourne-t-elle ?
+  base: "spectre",         // image de base : spectre | mire | texte | image
+  qualite: 0.8,
+  osd: true,
+  flash: true,
+  reaction: 1,             // sensibilité de l'analyse
+  preset: "vhs",
+  // forces des effets (1 = réglage nominal du preset)
+  eff: { intensite:1, rgb:1, blocs:1, mosh:1, bande:1, scan:1, courbure:1, grain:1 },
+  imageFond: null,         // HTMLImageElement déposée
+  interfaceVisible: true,
+};
+
+/* Les presets ne touchent qu'aux forces : l'utilisateur peut ensuite tout
+   retoucher curseur par curseur. */
+const PRESETS = {
+  propre:   { nom:"Propre",          desc:"à peine sale",      eff:{ intensite:0.55, rgb:0.30, blocs:0.15, mosh:0.20, bande:0.20, scan:0.45, courbure:0.40, grain:0.35 }, palette:"ambre" },
+  vhs:      { nom:"VHS usée",        desc:"cassette fatiguée", eff:{ intensite:1.00, rgb:1.00, blocs:0.65, mosh:0.45, bande:1.15, scan:1.10, courbure:1.00, grain:1.00 }, palette:"magenta" },
+  datamosh: { nom:"Datamosh",        desc:"images qui bavent", eff:{ intensite:1.15, rgb:0.75, blocs:0.80, mosh:1.85, bande:0.55, scan:0.50, courbure:0.55, grain:0.55 }, palette:"cyan" },
+  bug:      { nom:"Bug numérique",   desc:"tout se déchire",   eff:{ intensite:1.35, rgb:1.55, blocs:1.85, mosh:0.95, bande:0.85, scan:0.70, courbure:0.60, grain:0.80 }, palette:"ambre" },
+  morte:    { nom:"Bande morte",     desc:"signal perdu",      eff:{ intensite:1.20, rgb:1.20, blocs:1.30, mosh:1.30, bande:1.90, scan:1.35, courbure:1.25, grain:1.60 }, palette:"gris" },
+};
+
+const PALETTES = {
+  ambre:   { fond:[16,12,9],   a:"#ef6c2e", b:"#ffd27a", c:"#8b3d12" },
+  magenta: { fond:[12,8,16],   a:"#ff3ea5", b:"#63e6ff", c:"#4b1e63" },
+  cyan:    { fond:[6,14,16],   a:"#2ff5d0", b:"#c8ff4d", c:"#12495c" },
+  gris:    { fond:[10,10,10],  a:"#d8d8d8", b:"#ffffff", c:"#3a3a3a" },
+};
+
+/* ───────────────────────────── audio ───────────────────────────── */
+
+let ctxAudio = null, analyseur = null, melange = null, srcElement = null;
+let srcDemo = null, sortieEnr = null;
+const lecteur = new Audio();
+lecteur.preload = "auto";
+
+function preparerAudio(){
+  if (ctxAudio) return ctxAudio;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  ctxAudio  = new Ctx();
+  melange   = ctxAudio.createGain();
+  analyseur = ctxAudio.createAnalyser();
+  analyseur.fftSize = 2048;
+  analyseur.smoothingTimeConstant = 0.7;
+  melange.connect(analyseur);
+  analyseur.connect(ctxAudio.destination);
+  melange.gain.value = 0.85;
+  return ctxAudio;
+}
+
+function brancherLecteur(){
+  preparerAudio();
+  if (!srcElement){
+    srcElement = ctxAudio.createMediaElementSource(lecteur);
+    srcElement.connect(melange);
+  }
+}
+
+/* ——— démo intégrée : une boucle glitch fabriquée à la main ———
+   Quatre mesures à 120 BPM écrites directement dans un AudioBuffer :
+   grosse caisse, basse, charleston et petits clics numériques. */
+function tamponDemo(ctx){
+  const bpm = 120, tempsParNoire = 60 / bpm;
+  const duree = tempsParNoire * 16;                 // 4 mesures
+  const fe = ctx.sampleRate;
+  const tampon = ctx.createBuffer(2, Math.ceil(duree * fe), fe);
+  const G = tampon.getChannelData(0), D = tampon.getChannelData(1);
+
+  const ajouter = (debut, longueur, f) => {
+    const i0 = Math.floor(debut * fe), n = Math.floor(longueur * fe);
+    for (let i = 0; i < n; i++){
+      const j = i0 + i; if (j >= G.length) break;
+      const [g, d] = f(i / fe, i / n);
+      G[j] += g; D[j] += d;
+    }
+  };
+
+  for (let pas = 0; pas < 16; pas++){
+    const t0 = pas * tempsParNoire;
+
+    // grosse caisse : sinus qui plonge de 110 Hz à 45 Hz
+    if (pas % 4 === 0 || pas === 10){
+      ajouter(t0, 0.34, (t, p) => {
+        const f = 110 - 65 * Math.min(1, t * 9);
+        const v = Math.sin(2 * Math.PI * f * t) * Math.pow(1 - p, 2.4) * 0.72;
+        return [v, v];
+      });
+    }
+    // basse carrée filtrée à la main (une octave sous la fondamentale)
+    const notes = [55, 55, 82.4, 73.4];
+    {
+      const f = notes[Math.floor(pas / 2) % 4];
+      ajouter(t0, tempsParNoire * (pas % 2 === 0 ? 0.9 : 0.45), (t, p) => {
+        const carre = Math.sin(2 * Math.PI * f * t) >= 0 ? 1 : -1;
+        const doux  = carre * 0.55 + Math.sin(2 * Math.PI * f * t) * 0.45;
+        const v = doux * Math.pow(1 - p, 1.5) * (pas % 2 === 0 ? 0.22 : 0.12);
+        return [v, v * 0.92];
+      });
+    }
+    // charleston : bruit filtré, décalé à gauche/droite
+    {
+      ajouter(t0 + (pas % 2 ? 0 : tempsParNoire * 0.5), 0.09, (t, p) => {
+        const v = (Math.random() * 2 - 1) * Math.pow(1 - p, 5) * 0.16;
+        return [v * (pas % 4 === 1 ? 1 : 0.55), v * (pas % 4 === 1 ? 0.55 : 1)];
+      });
+    }
+    // clics et sauts numériques : la signature « glitch »
+    if (pas === 3 || pas === 7 || pas === 11 || pas === 14){
+      for (let k = 0; k < 5; k++){
+        ajouter(t0 + k * 0.021, 0.014, (t, p) => {
+          const v = (Math.random() * 2 - 1) * (1 - p) * 0.22;
+          return [k % 2 ? v : v * 0.3, k % 2 ? v * 0.3 : v];
+        });
+      }
+    }
+    // nappe aiguë tenue, pour que les hautes fréquences vivent aussi
+    ajouter(t0, tempsParNoire, (t, p) => {
+      const souffle = (Math.random() * 2 - 1) * 0.012;
+      const v = (Math.sin(2 * Math.PI * 1320 * t) + Math.sin(2 * Math.PI * 1976 * t)) * 0.035
+              * (0.45 + 0.55 * Math.sin(Math.PI * p)) + souffle;
+      return [v, -v];
+    });
+  }
+  for (let i = 0; i < G.length; i++){              // sécurité anti-saturation
+    G[i] = Math.max(-1, Math.min(1, G[i]));
+    D[i] = Math.max(-1, Math.min(1, D[i]));
+  }
+  return tampon;
+}
+
+function lancerDemo(){
+  preparerAudio();
+  arreterDemo();
+  lecteur.pause();
+  srcDemo = ctxAudio.createBufferSource();
+  srcDemo.buffer = tamponDemo(ctxAudio);
+  srcDemo.loop = true;
+  srcDemo.connect(melange);
+  srcDemo.start();
+  etat.demo = true;
+  etat.nom  = "DEMO — boucle glitch 120 BPM";
+  ctxAudio.resume();
+  majInterface();
+}
+
+function arreterDemo(){
+  if (srcDemo){ try { srcDemo.stop(); } catch(e){} srcDemo.disconnect(); srcDemo = null; }
+  etat.demo = false;
+}
+
+/* ───────────────────────────── analyse ───────────────────────────── */
+
+const mesures = { basses:0, mediums:0, aigus:0, volume:0, choc:0, temps:0 };
+let spectre = null, onde = null, spectrePrec = null;
+let fluxMoyen = 0, fluxEcart = 1;
+
+function binPour(hz){
+  if (!ctxAudio) return 0;
+  return Math.round(hz / (ctxAudio.sampleRate / analyseur.fftSize));
+}
+
+
+/* Énergie moyenne d'une bande de fréquences, normalisée entre 0 et 1. */
+function energieBande(hzBas, hzHaut){
+  const a = Math.max(1, binPour(hzBas));
+  const b = Math.min(spectre.length - 1, binPour(hzHaut));
+  let somme = 0;
+  for (let i = a; i <= b; i++) somme += spectre[i];
+  return (somme / Math.max(1, b - a + 1)) / 255;
+}
+
+function analyser(dt){
+  if (!analyseur){                       // pas encore de son : légère respiration
+    const t = mesures.temps;
+    mesures.basses  = 0.18 + 0.14 * Math.sin(t * 1.1);
+    mesures.mediums = 0.12 + 0.08 * Math.sin(t * 1.7 + 1);
+    mesures.aigus   = 0.08 + 0.06 * Math.sin(t * 2.3 + 2);
+    mesures.volume  = 0.16;
+    mesures.choc    = Math.max(0, mesures.choc - dt * 2.2);
+    if (Math.sin(t * 1.1) > 0.995) mesures.choc = 0.5;
+    return;
+  }
+  if (!spectre){
+    spectre     = new Uint8Array(analyseur.frequencyBinCount);
+    onde        = new Uint8Array(analyseur.fftSize);
+    spectrePrec = new Float32Array(analyseur.frequencyBinCount);
+  }
+  analyseur.getByteFrequencyData(spectre);
+  analyseur.getByteTimeDomainData(onde);
+
+  const s = etat.reaction;
+  mesures.basses  = Math.min(1, energieBande(30, 160)    * 1.15 * s);
+  mesures.mediums = Math.min(1, energieBande(160, 2000)  * 1.30 * s);
+  mesures.aigus   = Math.min(1, energieBande(2000, 11000)* 1.70 * s);
+
+  let crete = 0;
+  for (let i = 0; i < onde.length; i += 4) crete = Math.max(crete, Math.abs(onde[i] - 128) / 128);
+  mesures.volume = Math.min(1, crete * 1.1 * s);
+
+  // Flux spectral positif : sert de détecteur de frappe / transitoire.
+  let flux = 0;
+  for (let i = 1; i < spectre.length; i++){
+    const d = spectre[i] - spectrePrec[i];
+    if (d > 0) flux += d;
+    spectrePrec[i] = spectre[i];
+  }
+  flux /= spectre.length * 255;
+  fluxMoyen += (flux - fluxMoyen) * 0.06;
+  fluxEcart += (Math.abs(flux - fluxMoyen) - fluxEcart) * 0.06;
+  const saillance = (flux - fluxMoyen) / (fluxEcart * 2.4 + 0.0005);
+
+  mesures.choc = Math.max(mesures.choc - dt * 3.4, 0);
+  if (saillance > 1) mesures.choc = Math.min(1.4, Math.max(mesures.choc, Math.min(1.4, saillance * 0.45 * s)));
+}
+
+/* ───────────────────────────── image de base (canvas 2D) ───────────────────────────── */
+
+const toileBase = document.createElement("canvas");
+const c2 = toileBase.getContext("2d", { alpha:false });
+
+function fmtTemps(sec){
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return m + ":" + String(s).padStart(2, "0");
+}
+
+function palette(){ return PALETTES[PRESETS[etat.preset].palette] || PALETTES.ambre; }
+
+function dessinerBase(){
+  const L = toileBase.width, H = toileBase.height;
+  const u = L / 1280;                                  // facteur d'échelle typographique
+  const p = palette();
+  const choc = mesures.choc;
+
+  // ——— fond ———
+  c2.globalCompositeOperation = "source-over";
+  const f = p.fond;
+  c2.fillStyle = "rgb(" + f[0] + "," + f[1] + "," + f[2] + ")";
+  c2.fillRect(0, 0, L, H);
+
+  if (etat.base === "image" && etat.imageFond) dessinerImage(L, H, u, p);
+  else if (etat.base === "mire")               dessinerMire(L, H, u, p);
+  else if (etat.base === "texte")              dessinerTexte(L, H, u, p);
+  else                                         dessinerSpectre(L, H, u, p);
+
+  // ——— flash sur les temps forts ———
+  if (etat.flash && choc > 0.35){
+    c2.globalCompositeOperation = "lighter";
+    c2.fillStyle = "rgba(255,255,255," + (0.07 * Math.min(1, choc)).toFixed(3) + ")";
+    c2.fillRect(0, 0, L, H);
+    c2.globalCompositeOperation = "source-over";
+  }
+
+  if (etat.osd) dessinerOsd(L, H, u, p);
+}
+
+/* — halo central qui pulse sur les basses — */
+function halo(L, H, p, force){
+  const g = c2.createRadialGradient(L / 2, H / 2, 0, L / 2, H / 2, Math.max(L, H) * (0.26 + 0.22 * force));
+  g.addColorStop(0, p.c);
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  c2.globalAlpha = 0.5 + 0.35 * force;
+  c2.fillStyle = g;
+  c2.fillRect(0, 0, L, H);
+  c2.globalAlpha = 1;
+}
+
+/* Valeur du spectre pour la barre i sur nb, réparties en échelle
+   logarithmique (40 Hz → 14 kHz). Sans ça, toute la musique s'entasse
+   dans le coin gauche de l'écran. */
+function valeurBande(i, nb){
+  if (!spectre) return 0.2 + 0.18 * Math.sin(i * 0.42 + mesures.temps * 3 + i * i * 0.01);
+  const hz = (k) => 40 * Math.pow(14000 / 40, k / nb);
+  let a = Math.max(1, Math.min(spectre.length - 1, binPour(hz(i))));
+  let b = Math.max(a, Math.min(spectre.length - 1, binPour(hz(i + 1))));
+  let v = 0;
+  for (let j = a; j <= b; j++) v = Math.max(v, spectre[j]);
+  return v / 255;
+}
+
+/* — base 1 : grille en fuite + spectre en barres + forme d'onde + anneau — */
+function dessinerSpectre(L, H, u, p){
+  const { basses, mediums, aigus, volume, choc, temps } = mesures;
+
+  // dégradé de sol + halo central qui pulse sur les basses
+  const sol = c2.createLinearGradient(0, H * 0.35, 0, H);
+  sol.addColorStop(0, "rgba(0,0,0,0)");
+  sol.addColorStop(1, p.c);
+  c2.globalAlpha = 0.7;
+  c2.fillStyle = sol;
+  c2.fillRect(0, 0, L, H);
+  c2.globalAlpha = 1;
+  halo(L, H, p, basses);
+
+  // grille en fuite : donne de la matière à déchirer et à faire baver
+  const horizon = H * 0.60;
+  c2.strokeStyle = "rgba(255,255,255,0.17)";
+  c2.lineWidth = Math.max(1, u);
+  for (let i = 1; i <= 8; i++){
+    const y = horizon + Math.pow(i / 8, 2.2) * H * 0.4;
+    c2.beginPath(); c2.moveTo(0, y); c2.lineTo(L, y); c2.stroke();
+  }
+  const derive = ((temps * 0.08) % 1) * L * 0.07;
+  for (let i = -14; i <= 14; i++){
+    const x = L / 2 + i * L * 0.035 + derive;
+    c2.beginPath(); c2.moveTo(x, horizon); c2.lineTo(L / 2 + (x - L / 2) * 3.2, H); c2.stroke();
+  }
+  c2.strokeStyle = p.b;
+  c2.globalAlpha = 0.5 + 0.4 * mediums;
+  c2.beginPath(); c2.moveTo(0, horizon); c2.lineTo(L, horizon); c2.stroke();
+  c2.globalAlpha = 1;
+
+  // anneau : un point par bande, rayon modulé
+  const cx = L / 2, cy = H * 0.42;
+  const rayon = Math.min(L, H) * (0.17 + 0.05 * basses);
+  const nbPoints = 128;
+  c2.beginPath();
+  for (let i = 0; i <= nbPoints; i++){
+    const k = i % nbPoints;
+    const v = valeurBande(k < nbPoints / 2 ? k * 2 : (nbPoints - k) * 2, nbPoints);
+    const a = (k / nbPoints) * Math.PI * 2 - Math.PI / 2;
+    const r = rayon * (1 + v * 0.6);
+    const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+    if (i === 0) c2.moveTo(x, y); else c2.lineTo(x, y);
+  }
+  c2.closePath();
+  c2.lineWidth = 2.5 * u;
+  c2.strokeStyle = p.b;
+  c2.shadowColor = p.b;
+  c2.shadowBlur = 22 * u * (0.3 + basses);
+  c2.stroke();
+  c2.shadowBlur = 0;
+  c2.globalAlpha = 0.06 + 0.13 * basses;
+  c2.fillStyle = p.a;
+  c2.fill();
+  c2.globalAlpha = 1;
+
+  // barres du spectre, posées sur un socle, avec leur reflet
+  const nbBarres = 64;
+  const largeur = L / nbBarres;
+  const socle = H * 0.86;
+  for (let i = 0; i < nbBarres; i++){
+    const v = valeurBande(i, nbBarres);
+    const h = (0.012 + Math.pow(v, 1.3) * 0.28) * H;
+    const x = i * largeur + largeur * 0.2;
+    const l = largeur * 0.6;
+    c2.fillStyle = i % 8 === 0 ? p.b : p.a;
+    c2.fillRect(x, socle - h, l, h);
+    c2.globalAlpha = 0.95;                             // crête blanche
+    c2.fillStyle = "#ffffff";
+    c2.fillRect(x, socle - h, l, Math.max(1.5, 2 * u));
+    c2.globalAlpha = 0.16;                             // reflet sous le socle
+    c2.fillStyle = p.a;
+    c2.fillRect(x, socle + 2 * u, l, Math.min(h * 0.55, H - socle - 4 * u));
+    c2.globalAlpha = 1;
+  }
+  c2.fillStyle = "rgba(255,255,255,0.22)";
+  c2.fillRect(0, socle, L, Math.max(1, u));
+
+  // forme d'onde : d'autant plus présente que ça joue fort
+  if (onde){
+    c2.beginPath();
+    const pas = Math.max(1, Math.floor(onde.length / Math.max(64, L / (3 * u))));
+    for (let i = 0; i < onde.length; i += pas){
+      const y = cy + (onde[i] - 128) / 128 * H * 0.24;
+      const px = (i / onde.length) * L;
+      if (i === 0) c2.moveTo(px, y); else c2.lineTo(px, y);
+    }
+    c2.lineWidth = (1.2 + 2.2 * volume) * u;
+    c2.globalAlpha = 0.28 + 0.72 * Math.min(1, volume * 2.2);
+    c2.strokeStyle = "#ffffff";
+    c2.shadowColor = p.a;
+    c2.shadowBlur = 20 * u * (0.3 + volume);
+    c2.stroke();
+    c2.shadowBlur = 0;
+    c2.globalAlpha = 1;
+  }
+
+  // éclair blanc au ras du sol sur les frappes
+  if (choc > 0.25){
+    c2.globalAlpha = Math.min(0.5, choc * 0.4);
+    c2.fillStyle = "#ffffff";
+    c2.fillRect(0, horizon - 2 * u, L, 3 * u);
+    c2.globalAlpha = 1;
+  }
+}
+
+/* — base 2 : mire de barres, façon mire de fin d'émission — */
+function dessinerMire(L, H, u, p){
+  const { basses, mediums, aigus, volume, temps } = mesures;
+  const couleurs = ["#c0c0c0","#c0c000","#00c0c0","#00c000","#c000c0","#c00000","#0000c0","#101010"];
+  const n = couleurs.length;
+  for (let i = 0; i < n; i++){
+    const decal = (i % 2 ? 1 : -1) * basses * 14 * u;
+    c2.fillStyle = couleurs[i];
+    c2.fillRect(Math.round(i * L / n + decal), 0, Math.ceil(L / n) + 1, H * 0.62);
+  }
+  // rampe de gris qui réagit aux médiums
+  const nb = 16;
+  for (let i = 0; i < nb; i++){
+    const g = Math.round((i / (nb - 1)) * 255 * (0.55 + 0.45 * mediums));
+    c2.fillStyle = "rgb(" + g + "," + g + "," + g + ")";
+    c2.fillRect(Math.round(i * L / nb), H * 0.62, Math.ceil(L / nb) + 1, H * 0.16);
+  }
+  // bas : noir + carré de blanc qui clignote sur les aigus
+  c2.fillStyle = "#070707";
+  c2.fillRect(0, H * 0.78, L, H * 0.22);
+  c2.fillStyle = "rgba(255,255,255," + (0.25 + 0.75 * aigus).toFixed(3) + ")";
+  c2.fillRect(L * 0.06, H * 0.84, L * 0.1, H * 0.1);
+  // cercle de centrage
+  c2.strokeStyle = "rgba(255,255,255,0.55)";
+  c2.lineWidth = 2 * u;
+  c2.beginPath();
+  c2.arc(L / 2, H * 0.36, Math.min(L, H) * (0.2 + 0.03 * volume), 0, Math.PI * 2);
+  c2.stroke();
+  // barre de balayage
+  const y = ((temps * 0.14) % 1) * H;
+  c2.fillStyle = "rgba(255,255,255,0.07)";
+  c2.fillRect(0, y, L, H * 0.06);
+}
+
+/* — base 3 : le titre en très gros, qui saute sur les frappes — */
+function dessinerTexte(L, H, u, p){
+  const { basses, choc, volume } = mesures;
+  halo(L, H, p, basses);
+  const titre = (etat.nom || "GLITCH").replace(/\.[a-z0-9]+$/i, "").toUpperCase().slice(0, 22);
+  const taille = Math.min(L / Math.max(6, titre.length) * 1.6, H * 0.3);
+  c2.textAlign = "center";
+  c2.textBaseline = "middle";
+  c2.font = "700 " + taille + "px " + "ui-monospace, Menlo, monospace";
+  const saut = choc * 16 * u;
+  // trois copies décalées : rouge / cyan / blanc
+  c2.fillStyle = "rgba(255,40,60,0.9)";
+  c2.fillText(titre, L / 2 - (6 + 22 * basses) * u, H / 2 + saut);
+  c2.fillStyle = "rgba(60,220,255,0.9)";
+  c2.fillText(titre, L / 2 + (6 + 22 * basses) * u, H / 2 - saut);
+  c2.fillStyle = "#ffffff";
+  c2.fillText(titre, L / 2, H / 2);
+  // soulignement = niveau
+  c2.fillStyle = p.a;
+  c2.fillRect(L * 0.5 - L * 0.34 * volume, H / 2 + taille * 0.62, L * 0.68 * volume, 5 * u);
+  c2.textAlign = "start";
+  c2.textBaseline = "alphabetic";
+}
+
+/* — base 4 : l'image déposée, recadrée et qui zoome sur les basses — */
+function dessinerImage(L, H, u, p){
+  const img = etat.imageFond;
+  const zoom = 1.02 + mesures.basses * 0.06 + mesures.choc * 0.03;
+  const r = Math.max(L / img.width, H / img.height) * zoom;
+  const l = img.width * r, h = img.height * r;
+  c2.drawImage(img, (L - l) / 2, (H - h) / 2, l, h);
+  // voile coloré léger pour rester dans la palette
+  c2.globalCompositeOperation = "soft-light";
+  c2.fillStyle = p.a;
+  c2.globalAlpha = 0.25 + 0.2 * mesures.mediums;
+  c2.fillRect(0, 0, L, H);
+  c2.globalAlpha = 1;
+  c2.globalCompositeOperation = "source-over";
+}
+
+/* — incrustation façon magnétoscope — */
+function dessinerOsd(L, H, u, p){
+  const police = (t) => "600 " + (t * u) + "px ui-monospace, Menlo, monospace";
+  c2.shadowColor = "rgba(0,0,0,0.85)";
+  c2.shadowOffsetX = 2 * u; c2.shadowOffsetY = 2 * u;
+  c2.fillStyle = "#f4f4f4";
+
+  const joue = etat.demo || (!lecteur.paused && lecteur.src);
+  c2.font = police(26);
+  c2.fillText(joue ? "▶ PLAY" : "‖ PAUSE", 46 * u, 62 * u);
+
+  c2.font = police(20);
+  c2.textAlign = "end";
+  c2.fillText("SP  ·  HiFi", L - 46 * u, 62 * u);
+  const d = new Date();
+  c2.fillText(String(d.getDate()).padStart(2,"0") + "." + String(d.getMonth()+1).padStart(2,"0")
+              + "." + d.getFullYear() + "  " + String(d.getHours()).padStart(2,"0")
+              + ":" + String(d.getMinutes()).padStart(2,"0"), L - 46 * u, 92 * u);
+  c2.textAlign = "start";
+
+  const t = etat.demo ? mesures.temps % 8 : lecteur.currentTime;
+  const tot = etat.demo ? 8 : lecteur.duration;
+  c2.font = police(22);
+  c2.fillText(fmtTemps(t) + " / " + fmtTemps(tot), 46 * u, H - 48 * u);
+
+  if (etat.nom){
+    c2.font = police(18);
+    c2.textAlign = "end";
+    c2.fillStyle = "rgba(244,244,244,0.75)";
+    c2.fillText(etat.nom.slice(0, 44), L - 46 * u, H - 48 * u);
+    c2.textAlign = "start";
+  }
+
+  // vumètre en escalier
+  c2.shadowOffsetX = 0; c2.shadowOffsetY = 0;
+  const seg = 14, larg = 9 * u, esp = 4 * u;
+  for (let i = 0; i < seg; i++){
+    const allume = mesures.volume * seg > i;
+    c2.fillStyle = allume ? (i > seg - 4 ? "#ff4d4d" : (i > seg - 7 ? p.b : "#f4f4f4")) : "rgba(255,255,255,0.13)";
+    c2.fillRect(46 * u + i * (larg + esp), H - 34 * u, larg, 8 * u);
+  }
+  c2.shadowColor = "transparent";
+}
+
+/* ───────────────────────────── WebGL : les deux passes ───────────────────────────── */
+
+const gl = ecran.getContext("webgl", { alpha:false, antialias:false, depth:false,
+                                       stencil:false, premultipliedAlpha:false,
+                                       powerPreference:"high-performance" })
+        || ecran.getContext("experimental-webgl");
+
+const SOMMETS = `
+attribute vec2 aPos;
+varying vec2 vUv;
+void main(){
+  vUv = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+/* Passe 1 — le glitch : déchirures, tracking, décalage RGB, datamosh, usure. */
+const GLITCH = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 vUv;
+uniform sampler2D uBase;
+uniform sampler2D uPrec;
+uniform vec2  uRes;
+uniform float uTemps, uAlea;
+uniform float uBasses, uMediums, uAigus, uVolume, uChoc;
+uniform float uI, uRgb, uBlocs, uMosh, uBande;
+
+float alea(vec2 p){
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main(){
+  vec2 uv = vUv;
+  float t  = uTemps;
+  float ch = min(uChoc, 1.2);
+
+  /* 1 — bandes horizontales décalées (l'image se déchire par tranches) */
+  float hb    = mix(26.0, 7.0, ch);
+  float idb   = floor(vUv.y * uRes.y / hb);
+  float gr    = alea(vec2(idb, floor(t * 11.0) + uAlea * 13.0));
+  float seuil = 1.0 - (0.035 + 0.40 * ch + 0.16 * uBasses) * uBlocs * uI;
+  float actif = step(seuil, gr);
+  float amp   = alea(vec2(idb * 1.73, floor(t * 11.0) + 4.0)) - 0.5;
+  uv.x += actif * amp * (0.05 + 0.25 * ch) * uBlocs * uI;
+
+  /* 2 — bande de tracking qui remonte lentement l'image */
+  float posT    = fract(-t * 0.13 + uAlea * 0.02);
+  float dT      = fract(vUv.y - posT);
+  float largeur = 0.03 + 0.05 * uBasses;
+  float dans    = smoothstep(largeur, 0.0, dT);
+  float bl      = alea(vec2(floor(vUv.y * 320.0), floor(t * 70.0))) - 0.5;
+  uv.x += dans * bl * (0.03 + 0.06 * uBasses) * uBande * uI;
+  uv.y += dans * 0.006 * uBande * uI;
+
+  /* 3 — décalage des canaux + bavure de chroma vers la droite */
+  float ec = (0.0015 + 0.010 * uBasses + 0.018 * ch) * uRgb * uI;
+  vec3 c;
+  c.r = texture2D(uBase, uv + vec2(ec, 0.0)).r;
+  c.g = texture2D(uBase, uv).g;
+  c.b = texture2D(uBase, uv - vec2(ec, 0.0)).b;
+  vec3 etale = texture2D(uBase, uv + vec2(ec * 3.0, 0.0)).rgb;
+  c.r = max(c.r, etale.r * 0.75 * min(uRgb, 1.0));
+  c.b = max(c.b, etale.b * 0.55 * min(uRgb, 1.0));
+
+  /* 4 — datamosh : des macroblocs gardent l'image précédente et la traînent */
+  vec2  tb   = vec2(18.0, 14.0) / uRes;
+  vec2  bloc = floor(vUv / tb);
+  float grb  = alea(bloc + vec2(floor(t * 4.0) * 0.37, uAlea * 3.0));
+  float pers = uMosh * uI * (0.22 + 0.55 * ch + 0.22 * uBasses);
+  float masq = step(1.0 - clamp(pers, 0.0, 0.90), grb);
+  vec2  dir  = vec2(alea(bloc + 1.7), alea(bloc.yx + 9.1)) - 0.5;
+  vec2  uvp  = clamp(vUv + dir * tb * (0.6 + 3.5 * ch) * uMosh * uI, 0.001, 0.999);
+  vec3  prec = texture2D(uPrec, uvp).rgb;
+  c = mix(c, prec * 0.975, masq * clamp(0.50 + 0.40 * ch, 0.0, 0.92));
+
+  /* 5 — dropouts : rayures claires de bande usée */
+  float lg      = alea(vec2(floor(vUv.y * 240.0), floor(t * 8.0) + uAlea * 5.0));
+  float dropout = step(0.997 - 0.02 * uBande * uI - 0.015 * ch, lg);
+  float lueur   = 0.4 + 0.6 * alea(vec2(vUv.x * 90.0, floor(t * 20.0)));
+  c += dropout * lueur * 0.45 * uBande * uI;
+
+  /* 6 — bruit de bande */
+  float grain = alea(vUv * uRes * 0.31 + fract(t) * 91.0);
+  c += (grain - 0.5) * (0.03 + 0.10 * uBande) * uI;
+
+  /* 7 — perte totale de signal, quand l'usure est poussée à fond */
+  float perte = step(0.9972, alea(vec2(floor(t * 3.0), uAlea * 7.0))) * step(1.35, uBande * uI);
+  c = mix(c, vec3(grain), perte * 0.85);
+
+  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+
+/* Passe 2 — l'écran : courbure, scanlines, masque RGB, halo, vignette, grain. */
+const ECRAN = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 vUv;
+uniform sampler2D uSrc;
+uniform vec2  uRes;
+uniform float uTemps;
+uniform float uScan, uCourbure, uGrain, uI;
+uniform float uBasses, uChoc;
+
+float alea(vec2 p){
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+void main(){
+  /* courbure du tube */
+  vec2 q = vUv * 2.0 - 1.0;
+  q *= 1.0 + uCourbure * 0.055 * dot(q, q);
+  vec2 uv = q * 0.5 + 0.5;
+  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0){
+    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    return;
+  }
+
+  vec3 c = texture2D(uSrc, uv).rgb;
+
+  /* halo bon marché : quatre voisins, pondérés par les basses */
+  vec2 px = 1.0 / uRes;
+  vec3 h = texture2D(uSrc, uv + vec2(px.x * 2.5, 0.0)).rgb
+         + texture2D(uSrc, uv - vec2(px.x * 2.5, 0.0)).rgb
+         + texture2D(uSrc, uv + vec2(0.0, px.y * 2.5)).rgb
+         + texture2D(uSrc, uv - vec2(0.0, px.y * 2.5)).rgb;
+  c += h * 0.045 * (0.6 + uBasses);
+
+  /* scanlines + masque d'ouverture RGB */
+  float sl = 0.5 + 0.5 * sin(uv.y * uRes.y * 3.14159265);
+  c *= mix(1.0, 0.74 + 0.26 * sl, clamp(uScan, 0.0, 1.5));
+  float m = mod(gl_FragCoord.x, 3.0);
+  vec3 tri = 0.84 + 0.34 * vec3(step(m, 1.0), step(1.0, m) * step(m, 2.0), step(2.0, m));
+  c *= mix(vec3(1.0), tri, clamp(uScan, 0.0, 1.0));
+
+  /* vignette */
+  float vig = 1.0 - 0.34 * dot(q, q);
+  c *= mix(1.0, clamp(vig, 0.0, 1.0), 0.85);
+
+  /* grain d'écran + léger désaturé « bande magnétique » */
+  float g = alea(gl_FragCoord.xy + fract(uTemps) * vec2(37.0, 91.0));
+  c += (g - 0.5) * 0.055 * uGrain;
+  c = mix(c, vec3(dot(c, vec3(0.299, 0.587, 0.114))), 0.05);
+
+  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+
+let progGlitch = null, progEcran = null, uG = null, uE = null;
+let texBase = null, baseAllouee = false;
+let cibles = [];        // deux cibles de rendu, utilisées en alternance
+let indexCible = 0;
+
+function compiler(type, source){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, source);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){
+    throw new Error("nuanceur : " + gl.getShaderInfoLog(s));
+  }
+  return s;
+}
+
+function lier(vs, fs){
+  const p = gl.createProgram();
+  gl.attachShader(p, compiler(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, compiler(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)){
+    throw new Error("liaison : " + gl.getProgramInfoLog(p));
+  }
+  return p;
+}
+
+function reperes(prog, noms){
+  const o = {};
+  for (const n of noms) o[n] = gl.getUniformLocation(prog, n);
+  return o;
+}
+
+function texture(largeur, hauteur, source){
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, largeur, hauteur, 0, gl.RGBA, gl.UNSIGNED_BYTE, source || null);
+  return t;
+}
+
+function creerCible(largeur, hauteur){
+  const tex = texture(largeur, hauteur, null);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex, fbo };
+}
+
+function initGL(){
+  if (!gl) return false;
+  progGlitch = lier(SOMMETS, GLITCH);
+  progEcran  = lier(SOMMETS, ECRAN);
+  uG = reperes(progGlitch, ["uBase","uPrec","uRes","uTemps","uAlea","uBasses","uMediums",
+                            "uAigus","uVolume","uChoc","uI","uRgb","uBlocs","uMosh","uBande"]);
+  uE = reperes(progEcran,  ["uSrc","uRes","uTemps","uScan","uCourbure","uGrain","uI","uBasses","uChoc"]);
+
+  const tampon = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, tampon);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  for (const prog of [progGlitch, progEcran]){
+    const a = gl.getAttribLocation(prog, "aPos");
+    gl.enableVertexAttribArray(a);
+    gl.vertexAttribPointer(a, 2, gl.FLOAT, false, 0, 0);
+  }
+  texBase = texture(2, 2, null);
+  gl.disable(gl.DEPTH_TEST);
+  gl.disable(gl.BLEND);
+  return true;
+}
+
+function dimensionner(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.6);
+  let L = Math.round(window.innerWidth  * dpr * etat.qualite);
+  let H = Math.round(window.innerHeight * dpr * etat.qualite);
+  const maxPixels = 2600000;                        // plafond pour rester fluide
+  const f = Math.sqrt(maxPixels / Math.max(1, L * H));
+  if (f < 1){ L = Math.round(L * f); H = Math.round(H * f); }
+  L = Math.max(320, L); H = Math.max(180, H);
+
+  if (ecran.width === L && ecran.height === H) return;
+  ecran.width = L; ecran.height = H;
+  toileBase.width = L; toileBase.height = H;
+  baseAllouee = false;
+  for (const c of cibles){ gl.deleteTexture(c.tex); gl.deleteFramebuffer(c.fbo); }
+  cibles = [creerCible(L, H), creerCible(L, H)];
+}
+
+let photoDemandee = false;
+
+function rendreGL(){
+  const L = ecran.width, H = ecran.height;
+  const e = etat.eff;
+
+  // ——— l'image de base monte dans une texture ———
+  gl.bindTexture(gl.TEXTURE_2D, texBase);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+  if (!baseAllouee){
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, toileBase);
+    baseAllouee = true;
+  } else {
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, toileBase);
+  }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+
+  const courant = cibles[indexCible], precedent = cibles[1 - indexCible];
+
+  // ——— passe 1 : glitch, vers la cible courante ———
+  gl.bindFramebuffer(gl.FRAMEBUFFER, courant.fbo);
+  gl.viewport(0, 0, L, H);
+  gl.useProgram(progGlitch);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texBase);       gl.uniform1i(uG.uBase, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, precedent.tex); gl.uniform1i(uG.uPrec, 1);
+  gl.uniform2f(uG.uRes, L, H);
+  gl.uniform1f(uG.uTemps, mesures.temps);
+  gl.uniform1f(uG.uAlea, Math.random());
+  gl.uniform1f(uG.uBasses, mesures.basses);
+  gl.uniform1f(uG.uMediums, mesures.mediums);
+  gl.uniform1f(uG.uAigus, mesures.aigus);
+  gl.uniform1f(uG.uVolume, mesures.volume);
+  gl.uniform1f(uG.uChoc, mesures.choc);
+  gl.uniform1f(uG.uI, e.intensite);
+  gl.uniform1f(uG.uRgb, e.rgb);
+  gl.uniform1f(uG.uBlocs, e.blocs);
+  gl.uniform1f(uG.uMosh, e.mosh);
+  gl.uniform1f(uG.uBande, e.bande);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  // ——— passe 2 : écran cathodique, vers la page ———
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, L, H);
+  gl.useProgram(progEcran);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, courant.tex); gl.uniform1i(uE.uSrc, 0);
+  gl.uniform2f(uE.uRes, L, H);
+  gl.uniform1f(uE.uTemps, mesures.temps);
+  gl.uniform1f(uE.uScan, e.scan * e.intensite);
+  gl.uniform1f(uE.uCourbure, e.courbure * Math.min(1.4, e.intensite));
+  gl.uniform1f(uE.uGrain, e.grain * e.intensite);
+  gl.uniform1f(uE.uI, e.intensite);
+  gl.uniform1f(uE.uBasses, mesures.basses);
+  gl.uniform1f(uE.uChoc, mesures.choc);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+  indexCible = 1 - indexCible;
+
+  if (photoDemandee){                       // capture tant que le tampon est frais
+    photoDemandee = false;
+    try {
+      const a = document.createElement("a");
+      a.href = ecran.toDataURL("image/png");
+      a.download = "glitch-" + Date.now() + ".png";
+      a.click();
+    } catch(err){ console.warn(err); }
+  }
+}
+
+/* ───────────────────────────── interface ───────────────────────────── */
+
+const CURSEURS = {
+  sIntensite:"intensite", sRgb:"rgb", sBlocs:"blocs", sMosh:"mosh",
+  sBande:"bande", sScan:"scan", sCourbure:"courbure", sGrain:"grain",
+};
+
+function construirePresets(){
+  const hote = $("presets");
+  hote.innerHTML = "";
+  Object.keys(PRESETS).forEach((cle, i) => {
+    const p = PRESETS[cle];
+    const b = document.createElement("button");
+    b.className = "puce" + (cle === etat.preset ? " actif" : "");
+    b.dataset.preset = cle;
+    b.innerHTML = "<strong>" + (i + 1) + ". " + p.nom + "</strong><br><span style='opacity:.6'>"
+                + p.desc + "</span>";
+    b.addEventListener("click", () => appliquerPreset(cle));
+    hote.appendChild(b);
+  });
+}
+
+function appliquerPreset(cle){
+  const p = PRESETS[cle];
+  if (!p) return;
+  etat.preset = cle;
+  for (const [id, champ] of Object.entries(CURSEURS)){
+    const v = p.eff[champ];
+    if (v === undefined) continue;
+    etat.eff[champ] = v;
+    const curseur = $(id);
+    curseur.value = Math.round(Math.min(2, v) * 100);
+    $("v" + id.slice(1)).textContent = curseur.value;
+  }
+  document.querySelectorAll(".puce").forEach((b) =>
+    b.classList.toggle("actif", b.dataset.preset === cle));
+}
+
+for (const [id, champ] of Object.entries(CURSEURS)){
+  $(id).addEventListener("input", (ev) => {
+    etat.eff[champ] = ev.target.value / 100;
+    $("v" + id.slice(1)).textContent = ev.target.value;
+  });
+}
+
+$("sReaction").addEventListener("input", (ev) => {
+  etat.reaction = ev.target.value / 100;
+  $("vReaction").textContent = ev.target.value;
+});
+$("cOsd").addEventListener("change",  (ev) => { etat.osd   = ev.target.checked; });
+$("cFlash").addEventListener("change",(ev) => { etat.flash = ev.target.checked; });
+$("choixBase").addEventListener("change", (ev) => { etat.base = ev.target.value; });
+$("choixQualite").addEventListener("change", (ev) => {
+  etat.qualite = parseFloat(ev.target.value);
+  dimensionner();
+});
+
+function basculerPanneau(force){
+  const ouvert = force !== undefined ? force : panneau.hasAttribute("hidden");
+  if (ouvert) panneau.removeAttribute("hidden"); else panneau.setAttribute("hidden", "");
+  if (ouvert) reveiller();
+}
+$("btnReglages").addEventListener("click", () => basculerPanneau());
+
+/* ——— transport ——— */
+
+function enLecture(){ return etat.demo || (!!lecteur.src && !lecteur.paused); }
+
+function basculerLecture(){
+  if (etat.demo){                       // la démo : on coupe / relance la boucle
+    if (ctxAudio.state === "running") ctxAudio.suspend(); else ctxAudio.resume();
+    majInterface();
+    return;
+  }
+  if (!lecteur.src){ champFichier.click(); return; }
+  if (ctxAudio) ctxAudio.resume();
+  if (lecteur.paused){
+    if (lecteur.ended) lecteur.currentTime = 0;   // le morceau était fini : on le reprend au début
+    lecteur.play().catch(() => {});
+  } else lecteur.pause();
+  majInterface();
+}
+$("btnLecture").addEventListener("click", basculerLecture);
+
+$("volume").addEventListener("input", (ev) => {
+  const v = ev.target.value / 100;
+  if (melange) melange.gain.value = v;
+  lecteur.volume = 1;
+});
+
+const piste = $("piste");
+let glisse = false;
+function chercher(ev){
+  if (!lecteur.duration || !isFinite(lecteur.duration)) return;
+  const r = piste.getBoundingClientRect();
+  const x = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width;
+  lecteur.currentTime = Math.max(0, Math.min(1, x)) * lecteur.duration;
+  majTransport(true);
+}
+piste.addEventListener("pointerdown", (ev) => { glisse = true; piste.setPointerCapture(ev.pointerId); chercher(ev); });
+piste.addEventListener("pointermove", (ev) => { if (glisse) chercher(ev); });
+piste.addEventListener("pointerup",   () => { glisse = false; });
+piste.addEventListener("keydown", (ev) => {
+  if (!lecteur.duration) return;
+  if (ev.key === "ArrowRight") lecteur.currentTime = Math.min(lecteur.duration, lecteur.currentTime + 5);
+  if (ev.key === "ArrowLeft")  lecteur.currentTime = Math.max(0, lecteur.currentTime - 5);
+});
+
+let horlogeUI = 0;
+function majTransport(force){
+  horlogeUI += 1;
+  if (!force && horlogeUI % 6 !== 0) return;
+  const d = lecteur.duration, t = lecteur.currentTime;
+  const pct = (d && isFinite(d)) ? (t / d) * 100 : 0;
+  $("rempli").style.width = pct + "%";
+  $("curseur").style.left = pct + "%";
+  piste.setAttribute("aria-valuenow", Math.round(pct));
+  $("temps").textContent = etat.demo ? "boucle" : (fmtTemps(t) + " / " + fmtTemps(d));
+}
+
+function majInterface(){
+  const pret = etat.demo || !!lecteur.src;
+  accueil.classList.toggle("parti", pret);
+  barre.classList.toggle("cachee", !pret || !etat.interfaceVisible);
+  coin.classList.toggle("cachee", !pret || !etat.interfaceVisible);
+  $("btnLecture").textContent = enLecture() && (!ctxAudio || ctxAudio.state === "running") ? "‖" : "▶";
+  $("nomFichier").textContent = etat.nom || "—";
+}
+
+lecteur.addEventListener("play",  majInterface);
+lecteur.addEventListener("pause", majInterface);
+lecteur.addEventListener("ended", majInterface);
+lecteur.addEventListener("loadedmetadata", () => majTransport(true));
+
+/* ——— chargement des fichiers ——— */
+
+function chargerFichier(f){
+  if (!f) return;
+  if (f.type.startsWith("image/")){
+    const img = new Image();
+    img.onload = () => {
+      etat.imageFond = img;
+      etat.base = "image";
+      $("choixBase").value = "image";
+      basculerPanneau(true);
+    };
+    img.src = URL.createObjectURL(f);
+    return;
+  }
+  arreterDemo();
+  brancherLecteur();
+  if (lecteur.src) URL.revokeObjectURL(lecteur.src);
+  lecteur.src = URL.createObjectURL(f);
+  etat.nom = f.name;
+  ctxAudio.resume();
+  lecteur.play().catch(() => {});
+  majInterface();
+}
+
+champFichier.addEventListener("change", (ev) => chargerFichier(ev.target.files[0]));
+$("btnFichier").addEventListener("click", () => champFichier.click());
+$("btnDemo").addEventListener("click", lancerDemo);
+
+let compteurDepot = 0;
+window.addEventListener("dragenter", (ev) => { ev.preventDefault(); compteurDepot++; depot.classList.add("visible"); });
+window.addEventListener("dragover",  (ev) => { ev.preventDefault(); });
+window.addEventListener("dragleave", (ev) => { ev.preventDefault(); if (--compteurDepot <= 0) depot.classList.remove("visible"); });
+window.addEventListener("drop", (ev) => {
+  ev.preventDefault();
+  compteurDepot = 0;
+  depot.classList.remove("visible");
+  const f = ev.dataTransfer.files && ev.dataTransfer.files[0];
+  chargerFichier(f);
+});
+
+/* ——— plein écran, photo, enregistrement ——— */
+
+$("btnPlein").addEventListener("click", () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(()=>{});
+});
+$("btnPhoto").addEventListener("click", () => { photoDemandee = true; });
+
+let enregistreur = null, morceaux = [];
+function basculerEnregistrement(){
+  const note = $("noteEnr"), bouton = $("btnEnr");
+  if (enregistreur){
+    enregistreur.stop();
+    return;
+  }
+  if (!ecran.captureStream || typeof MediaRecorder === "undefined"){
+    note.textContent = "Ce navigateur ne sait pas enregistrer la toile.";
+    return;
+  }
+  const flux = ecran.captureStream(30);
+  if (ctxAudio){
+    if (!sortieEnr){ sortieEnr = ctxAudio.createMediaStreamDestination(); analyseur.connect(sortieEnr); }
+    const pisteSon = sortieEnr.stream.getAudioTracks()[0];
+    if (pisteSon) flux.addTrack(pisteSon);
+  }
+  const types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  const type = types.find((t) => MediaRecorder.isTypeSupported(t));
+  try { enregistreur = new MediaRecorder(flux, type ? { mimeType:type, videoBitsPerSecond:8000000 } : undefined); }
+  catch(err){ note.textContent = "Enregistrement impossible : " + err.message; return; }
+  morceaux = [];
+  enregistreur.ondataavailable = (ev) => { if (ev.data.size) morceaux.push(ev.data); };
+  enregistreur.onstop = () => {
+    const lien = document.createElement("a");
+    lien.href = URL.createObjectURL(new Blob(morceaux, { type:"video/webm" }));
+    lien.download = "glitch-" + Date.now() + ".webm";
+    lien.click();
+    enregistreur = null;
+    bouton.textContent = "Enregistrer";
+    note.textContent = "Fichier .webm téléchargé.";
+    $("tempoinRec").hidden = true;
+  };
+  enregistreur.start();
+  bouton.textContent = "Arrêter";
+  note.textContent = "Enregistrement en cours…";
+  $("tempoinRec").hidden = false;
+}
+$("btnEnr").addEventListener("click", basculerEnregistrement);
+
+/* ——— raccourcis clavier ——— */
+
+const CLES_PRESETS = Object.keys(PRESETS);
+window.addEventListener("keydown", (ev) => {
+  if (ev.target.matches("input, select, textarea")) return;
+  const k = ev.key.toLowerCase();
+  if (k === " " || ev.code === "Space"){ ev.preventDefault(); basculerLecture(); }
+  else if (k === "r"){ basculerPanneau(); }
+  else if (k === "f"){ $("btnPlein").click(); }
+  else if (k === "h"){ etat.interfaceVisible = !etat.interfaceVisible; majInterface(); }
+  else if (k === "s"){ photoDemandee = true; }
+  else if (k >= "1" && k <= "5"){ appliquerPreset(CLES_PRESETS[parseInt(k, 10) - 1]); }
+});
+
+/* ——— l'interface s'efface quand on ne touche à rien ——— */
+
+let minuteurUI = 0;
+function reveiller(){
+  etat.interfaceVisible = true;
+  majInterface();
+  clearTimeout(minuteurUI);
+  minuteurUI = setTimeout(() => {
+    if (enLecture() && panneau.hasAttribute("hidden")){
+      etat.interfaceVisible = false;
+      majInterface();
+    }
+  }, 2800);
+}
+["pointermove", "pointerdown", "keydown", "wheel"].forEach((e) =>
+  window.addEventListener(e, reveiller, { passive:true }));
+
+/* ───────────────────────────── boucle ───────────────────────────── */
+
+let dernier = performance.now();
+function boucle(maintenant){
+  requestAnimationFrame(boucle);
+  const dt = Math.min(0.05, Math.max(0, (maintenant - dernier) / 1000));
+  dernier = maintenant;
+  mesures.temps += dt;
+  analyser(dt);
+  dessinerBase();
+  rendreGL();
+  majTransport(false);
+}
+
+window.addEventListener("resize", dimensionner);
+ecran.addEventListener("webglcontextlost", (ev) => { ev.preventDefault(); });
+ecran.addEventListener("webglcontextrestored", () => { baseAllouee = false; initGL(); dimensionner(); });
+
+function demarrer(){
+  if (!gl){
+    accueil.innerHTML = "<div class='carte'><p class='surtitre'>glitch · visualisateur</p>"
+      + "<h1>WebGL indisponible</h1><p>Ce navigateur n'expose pas WebGL : le rendu VHS ne peut pas "
+      + "être calculé. Essaie un autre navigateur, ou active l'accélération matérielle.</p></div>";
+    return;
+  }
+  try { initGL(); }
+  catch(err){
+    console.error(err);
+    accueil.innerHTML = "<div class='carte'><p class='surtitre'>glitch · visualisateur</p>"
+      + "<h1>Erreur de nuanceur</h1><p style='font-family:var(--mono);font-size:.74rem'>"
+      + String(err.message).replace(/</g, "&lt;") + "</p></div>";
+    return;
+  }
+  construirePresets();
+  appliquerPreset(etat.preset);
+  dimensionner();
+  majInterface();
+  requestAnimationFrame(boucle);
+}
+
+demarrer();
+</script>
+</body>
+</html>

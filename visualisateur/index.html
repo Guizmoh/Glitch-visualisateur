@@ -167,6 +167,7 @@
   }
   .coin.cachee{ opacity:0; pointer-events:none; }
   .coin .nom{
+    text-decoration:none;
     font-family:var(--mono); font-size:0.7rem; letter-spacing:0.14em; text-transform:uppercase;
     color:var(--texte-2); background:var(--surface); border:1px solid var(--bord);
     border-radius:8px; padding:7px 10px; max-width:46vw; overflow:hidden; text-overflow:ellipsis;
@@ -190,6 +191,7 @@
 
 <div class="coin cachee" id="coin">
   <span class="nom" id="nomFichier">—</span>
+  <a class="nom" href="./particules.html" title="Passer au rendu à particules">↔ rendu poudre</a>
   <span class="nom rec" id="tempoinRec" hidden>● ENREGISTRE</span>
 </div>
 
@@ -272,6 +274,7 @@
     </div>
     <p class="aide">Tu peux aussi déposer une <strong>image</strong> : elle devient le fond à glitcher.<br>
        <kbd>Espace</kbd> lecture · <kbd>R</kbd> réglages · <kbd>F</kbd> plein écran</p>
+    <p class="aide"><a href="./particules.html" style="color:var(--texte-1)">→ l'autre rendu : nuage de particules</a></p>
     <p class="avertissement">Contient des flashs, du scintillement et des contrastes rapides.
        Le curseur « Intensité » dans les réglages calme tout d'un coup.</p>
   </div>

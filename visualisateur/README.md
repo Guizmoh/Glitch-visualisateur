@@ -52,37 +52,53 @@ Une tempête de sable gris qui tourbillonne autour d'un cœur en feu, calculée
 positions et vitesses vivent dans des textures flottantes relues et réécrites à
 chaque image.
 
-**Deux populations.** Le *sable* (92 % des grains) forme le voile extérieur ;
-les *braises* (8 %) forment le cœur. Chacune est dessinée dans sa propre couche :
+**Deux populations.** Le *sable* (92 % des grains) forme la masse ; les
+*braises* (8 %) forment le cœur. Chacune est dessinée dans sa propre couche :
 
-- le sable se dépose « par-dessus », comme de la peinture : là où il est dense,
-  il **cache** le feu ; dans les trouées, on le devine ;
-- les braises sont de grosses taches en lumière additive, floutées par les
-  mipmaps : un gaz incandescent. Les grains de sable tout près du feu en
-  prennent la couleur.
+- les braises d'abord, en lumière additive : un gaz incandescent, découpé en
+  plaques et en langues, avec quelques foyers plus ardents ;
+- puis le sable, déposé « par-dessus » comme de la peinture : là où il est
+  dense il **cache** le feu. Chaque grain lit la lumière des braises à sa
+  position — le rouge qu'on voit, c'est surtout le sable éclairé de
+  l'intérieur. Un grain situé *devant* le feu n'en reçoit la lumière que sur
+  sa face arrière : il reste gris, un voile sur le rouge.
 
-**Le mouvement.** Trois ingrédients :
+**L'éclairage.** Une lumière en contre-jour, d'en haut et de l'arrière, ne
+blanchit que le dessus et les bords ; un léger appoint de face garde le voile
+gris ; de grands bourrelets d'ombre et de lumière, et l'épaisseur du sable
+(les masses épaisses s'assombrissent en leur cœur), donnent le volume d'un
+cumulus.
 
-1. un **tourbillon** : toute la tempête tourne autour d'un axe qui bascule sans
-   cesse, avec un œil plus rapide près de l'axe. C'est une rotation *exacte*
-   (formule de Rodrigues) : ajouter une vitesse tangente à chaque pas ferait
-   dériver les grains vers l'extérieur et aplatirait tout en anneau ;
-2. le **chaos** : le rotationnel d'un bruit (*curl noise*), un écoulement sans
-   source ni puits qui dessine des volutes, des nappes et des fibres. Deux
-   précautions le rendent stable. Il est calculé *dans le repère de la
-   tempête*, qui tourne avec elle — sinon un grain qui tourne ne voit du bruit
-   que sa moyenne sur son tour, un courant le long de l'axe qui entasse le
-   sable aux pôles. Et son **courant moyen est mesuré puis soustrait** à chaque
-   image (une mini-passe de 15 points) — sinon la boule, qui ne couvre que deux
-   ou trois cellules de bruit, serait poussée tout entière d'un côté ;
-3. la **coquille** : le sable est retenu dans un volume épais et creux, entre
-   environ 0,4 et 1 fois le rayon de la tempête.
+**Le mouvement.** Toute la tempête tourne d'un bloc autour d'un axe qui
+bascule sans cesse (une rotation *exacte*, formule de Rodrigues), et un
+**bruit rotationnel borné** la fait bouillonner. Borné, parce qu'un bruit
+rotationnel ordinaire pousse les grains à travers la paroi de la boule, où ils
+s'entassent — l'intérieur se vide. Suivant Bridson (*Curl-Noise for Procedural
+Fluid Flow*, 2007), le potentiel s'éteint en douceur au bord : l'écoulement
+reste sans divergence et *longe* la paroi au lieu de la traverser. Sa moyenne
+sur la boule est alors exactement nulle — la tempête ne peut ni dériver, ni
+s'aplatir, ni se tasser (vérifié en relisant les positions : densité uniforme,
+rondeur 1, centre immobile, sur des dizaines de secondes). Ce champ est
+calculé dans le repère qui tourne avec la tempête, évolue par fondu enchaîné
+entre champs immobiles (un champ qui tourne ou qui glisse finirait par
+entraîner le sable), et il est intégré au point milieu (Runge-Kutta 2) : un
+pas droit « sortirait » des volutes à chaque image.
 
-**La musique.** Un détecteur de grosse caisse (flux spectral limité aux basses)
-déclenche l'**implosion** : le rayon s'effondre d'un coup puis se regonfle, et
-la rotation accélère pendant la contraction — la patineuse qui ramène les bras.
-Les temps forts **embrasent** le cœur, qui gonfle et déborde sur le sable. Les
-aigus réveillent les filaments fins.
+**L'organique.** Un écoulement sans divergence conserve la densité : on
+choisit donc *où* naît le sable. Il naît en **bouffées** — des grains qui
+naissent et meurent ensemble — de préférence dans certaines zones, et le
+bord de la boule est bosselé à deux échelles. L'écoulement étire ces
+bouffées en nappes et en filaments ; des masses denses et des trouées
+apparaissent, bougent et se referment.
+
+**La musique.** Le temps de la tempête suit la musique : lourd et presque
+figé au repos, il s'emballe sur les coups de grosse caisse — c'est ce qui
+donne ces rafales où tout tourbillonne d'un coup (avec un flou de mouvement :
+les grains rapides sont aussi tracés en traits). Sur le même coup, la tempête
+**implose** : elle rétrécit d'un coup puis se regonfle — une mise à l'échelle
+au dessin, qui garde la densité parfaitement uniforme — et le cœur
+**s'embrase**. Un détecteur dédié (flux spectral limité aux basses) repère
+les coups de grosse caisse ; les aigus réveillent les filaments fins.
 
 **Matières** : Tempête (sable gris, cœur rouge — la référence), Cendres (plus
 épais, plus sombre), Poudre (rouille et poussière), Encre (bleu nuit),
@@ -103,11 +119,11 @@ cas.
 
 - **Couleurs et tempérament** : l'objet `MATIERES`, en haut du script
   (couleurs du sable et des braises, à quel point le sable cache le feu).
-- **Physique** : la fonction `main()` du nuanceur `SIM` — chaque force y est
-  commentée — et le morceau commun `CHAOS` pour la turbulence.
+- **Physique** : le nuanceur `SIM` (`ecoulement()`, renaissances en bouffées
+  et en foyers) et le morceau commun `CHAOS` (`chaosBorne()`, le bord bosselé).
 - **Réaction à la musique** : `majDynamique()` et `detecterCoup()`.
-- **Aspect des grains** : `SABLE_S` / `SABLE_F` (le sable), `BRAISES_S` /
-  `BRAISES_F` (le feu). **Étalonnage** : le nuanceur `SORTIE`.
+- **Aspect des grains** : `SABLE_S` / `SABLE_F` (éclairage, voile, trouées),
+  `BRAISES_S` / `BRAISES_F` (plaques et foyers). **Étalonnage** : `SORTIE`.
 
 ---
 

@@ -163,6 +163,8 @@
     <input id="sTourbillon" type="range" min="0" max="250" value="100"><span class="val" id="vTourbillon">100</span></div>
   <div class="ligne"><label for="sChaos">Chaos</label>
     <input id="sChaos" type="range" min="0" max="250" value="100"><span class="val" id="vChaos">100</span></div>
+  <div class="ligne"><label for="sNappes">Nappes</label>
+    <input id="sNappes" type="range" min="0" max="250" value="100"><span class="val" id="vNappes">100</span></div>
   <div class="ligne"><label for="sContraction">Implosion</label>
     <input id="sContraction" type="range" min="0" max="200" value="100"><span class="val" id="vContraction">100</span></div>
   <div class="ligne"><label for="sSouffle">Souffle (frappes)</label>
@@ -278,7 +280,7 @@ const etat = {
   reaction: 1,
   interfaceVisible: true,
   reg: {                         // facteurs réglables (1 = nominal)
-    tourbillon:1, chaos:1, contraction:1, souffle:1, vitesse:1,
+    tourbillon:1, chaos:1, nappes:1, contraction:1, souffle:1, vitesse:1,
     densite:1, taille:1, trainee:1, feu:1, lueur:1, expo:1, grain:1,
   },
 };
@@ -289,7 +291,7 @@ const etat = {
 const MATIERES = {
   tempete: {
     nom:"Tempête", desc:"sable gris, cœur en feu",
-    sable:["#120e0c", "#9d9690"], braises:["#6e1508", "#ff2f0e"],
+    sable:["#0e0b0a", "#8f8983"], braises:["#6e1508", "#ff2f0e"],
     occultation:0.94, diffusion:0.55,
     reg:{ tourbillon:1.00, chaos:1.00, contraction:1.00, souffle:1.00, vitesse:1.00,
           densite:1.00, taille:1.00, trainee:1.00, feu:1.00, lueur:1.00, expo:1.00 },
@@ -649,16 +651,48 @@ vec3 tourner(vec3 p, vec3 k, float a){
    (un champ qui glisse emporterait les grains, un champ qui tourne se
    « redresserait » en courant le long de son axe) ; les octaves fines
    restent immobiles dans le repère de la tempête. */
-/* Le bord bosselé de la tempête (rayon et gradient), en coordonnées de la tempête. */
-vec4 bord(vec3 q, float R){
-  vec4 bosse  = bruitD(q * 1.7 + vec3(5.3, 1.1, 8.2));
+/* Le bord bosselé de la tempête (rayon et gradient), en coordonnées de la
+   tempête. Les grandes bosses changent sans cesse (fondu enchaîné) : la
+   silhouette se déforme, pousse des lobes, les résorbe. */
+vec4 bord(vec3 q, float R, float t){
+  float ph = t * 0.12, kb = floor(ph), wb = fract(ph);
+  wb = wb * wb * (3.0 - 2.0 * wb);
+  const vec3 pasB = vec3(5.31, 9.17, 2.63);
+  vec4 bosse  = mix(bruitD(q * 1.7 + pasB * kb + vec3(5.3, 1.1, 8.2)),
+                    bruitD(q * 1.7 + pasB * (kb + 1.0) + vec3(5.3, 1.1, 8.2)), wb);
   vec4 bosse2 = bruitD(q * 4.1 + vec3(2.9, 6.4, 0.7));
-  return vec4(R * (1.0 + 0.8 * (bosse.x - 0.5) + 0.35 * (bosse2.x - 0.5)),
-              R * (0.8 * 1.7 * bosse.yzw + 0.35 * 4.1 * bosse2.yzw));
+  return vec4(R * (1.0 + 1.15 * (bosse.x - 0.5) + 0.35 * (bosse2.x - 0.5)),
+              R * (1.15 * 1.7 * bosse.yzw + 0.35 * 4.1 * bosse2.yzw));
 }
 
+/* Les nappes. Les grains sont attirés vers la surface où un bruit lent
+   s'annule : cette surface est un labyrinthe de feuillets qui remplit la
+   boule. Le sable s'y concentre en nappes — denses et claires vues par la
+   tranche, voiles fins vues de face — et le vide se creuse entre elles, là où
+   le feu apparaît. En fondu enchaîné, les feuillets ondulent, se replient et
+   se déchirent ; la turbulence en arrache des filaments. (C'est une vitesse
+   −φ∇φ, qui pousse vers φ = 0 depuis les deux côtés.) */
+vec4 champNappe(vec3 q, float t, float f, float decalage){
+  float ph = t * 0.16, kn = floor(ph), wn = fract(ph);
+  wn = wn * wn * (3.0 - 2.0 * wn);
+  const vec3 pasN = vec3(3.77, 11.31, 6.07);
+  vec4 na = bruitD(q * f + pasN * kn + decalage);
+  vec4 nb = bruitD(q * f + pasN * (kn + 1.0) + decalage);
+  float norme = 1.0 / sqrt(wn * wn + (1.0 - wn) * (1.0 - wn));
+  return vec4((mix(na.x, nb.x, wn) - 0.5) * norme, mix(na.yzw, nb.yzw, wn) * norme * f);
+}
+
+vec3 nappe(vec3 q, float t, float f, float decalage){
+  vec4 c = champNappe(q, t, f, decalage);
+  // seuls les grains déjà proches d'une nappe y sont ramenés : sinon une petite
+  // bulle de la surface aspirerait les grains de tout un volume autour d'elle
+  return -c.x * c.yzw * exp(-c.x * c.x / 0.04);
+}
+
+const float FREQ_NAPPES = 0.95;      // de grands feuillets, peu nombreux, lisibles
+
 vec3 chaosBorne(vec3 q, float ech, float t, float fin, float R, float L, out float dedans){
-  vec4  b  = bord(q, R);
+  vec4  b  = bord(q, R, t);
   float d  = max(length(q), 1e-4);
   float Rb = b.x;
   vec3  gradRb = b.yzw;
@@ -668,9 +702,9 @@ vec3 chaosBorne(vec3 q, float ech, float t, float fin, float R, float L, out flo
   dedans = s;
 
   vec3 psi, rot, u = vec3(0.0);
-  float phase = t * 0.09, k = floor(phase), w = fract(phase);
+  float phase = t * 0.14, k = floor(phase), w = fract(phase);
   w = w * w * (3.0 - 2.0 * w);
-  float norme = 1.9 / sqrt(w * w + (1.0 - w) * (1.0 - w));   // deux champs mêlés perdent de l'amplitude
+  float norme = 2.1 / sqrt(w * w + (1.0 - w) * (1.0 - w));   // deux champs mêlés perdent de l'amplitude
   const vec3 pas = vec3(17.13, 7.71, 3.37);
   potentiel(q * ech + pas * k, psi, rot);
   u += (1.0 - w) * norme * (alpha * rot + cross(gradAlpha, psi) / ech);
@@ -697,7 +731,7 @@ uniform int   uCote, uNbBraises;
 uniform float uDt, uTemps, uAlea;
 uniform float uAigus, uVolume, uChoc;
 uniform float uContraction, uFlamme;
-uniform float uChaos, uImplosion, uSouffle, uVitesse, uOmega;
+uniform float uChaos, uImplosion, uSouffle, uVitesse, uOmega, uNappes;
 uniform vec3  uAxe;
 uniform mat3  uRepere;   // rotation cumulée de la tempête depuis le début
 uniform uint uTirage;       // change à chaque pas : le hasard des renaissances
@@ -733,7 +767,11 @@ vec3 ecoulement(vec3 p, bool braise, float Rc, float t, out float dedans){
   float R = braise ? Rc * 0.8 : 1.0;
   float d = max(0.001, length(p));
   vec3  q = transpose(uRepere) * p;                  // p, vu depuis la tempête
-  vec3  U = uRepere * chaosBorne(q, braise ? 2.3 : 1.2, t, 0.35 + 1.1 * uAigus, R, R * 0.35, dedans) * uChaos;
+  vec3  Uq = chaosBorne(q, braise ? 2.3 : 1.2, t, 0.35 + 1.1 * uAigus, R, R * 0.35, dedans) * uChaos;
+  // les nappes (et, pour le feu, des langues), éteintes près du bord comme le chaos
+  float alpha = dedans * dedans * (3.0 - 2.0 * dedans);
+  Uq += nappe(q, t, braise ? 1.2 : FREQ_NAPPES, braise ? 11.0 : 41.0) * (braise ? 0.7 : 1.0) * uNappes * alpha;
+  vec3  U = uRepere * Uq;
   U += -(p / d) * max(0.0, d - R * 1.3) * 3.0;
   return braise ? U * 0.8 : U;
 }
@@ -789,6 +827,7 @@ void main(){
   // hors du bord, l'écoulement est nul : un grain qui s'y trouve y resterait
   // figé. Il vieillit donc vite, s'efface, et renaît à l'intérieur.
   if (!braise && dedans < 0.02) vie -= dt * 0.8;
+  else if (!braise && dedans < 0.25) vie -= dt * 0.35;
 
   float dn = length(p);
   if (vie <= 0.0 || dn > 4.5){
@@ -812,9 +851,8 @@ void main(){
       for (int essai = 0; essai < 8; essai++){
         vec3 hb = hasard3(uvec3(uint(brin), uTirage, 2u + uint(essai) * 7u));
         centre = dansLaBoule(hb) * 1.05;
-        Rb = bord(transpose(uRepere) * centre, 1.0).x;
-        if (length(centre) < Rb * 0.78
-            && hasard3(uvec3(uint(brin), uTirage, 40u + uint(essai))).x < presence(centre, t)) break;
+        Rb = bord(transpose(uRepere) * centre, 1.0, t).x;
+        if (length(centre) < Rb * 0.78) break;
       }
       // si aucun essai n'a convenu, on ramène le dernier à l'intérieur du bord
       centre *= min(1.0, Rb * 0.7 / max(length(centre), 1e-4));
@@ -829,6 +867,13 @@ void main(){
       float diffus = hd.z;
       p = centre + sens * le * (0.08 + 0.25 * hasard3(uvec3(uint(brin), uTirage, 8u)).x)
         + bruitage * mix(0.05, 0.3, diffus);
+      // le grain naît directement SUR une nappe (deux pas de Newton vers la
+      // surface φ = 0) : les feuillets sont denses, le vide entre eux reste vide
+      for (int k = 0; k < 2; k++){
+        vec4 cn = champNappe(transpose(uRepere) * p, t, FREQ_NAPPES, 41.0);
+        vec3 g  = uRepere * cn.yzw;
+        p -= cn.x * g / max(dot(g, g), 0.05);
+      }
       // la teinture : un ton propre au brin, qui fera des fibres plus ou moins claires
       graine = hasard3(uvec3(uint(brin), uTirage, 4u)).x;
     }
@@ -840,8 +885,11 @@ void main(){
   sortieVel = vec4(v, graine);
 }`;
 
-/* — Le sable : des grains fins, plus ou moins opaques. Ils se superposent
-     comme de la peinture (« par-dessus »), donc ils CACHENT ce qui est derrière. — */
+/* — Le sable, rendu comme un milieu continu. Chaque grain dépose une petite
+     tache douce dans une carte de densité (demi-résolution) : r = densité,
+     g = lumière reçue, b = feu reçu, a = teinte (chaque canal pondéré par la
+     densité, pour en faire la moyenne à la composition). Une fraction des
+     grains est aussi tracée nette, en pleine résolution : les étincelles. — */
 const SABLE_S = `#version 300 es
 precision highp float;
 uniform sampler2D uPos;
@@ -850,15 +898,15 @@ uniform sampler2D uFeuTex;      // la couche des braises de cette image, avec se
 uniform mat4  uVueProjection;
 uniform mat3  uRepere;
 uniform int   uCote, uDebut;
-uniform float uTaille, uEchelle, uDistCentre, uOpacite, uRayonBraises, uRayon, uFeuForce;
+uniform float uTaille, uEchelle, uDistCentre, uPoids, uRayonBraises, uRayon, uFeuForce;
 uniform float uEchelleTempete;   // taille de la tempête (implosion, respiration, souffle)
 uniform float uTempsTempete;
 uniform vec3  uVueDirection;     // direction du regard de la caméra
-uniform vec3  uOmbre, uClair, uDirLumiere;
-uniform int   uMode;          // 0 : un point par grain ; 1 : un trait par grain (flou de mouvement)
-uniform float uFlou;          // durée couverte par un trait, en temps de tempête
+uniform vec3  uDirLumiere;
+uniform int   uMode;             // 0 : tache de densité ; 1 : trait (flou de mouvement) ; 2 : étincelle
+uniform float uFlou;             // durée couverte par un trait, en temps de tempête
 uniform vec2  uTailleEcran;
-out vec4 vCouleur;
+out vec4 vDonnees;
 ${CHAOS}
 
 void main(){
@@ -868,84 +916,80 @@ void main(){
   ivec2 c = ivec2(i % uCote, i / uCote);
   vec4 P = texelFetch(uPos, c, 0);
   vec4 V = texelFetch(uVel, c, 0);
-  // masses et trouées : un champ lent, attaché à la tempête, décide où le sable
-  // est épais et où il s'ouvre sur le feu
-  float masse = smoothstep(0.42, 0.64, bruitD(transpose(uRepere) * P.xyz * 1.6
-                                              + vec3(uTempsTempete * 0.05, 1.7, 4.2)).x);
+  vec3 q = transpose(uRepere) * P.xyz;               // dans l'espace normalisé, vu depuis la tempête
+  // masses et trouées : un champ lent, attaché à la tempête
+  float masse = smoothstep(0.42, 0.64, bruitD(q * 1.6 + vec3(uTempsTempete * 0.05, 1.7, 4.2)).x);
   P.xyz *= uEchelleTempete;                            // de l'espace normalisé au monde
   V.xyz *= uEchelleTempete;
 
   vec4 clip = uVueProjection * vec4(P.xyz, 1.0);
-  // en mode trait, la queue est là où le grain se trouvait un instant plus tôt ;
-  // le trait s'efface de la tête vers la queue, et n'apparaît que s'il est long
-  float trait = 1.0;
+  float trait = 1.0, longueur = 1.0;
   if (uMode == 1){
     vec4 clipAvant = uVueProjection * vec4(P.xyz - V.xyz * uFlou, 1.0);
     vec2 e = (clip.xy / clip.w - clipAvant.xy / clipAvant.w) * uTailleEcran * 0.5;
-    trait = clamp((length(e) - 1.5) / 5.0, 0.0, 1.0) * (bout == 0 ? 0.35 : 0.0);
+    longueur = length(e);
+    trait = clamp((longueur - 2.5) / 8.0, 0.0, 1.0) * (bout == 0 ? 1.0 : 0.0);
     if (bout == 1) clip = clipAvant;
   }
   gl_Position = clip;
+  float prof  = max(0.2, clip.w);
+  float tache = clamp(uTaille * uEchelle * (uDistCentre / prof), 1.5, 14.0);
+  gl_PointSize = uMode == 0 ? tache : 1.0;
 
-  float prof   = max(0.2, clip.w);
-  float taille = uTaille * uEchelle * (uDistCentre / prof);
-  float rendu  = max(taille, 1.0);
-  gl_PointSize = rendu;
-
-  // ——— lumière principale, façon nuage : la normale de la boule est bosselée
-  // par le gradient d'un bruit qui tourne avec la tempête (des bourrelets
-  // clairs, des creux sombres), et le côté opposé à la lumière reste dans
-  // l'ombre de la masse
+  // ——— la lumière reçue : chaque grain est éclairé comme un morceau de son
+  // feuillet (la normale est le gradient du champ des nappes), le côté opposé
+  // à la lumière reste dans l'ombre de la masse, et de grands bourrelets
+  // modulent le tout
   float d  = length(P.xyz);
   vec3  n  = P.xyz / max(d, 0.001);
-  vec4  b  = bruitD(transpose(uRepere) * P.xyz * 2.4 + vec3(3.1, 7.7, 1.3));
-  vec3  nb = normalize(n - (uRepere * b.yzw) * 0.8);
-  float face = max(0.0, dot(nb, uDirLumiere));
-  float cote = smoothstep(-0.7, 0.9, dot(P.xyz, uDirLumiere) / uRayon);
-  float appoint = 0.22 * max(0.0, dot(nb, normalize(-uVueDirection)));
-  // de grands bourrelets, plus clairs ou plus sombres, comme un cumulus
-  float nuage = bruitD(transpose(uRepere) * P.xyz * 1.1 + vec3(9.3, 2.1, 5.5)).x;
-  vec3 col = mix(uOmbre, uClair, clamp((0.14 + appoint + 0.8 * face * cote * (0.45 + 1.1 * b.x))
-                                       * mix(0.4, 1.3, nuage), 0.0, 1.0));
+  vec4  b  = bruitD(q * 2.4 + vec3(3.1, 7.7, 1.3));
+  vec4  cn = champNappe(q, uTempsTempete, FREQ_NAPPES, 41.0);
+  vec3  nb = normalize(uRepere * cn.yzw + n * 0.25);
+  float face    = abs(dot(nb, uDirLumiere));
+  float cote    = smoothstep(-0.7, 0.9, dot(P.xyz, uDirLumiere) / uRayon);
+  float appoint = 0.16 * abs(dot(nb, normalize(-uVueDirection)));
+  float nuage   = bruitD(q * 1.1 + vec3(9.3, 2.1, 5.5)).x;
+  float lumiere = clamp((0.08 + appoint + 0.85 * face * cote * (0.45 + 1.1 * b.x)) * mix(0.4, 1.3, nuage), 0.0, 1.0);
 
-  // la teinture, étirée par l'écoulement, module le ton et l'épaisseur du
-  // sable (d'où l'aspect marbré) ; chaque grain garde en plus son propre éclat,
-  // et quelques-uns scintillent
-  float teinte = V.w;
-  float h = hasard3(uvec3(uint(i), 3u, 11u)).x;
-  float eclat = 0.75 + 0.5 * h + step(0.965, fract(h * 13.7)) * 0.9;
-  col *= eclat * mix(0.55, 1.25, teinte);
-
-  // ——— la lumière du feu : chaque grain lit la couche des braises, floutée,
-  // là où il se trouve à l'écran. Ce n'est pas le feu qu'on voit à travers le
-  // sable : c'est le sable lui-même, éclairé de l'intérieur.
-  vec2 uv  = clip.xy / clip.w * 0.5 + 0.5;
-  vec3 feu = textureLod(uFeuTex, uv, 1.5).rgb * 0.6 + textureLod(uFeuTex, uv, 3.5).rgb * 0.4;
+  // ——— la lumière du feu : lue dans la couche des braises, là où se trouve le
+  // grain ; un grain situé DEVANT le feu ne la reçoit que sur sa face arrière,
+  // qu'on ne voit pas : il reste gris, un voile sur le rouge
+  vec2 uv = clip.xy / clip.w * 0.5 + 0.5;
+  vec3 feuTex = textureLod(uFeuTex, uv, 1.5).rgb * 0.6 + textureLod(uFeuTex, uv, 3.5).rgb * 0.4;
   float proche = exp(-pow(d / (uRayonBraises * 3.0), 2.0));
-  // un grain situé DEVANT le feu n'en reçoit la lumière que sur sa face
-  // arrière, qu'on ne voit pas : il reste gris, un voile sur le rouge
   float devant = smoothstep(0.0, 0.45 * uRayon, uDistCentre - clip.w);
-  col += feu * uFeuForce * (0.35 + 0.65 * proche) * mix(1.0, 0.18, devant) * eclat;
+  float feu = dot(feuTex, vec3(0.35, 0.5, 0.15)) * uFeuForce * (0.35 + 0.65 * proche) * mix(1.0, 0.18, devant);
 
-  // opacité : apparition et disparition en douceur, grains situés derrière le
-  // centre un peu plus discrets, couverture conservée sous le pixel
-  float a = uOpacite * smoothstep(0.0, 0.12, P.w) * smoothstep(1.0, 0.9, P.w)
-          * mix(0.45, 1.0, smoothstep(0.2, 0.8, teinte)) * mix(0.06, 1.0, masse);
-  a *= mix(1.0, 0.65, smoothstep(0.0, 0.9, clip.w - uDistCentre));
-  a *= uMode == 1 ? trait : (taille * taille) / (rendu * rendu);
-  vCouleur = vec4(col * a, a);                        // couleur prémultipliée
+  float teinte = V.w;
+  float w = smoothstep(0.0, 0.12, P.w) * smoothstep(1.0, 0.9, P.w)
+          * mix(0.45, 1.0, smoothstep(0.2, 0.8, teinte)) * mix(0.55, 1.0, masse)
+          * mix(1.0, 0.65, smoothstep(0.0, 0.9, clip.w - uDistCentre));
+
+  if (uMode == 2){
+    // une étincelle : un grain net, plus ou moins brillant
+    float h = hasard3(uvec3(uint(i), 3u, 11u)).x;
+    float eclat = 0.5 + 0.5 * h + step(0.95, fract(h * 13.7)) * 1.5;
+    vDonnees = vec4(lumiere, feu, 0.0, 0.0) * eclat * w;
+    return;
+  }
+  // une tache de densité (sa masse totale ne dépend pas de sa taille à l'écran),
+  // ou un trait dont la masse s'étale sur sa longueur
+  w *= uPoids * (uMode == 1 ? trait / max(2.0, longueur) : 1.0 / (0.358 * tache * tache));
+  vDonnees = vec4(w, w * lumiere, w * feu, w * teinte);
 }`;
 
 const SABLE_F = `#version 300 es
 precision highp float;
 uniform highp int uMode;      // même précision que dans le nuanceur de sommets, sinon la liaison échoue
-in vec4 vCouleur;
+in vec4 vDonnees;
 out vec4 sortie;
 void main(){
-  // un point : un petit disque aux bords doux ; un trait : tel quel
-  float m = uMode == 1 ? 1.0 : 1.0 - smoothstep(0.3, 0.5, length(gl_PointCoord - 0.5));
-  if (m <= 0.0) discard;
-  sortie = vCouleur * m;
+  if (uMode == 0){
+    vec2 q = gl_PointCoord - 0.5;
+    sortie = vDonnees * exp(-8.0 * dot(q, q));       // une tache douce
+  } else {
+    sortie = vDonnees;                              // un trait, ou une étincelle
+  }
 }`;
 
 /* — Les braises : de grosses taches douces, en lumière additive. Mille taches
@@ -978,7 +1022,7 @@ void main(){
   float a = smoothstep(0.0, 0.2, P.w) * smoothstep(1.0, 0.85, P.w);
   // le feu se découpe en plaques et en langues (un champ lent, attaché à la
   // tempête) ; quand il s'embrase, les plaques se rejoignent
-  float plaque = smoothstep(0.38, 0.66 - 0.2 * uFlamme,
+  float plaque = smoothstep(0.45, 0.63 - 0.2 * uFlamme,
                             bruitD(transpose(uRepere) * P.xyz * 2.6 + vec3(2.2, uTempsTempete * 0.11, 6.1)).x);
   // chaque foyer a sa propre ardeur : quelques points chauds percent le voile
   float ardeur = hasard3(uvec3(uint(i / 64), 9u, 13u)).x;
@@ -1008,14 +1052,20 @@ void main(){
   sortie = texture(uSrc, vUv) * uFacteur;
 }`;
 
-/* — Composition finale : le feu se devine entre les grains, le sable rougit
-     là où le feu l'éclaire par derrière, puis lueur, exposition, vignette, grain. — */
+/* — Composition finale. Le sable est rendu comme un milieu continu : son
+     opacité monte avec l'épaisseur (loi de Beer-Lambert) ; sa densité, un peu
+     floutée, est vue comme un relief éclairé (des bourrelets clairs, des creux
+     sombres) ; le cœur des grandes masses reste dans l'ombre ; le feu
+     transparaît là où le sable est mince, et colore le sable qu'il éclaire.
+     Par-dessus, les étincelles ; puis lueur, exposition, vignette, grain. — */
 const SORTIE = `#version 300 es
 precision highp float;
 in vec2 vUv;
 uniform sampler2D uBraises;
-uniform sampler2D uSable;
-uniform float uTemps, uLueur, uExpo, uGrain, uFeu, uFlamme, uOccultation;
+uniform sampler2D uSable;       // densité (r), lumière (g), feu reçu (b), teinte (a)
+uniform sampler2D uEtincelles;
+uniform float uTemps, uLueur, uExpo, uGrain, uFeu, uFlamme, uOccultation, uAbsorption, uRelief;
+uniform vec3  uOmbre, uClair, uFeuCouleur;
 out vec4 sortie;
 
 float alea(vec2 p){
@@ -1032,24 +1082,43 @@ vec3 flou(float niveau){
                + textureLod(uBraises, vUv + vec2(-pas.x, -pas.y), niveau).rgb);
 }
 
+float densite(float niveau, vec2 decalage){
+  return textureLod(uSable, vUv + decalage, niveau).r;
+}
+
 void main(){
   vec3 feu     = texture(uBraises, vUv).rgb;
-  vec3 feuFlou = flou(1.5);
+  vec3 feuFlou = flou(1.0);
   vec3 halo    = flou(3.5) * 0.6 + flou(5.5) * 0.4;
-  vec4 sable   = texture(uSable, vUv);
-  float couvre = clamp(sable.a, 0.0, 1.0);
-  // ombre de volume : là où le sable est épais sur une large zone, le cœur de
-  // la masse est dans l'ombre ; ses bords et ses filaments restent clairs
-  float epaisseur = textureLod(uSable, vUv, 4.0).a;
-  sable.rgb *= mix(1.2, 0.6, smoothstep(0.25, 0.9, epaisseur));
 
-  // le feu ne se voit directement que par les vraies trouées du sable…
-  float trou = pow(1.0 - couvre, 1.0 + 2.0 * uOccultation);
-  vec3 c = (feu * 0.38 + feuFlou * 0.52) * uFeu * trou;
-  // … le reste du rouge, c'est le sable éclairé par le feu
-  c += sable.rgb;
-  // et la grande lueur, surtout quand le cœur s'embrase
-  c += halo * uFeu * uLueur * (0.06 + 1.1 * uFlamme);
+  // ——— le sable
+  vec4  s = texture(uSable, vUv);
+  float D = s.r / (1.0 + s.r / 5.0);                 // les amas extrêmes ne crèvent pas l'image
+  float opacite = 1.0 - exp(-uAbsorption * D);
+  float lum     = s.g / max(D, 1e-5);
+  float feuRecu = s.b / max(D, 1e-5);
+  float teinte  = s.a / max(D, 1e-5);
+  // relief : la densité un peu floutée, éclairée d'en haut à gauche
+  vec2  e  = 2.5 / vec2(textureSize(uSable, 0));
+  float hG = densite(1.5, vec2(-e.x, 0.0)), hD = densite(1.5, vec2(e.x, 0.0));
+  float hB = densite(1.5, vec2(0.0, -e.y)), hH = densite(1.5, vec2(0.0, e.y));
+  vec3  nr = normalize(vec3((hG - hD) * uRelief, (hB - hH) * uRelief, 1.0));
+  float relief = clamp(0.55 + 0.75 * dot(nr, normalize(vec3(-0.45, 0.65, 0.6))), 0.2, 1.4);
+  // ombre de volume : le cœur des grandes masses reste sombre
+  float ombre = exp(-0.5 * uAbsorption * densite(3.5, vec2(0.0)));
+  vec3 sable = mix(uOmbre, uClair, clamp(0.03 + 1.45 * lum * relief * mix(0.6, 1.2, teinte) * mix(0.2, 1.0, ombre), 0.0, 1.0))
+             + uFeuCouleur * feuRecu * 1.3;
+
+  // ——— le feu transparaît là où le sable est mince
+  float transparence = pow(1.0 - opacite, 1.0 + uOccultation);
+  vec3 c = sable * opacite + (feu * 1.25 + feuFlou * 0.5) * uFeu * transparence;
+
+  // ——— les étincelles : quelques grains restent nets et scintillent
+  vec4 et = texture(uEtincelles, vUv);
+  c += (uClair * min(et.r, 1.5) + uFeuCouleur * min(et.g, 1.5)) * 0.2;
+
+  // ——— la grande lueur, surtout quand le cœur s'embrase
+  c += halo * uFeu * uLueur * (0.03 + 1.0 * uFlamme);
 
   c *= uExpo;
   c = vec3(1.0) - exp(-c);                     // compression douce des hautes lumières
@@ -1067,6 +1136,7 @@ let progSim = null, progSable = null, progBraises = null, progFondu = null, prog
 let uSim = null, uSable = null, uBraisesU = null, uFondu = null, uSortie = null;
 let sim = [], iSim = 0;                  // deux états ping-pong (position + vitesse)
 let accSable = [], accBraises = [];      // deux couches, chacune en ping-pong
+let etincelles = null;                   // les grains nets, redessinés à chaque image
 let iAcc = 0;
 let nbBraises = 0;
 let vao = null;
@@ -1205,11 +1275,15 @@ function calculerCadre(){
   if (f < 1){ l = Math.round(l * f); h = Math.round(h * f); }
   cadre = { x: Math.round((L - l) / 2), y: Math.round((H - h) / 2), l, h };
 
-  for (const c of [...accSable, ...accBraises]){ gl.deleteTexture(c.tex); gl.deleteFramebuffer(c.fbo); }
-  accSable   = [creerCouche(l, h, true), creerCouche(l, h, true)];
+  for (const c of [...accSable, ...accBraises, ...(etincelles ? [etincelles] : [])]){
+    gl.deleteTexture(c.tex); gl.deleteFramebuffer(c.fbo);
+  }
+  etincelles = creerCouche(l, h, false);
   // le feu est flou de toute façon : demi-résolution, quatre fois moins de pixels
   const lb = Math.max(2, Math.round(l / 2)), hb = Math.max(2, Math.round(h / 2));
   accBraises = [creerCouche(lb, hb, true), creerCouche(lb, hb, true)];
+  // la densité du sable est lissée de toute façon : demi-résolution aussi
+  accSable   = [creerCouche(lb, hb, true), creerCouche(lb, hb, true)];
   iAcc = 0;
 }
 
@@ -1225,15 +1299,17 @@ function initGL(){
 
   uSim = reperes(progSim, ["uPos","uVel","uCote","uNbBraises","uDt","uTemps","uAlea","uAigus",
                            "uVolume","uChoc","uContraction","uFlamme","uChaos",
-                           "uImplosion","uSouffle","uVitesse","uAxe","uOmega","uRepere","uTirage"]);
+                           "uImplosion","uSouffle","uVitesse","uAxe","uOmega","uRepere","uTirage","uNappes"]);
   uSable = reperes(progSable, ["uPos","uVel","uFeuTex","uVueProjection","uRepere","uCote","uDebut",
-                               "uTaille","uEchelle","uDistCentre","uOpacite","uRayonBraises","uRayon",
-                               "uFeuForce","uOmbre","uClair","uDirLumiere","uMode","uFlou","uTailleEcran","uEchelleTempete","uTempsTempete","uVueDirection"]);
+                               "uTaille","uEchelle","uDistCentre","uPoids","uRayonBraises","uRayon",
+                               "uFeuForce","uDirLumiere","uMode","uFlou","uTailleEcran","uEchelleTempete",
+                               "uTempsTempete","uVueDirection"]);
   uBraisesU = reperes(progBraises, ["uPos","uVel","uVueProjection","uRepere","uCote","uTaille","uEchelle",
                                     "uDistCentre","uEnergie","uFlamme","uBas","uHaut","uTempsTempete"]);
   uFondu  = reperes(progFondu,  ["uSrc","uFacteur"]);
-  uSortie = reperes(progSortie, ["uBraises","uSable","uTemps","uLueur","uExpo","uGrain","uFeu",
-                                 "uFlamme","uOccultation"]);
+  uSortie = reperes(progSortie, ["uBraises","uSable","uEtincelles","uTemps","uLueur","uExpo","uGrain",
+                                 "uFeu","uFlamme","uOccultation","uAbsorption","uRelief","uOmbre",
+                                 "uClair","uFeuCouleur"]);
 
   vao = gl.createVertexArray();
   gl.bindVertexArray(vao);
@@ -1289,7 +1365,7 @@ function majDynamique(dt){
 
   // le temps de la tempête : lourd et presque figé au repos, emballé sur les
   // coups — c'est ce qui donne ces rafales où tout tourbillonne d'un coup
-  const cibleV = 0.22 + 3.0 * dyn.coup * dyn.coup + 1.0 * exces;
+  const cibleV = 0.45 + 2.6 * dyn.coup * dyn.coup + 0.8 * exces;
   const kV = cibleV > dyn.vitesse ? 30 : 6.0;
   dyn.vitesse += (cibleV - dyn.vitesse) * (1 - Math.exp(-kV * dt));
 
@@ -1350,7 +1426,7 @@ function pasDeSimulation(h){
   // ——— 1. simulation ———
   // vitesse angulaire d'ensemble : plus forte quand ça joue fort, et encore plus
   // quand la tempête se contracte (la patineuse qui ramène les bras)
-  dyn.omega = 1.0 * r.tourbillon * (1 + 0.6 * mesures.volume + 1.2 * dyn.contraction);
+  dyn.omega = 0.45 * r.tourbillon * (1 + 0.6 * mesures.volume + 1.2 * dyn.contraction);
   tournerRepere(dyn.axe, dyn.omega * h);
 
   const source = sim[iSim], cible = sim[1 - iSim];
@@ -1374,6 +1450,7 @@ function pasDeSimulation(h){
   gl.uniform1f(uSim.uOmega, dyn.omega);
   gl.uniformMatrix3fv(uSim.uRepere, false, dyn.repere);
   gl.uniform1f(uSim.uChaos, r.chaos);
+  gl.uniform1f(uSim.uNappes, 6.0 * r.nappes);
   gl.uniform1f(uSim.uImplosion, r.contraction);
   gl.uniform1f(uSim.uSouffle, r.souffle);
   gl.uniform1f(uSim.uVitesse, 1);                    // la vitesse est déjà dans h
@@ -1440,7 +1517,7 @@ function dessiner(dt){
   gl.uniform1f(uBraisesU.uTaille, 1);
   gl.uniform1f(uBraisesU.uEchelle, rayonBoulePx * 0.0036 * (feuApres.h / cadre.h));
   gl.uniform1f(uBraisesU.uDistCentre, dist);
-  gl.uniform1f(uBraisesU.uEnergie, 0.0065 * compensation);
+  gl.uniform1f(uBraisesU.uEnergie, 0.009 * compensation);
   gl.uniform1f(uBraisesU.uFlamme, dyn.flamme);
   gl.uniformMatrix3fv(uBraisesU.uRepere, false, dyn.repere);
   gl.uniform1f(uBraisesU.uTempsTempete, dyn.tempsSim);
@@ -1451,9 +1528,9 @@ function dessiner(dt){
   gl.bindTexture(gl.TEXTURE_2D, feuApres.tex);
   gl.generateMipmap(gl.TEXTURE_2D);                 // lueur et lumière du sable se lisent dans les mipmaps
 
-  // ——— 3. le sable : l'image d'avant s'efface un peu (les fibres), puis les
-  //        grains par-dessus, éclairés en relief et par le feu ———
-  const k60Sable = Math.max(0, Math.min(0.965, 1 - 0.38 / Math.max(0.1, r.trainee)));
+  // ——— 3. le sable : chaque grain dépose une tache douce dans la carte de
+  //        densité ; l'image d'avant s'efface un peu (les traînées) ———
+  const k60Sable = Math.max(0, Math.min(0.965, 1 - 0.55 / Math.max(0.1, r.trainee)));
   gl.bindFramebuffer(gl.FRAMEBUFFER, sableApres.fbo);
   gl.viewport(0, 0, sableApres.l, sableApres.h);
   gl.useProgram(progFondu);
@@ -1461,8 +1538,11 @@ function dessiner(dt){
   gl.uniform1f(uFondu.uFacteur, Math.pow(k60Sable, dt * 60));
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
+  // rayon de la boule en pixels de la carte de densité : la taille des taches
+  // et leur masse en dépendent, pour que l'image ne change pas avec la fenêtre
+  const rayonCartePx = rayonBoulePx * (sableApres.h / cadre.h);
   gl.enable(gl.BLEND);
-  gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.blendFunc(gl.ONE, gl.ONE);                     // une densité : on additionne
   gl.useProgram(progSable);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, etatCourant.pos); gl.uniform1i(uSable.uPos, 0);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, etatCourant.vel); gl.uniform1i(uSable.uVel, 1);
@@ -1472,32 +1552,39 @@ function dessiner(dt){
   gl.uniform1i(uSable.uCote, cote);
   gl.uniform1i(uSable.uDebut, nbBraises);
   gl.uniform1f(uSable.uTaille, r.taille);
-  gl.uniform1f(uSable.uEchelle, rayonBoulePx * 0.0048);
+  gl.uniform1f(uSable.uEchelle, rayonCartePx * 0.02);
   gl.uniform1f(uSable.uDistCentre, dist);
-  gl.uniform1f(uSable.uOpacite, Math.min(1, 0.8 * r.densite * compensation));
+  gl.uniform1f(uSable.uPoids, 0.08 * r.densite * compensation * Math.pow(rayonCartePx / 150, 2));
   gl.uniform1f(uSable.uRayonBraises, rayonBraises);
   gl.uniform1f(uSable.uRayon, rayonTempete);
   gl.uniform1f(uSable.uEchelleTempete, rayonTempete);
   gl.uniform1f(uSable.uTempsTempete, dyn.tempsSim);
   gl.uniform3f(uSable.uVueDirection, -versCam[0], -versCam[1], -versCam[2]);
   gl.uniform1f(uSable.uFeuForce, m.diffusion * r.feu * 3.4);
-  gl.uniform3f(uSable.uOmbre, so[0], so[1], so[2]);
-  gl.uniform3f(uSable.uClair, sc[0], sc[1], sc[2]);
   gl.uniform3f(uSable.uDirLumiere, lum[0] / ll, lum[1] / ll, lum[2] / ll);
   gl.uniform2f(uSable.uTailleEcran, sableApres.l, sableApres.h);
   gl.uniform1i(uSable.uMode, 0);
   gl.drawArrays(gl.POINTS, 0, n - nbBraises);
   // pendant les rafales, les grains parcourent des dizaines de pixels par image :
-  // des points laisseraient une traînée en pointillés (des « ressorts ») ; on
-  // trace donc aussi chaque grain en trait, de sa position d'avant à celle d'après
+  // des taches laisseraient une traînée en pointillés ; on trace donc aussi
+  // chaque grain en trait, de sa position d'avant à celle d'après
   if (dyn.dtTempete > 0.012){
     gl.uniform1i(uSable.uMode, 1);
     gl.uniform1f(uSable.uFlou, dyn.dtTempete * 1.2);
     gl.drawArrays(gl.LINES, 0, 2 * (n - nbBraises));
   }
-  gl.disable(gl.BLEND);
   gl.bindTexture(gl.TEXTURE_2D, sableApres.tex);
-  gl.generateMipmap(gl.TEXTURE_2D);                 // l'épaisseur du sable, floutée, fait l'ombre
+  gl.generateMipmap(gl.TEXTURE_2D);                 // le relief et l'ombre se lisent dans les mipmaps
+
+  // ——— 3 bis. les étincelles : un grain sur cinq, net, en pleine résolution ———
+  gl.bindFramebuffer(gl.FRAMEBUFFER, etincelles.fbo);
+  gl.viewport(0, 0, etincelles.l, etincelles.h);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniform1i(uSable.uMode, 2);
+  gl.uniform2f(uSable.uTailleEcran, etincelles.l, etincelles.h);
+  gl.drawArrays(gl.POINTS, 0, Math.floor((n - nbBraises) / 5));
+  gl.disable(gl.BLEND);
 
   iAcc = 1 - iAcc;
 
@@ -1508,8 +1595,9 @@ function dessiner(dt){
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.viewport(cadre.x, cadre.y, cadre.l, cadre.h);
   gl.useProgram(progSortie);
-  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, feuApres.tex);   gl.uniform1i(uSortie.uBraises, 0);
-  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, sableApres.tex); gl.uniform1i(uSortie.uSable, 1);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, feuApres.tex);    gl.uniform1i(uSortie.uBraises, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, sableApres.tex);  gl.uniform1i(uSortie.uSable, 1);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, etincelles.tex);  gl.uniform1i(uSortie.uEtincelles, 2);
   gl.uniform1f(uSortie.uTemps, mesures.temps);
   gl.uniform1f(uSortie.uLueur, 0.55 * r.lueur);
   gl.uniform1f(uSortie.uExpo, 1.35 * r.expo);
@@ -1517,6 +1605,11 @@ function dessiner(dt){
   gl.uniform1f(uSortie.uFeu, r.feu);
   gl.uniform1f(uSortie.uFlamme, dyn.flamme);
   gl.uniform1f(uSortie.uOccultation, m.occultation);
+  gl.uniform1f(uSortie.uAbsorption, 1.4);
+  gl.uniform1f(uSortie.uRelief, 2.5);
+  gl.uniform3f(uSortie.uOmbre, so[0], so[1], so[2]);
+  gl.uniform3f(uSortie.uClair, sc[0], sc[1], sc[2]);
+  gl.uniform3f(uSortie.uFeuCouleur, bh[0], bh[1], bh[2]);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
 
   if (photoDemandee){
@@ -1533,7 +1626,7 @@ function dessiner(dt){
 /* ───────────────────────────── interface ───────────────────────────── */
 
 const CURSEURS = {
-  sTourbillon:"tourbillon", sChaos:"chaos", sContraction:"contraction", sSouffle:"souffle",
+  sTourbillon:"tourbillon", sChaos:"chaos", sNappes:"nappes", sContraction:"contraction", sSouffle:"souffle",
   sVitesse:"vitesse", sDensite:"densite", sTaille:"taille", sTrainee:"trainee", sFeu:"feu",
   sLueur:"lueur", sExpo:"expo", sGrain:"grain",
 };

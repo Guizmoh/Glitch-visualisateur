@@ -53,15 +53,18 @@ positions et vitesses vivent dans des textures flottantes relues et réécrites 
 chaque image.
 
 **Deux populations.** Le *sable* (92 % des grains) forme la masse ; les
-*braises* (8 %) forment le cœur. Chacune est dessinée dans sa propre couche :
+*braises* (8 %) forment le cœur.
 
-- les braises d'abord, en lumière additive : un gaz incandescent, découpé en
-  plaques et en langues, avec quelques foyers plus ardents ;
-- puis le sable, déposé « par-dessus » comme de la peinture : là où il est
-  dense il **cache** le feu. Chaque grain lit la lumière des braises à sa
-  position — le rouge qu'on voit, c'est surtout le sable éclairé de
-  l'intérieur. Un grain situé *devant* le feu n'en reçoit la lumière que sur
-  sa face arrière : il reste gris, un voile sur le rouge.
+- Les braises sont dessinées d'abord, en lumière additive : un gaz
+  incandescent, découpé en plaques et en langues, avec quelques foyers plus
+  ardents.
+- Le sable est rendu comme un **milieu continu**, à la manière d'une fumée :
+  chaque grain dépose une petite tache douce dans une carte de densité. Son
+  opacité monte avec l'épaisseur ; sa densité, un peu floutée, est éclairée
+  comme un relief (bourrelets clairs, creux sombres) ; le cœur des grandes
+  masses reste dans l'ombre. Chaque grain lit aussi la lumière des braises à
+  sa position — un grain situé *devant* le feu reste gris, un voile sur le
+  rouge. Par-dessus, un grain sur cinq est tracé net : les étincelles.
 
 **L'éclairage.** Une lumière en contre-jour, d'en haut et de l'arrière, ne
 blanchit que le dessus et les bords ; un léger appoint de face garde le voile
@@ -84,12 +87,16 @@ entre champs immobiles (un champ qui tourne ou qui glisse finirait par
 entraîner le sable), et il est intégré au point milieu (Runge-Kutta 2) : un
 pas droit « sortirait » des volutes à chaque image.
 
-**L'organique.** Un écoulement sans divergence conserve la densité : on
-choisit donc *où* naît le sable. Il naît en **bouffées** — des grains qui
-naissent et meurent ensemble — de préférence dans certaines zones, et le
-bord de la boule est bosselé à deux échelles. L'écoulement étire ces
-bouffées en nappes et en filaments ; des masses denses et des trouées
-apparaissent, bougent et se referment.
+**L'organique : les nappes.** Un écoulement sans divergence garde une densité
+uniforme — une boule de brume, sans structure. On attire donc les grains vers
+la surface où un bruit lent s'annule : un labyrinthe de **feuillets** qui
+remplit la boule. Le sable s'y concentre en nappes — denses vues par la
+tranche, voiles fins vues de face — et le vide se creuse entre elles, là où
+le feu apparaît. Les feuillets ondulent, se replient et se déchirent, la
+turbulence en arrache des filaments, et le bord de la tempête change sans
+cesse de forme. Les grains naissent directement sur les nappes, et chacun est
+éclairé selon l'orientation de son feuillet — l'aspect papier froissé, vague
+qui déferle. Le curseur **Nappes** règle la netteté de ces feuillets.
 
 **La musique.** Le temps de la tempête suit la musique : lourd et presque
 figé au repos, il s'emballe sur les coups de grosse caisse — c'est ce qui

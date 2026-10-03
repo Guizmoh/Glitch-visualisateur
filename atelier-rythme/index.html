@@ -249,6 +249,7 @@
       <button data-dt="double" title="Double-tempo : le rythme est compressé">×2 Double-time</button>
       <button data-dt="simplify" title="Retire les ghost notes, roulements et coups faibles">✂ Simplifier</button>
       <button data-dt="humanize" title="Varie légèrement les vélocités">〰 Vélocités</button>
+      <button data-dt="cohere" title="Retouche le rythme pour qu'il se tienne mieux (motif répété, charley régulier, moins de coups entassés) sans le rendre banal">🧩 Rendre cohérent</button>
       <span class="sep"></span>
       <span class="lbl">Piste</span>
       <button data-dt="left" title="Décale la piste sélectionnée d'un pas vers la gauche">◀ Décaler</button>
@@ -597,10 +598,18 @@ const STYLES = {
     bassMode: 'funk', comp: '..9..9.9..9...9.', compLegato: .3, ext: 'jazz', scales: ['dorian','mixolydian','pentaMinor'], ratchet: 0,
     drums: { kick: '9..6..7...6..5..', snare: '....9..3.3..9..3', chh: '8686868686868686', ohh: '......5.........' },
     mel: { density: .55, syncop: .75, legato: .4 }, desc: 'Le « 1 » appuyé, ghost notes partout, double-croches au charley, accords courts et basse bondissante.' },
-  reggae: { name: 'Reggae (one drop)', emoji: '🌿', bpm: [66, 80], swing: .35, swingUnit: 8, kit: 'kitAcoustic', perc: 'conga', lead: 'organ', bass: 'sub', chord: 'stab',
-    bassMode: 'reggae', comp: '..9...9...9...9.', compLegato: .3, ext: 'triad', scales: ['minor','major','dorian'], ratchet: 0,
-    drums: { kick: '........9.......', rim: '........9.......', chh: '7.5.7.5.7.5.7.5.' },
-    mel: { density: .35, syncop: .5, legato: .7 }, desc: 'Rien sur le 1 ! Grosse caisse + rim sur le 3, skank d\'accords à contretemps, basse ronde et chantante.' },
+  reggae: { name: 'Reggae (one drop)', emoji: '🌿', bpm: [66, 80], swing: .35, swingUnit: 8, kit: 'kitAcoustic', perc: 'conga', lead: 'organ', bass: 'sub', chord: 'skank',
+    bassMode: 'reggae', comp: '....9.......9...', compLegato: .25, ext: 'triad', scales: ['minor','major','dorian'], ratchet: 0, fx: { delay: .12, rev: .2 },
+    drums: { kick: '........9.......', rim: '........9.......', chh: '7.5.7.5.7.5.7.5.', ohh: '..............5.' },
+    mel: { density: .35, syncop: .5, legato: .7 }, desc: 'Rien sur le 1 ! Grosse caisse + rimshot ensemble sur le 3 (le « one drop »), skank de guitare court sur 2 et 4, basse ronde et chantante.' },
+  dub: { name: 'Dub', emoji: '🔊', bpm: [64, 78], swing: .25, swingUnit: 8, kit: 'kitDub', perc: 'conga', lead: 'melodica', bass: 'dubsub', chord: 'skank',
+    bassMode: 'dub', comp: '....9.......9...', compLegato: .2, ext: 'triad', scales: ['minor','dorian','phrygian'], ratchet: 0, fx: { delay: .55, rev: .4 },
+    drums: { kick: '........9.......', rim: '........9.......', chh: '..6...6...6...6.', perc: '.............5..' },
+    mel: { density: .2, syncop: .6, legato: .8 }, desc: 'Le reggae passé à la table de mixage : très peu de notes, énorme basse, et tout ce qui est aigu (skank, rimshot, mélodica) part dans l\'écho et la réverbe.' },
+  dubstep: { name: 'Dubstep', emoji: '🌊', bpm: [138, 142], swing: 0, kit: 'kitDubstep', perc: 'blip', lead: 'saw', bass: 'wobble', chord: 'pad',
+    bassMode: 'wobble', comp: '9...............', compLegato: 1, ext: 'triad', scales: ['minor','phrygian','harmonicMinor'], ratchet: .15, fx: { delay: .15, rev: .3 },
+    drums: { kick: '9.........7.....', snare: '........9.......', clap: '........9.......', chh: '..6...6...6.6..6', perc: '......5.......5.' },
+    mel: { density: .3, syncop: .6, legato: .6 }, desc: 'Demi-tempo à 140 : grosse caisse sur le 1, énorme caisse claire sur le 3, beaucoup d\'espace, et une basse « wobble » dont le filtre pulse au rythme.' },
   afrobeat: { name: 'Afrobeat', emoji: '🌍', bpm: [100, 116], swing: .1, kit: 'kitAcoustic', perc: 'bell', lead: 'square', bass: 'pluckbass', chord: 'stab',
     bassMode: 'kick', comp: '9.79.79.9.79.79.', compLegato: .3, ext: 'jazzy', scales: ['dorian','mixolydian','pentaMinor'], ratchet: 0,
     drums: { kick: '9.....7...9...5.', snare: '...4..6....4.6..', chh: '8686868686868686', ohh: '..........7.....', perc: '9.9.9..9.9.9..9.' },
@@ -629,6 +638,8 @@ const KITS = {
   kitDusty:   { name: 'Poussiéreux',  kick: { f0: 110, f1: 50, pd: .06, d: .42, click: .4, dist: .15 }, snare: { tone: 180, noise: .9, nd: .2, hp: 600 },   hh: { d: .05, od: .35, metal: .3, hp: 5000 } },
   kitTechno:  { name: 'Techno',       kick: { f0: 210, f1: 50, pd: .04, d: .5, click: .6, dist: .5 },  snare: { tone: 210, noise: .7, nd: .16, hp: 1200 }, hh: { d: .03, od: .3, metal: 1, hp: 8000 } },
   kitBreak:   { name: 'Breakbeat',    kick: { f0: 130, f1: 58, pd: .035, d: .3, click: .9, dist: .1 }, snare: { tone: 245, noise: 1, nd: .17, hp: 900 },   hh: { d: .045, od: .4, metal: .5, hp: 7000 } },
+  kitDub:     { name: 'Dub (sourd)',  kick: { f0: 100, f1: 42, pd: .08, d: .6, click: .2, dist: .1 },  snare: { tone: 170, noise: .7, nd: .3, hp: 900 },  hh: { d: .05, od: .4, metal: .3, hp: 6000 } },
+  kitDubstep: { name: 'Dubstep',      kick: { f0: 160, f1: 44, pd: .06, d: .55, click: .7, dist: .35 }, snare: { tone: 210, noise: 1, nd: .32, hp: 450 }, hh: { d: .04, od: .3, metal: .8, hp: 7500 } },
   kitJazz:    { name: 'Jazz (balais)',kick: { f0: 95, f1: 55, pd: .05, d: .3, click: .3, dist: 0 },   snare: { tone: 0, noise: 1, nd: .26, hp: 2200 },   hh: { d: .45, od: .9, metal: .9, hp: 5000 } },
 };
 const PERCS = { cowbell: 'Cloche 808', conga: 'Conga', bell: 'Agogo', blip: 'Blip', shaker: 'Shaker' };
@@ -640,27 +651,32 @@ const SYNTHS = {
   bell:   { name: 'Cloche', osc: [{ t: 'sine', g: .55 }, { t: 'sine', g: .22, ratio: 3.01 }, { t: 'sine', g: .1, ratio: 5.4 }], f: 9000, a: .002, d: .9, s: 0, r: .5 },
   epiano: { name: 'Piano électrique', osc: [{ t: 'sine', g: .55 }, { t: 'triangle', g: .2, ratio: 2 }, { t: 'sine', g: .06, ratio: 7 }], f: 5000, a: .004, d: 1.2, s: .25, r: .25 },
   flute:  { name: 'Flûte', osc: [{ t: 'triangle', g: .55 }, { t: 'sine', g: .15, ratio: 2 }], f: 3200, a: .06, d: .1, s: .85, r: .15, vib: 5 },
+  melodica: { name: 'Mélodica', osc: [{ t: 'square', g: .25 }, { t: 'sawtooth', g: .15, det: 4 }], f: 1900, q: 1.5, a: .03, d: .2, s: .8, r: .12, vib: 5.5 },
   organ:  { name: 'Orgue', osc: [{ t: 'sine', g: .4 }, { t: 'sine', g: .25, ratio: 2 }, { t: 'sine', g: .12, ratio: 4 }], f: 6000, a: .01, d: .1, s: .9, r: .06 },
   // basse
   sub:    { name: 'Sub', osc: [{ t: 'sine', g: .85 }, { t: 'triangle', g: .25 }], f: 900, a: .005, d: .3, s: .8, r: .08 },
   b808:   { name: '808', osc: [{ t: 'sine', g: 1 }], f: 4000, dist: .45, a: .003, d: 1.4, s: .35, r: .2, glide: .07 },
   acid:   { name: 'Acide', osc: [{ t: 'sawtooth', g: .55 }], f: 350, fe: 2200, fd: .16, q: 10, a: .003, d: .2, s: .5, r: .06, glide: .05 },
+  dubsub: { name: 'Sub dub', osc: [{ t: 'sine', g: 1 }, { t: 'triangle', g: .15 }], f: 600, dist: .15, a: .01, d: .4, s: .9, r: .15 },
+  wobble: { name: 'Wobble', osc: [{ t: 'sawtooth', g: .4, det: -7 }, { t: 'square', g: .3, det: 7 }, { t: 'sine', g: .6, ratio: .5 }], f: 260, q: 9, dist: .5, a: .005, d: .2, s: 1, r: .08, wob: 2 },
   reese:  { name: 'Reese', osc: [{ t: 'sawtooth', g: .4, det: -14 }, { t: 'sawtooth', g: .4, det: 14 }], f: 650, q: 2, a: .01, d: .2, s: .9, r: .1 },
   pluckbass: { name: 'Basse pluck', osc: [{ t: 'square', g: .45 }, { t: 'sine', g: .4 }], f: 500, fe: 1400, fd: .1, q: 4, a: .003, d: .2, s: .35, r: .05 },
   // accords
   keys:   { name: 'Piano électrique', osc: [{ t: 'sine', g: .55 }, { t: 'triangle', g: .2, ratio: 2 }, { t: 'sine', g: .05, ratio: 7 }], f: 4500, a: .004, d: 1.4, s: .3, r: .3 },
   pad:    { name: 'Nappe', osc: [{ t: 'sawtooth', g: .22, det: -10 }, { t: 'sawtooth', g: .22, det: 10 }], f: 1100, fe: 400, fd: .8, q: 1, a: .25, d: .5, s: .8, r: .5 },
+  skank:  { name: 'Skank (guitare courte)', osc: [{ t: 'square', g: .22 }, { t: 'sawtooth', g: .18, det: 5 }], f: 2200, fe: 1800, fd: .04, q: 2, a: .001, d: .06, s: 0, r: .03 },
   stab:   { name: 'Stab', osc: [{ t: 'square', g: .25 }, { t: 'sawtooth', g: .22, det: 6 }], f: 1500, fe: 2600, fd: .08, q: 3, a: .002, d: .14, s: .05, r: .06 },
   guitar: { name: 'Guitare saturée', osc: [{ t: 'sawtooth', g: .4 }, { t: 'sawtooth', g: .3, det: 6 }], dist: .7, f: 2400, q: 1, a: .003, d: .4, s: .5, r: .1 },
   nylon:  { name: 'Guitare nylon', osc: [{ t: 'triangle', g: .5 }, { t: 'sine', g: .15, ratio: 2 }], f: 2200, fe: 1800, fd: .1, a: .002, d: .7, s: .1, r: .2 },
 };
-const LEADS = ['pluck','square','saw','bell','epiano','flute','organ'];
-const BASSES = ['sub','b808','acid','reese','pluckbass'];
-const CHORD_SYNTHS = ['keys','pad','stab','guitar','nylon','organ'];
+const LEADS = ['pluck','square','saw','bell','epiano','flute','organ','melodica'];
+const BASSES = ['sub','b808','acid','reese','pluckbass','dubsub','wobble'];
+const CHORD_SYNTHS = ['keys','pad','stab','skank','guitar','nylon','organ'];
 const COMPS = {
   pad:   { name: 'Accords tenus', tpl: '9...............', leg: 1 },
   half:  { name: 'Blanches', tpl: '9.......8.......', leg: .95 },
-  skank: { name: 'Contretemps (skank)', tpl: '..9...9...9...9.', leg: .3 },
+  skank: { name: 'Skank reggae (2 et 4)', tpl: '....9.......9...', leg: .25 },
+  offb:  { name: 'Contretemps', tpl: '..9...9...9...9.', leg: .3 },
   stabs: { name: 'Stabs syncopés', tpl: '9..9..9...9..9..', leg: .4 },
   charl: { name: 'Charleston', tpl: '9.....9.........', leg: .6 },
   bossa: { name: 'Bossa', tpl: '9..7..9...7..9..', leg: .6 },
@@ -671,9 +687,9 @@ const COMPS = {
 const BASS_MODES = {
   kick: 'Suit la grosse caisse', '808': '808 (longues + glissés)', funk: 'Funk (syncopes, octaves)', offbeat: 'Contretemps (house)',
   rolling: 'Roulante 16e (techno)', eighths: 'Croches (rock)', walking: 'Walking (jazz)', sustain: 'Tenue (nappe)',
-  reggae: 'Reggae (ronde)', bossa: 'Bossa (1 et 3)', ukg: '2-step syncopée',
+  reggae: 'Reggae (ronde)', dub: 'Dub (lourde, espacée)', wobble: 'Wobble (dubstep)', bossa: 'Bossa (1 et 3)', ukg: '2-step syncopée',
 };
-const BASS_PATTERNS = { offbeat: '..9...9...9...9.', rolling: '.999.999.999.999', eighths: '9.9.9.9.9.9.9.9.', walking: '9...9...9...9...',
+const BASS_PATTERNS = { dub: '9.....7.....9...', wobble: '9.......9...9...', offbeat: '..9...9...9...9.', rolling: '.999.999.999.999', eighths: '9.9.9.9.9.9.9.9.', walking: '9...9...9...9...',
   reggae: '..9.9..7..9.7...', bossa: '9..7....9..7....', ukg: '9.....9...9..9..' };
 const CLICHES = [
   { name: 'rock de base',      k: '9.......9.......', s: '....9.......9...', h: '9.9.9.9.9.9.9.9.' },
@@ -707,7 +723,7 @@ function defaultState() {
     drums: {}, chords: [], comp: 'pad', compTpl: COMPS.pad.tpl, compLegato: 1, bassMode: 'kick',
     melody: [], bass: [], locks: { chords: false, melody: false, bass: false },
     mix: { drums: .85, bass: .75, chords: .45, melody: .6 }, mutes: { drums: false, bass: false, chords: false, melody: false },
-    style: 'house', styleAmt: 70, keepScale: true, fitChords: true,
+    style: 'house', styleAmt: 70, keepScale: true, fitChords: true, activeStyle: null, fx: { delay: 0, rev: .12 },
   };
   TRACKS.forEach(t => S.drums[t.id] = { cells: [], len: 32, lock: false, mute: false });
   return S;
@@ -749,6 +765,13 @@ function backbeats(info) {
 }
 function polyLen(choices, max) { const c = choices.filter(x => x < max); return c.length ? pick(c) : max; }
 
+// pas « d'ancrage » de la grosse caisse : le 1, sauf pour les styles où le 1 est vide (one drop → le 3)
+function kickAnchor(st, info) {
+  if (st && st.drums && st.drums.kick && st.drums.kick[0] === '.') { for (let i = 0; i < info.n; i++) if (tplW(st.drums.kick, info, i) >= .95) return i; }
+  return 0;
+}
+// instruments qui tiennent le rôle de « backbeat » : caisse claire/clap, ou rimshot pour les styles sans caisse claire (reggae, dub)
+function backIds(st) { return st && st.drums && !st.drums.snare && !st.drums.clap && st.drums.rim ? ['snare', 'clap', 'rim'] : ['snare', 'clap']; }
 function genBarDrums(g) {
   const { info, c, o, st } = g; const n = info.n, w = info.w; const tpl = st && st.drums;
   const mode = id => tpl ? (tpl[id] ? (chance(1 - o * .6) ? 'tpl' : 'gen') : (chance(1 - o * .7) ? 'none' : 'gen')) : 'gen';
@@ -762,13 +785,21 @@ function genBarDrums(g) {
       const e = rotate(euclid(randi(2, 3 + Math.round(c * 3)), n), randi(0, n - 1));
       e.forEach((h, i) => { if (h) k[i] = hit(velFor(w[i], .82)); });
     } else {
-      for (let i = 0; i < n; i++) {
+      // motif sur une demi-mesure, répété, puis une seule variation : original mais lisible
+      const gsn = info.groupStarts.length; const half = gsn % 2 === 0 ? info.groupStarts[gsn / 2] : n;
+      for (let i = 0; i < half; i++) {
         const pr = w[i] >= 4 ? 1 : w[i] === 3 ? .22 + .15 * (1 - o) : w[i] === 2 ? .18 + .25 * c : .05 + .2 * c * (.4 + o);
         if (chance(pr)) k[i] = hit(velFor(w[i], .82));
       }
+      if (half < n) {
+        for (let i = half; i < n; i++) if (k[i - half].v) k[i] = hit(velFor(w[i], .8));
+        if (chance(.65)) { const cand = [...Array(n - half).keys()].map(x => x + half).filter(i => w[i] <= 2); if (cand.length) { const i = pick(cand); k[i] = k[i].v ? empty() : hit(velFor(w[i], .75)); } }
+      }
     }
   }
-  B.kick.cells[0] = hit(.95);
+  const anc = kickAnchor(st, info);
+  if (anc !== 0 && m !== 'none' && chance(1 - o * .5)) B.kick.cells[0] = empty();
+  B.kick.cells[anc] = hit(.95);
   // --- caisse claire
   m = mode('snare');
   const backs = backbeats(info);
@@ -785,10 +816,15 @@ function genBarDrums(g) {
     pos.forEach(i => { if (i > 0) s[i] = hit(velFor(w[i], .88)); });
   }
   if (m !== 'none') {
-    const ng = Math.round(rand(0, c * 4.5));
+    // ghost notes collées aux coups principaux (avant/après), répétées d'une demi-mesure à l'autre
+    const ng = Math.round(rand(0, c * 4.5)); const sn = B.snare.cells; const half = n % 2 === 0 ? n / 2 : 0;
+    const mains = [...Array(n).keys()].filter(i => sn[i].v > .5);
     for (let q = 0; q < ng; q++) {
-      const weak = [...Array(n).keys()].filter(i => w[i] <= 1 && !B.snare.cells[i].v);
-      if (weak.length) B.snare.cells[pick(weak)] = hit(rand(.18, .32));
+      const near = mains.flatMap(i => [i - 1, i + 1, i - 2]).map(i => mod(i, n)).filter(i => !sn[i].v && w[i] <= 2);
+      const weak = [...Array(n).keys()].filter(i => w[i] <= 1 && !sn[i].v);
+      const pool = near.length && chance(.75) ? near : weak; if (!pool.length) continue;
+      const i = pick(pool); sn[i] = hit(rand(.18, .32));
+      if (half && chance(.6)) { const j = (i + half) % n; if (!sn[j].v) sn[j] = hit(rand(.18, .32)); }
     }
   }
   // --- clap
@@ -799,7 +835,8 @@ function genBarDrums(g) {
     if (r < .35) B.snare.cells.forEach((x, i) => { if (x.v > .5) B.clap.cells[i] = hit(x.v * .9); });
     else if (r < .35 + o * .35) {
       const cand = [...Array(n).keys()].filter(i => i > 0 && w[i] <= 2 && !B.snare.cells[i].v);
-      for (let q = randi(1, 2); q > 0 && cand.length; q--) B.clap.cells[cand.splice(randi(0, cand.length - 1), 1)[0]] = hit(rand(.5, .8));
+      const half = n % 2 === 0 ? n / 2 : 0;
+      for (let q = randi(1, 2); q > 0 && cand.length; q--) { const i = cand.splice(randi(0, cand.length - 1), 1)[0]; B.clap.cells[i] = hit(rand(.5, .8)); if (half && chance(.5)) B.clap.cells[(i + half) % n] = hit(rand(.5, .75)); }
     }
   }
   // --- charley fermé
@@ -808,14 +845,17 @@ function genBarDrums(g) {
   else if (m === 'gen') {
     const how = weightedPick([['8', (1 - o) * 1.5 + .2], ['16', c * 1.2], ['eu', o * 1.5], ['off', .5], ['sp', c * o + .3]]);
     const eu = rotate(euclid(randi(Math.round(n * .3), Math.round(n * .75)), n), randi(0, n - 1));
+    // 'sp' : un petit masque (4 ou 8 pas) répété → irrégulier à l'intérieur, mais périodique
+    const P = [8, 4, info.gsize[0]].find(x => n % x === 0) || n; const mask = Array.from({ length: P }, (_, i) => i === 0 || chance(.7));
     for (let i = 0; i < n; i++) {
-      const on = how === '8' ? (g.ts.div === 3 || info.pos[i] % 2 === 0) : how === '16' ? true : how === 'off' ? w[i] === 2 : how === 'sp' ? chance(.7) : !!eu[i];
+      const on = how === '8' ? (g.ts.div === 3 || info.pos[i] % 2 === 0) : how === '16' ? true : how === 'off' ? w[i] === 2 : how === 'sp' ? mask[i % P] : !!eu[i];
       if (on) B.chh.cells[i] = hit((w[i] >= 3 ? .78 : w[i] === 2 ? .6 : .44) + rand(-.07, .07));
     }
     if (chance(o * .5)) { const acc = euclid(3, 8); B.chh.cells.forEach((x, i) => { if (x.v && acc[i % 8]) x.v = clamp(x.v + .25, 0, 1); }); }
   }
   const rp = .02 + c * o * .12 + ((st && st.ratchet) || 0) * .3;
-  B.chh.cells.forEach(x => { if (x.v && chance(rp)) x.r = pick([2, 2, 3, 4]); });
+  // roulements : seulement juste avant un temps (ils « lancent » le temps suivant), 2 maxi par mesure
+  let nr = 0; B.chh.cells.forEach((x, i) => { if (x.v && nr < 2 && w[(i + 1) % n] >= 2 && chance(rp * 1.6)) { x.r = pick([2, 2, 3, 4]); nr++; } });
   // --- charley ouvert
   m = mode('ohh');
   if (m === 'tpl') B.ohh.cells = fromTpl(tpl.ohh, info, o);
@@ -905,23 +945,73 @@ function clicheSim(D, info) {
   }
   return best;
 }
+/* Cohérence : ce qui fait qu'un rythme, même étrange, « se tient ».
+   rep    : le motif grosse caisse / caisse claire se répète (temps ↔ temps, demi-mesure ↔ demi-mesure)
+   hat    : le charley garde une pulsation régulière (le « fil » qui tient tout)
+   cl     : pas de coups entassés (3 grosses caisses d'affilée, 4 instruments sur le même pas…)
+   layers : une seule piste chargée à la fois
+   bud    : un nombre limité de « surprises » simultanées (dosé par l'originalité)
+   bars   : les mesures suivantes restent de la même famille que la première */
+const COH_LABELS = { rep: 'motif peu répété', hat: 'charley irrégulier', cl: 'coups entassés', layers: 'trop de pistes chargées en même temps',
+  bud: 'trop de surprises à la fois', bars: 'mesures trop différentes entre elles' };
+function coherence(D, g) {
+  const { info, c, o } = g; const n = info.n, w = info.w, N = n * g.bars;
+  const on = (id, thr, off = 0) => { const t = D[id]; return Array.from({ length: n }, (_, i) => { const x = t.cells[(off + i) % t.len]; return x && x.v >= thr ? 1 : 0; }); };
+  const bid = backIds(g.st);
+  const code = off => { const K = on('kick', .45, off), Bs = bid.map(id => on(id, .45, off)); return K.map((k, i) => k + 2 * (Bs.some(A => A[i]) ? 1 : 0)); };
+  const simCode = (a, b) => { let m = 0, u = 0; for (let i = 0; i < a.length; i++) { if (a[i] || b[i]) { u++; if (a[i] === b[i]) m++; } } return u ? m / u : .5; };
+  const cd = code(0); const gs = info.groupStarts;
+  // 1. répétition du motif
+  const grp = gs.map((st0, gi) => cd.slice(st0, gi + 1 < gs.length ? gs[gi + 1] : n));
+  const gBest = grp.map((a, i) => Math.max(0, ...grp.map((b, j) => j !== i && b.length === a.length ? simCode(a, b) : 0)));
+  let repV = gBest.reduce((x, y) => x + y, 0) / grp.length;
+  if (gs.length % 2 === 0) { const h = gs[gs.length / 2]; if (h * 2 === n) repV = Math.max(repV, simCode(cd.slice(0, h), cd.slice(h))); }
+  const rep = clamp(repV / .5, 0, 1);
+  // 2. régularité du charley
+  const H = on('chh', .1).map((x, i) => x || on('ohh', .1)[i] ? 1 : 0); const hc = H.reduce((a, b) => a + b, 0);
+  let hat = .7;
+  if (hc) { let reg = 0; for (const L of [2, 3, 4, info.gsize[0], n / 2]) { if (!Number.isInteger(L) || L >= n) continue; let m = 0; for (let i = 0; i < n; i++) if (H[i] === H[(i + L) % n]) m++; reg = Math.max(reg, m / n); } hat = clamp((reg - .6) / .35, 0, 1); }
+  // 3. entassement
+  const K = on('kick', .45), Sn = on('snare', .45);
+  let runs = 0; for (const A of [K, Sn]) for (let i = 0; i + 2 < n; i++) if (A[i] && A[i + 1] && A[i + 2]) runs++;
+  const all = TRACKS.map(t => on(t.id, .4)); let piles = 0; for (let i = 1; i < n; i++) if (all.reduce((a, A) => a + A[i], 0) >= 4) piles++;
+  const cl = clamp(1 - .4 * runs - .15 * piles, 0, 1);
+  // 4. pistes chargées
+  const busy = TRACKS.filter(t => on(t.id, .1).reduce((a, b) => a + b, 0) / n > .45).length;
+  const layers = busy <= 1 ? 1 : busy === 2 ? .6 : .2;
+  // 5. budget de surprises
+  const backs = new Set(backbeats(info)); const gset = new Set(gs);
+  const snareOdd = Sn.filter((x, i) => x && !backs.has(i) && !gset.has(i)).length;
+  const kickWeak = K.filter((x, i) => x && w[i] === 1).length;
+  const poly = TRACKS.filter(t => D[t.id].len !== N && D[t.id].cells.slice(0, D[t.id].len).some(x => x.v)).length;
+  let ratch = 0, probs = 0; TRACKS.forEach(t => D[t.id].cells.slice(0, Math.min(n, D[t.id].len)).forEach(x => { if (x.v && x.r > 1) ratch++; if (x.v && x.p < 1) probs++; }));
+  const ghosts = on('snare', .1).filter((x, i) => x && !Sn[i]).length;
+  const surprises = snareOdd + kickWeak * .5 + poly + Math.max(0, ratch - 2) * .5 + Math.max(0, probs - 3) * .3 + Math.max(0, ghosts - 4) * .3;
+  const bud = clamp(1 - Math.max(0, surprises - (.8 + o * 3.2 + c * 1.2)) * .3, 0, 1);
+  // 6. cohérence entre mesures (hors dernier temps, zone de variation / fill)
+  let bars = 1;
+  if (g.bars > 1) { const lim = gs[gs.length - 1]; let t = 0; for (let b = 1; b < g.bars; b++) t += simCode(cd.slice(0, lim), code(b * n).slice(0, lim)); bars = clamp((t / (g.bars - 1) - .45) / .4, 0, 1); }
+  const parts = { rep, hat, cl, layers, bud, bars };
+  const coh = .25 * rep + .2 * hat + .15 * cl + .1 * layers + .15 * bud + .15 * bars;
+  return { coh, parts, weakest: Object.entries(parts).sort((a, b) => a[1] - b[1])[0][0] };
+}
 function scoreDrums(D, g) {
   const { info, c, o, st } = g; const n = info.n, w = info.w; let s = 0;
-  const C = barArr(D, 'clap', n, .45), O = barArr(D, 'ohh', n, .1);
-  const K = barArr(D, 'kick', n, .45), Sn = barArr(D, 'snare', n, .45).map((x, i) => x || C[i] ? 1 : 0);
+  const O = barArr(D, 'ohh', n, .1); const bk = backIds(st).map(id => barArr(D, id, n, .45));
+  const K = barArr(D, 'kick', n, .45), Sn = Array.from({ length: n }, (_, i) => bk.some(A => A[i]) ? 1 : 0);
   const H = barArr(D, 'chh', n, .1).map((x, i) => x || O[i] ? 1 : 0);
-  if (!K[0]) s -= 3;
+  if (!K[kickAnchor(st, info)]) s -= 3;
   const kc = K.reduce((a, b) => a + b, 0), sc = Sn.reduce((a, b) => a + b, 0), hc = H.reduce((a, b) => a + b, 0);
   const kmax = Math.round((3 + c * 3.5) * n / 16 + .4);
   if (kc < 2) s -= 2; if (kc > kmax) s -= (kc - kmax);
   if (sc < 1) s -= 4; if (sc > 2 + c * 3) s -= (sc - 2 - c * 3) * .8;
-  const layered = i => st && st.drums && tplW(st.drums.kick, info, i) >= .5 && (tplW(st.drums.snare, info, i) >= .5 || tplW(st.drums.clap, info, i) >= .5);
+  const layered = i => st && st.drums && tplW(st.drums.kick, info, i) >= .5 && backIds(st).some(id => tplW(st.drums[id], info, i) >= .5);
   for (let i = 1; i < n; i++) if (K[i] && Sn[i] && !layered(i)) s -= 1.2;
   const both = K.map((x, i) => x || Sn[i] ? 1 : 0);
   const syn = syncopation(both, w); let target = .08 + .4 * c + .15 * o;
   if (st && st.drums) {
     // avec un style, la syncope visée part de celle du modèle du style
-    const tb = Array.from({ length: n }, (_, i) => ['kick', 'snare', 'clap'].some(id => tplW(st.drums[id], info, i) >= .5) ? 1 : 0);
+    const tb = Array.from({ length: n }, (_, i) => ['kick', ...backIds(st)].some(id => tplW(st.drums[id], info, i) >= .5) ? 1 : 0);
     target = lerp(syncopation(tb, w), target, o * .7);
   }
   s -= Math.abs(syn - target) * 6;
@@ -940,13 +1030,16 @@ function scoreDrums(D, g) {
   if (o < .3 && cl.sim < .5) s -= (.5 - cl.sim) * 3;
   if (st && st.drums) {
     const tA = id => Array.from({ length: n }, (_, i) => tplW(st.drums[id], info, i) >= .5 ? 1 : 0);
-    const sim = .5 * jaccard(K, tA('kick')) + .5 * jaccard(Sn, tA('snare').map((x, i) => x || tA('clap')[i] ? 1 : 0));
+    const tB = Array.from({ length: n }, (_, i) => backIds(st).some(id => tplW(st.drums[id], info, i) >= .5) ? 1 : 0);
+    const sim = .5 * jaccard(K, tA('kick')) + .5 * jaccard(Sn, tB);
     s += sim * 5 * (1 - o * .5);
   }
+  const co = coherence(D, g).coh;
+  s += (co - .75) * 12; if (co < .55) s -= 3;
   return s + rand(0, .8);
 }
 function genCtx(styleId) {
-  const ts = TS(); return { ts, info: barInfo(ts), bars: S.bars, c: CX(), o: OR(), st: STYLES[styleId || S.genStyle] };
+  const ts = TS(); return { ts, info: barInfo(ts), bars: S.bars, c: CX(), o: OR(), st: STYLES[styleId || S.activeStyle || S.genStyle] };
 }
 function generateDrums(styleId, onlyTrack) {
   const g = genCtx(styleId); let best = null, bs = -1e9;
@@ -961,8 +1054,48 @@ function generateDrums(styleId, onlyTrack) {
 }
 
 /* ---- transformations batterie ---- */
+// une mutation : quelques coups ajoutés / déplacés / retirés ; souvent recopiée à l'autre demi-mesure pour garder le motif
+function mutateDrums(D, ids, changes) {
+  const n = barN(), w = INFO().w; const half = n % 2 === 0 ? n / 2 : 0;
+  for (let q = 0; q < changes; q++) {
+    const id = weightedPick(ids.map(id => [id, { kick: 2, snare: 1.2, chh: 2, perc: 1, rim: 1, ohh: .5, clap: .6, tom: .3 }[id]]));
+    const tr = D[id], L = tr.len; const r = Math.random(); const edited = [];
+    const on = [...Array(L).keys()].filter(i => tr.cells[i].v && !anchor(id, i));
+    if (r < .4 || !on.length) {
+      const off = [...Array(L).keys()].filter(i => !tr.cells[i].v);
+      if (off.length) { const i = weightedPick(off.map(i => [i, w[i % n] <= 2 ? 2 : 1])); tr.cells[i] = hit(velFor(w[i % n], id === 'snare' && chance(.5) ? .3 : .75)); edited.push(i); }
+    } else if (r < .7) { const i = pick(on); const j = mod(i + pick([-1, 1]), L); if (!tr.cells[j].v && !anchor(id, j)) { tr.cells[j] = tr.cells[i]; tr.cells[i] = empty(); edited.push(i, j); } }
+    else { const i = pick(on); tr.cells[i] = empty(); edited.push(i); }
+    if (half && L === D.kick.cells.length && chance(.5)) edited.forEach(i => { const j = Math.floor(i / n) * n + (i % n + half) % n; if (!anchor(id, j % n)) tr.cells[j] = deep(tr.cells[i]); });
+  }
+}
+// essaie plusieurs mutations et garde celle qui sonne le mieux (groove + originalité + cohérence)
+function bestMutation(changes, tries) {
+  const g = genCtx(), ids = unlocked(); let best = null, bs = -1e9;
+  for (let k = 0; k < tries; k++) { const D = deep(S.drums); mutateDrums(D, ids, changes); const sc = scoreDrums(D, g); if (sc > bs) { bs = sc; best = D; } }
+  return { D: best, coh: coherence(best, g).coh };
+}
+// « Rendre cohérent » : petites retouches successives, gardées seulement si la cohérence monte, sans retomber dans le cliché
+function makeCoherent() {
+  const g = genCtx(), ids = unlocked(), n = barN(), N = totalN(), w = g.info.w;
+  let cur = deep(S.drums); const before = coherence(cur, g).coh; let best = before, changes = 0;
+  const clLimit = Math.max(clicheSim(cur, g.info).sim, 1 - g.o * .55);
+  for (let it = 0; it < 500 && best < .93; it++) {
+    const D = deep(cur); const id = pick(ids); const tr = D[id]; const L = tr.len; const op = Math.random();
+    if (op < .3 && L === N && n % 2 === 0) { const h = n / 2, b = randi(0, S.bars - 1) * n; const from = chance(.5) ? 0 : h; for (let i = 0; i < h; i++) if (!anchor(id, from === 0 ? i + h : i)) tr.cells[b + (from === 0 ? i + h : i)] = deep(tr.cells[b + from + i]); }
+    else if (op < .45 && L === N && S.bars > 1) { const b = randi(1, S.bars - 1), lim = g.info.groupStarts[g.info.groupStarts.length - 1]; for (let i = 0; i < lim; i++) tr.cells[b * n + i] = deep(tr.cells[i]); }
+    else if (op < .6 && id === 'chh') { const P = pick([2, 4, 8].filter(x => n % x === 0)); for (let i = 0; i < L; i++) tr.cells[i] = deep(tr.cells[i % P]); }
+    else if (op < .8) { const i = randi(0, L - 1); if (anchor(id, i)) continue; tr.cells[i] = tr.cells[i].v ? empty() : hit(velFor(w[i % n], .75)); }
+    else { const on = [...Array(L).keys()].filter(i => tr.cells[i].v && !anchor(id, i)); if (!on.length) continue; const i = pick(on), j = mod(i + pick([-1, 1]), L); if (tr.cells[j].v || anchor(id, j)) continue; tr.cells[j] = tr.cells[i]; tr.cells[i] = empty(); }
+    const co = coherence(D, g).coh;
+    if (co > best + .01 && clicheSim(D, g.info).sim <= clLimit + .02 && D.kick.cells[kickAnchor(g.st, g.info)].v) { cur = D; best = co; changes++; }
+  }
+  S.drums = cur; return { before, after: best, changes };
+}
 const unlocked = () => TRACKS.filter(t => !S.drums[t.id].lock).map(t => t.id);
-const anchor = (id, i) => (id === 'kick' && i % barN() === 0);
+const anchor = (id, i) => (id === 'kick' && i % barN() === kickAnchor(curStyle(), INFO()));
+// style « actif » pour les outils : celui de la dernière génération ou du dernier « rapprocher »
+const curStyle = () => STYLES[S.activeStyle || S.genStyle];
 function drumTransform(kind, quiet) {
   const n = barN(), N = totalN(), info = INFO(), w = info.w, ids = unlocked();
   const sel = S.drums[selTrack];
@@ -975,17 +1108,11 @@ function drumTransform(kind, quiet) {
     case 'mutate': {
       const hits = ids.reduce((a, id) => a + S.drums[id].cells.slice(0, fullLen(id)).filter(c => c.v).length, 0);
       const changes = Math.max(2, Math.round(hits * .12));
-      for (let q = 0; q < changes; q++) {
-        const id = weightedPick(ids.map(id => [id, { kick: 2, snare: 1.2, chh: 2, perc: 1, rim: 1, ohh: .5, clap: .6, tom: .3 }[id]]));
-        const tr = S.drums[id], L = tr.len; const r = Math.random();
-        const on = [...Array(L).keys()].filter(i => tr.cells[i].v && !anchor(id, i));
-        if (r < .4 || !on.length) {
-          const off = [...Array(L).keys()].filter(i => !tr.cells[i].v);
-          if (off.length) { const i = weightedPick(off.map(i => [i, w[i % n] <= 2 ? 2 : 1])); tr.cells[i] = hit(velFor(w[i % n], id === 'snare' && chance(.5) ? .3 : .75)); }
-        } else if (r < .7) { const i = pick(on); const j = mod(i + pick([-1, 1]), L); if (!tr.cells[j].v && !anchor(id, j)) { tr.cells[j] = tr.cells[i]; tr.cells[i] = empty(); } }
-        else tr.cells[pick(on)] = empty();
-      }
-      msg = `${changes} mutations`; break;
+      const r = bestMutation(changes, 30); S.drums = r.D;
+      msg = `${changes} mutations · cohérence ${Math.round(r.coh * 100)} %`; break;
+    }
+    case 'cohere': {
+      const r = makeCoherent(); msg = r.changes ? `🧩 Cohérence ${Math.round(r.before * 100)} % → ${Math.round(r.after * 100)} % (${r.changes} retouche${r.changes > 1 ? 's' : ''})` : `🧩 Déjà cohérent (${Math.round(r.after * 100)} %)`; break;
     }
     case 'ghost': {
       if (S.drums.snare.lock) { msg = 'Caisse claire verrouillée'; break; }
@@ -1468,7 +1595,7 @@ function genBass(mode) {
     if (mode === 'rolling') { const ks = new Set(kickSteps()); ons = ons.filter(i => !ks.has(i)); } }
   if (mode !== 'reggae' && mode !== 'rolling' && mode !== 'offbeat') ons = ons.concat(S.chords.map(ch => ch.s));
   ons = [...new Set(ons)].filter(i => i >= 0 && i < N).sort((a, b) => a - b);
-  const legato = { kick: .8, '808': 1, funk: .45, offbeat: .5, rolling: .6, eighths: .85, walking: .92, sustain: 1, reggae: .75, bossa: .9, ukg: .7 }[mode] ?? .8;
+  const legato = { dub: .95, wobble: 1, kick: .8, '808': 1, funk: .45, offbeat: .5, rolling: .6, eighths: .85, walking: .92, sustain: 1, reggae: .75, bossa: .9, ukg: .7 }[mode] ?? .8;
   const notes = []; let prev = null;
   ons.forEach((s, k) => {
     const ch = chordAt(s); const isStart = S.chords.some(x => x.s === s); const nx = k + 1 < ons.length ? ons[k + 1] : N;
@@ -1480,7 +1607,10 @@ function genBass(mode) {
     let m = bassPitchFor(ch, kind, prev);
     if (beforeChange && !isStart && chance(mode === 'walking' ? .9 : c * .5)) { const tgt = bassPitchFor(nextCh, 'root'); m = tgt + pick([-1, 1, -2]); }
     let l = Math.max(1, Math.round((nx - s) * legato)); if (mode === 'sustain') l = ch.l;
-    notes.push({ s, l, m, v: info.w[s % n] >= 3 ? .95 : .75, g: mode === '808' && prev !== null && prev !== m && chance(.3) });
+    if (mode === 'dub' && !isStart && chance(.5)) m = bassPitchFor(ch, pick(['fifth', 'oct', 'step', 'third']), prev);
+    const nt = { s, l, m, v: info.w[s % n] >= 3 ? .95 : .75, g: mode === '808' && prev !== null && prev !== m && chance(.3) };
+    if (mode === 'wobble') { nt.wr = pick([1, 2, 2, 3, 4, 6]); nt.g = chance(.25); if (chance(.3)) nt.m += 12; }
+    notes.push(nt);
     prev = m;
   });
   if (mode === 'sustain') S.chords.forEach(ch => notes.push({ s: ch.s, l: ch.l, m: bassPitchFor(ch, 'root'), v: .9 }));
@@ -1579,8 +1709,14 @@ function applyStyle(id, amt) {
   S.bpm = Math.round(lerp(S.bpm, target, Math.min(1, a * 1.3)));
   S.swing = Math.round(lerp(S.swing, st.swing * 100, a)); if (a >= .5) S.swingUnit = st.swingUnit || 16;
   if (a >= .3) { S.kit = st.kit; S.perc = st.perc; S.lead = st.lead; S.bassSyn = st.bass; S.chordSyn = st.chord; S.lofi = !!st.lofi; }
+  const sfx = st.fx || { delay: 0, rev: .12 }; S.fx = { delay: lerp(S.fx.delay, sfx.delay, a), rev: lerp(S.fx.rev, sfx.rev, a) };
+  S.activeStyle = id;
   // batterie
   if (st.drums) {
+    // plusieurs essais de « morphing » vers le style, on garde le plus groovy et cohérent
+    const g = genCtx(id); const src = deep(S.drums); let bestD = null, bs = -1e9;
+    for (let tri = 0; tri < 24; tri++) {
+    S.drums = deep(src);
     TRACKS.forEach(t => {
       const tr = S.drums[t.id]; if (tr.lock) return; const tpl = st.drums[t.id];
       if (a > .75 && !st.poly && tr.len !== N) { const L = tr.len; tr.cells = tr.cells.map((_, i) => deep(tr.cells[i % L] || empty())); tr.len = N; }
@@ -1592,8 +1728,10 @@ function applyStyle(id, amt) {
       if (t.id === 'chh' && st.ratchet) tr.cells.forEach(c => { if (c.v && chance(a * st.ratchet * .5)) c.r = pick([2, 3, 4]); });
       if (st.ratchet === 0 && a > .5) tr.cells.forEach(c => { c.r = 1; });
     });
-    if (st.drums.kick && st.drums.kick[0] === '.' && !S.drums.kick.lock) { for (let b = 0; b < S.bars; b++) if (chance(a)) S.drums.kick.cells[b * n] = empty(); }
-    else if (!S.drums.kick.lock) S.drums.kick.cells[0] = hit(.95);
+    if (!S.drums.kick.lock) { const anc = kickAnchor(st, info); if (anc !== 0) for (let b = 0; b < S.bars; b++) { if (chance(a)) S.drums.kick.cells[b * n] = empty(); S.drums.kick.cells[b * n + anc] = hit(.95); } else S.drums.kick.cells[0] = hit(.95); }
+    const sc = scoreDrums(S.drums, g); if (sc > bs) { bs = sc; bestD = S.drums; }
+    }
+    S.drums = bestD;
   } else {
     // style libre : on pousse vers l'originalité
     drumTransform('mutate', true);
@@ -1622,7 +1760,7 @@ function applyStyle(id, amt) {
 /* =========================================================================
    AUDIO
    ========================================================================= */
-let ctx = null, bus = {}, noiseBuf = null, lastOhh = null, lofiFilter = null;
+let ctx = null, bus = {}, fx = {}, noiseBuf = null, lastOhh = null, lofiFilter = null;
 function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1632,13 +1770,26 @@ function initAudio() {
   ['drums', 'bass', 'chords', 'melody'].forEach(k => { bus[k] = ctx.createGain(); bus[k].connect(lofiFilter); });
   lofiFilter.connect(master); master.connect(comp); comp.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  // effets : écho « dub » (croche pointée, filtré, avec retour) + réverbe ; envois depuis accords, mélodie et batterie aiguë
+  fx.in = ctx.createGain();
+  fx.dSend = ctx.createGain(); fx.delay = ctx.createDelay(3); fx.fb = ctx.createGain(); fx.dFilt = ctx.createBiquadFilter(); fx.dFilt.type = 'bandpass'; fx.dFilt.frequency.value = 1400; fx.dFilt.Q.value = .5;
+  fx.in.connect(fx.dSend); fx.dSend.connect(fx.delay); fx.delay.connect(fx.dFilt); fx.dFilt.connect(fx.fb); fx.fb.connect(fx.delay); fx.dFilt.connect(lofiFilter);
+  fx.rSend = ctx.createGain(); fx.conv = ctx.createConvolver(); const len = ctx.sampleRate * 2.4, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) { const x = ir.getChannelData(ch); for (let i = 0; i < len; i++) x[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+  fx.conv.buffer = ir; fx.in.connect(fx.rSend); fx.rSend.connect(fx.conv); fx.conv.connect(lofiFilter); fx.delay.connect(fx.rSend);
+  bus.drumsFx = ctx.createGain(); bus.drumsFx.connect(bus.drums); bus.drumsFx.connect(fx.in);
+  bus.chords.connect(fx.in); bus.melody.connect(fx.in);
   applyMix();
 }
 function applyMix() {
   if (!ctx) return;
   for (const k of ['drums', 'bass', 'chords', 'melody']) bus[k].gain.setTargetAtTime(S.mutes[k] ? 0 : S.mix[k], ctx.currentTime, .02);
   lofiFilter.frequency.setTargetAtTime(S.lofi ? 3600 : 20000, ctx.currentTime, .05);
+  const F = S.fx || { delay: 0, rev: 0 };
+  fx.dSend.gain.setTargetAtTime(F.delay * .9, ctx.currentTime, .05); fx.fb.gain.setTargetAtTime(Math.min(.72, .25 + F.delay * .5), ctx.currentTime, .05);
+  fx.rSend.gain.setTargetAtTime(F.rev * .7, ctx.currentTime, .05); syncDelayTime();
 }
+function syncDelayTime() { if (ctx && fx.delay) fx.delay.delayTime.setTargetAtTime(Math.min(2.9, stepDur() * 3), ctx.currentTime, .05); }
 const curves = {};
 function shaper(amt) { const k = Math.round(amt * 100); if (!curves[k]) { const n = 1024, c = new Float32Array(n), K = amt * 50 + 1; for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = Math.tanh(K * x) / Math.tanh(K); } curves[k] = c; } const s = ctx.createWaveShaper(); s.curve = curves[k]; return s; }
 function noiseHit(t, gain, decay, type, freq, dest, q = 1) {
@@ -1653,7 +1804,7 @@ function metalHit(t, gain, decay, hp, dest) {
   bp.connect(h); h.connect(g); g.connect(dest); g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(.0005, t + decay); return g;
 }
 function playDrum(id, t, v, posInBar) {
-  const k = KITS[S.kit] || KITS.kit909; const out = bus.drums; const n = barN();
+  const k = KITS[S.kit] || KITS.kit909; const out = (id === 'kick' || id === 'chh') ? bus.drums : bus.drumsFx; const n = barN();
   if (id === 'kick') {
     const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(k.kick.f0, t); o.frequency.exponentialRampToValueAtTime(k.kick.f1, t + k.kick.pd);
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.001, t + k.kick.d); o.connect(g);
@@ -1696,10 +1847,15 @@ function playDrum(id, t, v, posInBar) {
     else { noiseHit(t, v * .35, .07, 'bandpass', 6500, out, 1.5); }
   }
 }
-function playSynth(dest, t, midi, dur, vel, P, glideFrom) {
+function playSynth(dest, t, midi, dur, vel, P, glideFrom, wobRate) {
   const f = mtof(midi); const out = ctx.createGain(); const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.Q.value = P.q || 1;
   const fb = P.f || 8000; filt.frequency.setValueAtTime(Math.min(18000, fb + (P.fe || 0) * vel), t);
   if (P.fe) filt.frequency.exponentialRampToValueAtTime(Math.max(80, fb), t + (P.fd || .2));
+  if (P.wob) {
+    // « wobble » : le filtre s'ouvre et se ferme en rythme (x fois par temps)
+    const l = ctx.createOscillator(), lg = ctx.createGain(); l.type = 'sine'; l.frequency.value = S.bpm / 60 * (wobRate || P.wob);
+    lg.gain.value = 1400; l.connect(lg); lg.connect(filt.frequency); filt.frequency.setValueAtTime(fb + 900, t); l.start(t); l.stop(t + Math.max(dur, .05) + P.r * 4 + .1);
+  }
   let node = filt; if (P.dist) { const sh = shaper(P.dist); filt.connect(sh); node = sh; }
   node.connect(out); out.connect(dest);
   const a = P.a, d = P.d, s = P.s, r = P.r, peak = vel * .5; const end = t + Math.max(dur, a + .02);
@@ -1741,7 +1897,7 @@ function scheduleStep(abs, t) {
   });
   const lead = SYNTHS[S.lead], bs = SYNTHS[S.bassSyn], cs = SYNTHS[S.chordSyn];
   S.melody.forEach(nt => { if (nt.s === i) playSynth(bus.melody, tt, nt.m, nt.l * sd * .95, nt.v, lead); });
-  S.bass.forEach((nt, k) => { if (nt.s === i) { const prev = S.bass[k - 1] || S.bass[S.bass.length - 1]; playSynth(bus.bass, tt, nt.m, nt.l * sd * .95, nt.v, bs, nt.g && prev ? prev.m : null); } });
+  S.bass.forEach((nt, k) => { if (nt.s === i) { const prev = S.bass[k - 1] || S.bass[S.bass.length - 1]; playSynth(bus.bass, tt, nt.m, nt.l * sd * .95, nt.v, bs, nt.g && prev ? prev.m : null, nt.wr); } });
   compCache.forEach(ev => { if (ev.s === i) ev.notes.forEach(m => playSynth(bus.chords, tt, m, ev.l * sd * .95, ev.v * .55, cs)); });
   visQ.push({ t: tt, abs });
 }
@@ -1754,9 +1910,7 @@ function scheduler() {
 function onLoop() {
   loopCount++;
   if ($('#evolve').checked && loopCount % +$('#evolveEvery').value === 0) {
-    const n = barN(), w = INFO().w; const ids = unlocked().filter(id => id !== 'kick' || chance(.5)); if (!ids.length) return;
-    const id = pick(ids), tr = S.drums[id]; const i = randi(0, tr.len - 1);
-    if (!anchor(id, i)) { tr.cells[i] = tr.cells[i].v ? empty() : hit(velFor(w[i % n], id === 'snare' && chance(.6) ? .3 : .7)); }
+    if (unlocked().length) S.drums = bestMutation(1, 12).D;
     if (!S.locks.melody && S.melody.length && chance(.4)) { const nt = pick(S.melody); nt.m = degToMidi(midiToDeg(nt.m, melRoot(), scaleOf(S.scale).iv) + pick([-1, 1]), melRoot(), scaleOf(S.scale).iv);
       if (S.fitChords && isClash(mod(nt.m, 12), chordPcs(chordAt(nt.s)))) nt.m = nearestFit(nt.m, chordPcs(chordAt(nt.s)), 'consonant'); renderRoll(); }
     touch(); renderGrid(); renderAnalysis();
@@ -1936,6 +2090,8 @@ function renderAnalysis() {
   const offs = M.filter(nt => info.w[nt.s % n] <= 1).length;
   const metric = (k, v, pct, d) => `<div class="metric"><div class="k">${k}</div><div class="v">${v}</div>${pct != null ? `<div class="bar"><i style="width:${Math.round(clamp(pct, 0, 1) * 100)}%"></i></div>` : ''}${d ? `<div class="d">${d}</div>` : ''}</div>`;
   let html = '<div class="metrics">';
+  const co = coherence(D, genCtx());
+  html += metric('Cohérence du rythme', Math.round(co.coh * 100) + ' %', co.coh, co.coh >= .8 ? 'ça se tient bien' : 'point faible : ' + COH_LABELS[co.weakest]);
   html += metric('Syncope (kick+snare)', Math.round(syn * 100) + ' %', syn, syn < .12 ? 'très carré' : syn < .35 ? 'groove équilibré' : syn < .6 ? 'bien syncopé' : 'très décalé');
   html += metric('Ressemblance cliché', cl.name ? Math.round(cl.sim * 100) + ' %' : '—', cl.sim, cl.name ? 'le plus proche : ' + cl.name : 'mesure non 4/4 : déjà hors des sentiers battus');
   html += metric('Coups / ghost / roulements', `${hits} / ${ghosts} / ${ratch}`, null, probs ? probs + ' coups aléatoires' : 'aucun coup aléatoire');
@@ -1946,6 +2102,7 @@ function renderAnalysis() {
   html += metric('Tonalité', `${NOTE_FR[S.root]} ${scaleOf(S.scale).name.toLowerCase()}`, null, S.chords.map(chordName).join(' – '));
   html += '</div>';
   const tips = [];
+  if (co.coh < .72) tips.push(`Le rythme part un peu dans tous les sens (<b>${COH_LABELS[co.weakest]}</b>) : <b>🧩 Rendre cohérent</b> le retouche sans le rendre banal.`);
   if (cl.sim > .6) tips.push(`Ta batterie ressemble à <b>${cl.name}</b> à ${Math.round(cl.sim * 100)} %. Essaie <b>◀ Décaler</b> sur la caisse claire, <b>∿ Polymétrie</b> sur la percu, ou monte l'originalité et regénère en verrouillant la grosse caisse.`);
   if (syn < .12) tips.push('Le rythme est très carré : <b>↯ Syncoper</b> avance quelques coups d\'une double-croche, c\'est le moyen le plus rapide de groover.');
   if (syn > .6) tips.push('Très syncopé : si ça devient flou, remets un coup franc sur le 1 ou utilise <b>✂ Simplifier</b>.');
@@ -1978,7 +2135,9 @@ function renderMix() {
   $('#mix').innerHTML = parts.map(([k, l, opts, key]) => `<div class="mixline"><button class="sm ${S.mutes[k] ? 'on' : ''}" data-mmute="${k}" title="Muet">${S.mutes[k] ? '🔇' : '🔊'}</button><span>${l}</span>
     <input type="range" min="0" max="100" value="${Math.round(S.mix[k] * 100)}" data-vol="${k}"><select data-snd="${key}">${opts.map(([v, t]) => `<option value="${v}" ${S[key] === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div>`).join('') +
     `<div class="mixline"><span>Percu</span><select data-snd="perc">${Object.entries(PERCS).map(([v, t]) => `<option value="${v}" ${S.perc === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
-     <label class="tp"><input type="checkbox" id="lofi" ${S.lofi ? 'checked' : ''}> Filtre lo-fi</label></div>`;
+     <label class="tp"><input type="checkbox" id="lofi" ${S.lofi ? 'checked' : ''}> Filtre lo-fi</label></div>
+    <div class="mixline" title="Écho façon dub sur les accords, la mélodie et la batterie aiguë"><span>Écho</span><input type="range" min="0" max="100" value="${Math.round(S.fx.delay * 100)}" data-fx="delay"></div>
+    <div class="mixline"><span>Réverbe</span><input type="range" min="0" max="100" value="${Math.round(S.fx.rev * 100)}" data-fx="rev"></div>`;
 }
 function syncUI() {
   $('#bpm').value = S.bpm; $('#swing').value = S.swing; $('#human').value = S.human; $('#ts').value = S.ts; $('#bars').value = S.bars;
@@ -1994,6 +2153,7 @@ function syncUI() {
 
 function generateAll(styleId, noUndo) {
   if (!noUndo) pushUndo();
+  S.activeStyle = styleId || S.genStyle;
   const list = applyStartInputs();
   generateDrums(styleId);
   const N = totalN(), lastC = S.chords[S.chords.length - 1];
@@ -2020,7 +2180,7 @@ function bind() {
   fillSelect($('#genStyle'), Object.entries(STYLES).map(([k, v]) => [k, v.emoji + ' ' + v.name]));
 
   $('#play').onclick = () => playing ? stopPlay() : startPlay();
-  $('#bpm').onchange = e => { pushUndo(); S.bpm = clamp(+e.target.value || 96, 40, 240); e.target.value = S.bpm; touch(); };
+  $('#bpm').onchange = e => { pushUndo(); S.bpm = clamp(+e.target.value || 96, 40, 240); e.target.value = S.bpm; syncDelayTime(); touch(); };
   $('#swing').oninput = e => { S.swing = +e.target.value; touch(); };
   $('#human').oninput = e => { S.human = +e.target.value; touch(); };
   $('#undo').onclick = undo; $('#redo').onclick = redo; $('#midi').onclick = exportMidi;
@@ -2099,12 +2259,14 @@ function bind() {
     const st = STYLES[S.style]; S.genStyle = S.style;
     if (S.bpm < st.bpm[0] || S.bpm > st.bpm[1]) S.bpm = Math.round((st.bpm[0] + st.bpm[1]) / 2);
     S.swing = Math.round(st.swing * 100); S.swingUnit = st.swingUnit || 16; S.kit = st.kit; S.perc = st.perc; S.lead = st.lead; S.bassSyn = st.bass; S.chordSyn = st.chord; S.lofi = !!st.lofi;
+    S.fx = { ...(st.fx || { delay: 0, rev: .12 }) };
     if (!S.keepScale && st.scales && S.scaleChoice !== 'auto') S.scaleChoice = 'auto';
     generateAll(S.style); toast(`${st.emoji} Regénéré dans le style ${st.name}`);
   };
 
   // mix
-  $('#mix').addEventListener('input', e => { const v = e.target.closest('[data-vol]'); if (v) { S.mix[v.dataset.vol] = +v.value / 100; applyMix(); autosave(); } });
+  $('#mix').addEventListener('input', e => { const f = e.target.closest('[data-fx]'); if (f) { S.fx = { ...S.fx, [f.dataset.fx]: +f.value / 100 }; applyMix(); autosave(); return; }
+    const v = e.target.closest('[data-vol]'); if (v) { S.mix[v.dataset.vol] = +v.value / 100; applyMix(); autosave(); } });
   $('#mix').addEventListener('change', e => { const s = e.target.closest('[data-snd]'); if (s) { S[s.dataset.snd] = s.value; autosave(); } if (e.target.id === 'lofi') { S.lofi = e.target.checked; applyMix(); autosave(); } });
   $('#mix').addEventListener('click', e => { const m = e.target.closest('[data-mmute]'); if (m) { S.mutes[m.dataset.mmute] = !S.mutes[m.dataset.mmute]; renderMix(); applyMix(); autosave(); } });
 

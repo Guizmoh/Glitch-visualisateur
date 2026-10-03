@@ -283,6 +283,7 @@
         <label><input type="checkbox" id="lockChords"> 🔒 Accords</label>
         <label><input type="checkbox" id="lockMelody"> 🔒 Mélodie</label>
         <label><input type="checkbox" id="lockBass"> 🔒 Basse</label>
+        <label title="Après chaque modification, la mélodie est ajustée pour ne pas frotter avec les accords"><input type="checkbox" id="fitChords"> 🎯 Mélodie toujours sur les accords</label>
       </div>
     </div>
     <div class="chords" id="chords"></div>
@@ -293,6 +294,7 @@
     <div class="toolbar" id="melTools">
       <span class="lbl">Mélodie</span>
       <button data-mt="regen">🎲 Nouveau</button>
+      <button data-mt="fit" title="Corrige les notes qui frottent avec les accords (sans changer le rythme)">🎯 Coller aux accords</button>
       <button data-mt="vary" title="Change 2-3 notes en gardant le caractère">🧬 Varier</button>
       <button data-mt="syncop" title="Fait arriver des notes une double-croche en avance">↯ Syncoper</button>
       <button data-mt="ornament" title="Ajoute des notes de passage et broderies">✿ Ornementer</button>
@@ -352,11 +354,18 @@
       </div>
       <div class="toolbar">
         <span class="lbl">Favoris</span>
-        <select id="favs" style="max-width:160px"></select>
-        <button id="favLoad">Charger</button>
+        <input type="text" id="favName" placeholder="Nom du favori" style="width:150px" autocomplete="off">
         <button id="favSave">💾 Sauver</button>
-        <button id="favDel" title="Supprimer le favori sélectionné">🗑</button>
       </div>
+      <div class="toolbar">
+        <select id="favs" style="max-width:190px"></select>
+        <button id="favLoad">📂 Charger</button>
+        <button id="favDel" title="Supprimer le favori sélectionné">🗑</button>
+        <button id="favExport" title="Télécharge tous tes favoris dans un fichier (sauvegarde sûre, à garder ou partager)">⬇ Fichier</button>
+        <button id="favImport" title="Recharge des favoris depuis un fichier">⬆ Importer</button>
+        <input type="file" id="favFile" accept=".json,application/json" hidden>
+      </div>
+      <div class="muted" id="favNote" style="font-size:.75rem"></div>
     </section>
   </div>
 
@@ -698,7 +707,7 @@ function defaultState() {
     drums: {}, chords: [], comp: 'pad', compTpl: COMPS.pad.tpl, compLegato: 1, bassMode: 'kick',
     melody: [], bass: [], locks: { chords: false, melody: false, bass: false },
     mix: { drums: .85, bass: .75, chords: .45, melody: .6 }, mutes: { drums: false, bass: false, chords: false, melody: false },
-    style: 'house', styleAmt: 70, keepScale: true,
+    style: 'house', styleAmt: 70, keepScale: true, fitChords: true,
   };
   TRACKS.forEach(t => S.drums[t.id] = { cells: [], len: 32, lock: false, mute: false });
   return S;
@@ -1160,6 +1169,7 @@ function chordTransform(kind) {
   }
   else if (kind === 'enrich') { S.chords = S.chords.map(ch => ({ ...ch, q: extendQ(ch, 'jazz', 1) })); msg = '7e et 9e ajoutées'; }
   else if (kind === 'plain') { S.chords = S.chords.map(ch => ({ ...ch, q: extendQ(ch, 'triad', 1) })); msg = 'Accords de 3 sons'; }
+  autoFit();
   if (msg) toast(msg);
   touch(); renderChords(); renderRoll(); renderAnalysis();
 }
@@ -1273,6 +1283,38 @@ function fixBorrowed(notes) {
   });
   return notes;
 }
+// une note « frotte » si elle est à un demi-ton d'une note de l'accord sans en faire partie
+function isClash(pc, pcs) { return !pcs.includes(pc) && pcs.some(x => mod(pc - x, 12) === 1 || mod(x - pc, 12) === 1); }
+function nearestFit(m, pcs, need) {
+  const sc = new Set(scaleOf(S.scale).iv.map(x => (x + S.root) % 12)); let best = m, bd = 99;
+  for (let d = -4; d <= 4; d++) {
+    const pc = mod(m + d, 12);
+    const ok = need === 'chord' ? pcs.includes(pc) : (pcs.includes(pc) || (sc.has(pc) && !isClash(pc, pcs)));
+    if (ok && Math.abs(d) + (d > 0 ? .01 : 0) < bd) { bd = Math.abs(d) + (d > 0 ? .01 : 0); best = m + d; }
+  }
+  return best;
+}
+// Fait « coller » la mélodie aux accords sans la réécrire :
+// notes importantes (temps forts, notes longues, début d'accord) → note de l'accord (ou tension douce selon l'originalité),
+// autres notes → plus de frottement d'un demi-ton, sauf vraies notes de passage courtes ;
+// une note tenue par-dessus un changement d'accord est coupée si elle frotte avec l'accord suivant.
+function fitMelodyToChords(notes, o) {
+  if (!S.chords.length) return notes;
+  const n = barN(), N = totalN(), info = INFO(); const M = notes.slice().sort((a, b) => a.s - b.s);
+  M.forEach((nt, k) => {
+    const ch = chordAt(nt.s), pcs = chordPcs(ch); const w = info.w[nt.s % n];
+    const prev = M[k - 1], next = M[k + 1];
+    const important = w >= 3 || nt.l >= 3 || nt.s === ch.s || k === M.length - 1;
+    const passing = prev && next && nt.l <= 2 && w <= 2 && nt.m !== prev.m && Math.abs(prev.m - nt.m) <= 2 && Math.abs(next.m - nt.m) <= 2 && Math.sign(nt.m - prev.m) === Math.sign(next.m - nt.m);
+    const pc = mod(nt.m, 12);
+    if (important && !pcs.includes(pc)) { if (isClash(pc, pcs) || !chance(o * .35)) nt.m = nearestFit(nt.m, pcs, 'chord'); }
+    else if (isClash(pc, pcs) && !passing) nt.m = nearestFit(nt.m, pcs, 'consonant');
+    const chEnd = ch.s + ch.l;
+    if (nt.s + nt.l > chEnd && chEnd < N && isClash(mod(nt.m, 12), chordPcs(chordAt(chEnd)))) nt.l = chEnd - nt.s;
+  });
+  return M;
+}
+function autoFit() { if (S.fitChords && !S.locks.melody) S.melody = fitMelodyToChords(S.melody, OR()); }
 const nl = iv => iv.length;
 function genMelody(styleId) {
   const g = melCtx(styleId); const { n, info, o, c, iv, rootM, st } = g;
@@ -1310,6 +1352,7 @@ function genMelody(styleId) {
     if (last) last.m = degToMidi(nearestChordTone(midiToDeg(last.m, rootM, iv), chordAt(last.s), rootM, iv), rootM, iv);
   }
   S.melody = fixBorrowed(notes.filter(x => x.s < g.N).map(x => ({ ...x, l: Math.max(1, Math.min(x.l, g.N - x.s)) })));
+  if (S.fitChords) S.melody = fitMelodyToChords(S.melody, o);
 }
 function genArp(g, dens) {
   const { n, N, info } = g; const shape = pick(['up', 'down', 'updown', 'broken', 'pedal', 'random']);
@@ -1389,6 +1432,8 @@ function melTransform(kind) {
     case 'octDown': M.forEach(nt => nt.m -= 12); break;
   }
   S.melody = M.sort((a, b) => a.s - b.s);
+  if (kind === 'fit') { S.melody = fitMelodyToChords(S.melody, 0); msg = '🎯 Mélodie calée sur les accords'; }
+  else if (!['octUp', 'octDown'].includes(kind)) autoFit();
   if (msg) toast(msg);
   touch(); renderRoll(); renderAnalysis();
 }
@@ -1477,6 +1522,7 @@ function changeMode(newScale) {
     });
   }
   S.scale = newScale;
+  autoFit();
 }
 function transposeTo(newRoot) {
   const delta = mod(newRoot - S.root + 6, 12) - 6;
@@ -1568,6 +1614,7 @@ function applyStyle(id, amt) {
     if (cur > tgt * 1.3) { S.melody = S.melody.filter((nt, i) => i === 0 || info.w[nt.s % n] >= 3 || !chance(a * (cur - tgt) / cur * 1.4)); S.melody.forEach((nt, i, arr) => { const nx = arr[i + 1]; nt.l = Math.max(nt.l, Math.min((nx ? nx.s : N) - nt.s, 4)); }); }
     S.melody.forEach(nt => { const free = !S.melody.some(x => x !== nt && x.s < nt.s && x.s + x.l > nt.s - 1); if (st.mel.syncop > .6 && nt.s > 0 && info.w[nt.s % n] >= 2 && free && chance(a * .3)) { nt.s--; nt.l++; } });
   }
+  autoFit();
   S.style = id; syncUI(); touch(); renderAll();
   toast(`${st.emoji} Rapproché du style ${st.name} (${amt} %)`);
 }
@@ -1710,7 +1757,8 @@ function onLoop() {
     const n = barN(), w = INFO().w; const ids = unlocked().filter(id => id !== 'kick' || chance(.5)); if (!ids.length) return;
     const id = pick(ids), tr = S.drums[id]; const i = randi(0, tr.len - 1);
     if (!anchor(id, i)) { tr.cells[i] = tr.cells[i].v ? empty() : hit(velFor(w[i % n], id === 'snare' && chance(.6) ? .3 : .7)); }
-    if (!S.locks.melody && S.melody.length && chance(.4)) { const nt = pick(S.melody); nt.m = degToMidi(midiToDeg(nt.m, melRoot(), scaleOf(S.scale).iv) + pick([-1, 1]), melRoot(), scaleOf(S.scale).iv); renderRoll(); }
+    if (!S.locks.melody && S.melody.length && chance(.4)) { const nt = pick(S.melody); nt.m = degToMidi(midiToDeg(nt.m, melRoot(), scaleOf(S.scale).iv) + pick([-1, 1]), melRoot(), scaleOf(S.scale).iv);
+      if (S.fitChords && isClash(mod(nt.m, 12), chordPcs(chordAt(nt.s)))) nt.m = nearestFit(nt.m, chordPcs(chordAt(nt.s)), 'consonant'); renderRoll(); }
     touch(); renderGrid(); renderAnalysis();
   }
 }
@@ -1937,7 +1985,7 @@ function syncUI() {
   $('#root').value = S.rootChoice; $('#scale').value = S.scaleChoice; $('#chordIn').value = S.chordIn; $('#melType').value = S.melType; $('#genStyle').value = S.genStyle;
   $('#orig').value = S.orig; $('#origO').textContent = S.orig; $('#cplx').value = S.cplx; $('#cplxO').textContent = S.cplx;
   $('#samt').value = S.styleAmt; $('#samtO').textContent = S.styleAmt + ' %'; $('#keepScale').checked = S.keepScale;
-  $('#lockChords').checked = S.locks.chords; $('#lockMelody').checked = S.locks.melody; $('#lockBass').checked = S.locks.bass;
+  $('#fitChords').checked = S.fitChords !== false; $('#lockChords').checked = S.locks.chords; $('#lockMelody').checked = S.locks.melody; $('#lockBass').checked = S.locks.bass;
   fillSelect($('#comp'), [...Object.entries(COMPS).map(([k, v]) => [k, v.name]), ...(S.comp === 'custom' ? [['custom', 'Rythme du style']] : []), ['random', '🎲 Rythme aléatoire']], S.comp);
   fillSelect($('#bassMode'), Object.entries(BASS_MODES), S.bassMode);
   fillSelect($('#modeTo'), [['', '🎭 Changer de mode…'], ...Object.entries(SCALES).filter(([k]) => k !== S.scale).map(([k, v]) => [k, v.name])], '');
@@ -1998,6 +2046,7 @@ function bind() {
   $('#modeTo').onchange = e => { if (!e.target.value) return; pushUndo(); const m = e.target.value; changeMode(m); S.scaleChoice = m; syncUI(); touch(); renderAll(); toast('Même mélodie, mode ' + SCALES[m].name); };
   $('#comp').onchange = e => { pushUndo(); const k = e.target.value; if (k === 'random') randomComp(); else if (COMPS[k]) { S.comp = k; S.compTpl = COMPS[k].tpl; S.compLegato = COMPS[k].leg; } syncUI(); touch(); };
   $('#bassMode').onchange = e => { S.bassMode = e.target.value; bassTransform('regen'); };
+  $('#fitChords').onchange = e => { S.fitChords = e.target.checked; if (S.fitChords) { pushUndo(); autoFit(); touch(); renderRoll(); renderAnalysis(); toast('🎯 La mélodie suit les accords'); } else autosave(); };
   ['Chords', 'Melody', 'Bass'].forEach(k => $('#lock' + k).onchange = e => { S.locks[k.toLowerCase()] = e.target.checked; autosave(); });
   $('#tabMel').onclick = () => { rollTab = 'melody'; $('#tabMel').classList.add('on'); $('#tabBass').classList.remove('on'); $('#melTools').hidden = false; $('#bassTools').hidden = true; roll.bg = false; renderRoll(); };
   $('#tabBass').onclick = () => { rollTab = 'bass'; $('#tabBass').classList.add('on'); $('#tabMel').classList.remove('on'); $('#melTools').hidden = true; $('#bassTools').hidden = false; roll.bg = false; renderRoll(); };
@@ -2033,7 +2082,7 @@ function bind() {
       const tag = why && /emprunt|dominante|tritonique|médiante/.test(why) ? why.split(' ')[0] : undefined;
       S.chords[idx] = { ...ch, root: c.root, q: c.q, tag };
       previewChord(S.chords[idx]); if (['kick', '808', 'funk', 'walking', 'sustain'].includes(S.bassMode) && !S.locks.bass) genBass(); else S.bass.forEach(nt => { if (nt.s >= ch.s && nt.s < ch.s + ch.l && nt.m % 12 === ch.root) nt.m += mod(c.root - ch.root + 6, 12) - 6; });
-      touch(); renderChords(); renderRoll(); renderAnalysis(); };
+      autoFit(); touch(); renderChords(); renderRoll(); renderAnalysis(); };
     pop.querySelectorAll('[data-sub]').forEach(b => { b.onclick = () => { apply(subs[+b.dataset.sub].c, subs[+b.dataset.sub].why); pop.classList.remove('show'); }; b.onmouseenter = () => previewChord(subs[+b.dataset.sub].c); });
     $('#subOk').onclick = () => { const c = parseChord($('#subIn').value); if (!c) return toast('Accord non reconnu'); apply(c); pop.classList.remove('show'); };
     $('#subIn').onkeydown = ev => { if (ev.key === 'Enter') $('#subOk').click(); };
@@ -2060,9 +2109,35 @@ function bind() {
   $('#mix').addEventListener('click', e => { const m = e.target.closest('[data-mmute]'); if (m) { S.mutes[m.dataset.mmute] = !S.mutes[m.dataset.mmute]; renderMix(); applyMix(); autosave(); } });
 
   // favoris
-  $('#favSave').onclick = () => { const nm = prompt('Nom du favori ?', `${STYLES[S.style].name.split(' ')[0]} ${NOTE_EN[S.root]} ${S.bpm}`); if (!nm) return; const f = loadFavs(); f[nm] = S; saveFavs(f); renderFavs(); $('#favs').value = nm; toast('Sauvegardé ⭐'); };
-  $('#favLoad').onclick = () => { const f = loadFavs(); const nm = $('#favs').value; if (!f[nm]) return; pushUndo(); S = Object.assign(defaultState(), deep(f[nm])); syncUI(); touch(); renderAll(); toast('Chargé : ' + nm); };
-  $('#favDel').onclick = () => { const f = loadFavs(); const nm = $('#favs').value; if (!f[nm] || !confirm(`Supprimer « ${nm} » ?`)) return; delete f[nm]; saveFavs(f); renderFavs(); };
+  const defaultFavName = () => `${STYLES[S.style].name.split(' ')[0]} ${NOTE_FR[S.root]} ${S.bpm} BPM`;
+  $('#favSave').onclick = () => {
+    const nm = $('#favName').value.trim() || defaultFavName(); const f = loadFavs();
+    f[nm] = deep(S); saveFavs(f); renderFavs(); $('#favs').value = nm; $('#favName').value = '';
+    toast(favStorageOk ? `⭐ « ${nm} » sauvegardé` : `⭐ « ${nm} » gardé pour cette session — clique « ⬇ Fichier » pour le conserver`);
+  };
+  $('#favName').onkeydown = e => { if (e.key === 'Enter') $('#favSave').click(); };
+  $('#favLoad').onclick = () => { const f = loadFavs(); const nm = $('#favs').value; if (!f[nm]) return toast('Choisis un favori dans la liste'); pushUndo(); S = Object.assign(defaultState(), deep(f[nm])); syncUI(); touch(); renderAll(); toast('Chargé : ' + nm); };
+  let delArm = null;
+  $('#favDel').onclick = () => {
+    const f = loadFavs(); const nm = $('#favs').value; if (!f[nm]) return;
+    if (delArm !== nm) { delArm = nm; $('#favDel').textContent = 'Confirmer ?'; setTimeout(() => { delArm = null; $('#favDel').textContent = '🗑'; }, 3000); return; }
+    delete f[nm]; saveFavs(f); renderFavs(); delArm = null; $('#favDel').textContent = '🗑'; toast('Supprimé : ' + nm);
+  };
+  $('#favExport').onclick = () => {
+    const f = loadFavs(); if (!Object.keys(f).length) { f[defaultFavName()] = deep(S); }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(f)], { type: 'application/json' }));
+    a.download = 'atelier-rythme-favoris.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    toast('Favoris téléchargés (atelier-rythme-favoris.json)');
+  };
+  $('#favImport').onclick = () => $('#favFile').click();
+  $('#favFile').onchange = async e => {
+    const file = e.target.files[0]; if (!file) return;
+    try { const data = JSON.parse(await file.text()); const f = loadFavs(); let k = 0;
+      for (const [nm, st] of Object.entries(data)) if (st && st.drums && st.drums.kick) { f[nm] = st; k++; }
+      saveFavs(f); renderFavs(); toast(k ? `${k} favori(s) importé(s)` : 'Aucun favori dans ce fichier');
+    } catch (err) { toast('Fichier illisible'); }
+    e.target.value = '';
+  };
 
   document.addEventListener('keydown', e => {
     if (e.target.matches('input[type=text], input[type=number], select, textarea')) return;
@@ -2077,9 +2152,25 @@ function bind() {
 // ---- sauvegarde ----
 const LS_LAST = 'atelier-rythme-last', LS_FAVS = 'atelier-rythme-favs';
 let saveT; function autosave() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(LS_LAST, JSON.stringify(S)); } catch (e) {} }, 300); }
-function loadFavs() { try { return JSON.parse(localStorage.getItem(LS_FAVS)) || {}; } catch (e) { return {}; } }
-function saveFavs(f) { try { localStorage.setItem(LS_FAVS, JSON.stringify(f)); } catch (e) { toast('Impossible de sauvegarder dans ce navigateur'); } }
-function renderFavs() { const f = loadFavs(); const keys = Object.keys(f); fillSelect($('#favs'), keys.length ? keys.map(k => [k, k]) : [['', '(aucun favori)']]); }
+// les favoris vivent en mémoire et sont recopiés dans le navigateur quand c'est possible
+// (certains navigateurs bloquent le stockage pour un fichier ouvert en local → bouton « Fichier »)
+let favMem = null, favStorageOk = true;
+function loadFavs() {
+  if (favMem) return favMem;
+  try { favMem = JSON.parse(localStorage.getItem(LS_FAVS)) || {}; } catch (e) { favMem = {}; favStorageOk = false; }
+  return favMem;
+}
+function saveFavs(f) {
+  favMem = f;
+  try { localStorage.setItem(LS_FAVS, JSON.stringify(f)); favStorageOk = localStorage.getItem(LS_FAVS) !== null; } catch (e) { favStorageOk = false; }
+  renderFavNote();
+}
+function renderFavNote() {
+  const el = $('#favNote'); if (!el) return;
+  el.textContent = favStorageOk ? 'Les favoris sont gardés dans ce navigateur. « ⬇ Fichier » pour en faire une copie de sécurité.'
+    : '⚠️ Ce navigateur bloque la sauvegarde automatique ici : utilise « ⬇ Fichier » pour garder tes favoris, puis « ⬆ Importer » pour les retrouver.';
+}
+function renderFavs() { const f = loadFavs(); const keys = Object.keys(f); fillSelect($('#favs'), keys.length ? keys.map(k => [k, k]) : [['', '(aucun favori)']]); renderFavNote(); }
 
 // ---- démarrage ----
 (function init() {

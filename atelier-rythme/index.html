@@ -1933,34 +1933,103 @@ function drawLoop() {
 /* =========================================================================
    EXPORT MIDI
    ========================================================================= */
-function exportMidi() {
-  const ts = TS(), N = totalN(), n = barN(), info = INFO(); const PPQ = 96, tps = PPQ / ts.perQ; const loops = 4;
+// construit un fichier MIDI (type 1) ; parts = pistes à inclure parmi drums/melody/bass/chords
+function buildMidi(parts, loops) {
+  const ts = TS(), N = totalN(), n = barN(), info = INFO(); const PPQ = 96, tps = PPQ / ts.perQ;
   const vlq = v => { const b = [v & 127]; while ((v >>= 7)) b.unshift((v & 127) | 128); return b; };
   const sw = i => Math.round(swingOff(i % n, info) / stepDur() * tps);
   const track = (evs) => { evs.sort((a, b) => a.t - b.t || a.o - b.o); const bytes = []; let last = 0;
     evs.forEach(e => { bytes.push(...vlq(Math.max(0, e.t - last)), ...e.d); last = Math.max(last, e.t); }); bytes.push(0, 0xff, 0x2f, 0);
     return [0x4d, 0x54, 0x72, 0x6b, (bytes.length >>> 24) & 255, (bytes.length >>> 16) & 255, (bytes.length >>> 8) & 255, bytes.length & 255, ...bytes]; };
-  const name = s => { const b = [...new TextEncoder().encode(s)]; return { t: 0, o: -1, d: [0xff, 0x03, b.length, ...b] }; };
+  const name = s => { const b = [...new TextEncoder().encode(s)].slice(0, 100); return { t: 0, o: -1, d: [0xff, 0x03, b.length, ...b] }; };
   const usq = Math.round(stepDur() * ts.perQ * 1e6);
   const meta = [name('Atelier Rythme'), { t: 0, o: 0, d: [0xff, 0x51, 3, (usq >> 16) & 255, (usq >> 8) & 255, usq & 255] },
     { t: 0, o: 0, d: [0xff, 0x58, 4, ts.num, ts.den === 8 ? 3 : 2, 24, 8] }];
-  const drums = [name('Batterie')];
-  for (let abs = 0; abs < N * loops; abs++) TRACKS.forEach(tr => {
-    const D = S.drums[tr.id]; if (D.mute) return; const c = D.cells[abs % D.len]; if (!c || !c.v || (c.p < 1 && Math.random() > c.p)) return;
-    for (let r = 0; r < c.r; r++) { const t = abs * tps + sw(abs % N) + Math.round(r * tps / c.r); const v = Math.round(clamp(c.v * (r ? .75 : 1), .05, 1) * 127);
-      drums.push({ t, o: 1, d: [0x99, tr.gm, v] }, { t: t + Math.max(1, Math.round(tps / c.r / 2)), o: 0, d: [0x89, tr.gm, 0] }); }
-  });
+  const tracks = [track(meta)];
+  if (parts.includes('drums')) {
+    const drums = [name('Batterie')];
+    for (let abs = 0; abs < N * loops; abs++) TRACKS.forEach(tr => {
+      const D = S.drums[tr.id]; if (D.mute) return; const c = D.cells[abs % D.len]; if (!c || !c.v || (c.p < 1 && Math.random() > c.p)) return;
+      for (let r = 0; r < c.r; r++) { const t = abs * tps + sw(abs % N) + Math.round(r * tps / c.r); const v = Math.round(clamp(c.v * (r ? .75 : 1), .05, 1) * 127);
+        drums.push({ t, o: 1, d: [0x99, tr.gm, v] }, { t: t + Math.max(1, Math.round(tps / c.r / 2)), o: 0, d: [0x89, tr.gm, 0] }); }
+    });
+    tracks.push(track(drums));
+  }
   const notesTrack = (nm, list, ch, prog) => { const ev = [name(nm), { t: 0, o: 0, d: [0xc0 | ch, prog] }];
-    for (let lp = 0; lp < loops; lp++) list.forEach(nt => { const t = (lp * N + nt.s) * tps + sw(nt.s); const len = Math.max(1, Math.round(nt.l * tps * .95));
-      ev.push({ t, o: 1, d: [0x90 | ch, clamp(nt.m, 0, 127), Math.round(clamp(nt.v, .05, 1) * 110)] }, { t: t + len, o: 0, d: [0x80 | ch, clamp(nt.m, 0, 127), 0] }); });
+    for (let lp = 0; lp < loops; lp++) list.forEach(nt => { const t = (lp * N + nt.s) * tps + sw(nt.s); const len = Math.max(1, Math.round(nt.l * tps * .95)); const m = clamp(Math.round(nt.m), 0, 127);
+      ev.push({ t, o: 1, d: [0x90 | ch, m, Math.max(1, Math.round(clamp(nt.v, .05, 1) * 110))] }, { t: t + len, o: 0, d: [0x80 | ch, m, 0] }); });
     return ev; };
-  const chordNotes = []; compEvents().forEach(e => e.notes.forEach(m => chordNotes.push({ s: e.s, l: e.l, m, v: e.v * .8 })));
-  const tracks = [track(meta), track(drums), track(notesTrack('Mélodie', S.melody, 0, 4)), track(notesTrack('Basse', S.bass, 1, 33)), track(notesTrack('Accords', chordNotes, 2, 0))];
+  if (parts.includes('melody')) tracks.push(track(notesTrack('Melodie', S.melody, 0, 4)));
+  if (parts.includes('bass')) tracks.push(track(notesTrack('Basse', S.bass, 1, 33)));
+  if (parts.includes('chords')) { const cn = []; compEvents().forEach(e => e.notes.forEach(m => cn.push({ s: e.s, l: e.l, m, v: e.v * .8 }))); tracks.push(track(notesTrack('Accords', cn, 2, 0))); }
   const head = [0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 1, 0, tracks.length, 0, PPQ];
-  const blob = new Blob([new Uint8Array([...head, ...tracks.flat()])], { type: 'audio/midi' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `atelier-${NOTE_EN[S.root].replace('#', 'd')}-${S.scale}-${S.bpm}bpm.mid`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  toast('MIDI exporté (4 boucles, pistes séparées)');
+  return new Uint8Array([...head, ...tracks.flat()]);
+}
+// petit ZIP « stocké » (sans compression) pour livrer plusieurs fichiers d'un coup
+const CRC_T = (() => { const t = new Uint32Array(256); for (let i = 0; i < 256; i++) { let c = i; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[i] = c >>> 0; } return t; })();
+function crc32(d) { let c = 0xffffffff; for (let i = 0; i < d.length; i++) c = CRC_T[(c ^ d[i]) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function makeZip(files) {
+  const out = [], central = []; let off = 0;
+  const u16 = v => [v & 255, (v >>> 8) & 255], u32 = v => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  files.forEach(f => {
+    const nm = [...new TextEncoder().encode(f.name)], crc = crc32(f.data), sz = f.data.length;
+    const common = [...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(sz), ...u32(sz), ...u16(nm.length), ...u16(0)];
+    const local = [0x50, 0x4b, 3, 4, ...common, ...nm];
+    central.push(...[0x50, 0x4b, 1, 2, ...u16(20), ...common, ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off), ...nm]);
+    out.push(new Uint8Array(local), f.data); off += local.length + sz;
+  });
+  const end = [0x50, 0x4b, 5, 6, 0, 0, 0, 0, ...u16(files.length), ...u16(files.length), ...u32(central.length), ...u32(off), 0, 0];
+  return new Blob([...out, new Uint8Array(central), new Uint8Array(end)], { type: 'application/zip' });
+}
+const inFrame = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = filename; a.rel = 'noopener'; a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+async function shareBlob(blob, filename) {
+  const file = new File([blob], filename, { type: blob.type });
+  if (!navigator.canShare || !navigator.canShare({ files: [file] })) return toast('Le partage de fichiers n\'est pas disponible ici');
+  try { await navigator.share({ files: [file], title: filename }); } catch (e) { if (e.name !== 'AbortError') toast('Partage impossible ici : ouvre la page dans ton navigateur'); }
+}
+function midiBase() { return `atelier-${NOTE_EN[S.root].replace('#', 'd')}-${S.scale}-${S.bpm}bpm`; }
+function midiExport(kind) {
+  const loops = +$('#midiLoops').value || 4; const base = midiBase();
+  let blob, fname;
+  if (kind === 'zip') {
+    const files = [{ name: base + '-tout.mid', data: buildMidi(['drums', 'melody', 'bass', 'chords'], loops) },
+      { name: base + '-batterie.mid', data: buildMidi(['drums'], loops) }, { name: base + '-melodie.mid', data: buildMidi(['melody'], loops) },
+      { name: base + '-basse.mid', data: buildMidi(['bass'], loops) }, { name: base + '-accords.mid', data: buildMidi(['chords'], loops) }];
+    blob = makeZip(files); fname = base + '.zip';
+  } else {
+    const parts = kind === 'all' ? ['drums', 'melody', 'bass', 'chords'] : [kind];
+    blob = new Blob([buildMidi(parts, loops)], { type: 'audio/midi' }); fname = base + (kind === 'all' ? '' : '-' + { drums: 'batterie', melody: 'melodie', bass: 'basse', chords: 'accords' }[kind]) + '.mid';
+  }
+  return { blob, fname };
+}
+function openMidiDialog() {
+  const pop = $('#pop'); const canShare = !!(navigator.canShare && window.File);
+  pop.innerHTML = `<h4>⬇ Exporter en MIDI</h4>
+    <div class="subs">
+      <button data-mx="all">🎼 Tout en 1 fichier <i>4 pistes</i></button>
+      <button data-mx="zip">🗂 Une piste par fichier <i>.zip</i></button>
+      <button data-mx="drums">🥁 Batterie seule</button><button data-mx="melody">🎵 Mélodie seule</button>
+      <button data-mx="bass">🎸 Basse seule</button><button data-mx="chords">🎹 Accords seuls</button>
+    </div>
+    <div class="row"><label class="tp">Longueur <select id="midiLoops"><option value="1">1 boucle</option><option value="4" selected>4 boucles</option><option value="8">8 boucles</option></select></label>
+      ${canShare ? '<label class="tp"><input type="checkbox" id="midiShare"> 📤 Partager</label>' : ''}</div>
+    <p class="muted" style="font-size:.74rem;line-height:1.5;margin:8px 0 0">${inFrame
+      ? '⚠️ La page est ouverte dans un aperçu (application, visionneuse…) qui <b>bloque souvent les téléchargements</b>. Si rien ne se passe : ouvre le fichier <b>atelier-rythme</b> directement avec Chrome, Firefox ou Edge (clic droit → Ouvrir avec).'
+      : 'Le fichier arrive dans ton dossier <b>Téléchargements</b>. Glisse-le ensuite dans ton logiciel (FL Studio, Ableton, GarageBand…). La batterie est sur le canal 10 (General MIDI).'}</p>`;
+  pop.classList.add('show'); const r = $('#midi').getBoundingClientRect();
+  pop.style.left = clamp(r.right - pop.offsetWidth, 12, window.innerWidth - pop.offsetWidth - 12) + 'px'; pop.style.top = (r.bottom + 6) + 'px';
+  pop.querySelectorAll('[data-mx]').forEach(b => b.onclick = () => {
+    try {
+      const { blob, fname } = midiExport(b.dataset.mx);
+      if ($('#midiShare') && $('#midiShare').checked) shareBlob(blob, fname);
+      else { saveBlob(blob, fname); toast(`⬇ ${fname}` + (inFrame ? ' — si rien n\'arrive, ouvre la page dans ton navigateur' : '')); }
+    } catch (e) { console.error(e); toast('Erreur pendant l\'export : ' + e.message); }
+  });
 }
 
 /* =========================================================================
@@ -2183,7 +2252,7 @@ function bind() {
   $('#bpm').onchange = e => { pushUndo(); S.bpm = clamp(+e.target.value || 96, 40, 240); e.target.value = S.bpm; syncDelayTime(); touch(); };
   $('#swing').oninput = e => { S.swing = +e.target.value; touch(); };
   $('#human').oninput = e => { S.human = +e.target.value; touch(); };
-  $('#undo').onclick = undo; $('#redo').onclick = redo; $('#midi').onclick = exportMidi;
+  $('#undo').onclick = undo; $('#redo').onclick = redo; $('#midi').onclick = e => { e.stopPropagation(); openMidiDialog(); };
   $('#ts').onchange = e => { pushUndo(); S.ts = e.target.value; generateAll(null, true); toast('Nouvelle mesure : tout a été regénéré'); };
   $('#bars').onchange = e => { pushUndo(); resizeTo(+e.target.value); touch(); renderAll(); };
   $('#root').onchange = e => { S.rootChoice = e.target.value; if (e.target.value !== 'auto') { pushUndo(); transposeTo(+e.target.value); touch(); renderAll(); toast('Transposé en ' + NOTE_FR[S.root]); } else autosave(); };
@@ -2248,7 +2317,7 @@ function bind() {
     $('#subIn').onkeydown = ev => { if (ev.key === 'Enter') $('#subOk').click(); };
     e.stopPropagation();
   });
-  document.addEventListener('click', e => { if (!e.target.closest('#pop') && !e.target.closest('.chip')) $('#pop').classList.remove('show'); });
+  document.addEventListener('click', e => { if (!e.target.closest('#pop') && !e.target.closest('.chip') && !e.target.closest('#midi')) $('#pop').classList.remove('show'); });
 
   // styles
   $('#styles').addEventListener('click', e => { const b = e.target.closest('[data-style]'); if (!b) return; S.style = b.dataset.style; renderStyles(); autosave(); });
@@ -2287,8 +2356,7 @@ function bind() {
   };
   $('#favExport').onclick = () => {
     const f = loadFavs(); if (!Object.keys(f).length) { f[defaultFavName()] = deep(S); }
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(f)], { type: 'application/json' }));
-    a.download = 'atelier-rythme-favoris.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    saveBlob(new Blob([JSON.stringify(f)], { type: 'application/json' }), 'atelier-rythme-favoris.json');
     toast('Favoris téléchargés (atelier-rythme-favoris.json)');
   };
   $('#favImport').onclick = () => $('#favFile').click();

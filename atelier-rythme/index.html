@@ -7,40 +7,85 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🥁</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* Mise en page : barre latérale de navigation + colonne de travail ; la batterie d'abord, le reste en option plus bas.
+     Thème « ardoise » : gris bleutés étagés (fond < cartes < champs) et bleu pour tout ce qui doit ressortir. */
   :root{
-    --bg:#1a1815; --surface:#211e1a; --surface-2:#2a2621; --surface-hover:#302b25;
-    --border:#38332c; --border-hover:#4a4338;
-    --text-0:#f5f1ec; --text-1:#a9a297; --text-2:#6f6a5f;
-    --accent:#ef6c2e; --accent-hover:#ff8442; --accent-soft:rgba(239,108,46,0.12); --accent-border:rgba(239,108,46,0.5);
-    --on-accent:#1a1613; --good:#69db7c; --warn:#ffd43b;
-    --radius-lg:14px; --radius-md:10px; --radius-sm:7px;
-    --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-    --sans:'Inter', system-ui, -apple-system, sans-serif;
-    --topbar-bg:rgba(26,24,21,.94); --cell-down:#302b25; --cell-txt:#1a1613; --stripe:rgba(255,255,255,.05); --shadow:rgba(0,0,0,.5);
-    --roll-bg:#1d1a17; --roll-row:#26221e; --roll-off:#1b1815; --roll-root:#3a2a1f; --roll-lbl-off:#4a4338;
-    --roll-bar:#6f6a5f; --roll-beat:#3a352e; --roll-step:#25211d; --roll-ghost:rgba(255,255,255,.08); --roll-head:rgba(245,241,236,.75); --roll-chord:rgba(239,108,46,.10);
+    --radius-lg:12px; --radius-md:10px; --radius-sm:7px;
+    --mono:'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+    --sans:'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --bg:#0d1319; --surface:#141c25; --surface-2:#1b2531; --surface-hover:#22303f; --border:#26323f; --border-hover:#384859;
+    --text-0:#e7edf4; --text-1:#9cadbf; --text-2:#67788b; --accent:#4c8dff; --accent-hover:#6ea2ff; --accent-soft:rgba(76,141,255,.14); --accent-border:rgba(76,141,255,.5);
+    --on-accent:#fff; --good:#5fd39a; --warn:#e8c46a; --topbar-bg:rgba(10,15,20,.92); --cell-down:#223042; --cell-txt:#0d1319; --stripe:rgba(255,255,255,.05); --shadow:rgba(0,0,0,.55);
+    --card-bg:linear-gradient(180deg,#16202a,#141c25); --card-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px rgba(0,0,0,.25);
+    --roll-bg:#111922; --roll-row:#17212d; --roll-off:#111922; --roll-root:#1c2d47; --roll-lbl-off:#3a4a5c; --roll-bar:#4d5f74; --roll-beat:#263446; --roll-step:#18222e;
+    --roll-ghost:rgba(255,255,255,.08); --roll-head:rgba(231,237,244,.8); --roll-chord:rgba(76,141,255,.13);
+    --t-kick:#5b9bff; --t-snare:#8db7ff; --t-clap:#b4cdfa; --t-chh:#46bfc4; --t-ohh:#83dad6; --t-rim:#93a4b8; --t-tom:#a99bd8; --t-perc:#c3a5c8;
+    --note-mel:#6ea8ff; --note-bass:#4fc3c7; --note-txt:#0d1319;
+    --sec-1:#3a4d63; --sec-2:#56708d; --sec-3:#4c8dff; --sec-4:#6f86a3; --sec-5:#8fa3bb; --sec-6:#7aa7e0; --sec-txt:#f1f5f9;
     color-scheme:dark;
   }
-  /* thème clair : automatique selon l'appareil, ou forcé avec le bouton 🌓 */
   @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
-    --bg:#f6f2ec; --surface:#fffdf9; --surface-2:#f0ebe3; --surface-hover:#e8e1d6; --border:#ddd4c6; --border-hover:#c9bdab;
-    --text-0:#211d18; --text-1:#5d564c; --text-2:#8a8276; --accent:#d9561a; --accent-hover:#c24a12; --accent-soft:rgba(217,86,26,.10); --accent-border:rgba(217,86,26,.45);
-    --on-accent:#fff; --good:#2f9e44; --warn:#b07d00; --topbar-bg:rgba(246,242,236,.94); --cell-down:#e6dfd3; --stripe:rgba(0,0,0,.05); --shadow:rgba(60,40,20,.18);
-    --roll-bg:#fbf8f3; --roll-row:#f1ebe2; --roll-off:#fdfbf8; --roll-root:#f7dcc9; --roll-lbl-off:#c3b8a8;
-    --roll-bar:#8a8276; --roll-beat:#d5cbbc; --roll-step:#ece5da; --roll-ghost:rgba(0,0,0,.14); --roll-head:rgba(33,29,24,.7); --roll-chord:rgba(217,86,26,.12);
+    --bg:#edf1f5; --surface:#ffffff; --surface-2:#f3f6f9; --surface-hover:#e8edf3; --border:#d7dfe8; --border-hover:#b7c4d3;
+    --text-0:#15202b; --text-1:#4a5a6c; --text-2:#7d8c9d; --accent:#2563eb; --accent-hover:#1d4fd8; --accent-soft:rgba(37,99,235,.08); --accent-border:rgba(37,99,235,.4);
+    --on-accent:#fff; --good:#2f9e6a; --warn:#a87b00; --topbar-bg:rgba(255,255,255,.94); --cell-down:#e2e8ef; --cell-txt:#fff; --stripe:rgba(0,0,0,.05); --shadow:rgba(30,50,80,.16);
+    --card-bg:#ffffff; --card-shadow:0 1px 2px rgba(20,40,70,.06), 0 4px 16px rgba(20,40,70,.05);
+    --roll-bg:#f8fafc; --roll-row:#eef3f8; --roll-off:#fbfcfd; --roll-root:#dce8fb; --roll-lbl-off:#b7c4d3; --roll-bar:#8696a9; --roll-beat:#d3dce6; --roll-step:#e9eef3;
+    --roll-ghost:rgba(20,40,70,.14); --roll-head:rgba(21,32,43,.7); --roll-chord:rgba(37,99,235,.08);
+    --t-kick:#1e3a8a; --t-snare:#2563eb; --t-clap:#60a5fa; --t-chh:#0e7490; --t-ohh:#22a3b8; --t-rim:#64748b; --t-tom:#6366f1; --t-perc:#94a3b8;
+    --note-mel:#2563eb; --note-bass:#0e7490; --note-txt:#ffffff;
+    --sec-1:#cbd5e1; --sec-2:#93a9c4; --sec-3:#2563eb; --sec-4:#a5b8cf; --sec-5:#6b86a8; --sec-6:#bfdbfe; --sec-txt:#15202b;
     color-scheme:light;
   } }
   :root[data-theme="light"]{
-    --bg:#f6f2ec; --surface:#fffdf9; --surface-2:#f0ebe3; --surface-hover:#e8e1d6; --border:#ddd4c6; --border-hover:#c9bdab;
-    --text-0:#211d18; --text-1:#5d564c; --text-2:#8a8276; --accent:#d9561a; --accent-hover:#c24a12; --accent-soft:rgba(217,86,26,.10); --accent-border:rgba(217,86,26,.45);
-    --on-accent:#fff; --good:#2f9e44; --warn:#b07d00; --topbar-bg:rgba(246,242,236,.94); --cell-down:#e6dfd3; --stripe:rgba(0,0,0,.05); --shadow:rgba(60,40,20,.18);
-    --roll-bg:#fbf8f3; --roll-row:#f1ebe2; --roll-off:#fdfbf8; --roll-root:#f7dcc9; --roll-lbl-off:#c3b8a8;
-    --roll-bar:#8a8276; --roll-beat:#d5cbbc; --roll-step:#ece5da; --roll-ghost:rgba(0,0,0,.14); --roll-head:rgba(33,29,24,.7); --roll-chord:rgba(217,86,26,.12);
+    --bg:#edf1f5; --surface:#ffffff; --surface-2:#f3f6f9; --surface-hover:#e8edf3; --border:#d7dfe8; --border-hover:#b7c4d3;
+    --text-0:#15202b; --text-1:#4a5a6c; --text-2:#7d8c9d; --accent:#2563eb; --accent-hover:#1d4fd8; --accent-soft:rgba(37,99,235,.08); --accent-border:rgba(37,99,235,.4);
+    --on-accent:#fff; --good:#2f9e6a; --warn:#a87b00; --topbar-bg:rgba(255,255,255,.94); --cell-down:#e2e8ef; --cell-txt:#fff; --stripe:rgba(0,0,0,.05); --shadow:rgba(30,50,80,.16);
+    --card-bg:#ffffff; --card-shadow:0 1px 2px rgba(20,40,70,.06), 0 4px 16px rgba(20,40,70,.05);
+    --roll-bg:#f8fafc; --roll-row:#eef3f8; --roll-off:#fbfcfd; --roll-root:#dce8fb; --roll-lbl-off:#b7c4d3; --roll-bar:#8696a9; --roll-beat:#d3dce6; --roll-step:#e9eef3;
+    --roll-ghost:rgba(20,40,70,.14); --roll-head:rgba(21,32,43,.7); --roll-chord:rgba(37,99,235,.08);
+    --t-kick:#1e3a8a; --t-snare:#2563eb; --t-clap:#60a5fa; --t-chh:#0e7490; --t-ohh:#22a3b8; --t-rim:#64748b; --t-tom:#6366f1; --t-perc:#94a3b8;
+    --note-mel:#2563eb; --note-bass:#0e7490; --note-txt:#ffffff;
+    --sec-1:#cbd5e1; --sec-2:#93a9c4; --sec-3:#2563eb; --sec-4:#a5b8cf; --sec-5:#6b86a8; --sec-6:#bfdbfe; --sec-txt:#15202b;
     color-scheme:light;
   }
   *{ box-sizing:border-box; }
+  .sec.t-refrain{ color:#fff; }
+  .card{ background:var(--card-bg) !important; box-shadow:var(--card-shadow); }
+  button{ border-radius:8px; }
+  .shell{ display:grid; grid-template-columns:210px minmax(0,1fr); max-width:1440px; margin:0 auto; }
+  .side{ position:sticky; top:calc(66px + env(safe-area-inset-top, 0px)); align-self:start; padding:18px 10px 18px 16px; display:flex; flex-direction:column; gap:2px; }
+  .side .t{ font-size:.66rem; letter-spacing:.12em; text-transform:uppercase; color:var(--text-2); font-family:var(--mono); margin:12px 10px 6px; }
+  .side .t:first-child{ margin-top:0; }
+  .side a{ color:var(--text-1); text-decoration:none; padding:8px 10px; border-radius:8px; font-size:.86rem; display:flex; gap:10px; align-items:center; }
+  .side a:hover{ background:var(--surface); color:var(--text-0); }
+  .side a i{ width:6px; height:6px; border-radius:50%; background:var(--border-hover); flex:0 0 auto; }
+  .side a.on{ background:var(--accent-soft); color:var(--text-0); } .side a.on i{ background:var(--accent); box-shadow:0 0 8px var(--accent); }
+  .side a.off{ opacity:.6; } .side a small{ margin-left:auto; font-size:.66rem; color:var(--text-2); font-family:var(--mono); }
+  .shell main{ max-width:none; margin:0; }
+  .card-head{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:4px; }
+  .card-head h2{ margin:0; }
+  .pill{ font-family:var(--mono); font-size:.64rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-2); border:1px solid var(--border-hover); border-radius:20px; padding:1px 8px; }
+  .drum-setup{ display:flex; flex-wrap:wrap; gap:12px 16px; align-items:flex-end; padding:12px; margin:10px 0 6px; border-radius:var(--radius-md); background:var(--surface-2); border:1px solid var(--border); }
+  .drum-setup .field{ min-width:120px; } .drum-setup .field.grow{ flex:1 1 160px; }
+  .drum-setup .go{ margin-left:auto; display:flex; gap:8px; }
+  .drum-setup .go .primary{ padding:9px 18px; font-size:.95rem; }
+  .group-title{ font-family:var(--mono); font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--text-2); margin:10px 2px -4px; display:flex; align-items:center; gap:10px; }
+  .group-title::after{ content:''; flex:1; height:1px; background:var(--border); }
+  .harm-off{ display:flex; gap:16px; align-items:center; flex-wrap:wrap; justify-content:space-between; }
+  .harm-off p{ margin:0; color:var(--text-1); font-size:.85rem; line-height:1.5; max-width:62ch; }
+  .harm-setup{ display:flex; flex-wrap:wrap; gap:12px 16px; align-items:flex-end; margin:6px 0 10px; }
+  .harm-setup .field{ min-width:140px; } .harm-setup .field.wide{ flex:1 1 260px; }
+  @media (max-width:700px){
+    #secDrums > .sub{ display:none; }
+    .drum-setup{ display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; padding:10px; }
+    .drum-setup .field{ min-width:0; } .drum-setup .field.grow, .drum-setup .go{ grid-column:1 / -1; }
+    .toolbar button{ padding:4px 8px; font-size:.8rem; } .toolbar{ gap:5px; }
+    .harm-setup{ display:grid; grid-template-columns:1fr 1fr; } .harm-setup .field{ min-width:0; } .harm-setup .field.wide{ grid-column:1 / -1; }
+  }
+  @media (max-width:860px){ .shell{ grid-template-columns:1fr; } .side{ position:static; flex-direction:row; overflow-x:auto; padding:10px 16px 0; gap:6px; } .side .t{ display:none; }
+    .side a{ white-space:nowrap; background:var(--surface); border:1px solid var(--border); } .drum-setup .go{ margin-left:0; width:100%; } .drum-setup .go .primary{ flex:1; } }
   [hidden]{ display:none !important; }
   html,body{ margin:0; padding:0; }
   body{ background:var(--bg); color:var(--text-0); font-family:var(--sans); font-size:14px; padding-bottom:80px; }
@@ -106,7 +151,7 @@
   .vcard .vl{ font-size:.76rem; color:var(--text-1); min-height:2.4em; line-height:1.3; }
   .vcard .vb{ display:flex; gap:6px; } .vcard .vb button{ flex:1; }
   .timeline{ display:flex; gap:4px; flex-wrap:wrap; margin:12px 0 6px; }
-  .sec{ border-radius:var(--radius-sm); padding:6px 8px; cursor:pointer; font-size:.78rem; font-weight:600; color:#1a1613; border:2px solid transparent; min-width:64px; display:flex; flex-direction:column; gap:1px; }
+  .sec{ border-radius:var(--radius-sm); padding:6px 8px; cursor:pointer; font-size:.78rem; font-weight:600; color:var(--sec-txt); border:2px solid transparent; min-width:64px; display:flex; flex-direction:column; gap:1px; }
   .sec small{ font-weight:400; font-family:var(--mono); font-size:.64rem; opacity:.75; }
   .sec.sel{ border-color:var(--text-0); }
   .sec.now{ box-shadow:0 0 0 3px var(--accent); }
@@ -237,7 +282,7 @@
 <body>
 
 <div class="topbar"><div class="topbar-in">
-  <div class="brand">🥁 Atelier Rythme &amp; Mélodie <small>sortir de ses habitudes</small></div>
+  <div class="brand">Atelier Rythme <small>sortir de ses habitudes</small></div>
   <button id="play" title="Lecture / stop (Espace)">▶</button>
   <div class="beatled" id="led"></div>
   <div class="tp"><label for="bpm">BPM</label><input id="bpm" type="number" min="40" max="240" step="1"></div>
@@ -245,75 +290,49 @@
   <div class="tp hum" title="Humanisation : petites imprécisions de timing"><label for="human">Humain</label><input id="human" type="range" min="0" max="100"></div>
   <button id="undo" title="Annuler (Ctrl+Z)">↶</button>
   <button id="redo" title="Rétablir (Ctrl+Y)">↷</button>
-  <button id="theme" title="Thème : automatique / clair / sombre">🌓</button>
+  <button id="theme" title="Thème : automatique / clair / sombre">◐</button>
   <button id="midi" title="Exporter un fichier MIDI à glisser dans ton logiciel">⬇ MIDI</button>
 </div></div>
 
+<div class="shell">
+<nav class="side" id="side" aria-label="Sections">
+  <div class="t">Rythme</div>
+  <a href="#secDrums"><i></i>Batterie</a>
+  <a href="#secMix"><i></i>Sons &amp; mix</a>
+  <a href="#secStyle"><i></i>Style</a>
+  <div class="t">Ajouter</div>
+  <a href="#secHarm" id="navHarm"><i></i>Mélodie &amp; accords <small id="navHarmState">off</small></a>
+  <div class="t">Aller plus loin</div>
+  <a href="#varCard"><i></i>Variantes A/B</a>
+  <a href="#songCard"><i></i>Structure</a>
+  <a href="#habCard"><i></i>Contre mes habitudes</a>
+  <a href="#anaCard"><i></i>Analyse</a>
+</nav>
 <main>
-  <!-- 1. POINT DE DÉPART -->
-  <section class="card">
-    <h2><span class="num">1</span> Point de départ</h2>
-    <p class="sub">Donne un tempo, une note et/ou un ou plusieurs accords (ou laisse en « auto »). Monte l'<b>originalité</b> pour t'éloigner des rythmes habituels : le générateur teste des centaines de variantes et garde celle qui reste la plus « groovy » tout en étant la moins cliché.</p>
-    <div class="fields">
+  <!-- 1. BATTERIE (le cœur de l'atelier) -->
+  <section class="card" id="secDrums">
+    <div class="card-head"><h2>Rythme de batterie</h2></div>
+    <p class="sub">Choisis un style, une mesure, et règle l'<b>originalité</b> : le générateur teste des centaines de rythmes et garde celui qui groove le mieux tout en étant le moins cliché. Clique sur un nom de piste pour la sélectionner (les outils « piste » s'appliquent à elle).</p>
+    <div class="drum-setup">
+      <div class="field grow"><label for="genStyle">Style de rythme</label><select id="genStyle"></select></div>
       <div class="field"><label for="ts">Mesure</label>
         <select id="ts"></select></div>
       <div class="field"><label for="bars">Longueur</label>
         <select id="bars"><option value="1">1 mesure</option><option value="2">2 mesures</option><option value="4">4 mesures</option></select></div>
-      <div class="field"><label for="root">Note de base</label><select id="root"></select></div>
-      <div class="field"><label for="scale">Gamme / mode</label><select id="scale"></select></div>
-      <div class="field wide"><label for="chordIn">Accord(s) de départ (optionnel)</label>
-        <input id="chordIn" type="text" placeholder="ex : Am   ou   Am F C G   ou   La m  Fa  Do  Sol" autocomplete="off"></div>
-      <div class="field"><label for="melType">Type de mélodie</label>
-        <select id="melType"><option value="motif">Motif développé</option><option value="riff">Riff répété</option><option value="arp">Arpège</option></select></div>
-      <div class="field"><label for="genStyle">Influence à la génération</label><select id="genStyle"></select></div>
       <div class="field"><label for="orig">Originalité</label>
         <div class="slider-row"><input id="orig" type="range" min="0" max="100"><output id="origO"></output></div></div>
       <div class="field"><label for="cplx">Complexité</label>
         <div class="slider-row"><input id="cplx" type="range" min="0" max="100"><output id="cplxO"></output></div></div>
+      <div class="go"><button class="primary" id="genDrums" title="Nouveau rythme de batterie (Entrée)">Nouveau rythme</button></div>
     </div>
-    <div class="habits" id="habits">
-      <div class="hab-head"><b>🙋 Contre mes habitudes</b>
-        <label class="tp"><input type="checkbox" id="antiHabit"> activer</label>
-        <span class="muted" id="habCount"></span></div>
-      <p class="muted" style="margin:4px 0 8px;font-size:.78rem;line-height:1.5">Mets dans l'atelier un rythme / une mélodie / des accords comme tu en fais <b>d'habitude</b> (dessine-les dans les grilles, ou garde une génération qui te ressemble), puis clique « C'est mon habitude ». Fais-le 2 ou 3 fois. Ensuite, la génération <b>s'éloigne de ton style</b> au lieu de seulement fuir les clichés.</p>
-      <div class="toolbar" style="margin:0">
-        <button id="habAdd">➕ C'est mon habitude</button>
-        <button id="habClear" title="Oublier tous les exemples">🗑 Oublier</button>
-      </div>
-    </div>
-    <div class="actions">
-      <button class="primary" id="genAll">🎲 Tout générer</button>
-      <button id="genDrums">🥁 Batterie seule</button>
-      <button id="genHarm">🎹 Accords + mélodie</button>
-      <button id="genMel">🎵 Mélodie seule</button>
-      <button id="genBass">🎸 Basse seule</button>
-    </div>
-  </section>
-
-  <!-- VARIANTES -->
-  <section class="card" id="varCard">
-    <h2><span class="num">A/B</span> Variantes : fais évoluer ton idée</h2>
-    <p class="sub">Propose 4 versions de ta boucle (batterie, mélodie, harmonie, et une plus audacieuse). Écoute-les, <b>garde la meilleure</b> : 4 nouvelles variantes partent d'elle. Génération après génération, ton idée évolue vers quelque chose que tu n'aurais pas écrit seul.</p>
-    <div class="actions" style="margin-top:0">
-      <button class="primary" id="varGo">🧬 Proposer 4 variantes</button>
-      <button id="varBack" hidden>↩ Revenir à l'original</button>
-      <span class="muted" id="varGen" style="align-self:center;font-size:.8rem"></span>
-    </div>
-    <div class="variants" id="variants"></div>
-  </section>
-
-  <!-- 2. BATTERIE -->
-  <section class="card">
-    <h2><span class="num">2</span> Batterie</h2>
-    <p class="sub">Clique sur un nom de piste pour la sélectionner (les outils « piste » s'appliquent à elle). Les autres outils touchent toutes les pistes non verrouillées 🔒.</p>
     <div class="toolbar">
       <span class="lbl">Complexifier</span>
-      <button data-dt="mutate" title="Change quelques coups au hasard en respectant le groove">🧬 Muter</button>
-      <button data-dt="ghost" title="Ajoute des notes fantômes (coups très doux) à la caisse claire">👻 Ghost notes</button>
+      <button data-dt="mutate" title="Change quelques coups au hasard en respectant le groove">Muter</button>
+      <button data-dt="ghost" title="Ajoute des notes fantômes (coups très doux) à la caisse claire">Ghost notes</button>
       <button data-dt="syncop" title="Avance certains coups d'une double-croche (anticipation)">↯ Syncoper</button>
       <button data-dt="ratchet" title="Roulements rapides sur le charley (style trap)">⁂ Roulements</button>
-      <button data-dt="prob" title="Certains coups ne jouent qu'une fois sur deux : le rythme vit tout seul">🎲 Probabilités</button>
-      <button data-dt="fill" title="Ajoute un break / fill à la fin de la boucle">🥁 Fill</button>
+      <button data-dt="prob" title="Certains coups ne jouent qu'une fois sur deux : le rythme vit tout seul">Probabilités</button>
+      <button data-dt="fill" title="Ajoute un break / fill à la fin de la boucle">Fill</button>
       <button data-dt="vary" title="Recrée les variations des mesures 2, 3, 4 à partir de la 1">⇉ Varier mesures</button>
       <span class="sep"></span>
       <span class="lbl">Transformer</span>
@@ -322,14 +341,14 @@
       <button data-dt="double" title="Double-tempo : le rythme est compressé">×2 Double-time</button>
       <button data-dt="simplify" title="Retire les ghost notes, roulements et coups faibles">✂ Simplifier</button>
       <button data-dt="humanize" title="Varie légèrement les vélocités">〰 Vélocités</button>
-      <button data-dt="cohere" title="Retouche le rythme pour qu'il se tienne mieux (motif répété, charley régulier, moins de coups entassés) sans le rendre banal">🧩 Rendre cohérent</button>
+      <button data-dt="cohere" title="Retouche le rythme pour qu'il se tienne mieux (motif répété, charley régulier, moins de coups entassés) sans le rendre banal">Rendre cohérent</button>
       <span class="sep"></span>
       <span class="lbl">Piste</span>
       <button data-dt="left" title="Décale la piste sélectionnée d'un pas vers la gauche">◀ Décaler</button>
       <button data-dt="right" title="Décale la piste sélectionnée d'un pas vers la droite">Décaler ▶</button>
       <button data-dt="euclid" title="Remplace la piste par un rythme euclidien (coups répartis le plus régulièrement possible)">◎ Euclidien</button>
       <button data-dt="poly" title="Donne à la piste une longueur différente : elle se décale à chaque tour (polymétrie)">∿ Polymétrie</button>
-      <button data-dt="regen" title="Regénère seulement la piste sélectionnée">🎲 Regénérer piste</button>
+      <button data-dt="regen" title="Regénère seulement la piste sélectionnée">Regénérer piste</button>
       <button data-dt="clear" title="Vide la piste sélectionnée">⌫ Vider</button>
     </div>
     <div class="pager" id="pagerDrums"></div>
@@ -340,25 +359,85 @@
     </div>
   </section>
 
-  <!-- 3. ACCORDS & MÉLODIE -->
-  <section class="card">
-    <h2><span class="num">3</span> Accords, mélodie &amp; basse</h2>
-    <p class="sub">Clique sur un accord pour l'écouter et voir des <b>substitutions</b> (emprunts, dominantes secondaires, accords voisins…). Dans la grille : clic sur une case vide = nouvelle note (glisse pour l'allonger), clic sur une note = la supprimer. Les bandes claires = notes de l'accord en cours.</p>
+  <div class="two">
+    <section class="card" id="secMix">
+      <div class="card-head"><h2>Sons, mix &amp; sauvegarde</h2></div>
+      <div class="mix" id="mix"></div>
+      <div class="toolbar" style="margin-top:12px">
+        <label class="tp"><input type="checkbox" id="evolve"> Évolution auto</label>
+        <select id="evolveEvery" title="Fréquence des mutations">
+          <option value="1">à chaque tour</option><option value="2" selected>tous les 2 tours</option><option value="4">tous les 4 tours</option></select>
+        <span class="muted" style="font-size:.75rem">mute un peu le rythme pendant la lecture : écoute et arrête quand c'est bien !</span>
+      </div>
+      <div class="toolbar">
+        <span class="lbl">Favoris</span>
+        <input type="text" id="favName" placeholder="Nom du favori" style="width:150px" autocomplete="off">
+        <button id="favSave">Sauver</button>
+      </div>
+      <div class="toolbar">
+        <select id="favs" style="max-width:190px"></select>
+        <button id="favLoad">Charger</button>
+        <button id="favDel" title="Supprimer le favori sélectionné">Supprimer</button>
+        <button id="favExport" title="Télécharge tous tes favoris dans un fichier (sauvegarde sûre, à garder ou partager)">⬇ Fichier</button>
+        <button id="favImport" title="Recharge des favoris depuis un fichier">⬆ Importer</button>
+        <input type="file" id="favFile" accept=".json,application/json" hidden>
+      </div>
+      <div class="muted" id="favNote" style="font-size:.75rem"></div>
+    </section>
+    <section class="card" id="secStyle">
+      <div class="card-head"><h2>Rapprocher d'un style</h2></div>
+      <p class="sub">Une fois que tu as un résultat qui te plaît, choisis un style : le rythme, le tempo, le swing, les sons, la basse et les accords se rapprochent de ce style <b>sans tout effacer</b>. L'intensité règle à quel point.</p>
+      <div class="styles" id="styles"></div>
+      <div class="sdesc" id="sdesc"></div>
+      <div class="field"><label for="samt">Intensité du style</label>
+        <div class="slider-row"><input id="samt" type="range" min="10" max="100"><output id="samtO"></output></div></div>
+      <label class="tp" style="margin-top:8px"><input type="checkbox" id="keepScale"> Garder ma gamme (sinon le style peut changer de mode)</label>
+      <div class="actions">
+        <button class="primary" id="applyStyle">Rapprocher du style</button>
+        <button id="genInStyle">Tout regénérer dans ce style</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- 2. EN OPTION : MÉLODIE, ACCORDS, BASSE -->
+  <section class="card" id="secHarm">
+    <div class="card-head"><h2>Mélodie, accords &amp; basse</h2><span class="pill">option</span>
+      <button id="harmOffBtn" class="sm" style="margin-left:auto" title="Retirer mélodie, accords et basse (la batterie reste seule)">Retirer</button></div>
+    <div class="harm-off" id="harmOff">
+      <p>Ton rythme te plaît ? Ajoute des accords, une mélodie et une basse calés dessus (la basse suit la grosse caisse). Tu pourras les retirer à tout moment.</p>
+      <button class="primary" id="harmOnBtn">Ajouter mélodie, accords et basse</button>
+    </div>
+    <div id="harmBody" hidden>
+      <div class="harm-setup">
+        <div class="field"><label for="root">Note de base</label><select id="root"></select></div>
+        <div class="field"><label for="scale">Gamme / mode</label><select id="scale"></select></div>
+        <div class="field wide"><label for="chordIn">Accord(s) de départ (optionnel)</label>
+        <input id="chordIn" type="text" placeholder="ex : Am   ou   Am F C G   ou   La m  Fa  Do  Sol" autocomplete="off"></div>
+        <div class="field"><label for="melType">Type de mélodie</label>
+        <select id="melType"><option value="motif">Motif développé</option><option value="riff">Riff répété</option><option value="arp">Arpège</option></select></div>
+      </div>
+      <div class="actions" style="margin-top:0">
+        <button class="primary" id="genHarm">Nouveaux accords + mélodie</button>
+        <button id="genMel">Mélodie seule</button>
+        <button id="genBass">Basse seule</button>
+        <button id="genAll" title="Regénère la batterie, les accords, la mélodie et la basse">Tout regénérer</button>
+      </div>
+      <p class="sub" style="margin-top:12px">Clique sur un accord pour l'écouter et voir des <b>substitutions</b>. Dans la grille : clic sur une case vide = nouvelle note (glisse pour l'allonger), clic sur une note = la supprimer. Les bandes claires = notes de l'accord en cours.</p>
     <div class="toolbar">
       <span class="lbl">Accords</span>
-      <button data-ct="regen">🎲 Progression</button>
-      <button data-ct="reharm" title="Trouve d'autres accords qui collent à la mélodie actuelle">🔀 Réharmoniser</button>
-      <button data-ct="borrow" title="Emprunte un accord à un mode voisin (couleur inattendue)">🎨 Emprunt</button>
+      <button data-ct="regen">Progression</button>
+      <button data-ct="reharm" title="Trouve d'autres accords qui collent à la mélodie actuelle">Réharmoniser</button>
+      <button data-ct="borrow" title="Emprunte un accord à un mode voisin (couleur inattendue)">Emprunt</button>
       <button data-ct="enrich" title="Ajoute des 7e et 9e">＋ Enrichir</button>
       <button data-ct="plain" title="Revient à des accords de 3 sons">− Simplifier</button>
       <span class="sep"></span>
       <span class="lbl">Jeu</span>
       <select id="comp" title="Rythme des accords"></select>
       <div class="locks">
-        <label><input type="checkbox" id="lockChords"> 🔒 Accords</label>
-        <label><input type="checkbox" id="lockMelody"> 🔒 Mélodie</label>
-        <label><input type="checkbox" id="lockBass"> 🔒 Basse</label>
-        <label title="Après chaque modification, la mélodie est ajustée pour ne pas frotter avec les accords"><input type="checkbox" id="fitChords"> 🎯 Mélodie toujours sur les accords</label>
+        <label><input type="checkbox" id="lockChords"> Accords</label>
+        <label><input type="checkbox" id="lockMelody"> Mélodie</label>
+        <label><input type="checkbox" id="lockBass"> Basse</label>
+        <label title="Après chaque modification, la mélodie est ajustée pour ne pas frotter avec les accords"><input type="checkbox" id="fitChords"> Mélodie toujours sur les accords</label>
       </div>
     </div>
     <div class="chords" id="chords"></div>
@@ -366,22 +445,22 @@
     <div class="toolbar">
       <span class="lbl">Texte</span>
       <input type="text" id="lyrIn" placeholder="Écris une phrase : « Je marche seul dans la ville, où vas-tu ? »" style="flex:1;min-width:180px" autocomplete="off">
-      <button id="lyrGo" title="Le rythme suit les syllabes et les accents des mots, la hauteur suit l'intonation de la phrase">🎤 Mélodie à partir du texte</button>
+      <button id="lyrGo" title="Le rythme suit les syllabes et les accents des mots, la hauteur suit l'intonation de la phrase">Mélodie à partir du texte</button>
     </div>
-    <div class="tabs"><button id="tabMel" class="on">🎵 Mélodie</button><button id="tabBass">🎸 Basse</button></div>
+    <div class="tabs"><button id="tabMel" class="on">Mélodie</button><button id="tabBass">Basse</button></div>
     <div class="pager" id="pagerRoll"></div>
     <div class="rollwrap"><canvas id="roll"></canvas></div>
 
     <div class="toolbar" id="melTools">
       <span class="lbl">Mélodie</span>
-      <button data-mt="regen">🎲 Nouveau</button>
-      <button data-mt="fit" title="Corrige les notes qui frottent avec les accords (sans changer le rythme)">🎯 Coller aux accords</button>
-      <button data-mt="vary" title="Change 2-3 notes en gardant le caractère">🧬 Varier</button>
+      <button data-mt="regen">Nouveau</button>
+      <button data-mt="fit" title="Corrige les notes qui frottent avec les accords (sans changer le rythme)">Coller aux accords</button>
+      <button data-mt="vary" title="Change 2-3 notes en gardant le caractère">Varier</button>
       <button data-mt="syncop" title="Fait arriver des notes une double-croche en avance">↯ Syncoper</button>
       <button data-mt="ornament" title="Ajoute des notes de passage et broderies">✿ Ornementer</button>
       <button data-mt="densify" title="Remplit les trous">＋ Densifier</button>
       <button data-mt="simplify" title="Retire les notes sur temps faibles">− Épurer</button>
-      <button data-mt="answer" title="La 2e moitié devient une réponse à la 1re (question / réponse)">💬 Question/réponse</button>
+      <button data-mt="answer" title="La 2e moitié devient une réponse à la 1re (question / réponse)">Question/réponse</button>
       <button data-mt="invert" title="Renverse les intervalles (ce qui montait descend)">⇅ Inverser</button>
       <button data-mt="retro" title="Joue les hauteurs à l'envers en gardant le rythme">⇆ Rétrograde</button>
       <button data-mt="shift" title="Décale tout d'une croche (contretemps)">⇥ Décaler</button>
@@ -396,7 +475,7 @@
     <div class="toolbar" id="bassTools" hidden>
       <span class="lbl">Basse</span>
       <select id="bassMode" title="Façon de jouer de la basse"></select>
-      <button data-bt="regen">🎲 Regénérer</button>
+      <button data-bt="regen">Regénérer</button>
       <button data-bt="approach" title="Ajoute des notes d'approche chromatiques avant chaque changement d'accord">↗ Approches</button>
       <button data-bt="octaves" title="Fait sauter certaines notes à l'octave">⇕ Octaves</button>
       <button data-bt="syncop">↯ Syncoper</button>
@@ -405,14 +484,25 @@
       <button data-bt="octUp">+8ve</button>
       <button data-bt="octDown">−8ve</button>
     </div>
+    </div>
   </section>
 
-  <!-- STRUCTURE -->
+  <div class="group-title">Aller plus loin</div>
+  <section class="card" id="varCard">
+    <div class="card-head"><h2>Variantes A/B</h2><span class="pill">option</span></div>
+    <p class="sub">Propose 4 versions de ta boucle (batterie, mélodie, harmonie, et une plus audacieuse). Écoute-les, <b>garde la meilleure</b> : 4 nouvelles variantes partent d'elle. Génération après génération, ton idée évolue vers quelque chose que tu n'aurais pas écrit seul.</p>
+    <div class="actions" style="margin-top:0">
+      <button class="primary" id="varGo">Proposer 4 variantes</button>
+      <button id="varBack" hidden>↩ Revenir à l'original</button>
+      <span class="muted" id="varGen" style="align-self:center;font-size:.8rem"></span>
+    </div>
+    <div class="variants" id="variants"></div>
+  </section>
   <section class="card" id="songCard">
-    <h2><span class="num">🎬</span> Structure du morceau</h2>
+    <div class="card-head"><h2>Structure du morceau</h2><span class="pill">option</span></div>
     <p class="sub">Transforme ta boucle en morceau : intro, couplet, refrain, pont, montée, break, outro… Chaque partie garde ton idée mais la fait varier (refrain plus dense et plus haut, pont avec d'autres accords, break sans grosse caisse…). <b>Clique sur une partie</b> pour l'éditer dans les grilles au-dessus.</p>
     <div class="actions" style="margin-top:0">
-      <button class="primary" id="songMake">🎬 Créer la structure depuis la boucle</button>
+      <button class="primary" id="songMake">Créer la structure depuis la boucle</button>
       <label class="tp"><input type="checkbox" id="songPlay"> ▶ lire le morceau entier</label>
       <select id="songAdd"></select>
     </div>
@@ -422,59 +512,28 @@
       <button data-sec="left" title="Déplacer avant">◀</button><button data-sec="right" title="Déplacer après">▶</button>
       <button data-sec="minus" title="Moins de répétitions">−</button><button data-sec="plus" title="Plus de répétitions">＋</button>
       <button data-sec="dup" title="Copie indépendante (ex. un 2e couplet différent)">⧉ Copie</button>
-      <button data-sec="regen" title="Refait cette partie à partir de la boucle de départ">🎲 Refaire</button>
+      <button data-sec="regen" title="Refait cette partie à partir de la boucle de départ">Refaire</button>
       <button data-sec="base" title="Revenir à la boucle de départ pour l'éditer">↩ Boucle de départ</button>
-      <button data-sec="del" title="Retirer de la structure">🗑</button>
+      <button data-sec="del" title="Retirer de la structure">Retirer</button>
     </div>
     <div class="muted" id="songInfo" style="font-size:.78rem"></div>
   </section>
+  <section class="card" id="habCard">
+    <div class="card-head"><h2>Contre mes habitudes</h2><span class="pill">option</span></div>
+    <div id="habits">
+      <div class="hab-head">
+        <label class="tp"><input type="checkbox" id="antiHabit"> activer</label>
+        <span class="muted" id="habCount"></span></div>
+      <p class="muted" style="margin:4px 0 8px;font-size:.78rem;line-height:1.5">Mets dans l'atelier un rythme / une mélodie / des accords comme tu en fais <b>d'habitude</b> (dessine-les dans les grilles, ou garde une génération qui te ressemble), puis clique « C'est mon habitude ». Fais-le 2 ou 3 fois. Ensuite, la génération <b>s'éloigne de ton style</b> au lieu de seulement fuir les clichés.</p>
+      <div class="toolbar" style="margin:0">
+        <button id="habAdd">C'est mon habitude</button>
+        <button id="habClear" title="Oublier tous les exemples">Oublier</button>
+      </div>
+    </div>
+  </section>
 
-  <div class="two">
-    <!-- 4. STYLE -->
-    <section class="card">
-      <h2><span class="num">4</span> Rapprocher d'un style</h2>
-      <p class="sub">Une fois que tu as un résultat qui te plaît, choisis un style : le rythme, le tempo, le swing, les sons, la basse et les accords se rapprochent de ce style <b>sans tout effacer</b>. L'intensité règle à quel point.</p>
-      <div class="styles" id="styles"></div>
-      <div class="sdesc" id="sdesc"></div>
-      <div class="field"><label for="samt">Intensité du style</label>
-        <div class="slider-row"><input id="samt" type="range" min="10" max="100"><output id="samtO"></output></div></div>
-      <label class="tp" style="margin-top:8px"><input type="checkbox" id="keepScale"> Garder ma gamme (sinon le style peut changer de mode)</label>
-      <div class="actions">
-        <button class="primary" id="applyStyle">✨ Rapprocher du style</button>
-        <button id="genInStyle">🎲 Tout regénérer dans ce style</button>
-      </div>
-    </section>
-
-    <!-- 5. SON & MIX -->
-    <section class="card">
-      <h2><span class="num">5</span> Sons, mix &amp; sauvegarde</h2>
-      <div class="mix" id="mix"></div>
-      <div class="toolbar" style="margin-top:12px">
-        <label class="tp"><input type="checkbox" id="evolve"> 🌱 Évolution auto</label>
-        <select id="evolveEvery" title="Fréquence des mutations">
-          <option value="1">à chaque tour</option><option value="2" selected>tous les 2 tours</option><option value="4">tous les 4 tours</option></select>
-        <span class="muted" style="font-size:.75rem">mute un peu le rythme pendant la lecture : écoute et arrête quand c'est bien !</span>
-      </div>
-      <div class="toolbar">
-        <span class="lbl">Favoris</span>
-        <input type="text" id="favName" placeholder="Nom du favori" style="width:150px" autocomplete="off">
-        <button id="favSave">💾 Sauver</button>
-      </div>
-      <div class="toolbar">
-        <select id="favs" style="max-width:190px"></select>
-        <button id="favLoad">📂 Charger</button>
-        <button id="favDel" title="Supprimer le favori sélectionné">🗑</button>
-        <button id="favExport" title="Télécharge tous tes favoris dans un fichier (sauvegarde sûre, à garder ou partager)">⬇ Fichier</button>
-        <button id="favImport" title="Recharge des favoris depuis un fichier">⬆ Importer</button>
-        <input type="file" id="favFile" accept=".json,application/json" hidden>
-      </div>
-      <div class="muted" id="favNote" style="font-size:.75rem"></div>
-    </section>
-  </div>
-
-  <!-- ANALYSE -->
-  <section class="card">
-    <h2>🔍 Analyse &amp; idées pour sortir de la routine</h2>
+  <section class="card" id="anaCard">
+    <div class="card-head"><h2>Analyse &amp; idées</h2></div>
     <div id="analysis"></div>
     <details class="help">
       <summary>Comment le générateur fabrique un rythme « original mais qui tourne » ?</summary>
@@ -485,11 +544,12 @@
         <li><b>Originalité</b> : on compare avec une bibliothèque de rythmes clichés (rock, pop, four-on-the-floor, boom bap, trap…) et plus le curseur est haut, plus la ressemblance est pénalisée.</li>
       </ul>
       <p>Pour la mélodie : un <b>motif</b> court est inventé puis <b>développé</b> (répétition, séquence, variation, réponse), les temps forts tombent sur les notes de l'accord et les sauts sont compensés par un mouvement inverse — c'est ce qui la rend chantable. La basse se cale sur la grosse caisse pour que tout soit soudé.</p>
-      <p>Astuce : <b>verrouille</b> ce que tu aimes (🔒 sur une piste ou sur accords/mélodie/basse) et relance le reste. Exporte en <b>MIDI</b> pour continuer dans ton logiciel.</p>
+      <p>Astuce : <b>verrouille</b> ce que tu aimes (sur une piste ou sur accords/mélodie/basse) et relance le reste. Exporte en <b>MIDI</b> pour continuer dans ton logiciel.</p>
     </details>
   </section>
   <a class="back" id="backLink" href="../index.html">← Inspiration musicale</a>
 </main>
+</div>
 
 <div id="pop"></div>
 <div id="toast"></div>
@@ -803,14 +863,14 @@ const CLICHES = [
   { name: 'disco simple',      k: '9...9...9...9...', s: '....9.......9...', h: '9999999999999999' },
 ];
 const TRACKS = [
-  { id: 'kick',  short: 'Kick', name: 'Grosse caisse',  gm: 36, color: '#ff6b6b' },
-  { id: 'snare', short: 'Caisse', name: 'Caisse claire',  gm: 38, color: '#ffa94d' },
-  { id: 'clap',  short: 'Clap', name: 'Clap',           gm: 39, color: '#ffd43b' },
-  { id: 'chh',   short: 'Charley', name: 'Charley fermé',  gm: 42, color: '#69db7c' },
-  { id: 'ohh',   short: 'Ouvert', name: 'Charley ouvert', gm: 46, color: '#38d9a9' },
-  { id: 'rim',   short: 'Rim', name: 'Rimshot',        gm: 37, color: '#4dabf7' },
-  { id: 'tom',   short: 'Toms', name: 'Toms',           gm: 45, color: '#9775fa' },
-  { id: 'perc',  short: 'Percu', name: 'Percu',          gm: 56, color: '#f783ac' },
+  { id: 'kick',  short: 'Kick', name: 'Grosse caisse',  gm: 36, color: 'var(--t-kick)' },
+  { id: 'snare', short: 'Caisse', name: 'Caisse claire',  gm: 38, color: 'var(--t-snare)' },
+  { id: 'clap',  short: 'Clap', name: 'Clap',           gm: 39, color: 'var(--t-clap)' },
+  { id: 'chh',   short: 'Charley', name: 'Charley fermé',  gm: 42, color: 'var(--t-chh)' },
+  { id: 'ohh',   short: 'Ouvert', name: 'Charley ouvert', gm: 46, color: 'var(--t-ohh)' },
+  { id: 'rim',   short: 'Rim', name: 'Rimshot',        gm: 37, color: 'var(--t-rim)' },
+  { id: 'tom',   short: 'Toms', name: 'Toms',           gm: 45, color: 'var(--t-tom)' },
+  { id: 'perc',  short: 'Percu', name: 'Percu',          gm: 56, color: 'var(--t-perc)' },
 ];
 
 /* =========================================================================
@@ -826,7 +886,7 @@ function defaultState() {
     drums: {}, chords: [], comp: 'pad', compTpl: COMPS.pad.tpl, compLegato: 1, bassMode: 'kick',
     melody: [], bass: [], locks: { chords: false, melody: false, bass: false },
     mix: { drums: .85, bass: .75, chords: .45, melody: .6 }, mutes: { drums: false, bass: false, chords: false, melody: false },
-    style: 'house', styleAmt: 70, keepScale: true, fitChords: true, antiHabit: false, song: null, activeStyle: null, fx: { delay: 0, rev: .12 },
+    style: 'house', styleAmt: 70, keepScale: true, fitChords: true, antiHabit: false, song: null, harmOn: false, activeStyle: null, fx: { delay: 0, rev: .12 },
   };
   TRACKS.forEach(t => S.drums[t.id] = { cells: [], len: 32, lock: false, mute: false });
   return S;
@@ -1237,7 +1297,7 @@ function makeVariants() {
   if (VAR.cur !== null) VAR.cur = null; // on part de ce qu'on écoute
   VAR.parent = deep(S); VAR.orig = null; VAR.gen++;
   const ops = variantOps();
-  const avail = ['drums', 'melody', 'harmony'].filter(c => c === 'drums' ? unlocked().length : c === 'melody' ? !S.locks.melody : !S.locks.chords);
+  const avail = ['drums', 'melody', 'harmony'].filter(c => c === 'drums' ? unlocked().length : S.harmOn && (c === 'melody' ? !S.locks.melody : !S.locks.chords));
   if (!avail.length) return toast('Tout est verrouillé 🔒');
   const plans = [['drums'], ['melody'], ['harmony'], ['drums', 'melody', 'harmony'].sort(() => Math.random() - .5).slice(0, 2)]
     .map(p => { const q = p.filter(c => avail.includes(c)); return q.length ? q : [pick(avail)]; });
@@ -1245,7 +1305,7 @@ function makeVariants() {
   try {
     plans.forEach((cats, k) => {
       S = deep(VAR.parent); const labels = [];
-      cats.forEach(c => { const [lbl, fn] = pick(ops[c]); try { fn(); labels.push(lbl); } catch (e) { console.error(e); } });
+      cats.forEach(c => { const pool = ops[c]; const [lbl, fn] = avail.length === 1 ? pool[(k + VAR.gen) % pool.length] : pick(pool); try { fn(); labels.push(lbl); } catch (e) { console.error(e); } });
       VAR.list.push({ label: (k === 3 ? '🔥 audacieuse : ' : '') + labels.join(' + '), state: S });
     });
   } finally { BATCH = false; S = main; }
@@ -1268,17 +1328,17 @@ function drawMini(cv, st) {
   const N = st.drums.kick.cells.length, cw = W / N; const n = TIME_SIGS[st.ts].steps;
   for (let b = 0; b <= N; b += n) { g.fillStyle = TC['roll-bar']; g.fillRect(b * cw, 0, 1, H); }
   [['kick', 3], ['snare', 10], ['clap', 10], ['rim', 10], ['chh', 17]].forEach(([id, y]) => {
-    const D = st.drums[id], col = TRACKS.find(t => t.id === id).color;
+    const D = st.drums[id], col = TC['t-' + id];
     for (let i = 0; i < N; i++) { const c = D.cells[i % D.len]; if (c && c.v >= .3) { g.globalAlpha = .4 + .6 * c.v; g.fillStyle = col; g.fillRect(i * cw + .5, y, Math.max(1.5, cw - 1), 5); } }
   });
   g.globalAlpha = 1; const M = st.melody; if (M.length) {
     const lo = Math.min(...M.map(x => x.m)), hi = Math.max(...M.map(x => x.m)); const y = m => 60 - (hi === lo ? 18 : (m - lo) / (hi - lo) * 34);
-    g.fillStyle = '#f783ac'; M.forEach(nt => g.fillRect(nt.s * cw, y(nt.m) - 2, Math.max(2, nt.l * cw - 1), 3));
+    g.fillStyle = TC['note-mel']; M.forEach(nt => g.fillRect(nt.s * cw, y(nt.m) - 2, Math.max(2, nt.l * cw - 1), 3));
   }
 }
 function renderVariants() {
   const box = $('#variants'); $('#varBack').hidden = VAR.cur === null; $('#varGen').textContent = VAR.list.length ? `génération ${VAR.gen}` + (VAR.cur !== null ? ` · tu écoutes la variante ${'ABCD'[VAR.cur]}` : '') : '';
-  box.innerHTML = VAR.list.map((v, k) => `<div class="vcard ${VAR.cur === k ? 'on' : ''}"><b>Variante ${'ABCD'[k]}</b><canvas data-mini="${k}"></canvas><div class="vl">${v.label}</div>
+  box.innerHTML = VAR.list.map((v, k) => `<div class="vcard ${VAR.cur === k ? 'on' : ''}"><b>Variante ${'ABCD'[k]}</b><canvas data-mini="${k}"></canvas><div class="vl">${v.label.replace(/(\p{Emoji_Presentation}|[\u2600-\u27BF]\uFE0F)\uFE0F?\s?/gu, '')}</div>
     <div class="vb"><button data-vplay="${k}">▶ Écouter</button><button class="primary" data-vkeep="${k}">✔ Garder</button></div></div>`).join('');
   box.querySelectorAll('[data-mini]').forEach(cv => drawMini(cv, VAR.list[+cv.dataset.mini].state));
 }
@@ -1287,8 +1347,8 @@ function renderVariants() {
    STRUCTURE DU MORCEAU
    ========================================================================= */
 const SEC_TYPES = {
-  intro: { name: 'Intro', color: '#74c0fc' }, couplet: { name: 'Couplet', color: '#8ce99a' }, refrain: { name: 'Refrain', color: '#ff922b' },
-  pont: { name: 'Pont', color: '#b197fc' }, montee: { name: 'Montée', color: '#ffe066' }, break: { name: 'Break', color: '#faa2c1' }, outro: { name: 'Outro', color: '#63e6be' },
+  intro: { name: 'Intro', color: 'var(--sec-1)' }, couplet: { name: 'Couplet', color: 'var(--sec-2)' }, refrain: { name: 'Refrain', color: 'var(--sec-3)' },
+  pont: { name: 'Pont', color: 'var(--sec-4)' }, montee: { name: 'Montée', color: 'var(--sec-5)' }, break: { name: 'Break', color: 'var(--sec-6)' }, outro: { name: 'Outro', color: 'var(--sec-1)' },
 };
 const SEC_KEYS = ['drums', 'chords', 'melody', 'bass', 'comp', 'compTpl', 'compLegato', 'bassMode'];
 const pickSec = () => deep(Object.fromEntries(SEC_KEYS.map(k => [k, S[k]])));
@@ -1365,7 +1425,7 @@ function renderSong() {
   if (!has) { tl.innerHTML = ''; $('#secTools').hidden = true; $('#songInfo').textContent = 'Pas encore de structure : crée-la à partir de ta boucle.'; return; }
   const bars = S.song.order.reduce((a, o) => a + o.rep * S.bars, 0); const secs = Math.round(bars * TS().steps * stepDur());
   tl.innerHTML = S.song.order.map((o, k) => { const sec = S.song.secs.find(x => x.id === o.id); const col = SEC_TYPES[sec.type].color;
-    return `<div class="sec ${S.song.sel === k ? 'sel' : ''} ${SONG.playing && SONG.i === k ? 'now' : ''}" data-ord="${k}" style="background:${col};flex:${o.rep} 1 0">${sec.name}${S.song.edit === sec.id ? ' ✎' : ''}<small>${o.rep * S.bars} mes.</small></div>`; }).join('');
+    return `<div class="sec t-${sec.type} ${S.song.sel === k ? 'sel' : ''} ${SONG.playing && SONG.i === k ? 'now' : ''}" data-ord="${k}" style="background:${col};flex:${o.rep} 1 0">${sec.name}${S.song.edit === sec.id ? ' ✎' : ''}<small>${o.rep * S.bars} mes.</small></div>`; }).join('');
   const sel = S.song.order[S.song.sel]; $('#secTools').hidden = !sel;
   if (sel) { const sec = S.song.secs.find(x => x.id === sel.id); $('#secName').textContent = sec.name + ' ×' + sel.rep; }
   const ed = S.song.edit === '__base' ? 'la boucle de départ' : (S.song.secs.find(x => x.id === S.song.edit) || {}).name;
@@ -2201,7 +2261,7 @@ function initAudio() {
 }
 function applyMix() {
   if (!ctx) return;
-  for (const k of ['drums', 'bass', 'chords', 'melody']) bus[k].gain.setTargetAtTime(S.mutes[k] ? 0 : S.mix[k], ctx.currentTime, .02);
+  for (const k of ['drums', 'bass', 'chords', 'melody']) bus[k].gain.setTargetAtTime(S.mutes[k] || (k !== 'drums' && !S.harmOn) ? 0 : S.mix[k], ctx.currentTime, .02);
   lofiFilter.frequency.setTargetAtTime(S.lofi ? 3600 : 20000, ctx.currentTime, .05);
   const F = S.fx || { delay: 0, rev: 0 };
   fx.dSend.gain.setTargetAtTime(F.delay * .9, ctx.currentTime, .05); fx.fb.gain.setTargetAtTime(Math.min(.72, .25 + F.delay * .5), ctx.currentTime, .05);
@@ -2440,27 +2500,27 @@ function midiExport(kind) {
   let blob, fname;
   if (kind === 'song') {
     saveEditingSection(); const segs = S.song.order.map(o => { const sec = S.song.secs.find(x => x.id === o.id); return { data: sec.data, loops: o.rep, name: sec.name }; });
-    blob = new Blob([buildMidi(['drums', 'melody', 'bass', 'chords'], 1, segs)], { type: 'audio/midi' }); fname = base + '-morceau.mid';
+    blob = new Blob([buildMidi(S.harmOn ? ['drums', 'melody', 'bass', 'chords'] : ['drums'], 1, segs)], { type: 'audio/midi' }); fname = base + '-morceau.mid';
   } else if (kind === 'zip') {
     const files = [{ name: base + '-tout.mid', data: buildMidi(['drums', 'melody', 'bass', 'chords'], loops) },
       { name: base + '-batterie.mid', data: buildMidi(['drums'], loops) }, { name: base + '-melodie.mid', data: buildMidi(['melody'], loops) },
       { name: base + '-basse.mid', data: buildMidi(['bass'], loops) }, { name: base + '-accords.mid', data: buildMidi(['chords'], loops) }];
     blob = makeZip(files); fname = base + '.zip';
   } else {
-    const parts = kind === 'all' ? ['drums', 'melody', 'bass', 'chords'] : [kind];
+    const parts = kind === 'all' ? (S.harmOn ? ['drums', 'melody', 'bass', 'chords'] : ['drums']) : [kind];
     blob = new Blob([buildMidi(parts, loops)], { type: 'audio/midi' }); fname = base + (kind === 'all' ? '' : '-' + { drums: 'batterie', melody: 'melodie', bass: 'basse', chords: 'accords' }[kind]) + '.mid';
   }
   return { blob, fname };
 }
 function openMidiDialog() {
   const pop = $('#pop'); const canShare = !onClaude() && !!(navigator.canShare && window.File);
-  pop.innerHTML = `<h4>⬇ Exporter en MIDI</h4>
+  pop.innerHTML = `<h4>Exporter en MIDI</h4>
     <div class="subs">
-      ${S.song && S.song.order.length ? '<button data-mx="song">🎬 Morceau entier <i>structure</i></button>' : ''}
-      <button data-mx="all">🎼 Tout en 1 fichier <i>4 pistes</i></button>
-      <button data-mx="zip">🗂 Une piste par fichier <i>.zip</i></button>
-      <button data-mx="drums">🥁 Batterie seule</button><button data-mx="melody">🎵 Mélodie seule</button>
-      <button data-mx="bass">🎸 Basse seule</button><button data-mx="chords">🎹 Accords seuls</button>
+      ${S.song && S.song.order.length ? '<button data-mx="song">Morceau entier <i>structure</i></button>' : ''}
+      ${S.harmOn ? `<button data-mx="all">Tout en 1 fichier <i>4 pistes</i></button>
+      <button data-mx="zip">Une piste par fichier <i>.zip</i></button>
+      <button data-mx="drums">Batterie seule</button><button data-mx="melody">Mélodie seule</button>
+      <button data-mx="bass">Basse seule</button><button data-mx="chords">Accords seuls</button>` : '<button data-mx="drums">Batterie <i>.mid</i></button>'}
     </div>
     <div class="row"><label class="tp">Longueur <select id="midiLoops"><option value="1">1 boucle</option><option value="4" selected>4 boucles</option><option value="8">8 boucles</option></select></label>
       ${canShare ? '<label class="tp"><input type="checkbox" id="midiShare"> 📤 Partager</label>' : ''}</div>
@@ -2550,7 +2610,7 @@ function rollNotes() { return rollTab === 'melody' ? S.melody : S.bass; }
 let THEME_C = null;
 function themeColors() {
   if (!THEME_C) { const cs = getComputedStyle(document.documentElement); const v = k => cs.getPropertyValue('--' + k).trim();
-    THEME_C = {}; ['roll-bg', 'roll-row', 'roll-off', 'roll-root', 'roll-lbl-off', 'roll-bar', 'roll-beat', 'roll-step', 'roll-ghost', 'roll-head', 'roll-chord', 'accent', 'text-1'].forEach(k => THEME_C[k] = v(k)); }
+    THEME_C = {}; ['roll-bg', 'roll-row', 'roll-off', 'roll-root', 'roll-lbl-off', 'roll-bar', 'roll-beat', 'roll-step', 'roll-ghost', 'roll-head', 'roll-chord', 'accent', 'text-1', 'note-mel', 'note-bass', 'note-txt', ...TRACKS.map(t => 't-' + t.id)].forEach(k => THEME_C[k] = v(k)); }
   return THEME_C;
 }
 function renderRoll(onlyHead) { if (BATCH) return;
@@ -2576,12 +2636,12 @@ function renderRoll(onlyHead) { if (BATCH) return;
   S.chords.forEach(ch => { const pcs = chordPcs(ch); g.fillStyle = TC['roll-chord'];
     for (let m = roll.lo; m <= roll.hi; m++) if (pcs.includes(m % 12)) g.fillRect(x(ch.s), y(m), ch.l * roll.cw, roll.rh - 1); });
   for (let i = s0; i <= N; i++) { const p = i % n; g.fillStyle = i % n === 0 ? TC['roll-bar'] : info.pos[p] === 0 ? TC['roll-beat'] : TC['roll-step']; g.fillRect(x(i) - (p === 0 ? 1 : 0), 0, p === 0 ? 2 : 1, H); }
-  const col = rollTab === 'melody' ? '#f783ac' : '#4dabf7';
+  const col = rollTab === 'melody' ? TC['note-mel'] : TC['note-bass'];
   notes.forEach(nt => {
     const px = x(nt.s) + 1, py = y(nt.m) + 1, w = Math.max(3, nt.l * roll.cw - 2), h = roll.rh - 3;
     g.globalAlpha = .45 + .55 * nt.v; g.fillStyle = col; g.beginPath(); g.roundRect ? g.roundRect(px, py, w, h, 3) : g.rect(px, py, w, h); g.fill(); g.globalAlpha = 1;
     if (nt.g) { g.fillStyle = '#fff'; g.fillText('~', px + 2, py + h / 2); }
-    if (nt.lyr && w > 10) { g.save(); g.beginPath(); g.rect(px, py, w, h); g.clip(); g.fillStyle = '#1a1613'; g.font = '600 9px Inter, sans-serif'; g.fillText(nt.lyr, px + 2, py + h / 2 + .5); g.restore(); }
+    if (nt.lyr && w > 10) { g.save(); g.beginPath(); g.rect(px, py, w, h); g.clip(); g.fillStyle = TC['note-txt']; g.font = '600 9px IBM Plex Sans, sans-serif'; g.fillText(nt.lyr, px + 2, py + h / 2 + .5); g.restore(); }
   });
   // fantôme de l'autre partie (repère)
   const other = rollTab === 'melody' ? S.bass : S.melody; g.strokeStyle = TC['roll-ghost'];
@@ -2640,9 +2700,9 @@ function renderAnalysis() { if (BATCH) return;
   html += metric('Coups / ghost / roulements', `${hits} / ${ghosts} / ${ratch}`, null, probs ? probs + ' coups aléatoires' : 'aucun coup aléatoire');
   html += metric('Polymétrie', poly.length ? poly.map(t => `${t.name.split(' ')[0]} ${D[t.id].len}`).join(', ') : 'aucune', null,
     poly.length ? 'cycle complet tous les ' + poly.reduce((a, t) => lcm(a, D[t.id].len), N) + ' pas' : 'toutes les pistes bouclent ensemble');
-  html += metric('Mélodie : notes d\'accord sur temps forts', strong ? Math.round(ct / strong * 100) + ' %' : '—', strong ? ct / strong : null, 'tension ↔ stabilité');
-  html += metric('Ambitus mélodie', amb + ' demi-tons', amb / 24, `${leaps} sauts, ${reps} répétitions, ${offs} notes à contretemps`);
-  html += metric('Tonalité', `${NOTE_FR[S.root]} ${scaleOf(S.scale).name.toLowerCase()}`, null, S.chords.map(chordName).join(' – '));
+  if (S.harmOn) html += metric('Mélodie : notes d\'accord sur temps forts', strong ? Math.round(ct / strong * 100) + ' %' : '—', strong ? ct / strong : null, 'tension ↔ stabilité');
+  if (S.harmOn) html += metric('Ambitus mélodie', amb + ' demi-tons', amb / 24, `${leaps} sauts, ${reps} répétitions, ${offs} notes à contretemps`);
+  if (S.harmOn) html += metric('Tonalité', `${NOTE_FR[S.root]} ${scaleOf(S.scale).name.toLowerCase()}`, null, S.chords.map(chordName).join(' – '));
   html += '</div>';
   const tips = []; if (habitTip) tips.push(habitTip);
   if (co.coh < .72) tips.push(`Le rythme part un peu dans tous les sens (<b>${COH_LABELS[co.weakest]}</b>) : <b>🧩 Rendre cohérent</b> le retouche sans le rendre banal.`);
@@ -2652,14 +2712,14 @@ function renderAnalysis() { if (BATCH) return;
   if (!ghosts) tips.push('Aucune ghost note : <b>👻 Ghost notes</b> donne du « rebond » sans changer la structure.');
   if (!poly.length) tips.push('Astuce de pro : mets la percu ou le rimshot sur <b>5, 6 ou 7 pas</b> (menu de longueur). La boucle reste la même mais une piste tourne « en décalé », et le groove change à chaque tour.');
   if (!probs) tips.push('<b>🎲 Probabilités</b> : quelques coups ne jouent qu\'une fois sur deux, la boucle ne lasse plus.');
-  if (strong && ct / strong > .9) tips.push('Toutes les notes fortes de la mélodie sont sur l\'accord : c\'est sûr mais prévisible. Essaie <b>⇅ Inverser</b>, <b>Changer de mode</b> ou un <b>🎨 Emprunt</b> d\'accord.');
-  if (amb && amb < 6) tips.push('Mélodie très resserrée : un saut d\'octave (<b>+8ve</b> sur une partie) ou <b>✿ Ornementer</b> l\'ouvrira.');
-  if (amb > 19) tips.push('Ambitus large : <b>− Épurer</b> ou <b>↓ Degré</b> peut la rendre plus chantable.');
-  if (M.length && offs / M.length < .15) tips.push('La mélodie tombe presque toujours sur les temps : <b>↯ Syncoper</b> ou <b>⇥ Décaler</b> pour qu\'elle danse avec la batterie.');
-  if (S.chords.length && !S.chords.some(c => c.tag)) tips.push('Accords 100 % diatoniques : clique sur un accord et choisis un <b>emprunt</b> ou une <b>dominante secondaire</b> pour une couleur inattendue.');
+  if (S.harmOn) if (strong && ct / strong > .9) tips.push('Toutes les notes fortes de la mélodie sont sur l\'accord : c\'est sûr mais prévisible. Essaie <b>⇅ Inverser</b>, <b>Changer de mode</b> ou un <b>🎨 Emprunt</b> d\'accord.');
+  if (S.harmOn) if (amb && amb < 6) tips.push('Mélodie très resserrée : un saut d\'octave (<b>+8ve</b> sur une partie) ou <b>✿ Ornementer</b> l\'ouvrira.');
+  if (S.harmOn) if (amb > 19) tips.push('Ambitus large : <b>− Épurer</b> ou <b>↓ Degré</b> peut la rendre plus chantable.');
+  if (S.harmOn) if (M.length && offs / M.length < .15) tips.push('La mélodie tombe presque toujours sur les temps : <b>↯ Syncoper</b> ou <b>⇥ Décaler</b> pour qu\'elle danse avec la batterie.');
+  if (S.harmOn) if (S.chords.length && !S.chords.some(c => c.tag)) tips.push('Accords 100 % diatoniques : clique sur un accord et choisis un <b>emprunt</b> ou une <b>dominante secondaire</b> pour une couleur inattendue.');
   if (S.ts === '4/4' && chance(.5)) tips.push('Toujours en 4/4 ? Essaie <b>7/8</b> ou <b>5/4</b> dans « Mesure » : le générateur garde la logique de groove.');
   html += '<ul class="tips">' + tips.slice(0, 5).map(t => `<li>${t}</li>`).join('') + '</ul>';
-  $('#analysis').innerHTML = html;
+  $('#analysis').innerHTML = html.replace(/(\p{Emoji_Presentation}|[\u2600-\u27BF]\uFE0F)\uFE0F?\s?/gu, '');
 }
 function renderAll() { if (!BATCH && $('#timeline')) renderSong(); renderPagers(); renderGrid(); renderChords(); renderRoll(); renderAnalysis(); renderStyles(); }
 
@@ -2669,7 +2729,7 @@ function renderAll() { if (!BATCH && $('#timeline')) renderSong(); renderPagers(
 function fillSelect(sel, items, val) { sel.innerHTML = items.map(([v, l]) => `<option value="${v}">${l}</option>`).join(''); if (val != null) sel.value = val; }
 function renderStyles() {
   const box = $('#styles'); box.innerHTML = Object.entries(STYLES).map(([id, st]) =>
-    `<button class="stylebtn ${S.style === id ? 'on' : ''}" data-style="${id}"><span class="sn">${st.emoji} ${st.name}</span><span class="sb">${st.bpm[0]}–${st.bpm[1]} BPM${st.swing ? ' · swing' : ''}</span></button>`).join('');
+    `<button class="stylebtn ${S.style === id ? 'on' : ''}" data-style="${id}"><span class="sn">${st.name}</span><span class="sb">${st.bpm[0]}–${st.bpm[1]} BPM${st.swing ? ' · swing' : ''}</span></button>`).join('');
   $('#sdesc').textContent = STYLES[S.style].desc;
 }
 function renderMix() {
@@ -2687,10 +2747,10 @@ function syncUI() {
   $('#root').value = S.rootChoice; $('#scale').value = S.scaleChoice; $('#chordIn').value = S.chordIn; $('#melType').value = S.melType; $('#genStyle').value = S.genStyle;
   $('#orig').value = S.orig; $('#origO').textContent = S.orig; $('#cplx').value = S.cplx; $('#cplxO').textContent = S.cplx;
   $('#samt').value = S.styleAmt; $('#samtO').textContent = S.styleAmt + ' %'; $('#keepScale').checked = S.keepScale;
-  $('#antiHabit').checked = !!S.antiHabit; renderHabits(); $('#lyrIn').value = S.lyrics || ''; $('#fitChords').checked = S.fitChords !== false; $('#lockChords').checked = S.locks.chords; $('#lockMelody').checked = S.locks.melody; $('#lockBass').checked = S.locks.bass;
+  renderHarm(); $('#antiHabit').checked = !!S.antiHabit; renderHabits(); $('#lyrIn').value = S.lyrics || ''; $('#fitChords').checked = S.fitChords !== false; $('#lockChords').checked = S.locks.chords; $('#lockMelody').checked = S.locks.melody; $('#lockBass').checked = S.locks.bass;
   fillSelect($('#comp'), [...Object.entries(COMPS).map(([k, v]) => [k, v.name]), ...(S.comp === 'custom' ? [['custom', 'Rythme du style']] : []), ['random', '🎲 Rythme aléatoire']], S.comp);
   fillSelect($('#bassMode'), Object.entries(BASS_MODES), S.bassMode);
-  fillSelect($('#modeTo'), [['', '🎭 Changer de mode…'], ...Object.entries(SCALES).filter(([k]) => k !== S.scale).map(([k, v]) => [k, v.name])], '');
+  fillSelect($('#modeTo'), [['', 'Changer de mode…'], ...Object.entries(SCALES).filter(([k]) => k !== S.scale).map(([k, v]) => [k, v.name])], '');
   renderMix(); applyMix();
 }
 
@@ -2720,7 +2780,7 @@ function bind() {
   fillSelect($('#ts'), Object.entries(TIME_SIGS).map(([k, v]) => [k, v.label]));
   fillSelect($('#root'), [['auto', 'Auto (hasard)'], ...NOTE_FR.map((x, i) => [i, `${x} (${NOTE_EN[i]})`])]);
   fillSelect($('#scale'), [['auto', 'Auto (selon accords / style)'], ...Object.entries(SCALES).map(([k, v]) => [k, v.name])]);
-  fillSelect($('#genStyle'), Object.entries(STYLES).map(([k, v]) => [k, v.emoji + ' ' + v.name]));
+  fillSelect($('#genStyle'), Object.entries(STYLES).map(([k, v]) => [k, v.name]));
 
   $('#play').onclick = () => playing ? stopPlay() : startPlay();
   $('#bpm').onchange = e => { pushUndo(); S.bpm = clamp(+e.target.value || 96, 40, 240); e.target.value = S.bpm; syncDelayTime(); touch(); };
@@ -2749,6 +2809,13 @@ function bind() {
     if (S.antiHabit && !loadHabits().length) toast('Ajoute d\'abord 2 ou 3 exemples avec « C\'est mon habitude »'); else if (S.antiHabit) toast('🙋 La prochaine génération s\'éloignera de tes habitudes'); };
   $('#habAdd').onclick = () => { loadHabits().push(habitSample()); if (HABITS.length > 12) HABITS.shift(); saveHabits(); renderHabits(); renderAnalysis(); toast(`🙋 Exemple n°${HABITS.length} mémorisé`); };
   $('#habClear').onclick = () => { if (!loadHabits().length) return; HABITS = []; saveHabits(); renderHabits(); renderAnalysis(); toast('Habitudes oubliées'); };
+  $('#harmOnBtn').onclick = () => setHarm(true);
+  $('#harmOffBtn').onclick = () => setHarm(false);
+  // la barre latérale suit la section visible
+  const navLinks = $$('#side a'); const secIds = navLinks.map(a => a.getAttribute('href').slice(1));
+  const markNav = () => { let cur = secIds[0]; for (const id of secIds) { const el = document.getElementById(id); if (el && el.getBoundingClientRect().top < 140) cur = id; } navLinks.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + cur)); };
+  window.addEventListener('scroll', markNav, { passive: true }); markNav();
+  navLinks.forEach(a => a.addEventListener('click', e => { e.preventDefault(); const el = document.getElementById(a.getAttribute('href').slice(1)); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - 76, behavior: 'smooth' }); }));
   $('#varGo').onclick = () => { makeVariants(); toast('🧬 4 variantes : écoute-les, garde la meilleure'); };
   $('#varBack').onclick = backToOriginal;
   $('#variants').addEventListener('click', e => { const pl = e.target.closest('[data-vplay]'), kp = e.target.closest('[data-vkeep]');
@@ -2871,6 +2938,7 @@ function bind() {
   document.addEventListener('keydown', e => {
     if (e.target.matches('input[type=text], input[type=number], select, textarea')) return;
     if (e.code === 'Space') { e.preventDefault(); playing ? stopPlay() : startPlay(); }
+    else if (e.key === 'Enter' && !e.target.closest('button')) { e.preventDefault(); $('#genDrums').click(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
   });
@@ -2878,7 +2946,7 @@ function bind() {
   window.addEventListener('resize', () => { roll.bg = false; if (narrow() !== wasNarrow) { wasNarrow = narrow(); renderPagers(); renderGrid(); } renderRoll(); });
   ['#pagerDrums', '#pagerRoll'].forEach(id => $(id).addEventListener('click', e => { const b = e.target.closest('[data-page]'); if (b) { VIEW.follow = false; setPage(+b.dataset.page); renderPagers(); } }));
   ['#pagerDrums', '#pagerRoll'].forEach(id => $(id).addEventListener('change', e => { if (e.target.matches('[data-follow]')) { VIEW.follow = e.target.checked; renderPagers(); } }));
-  const THEMES = ['auto', 'light', 'dark'], THEME_ICON = { auto: '🌓', light: '☀️', dark: '🌙' };
+  const THEMES = ['auto', 'light', 'dark'], THEME_ICON = { auto: '◐', light: '☀', dark: '☾' };
   // « auto » ne retire que le thème posé par l'atelier lui-même (sur claude.ai, le site peut imposer le sien)
   const applyTheme = t => { const r = document.documentElement;
     if (t === 'auto') { if (r.dataset.themeApp) { r.removeAttribute('data-theme'); delete r.dataset.themeApp; } } else { r.dataset.theme = t; r.dataset.themeApp = '1'; } $('#theme').textContent = THEME_ICON[t]; THEME_C = null; roll.bg = false; renderRoll(); };
@@ -2910,6 +2978,17 @@ function renderFavNote() {
   el.textContent = favStorageOk ? 'Les favoris sont gardés dans ce navigateur. « ⬇ Fichier » pour en faire une copie de sécurité.'
     : '⚠️ Ce navigateur bloque la sauvegarde automatique ici : utilise « ⬇ Fichier » pour garder tes favoris, puis « ⬆ Importer » pour les retrouver.';
 }
+function renderHarm() {
+  const on = !!S.harmOn; $('#harmOff').hidden = on; $('#harmBody').hidden = !on; $('#harmOffBtn').hidden = !on;
+  $('#navHarmState').textContent = on ? 'on' : 'off'; $('#navHarm').classList.toggle('off', !on);
+}
+function setHarm(on) {
+  pushUndo(); S.harmOn = on;
+  if (on && !S.melody.length) { const list = applyStartInputs(); if (!S.locks.chords && !useInputChords(list)) genProgressionBest(); if (!S.locks.melody) genMelodyBest(); if (!S.locks.bass) genBass(); }
+  syncUI(); touch(); renderAll(); applyMix();
+  toast(on ? 'Mélodie, accords et basse ajoutés' : 'Batterie seule');
+  if (on) $('#secHarm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 function renderHabits() {
   const k = loadHabits().length; const el = $('#habCount'); if (!el) return;
   el.textContent = k ? `${k} exemple${k > 1 ? 's' : ''} mémorisé${k > 1 ? 's' : ''}` : 'aucun exemple pour l\'instant';
@@ -2921,7 +3000,7 @@ function renderFavs() { const f = loadFavs(); const keys = Object.keys(f); fillS
   if (onClaude()) $('#backLink').hidden = true;
   bind(); renderFavs();
   let restored = false;
-  try { const s = JSON.parse(localStorage.getItem(LS_LAST)); if (s && s.drums && s.drums.kick && s.drums.kick.cells.length) { S = Object.assign(defaultState(), s); restored = true; } } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem(LS_LAST)); if (s && s.drums && s.drums.kick && s.drums.kick.cells.length) { S = Object.assign(defaultState(), s); if (s.harmOn === undefined) S.harmOn = !!(s.melody && s.melody.length); restored = true; } } catch (e) {}
   if (!restored) { S.scaleChoice = 'auto'; S.rootChoice = 'auto'; generateAll(); undoStack.length = 0; }
   syncUI(); renderAll();
 })();

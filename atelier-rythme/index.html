@@ -48,7 +48,7 @@
 
   /* ---------- barre de transport ---------- */
   .topbar{
-    position:sticky; top:0; z-index:20; background:var(--topbar-bg); backdrop-filter:blur(8px);
+    position:sticky; top:env(safe-area-inset-top, 0px); z-index:20; background:var(--topbar-bg); backdrop-filter:blur(8px);
     border-bottom:1px solid var(--border);
   }
   .topbar-in{ max-width:1240px; margin:0 auto; padding:10px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
@@ -213,7 +213,7 @@
   .pager button{ padding:4px 10px; font-size:.78rem; }
   .dname .short{ display:none; }
   @media (max-width:700px){
-    .card{ padding:12px; }
+    .card{ padding:12px; } main{ padding-inline:16px; }
     .dhead{ flex:0 0 86px; flex-wrap:wrap; gap:2px; }
     .dname{ flex:1 1 100%; padding:2px 4px; font-size:.74rem; }
     .dname .long{ display:none; } .dname .short{ display:inline; }
@@ -228,7 +228,7 @@
     .topbar-in{ gap:8px; padding:8px 12px; }
     #play{ width:40px; height:40px; }
     .tp input[type=range]{ width:70px; }
-    main{ padding:12px; }
+    main{ padding-block:12px; padding-inline:16px; }
   }
   .back{ font-size:.75rem; color:var(--text-2); text-decoration:none; font-family:var(--mono); }
   .back:hover{ color:var(--accent); }
@@ -488,7 +488,7 @@
       <p>Astuce : <b>verrouille</b> ce que tu aimes (🔒 sur une piste ou sur accords/mélodie/basse) et relance le reste. Exporte en <b>MIDI</b> pour continuer dans ton logiciel.</p>
     </details>
   </section>
-  <a class="back" href="../index.html">← Inspiration musicale</a>
+  <a class="back" id="backLink" href="../index.html">← Inspiration musicale</a>
 </main>
 
 <div id="pop"></div>
@@ -2409,6 +2409,21 @@ function makeZip(files) {
   return new Blob([...out, new Uint8Array(central), new Uint8Array(end)], { type: 'application/zip' });
 }
 const inFrame = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+// sur claude.ai, la page passe par le système de téléchargement du site (pas de .mid autorisé : on l'emballe dans un .zip)
+let DL = null;
+try { if (window.claude && typeof window.claude.use === 'function') window.claude.use('downloads').then(d => { DL = d; }).catch(() => {}); } catch (e) {}
+const onClaude = () => !!(window.claude && typeof window.claude.use === 'function');
+async function saveFile(blob, filename) {
+  if (DL) {
+    let data = blob, name = filename;
+    if (/\.mid$/i.test(filename)) { data = makeZip([{ name: filename, data: new Uint8Array(await blob.arrayBuffer()) }]); name = filename.replace(/\.mid$/i, '.zip'); }
+    try { await DL.save({ filename: name, data }); toast(`⬇ ${name}` + (name !== filename ? ' (le .mid est dans le .zip)' : '')); }
+    catch (e) { if (e && e.code === 'declined') return; toast(e && e.code === 'rate_limited' ? 'Un téléchargement est déjà en attente' : 'Téléchargement impossible ici'); }
+    return;
+  }
+  if (onClaude()) return toast('Téléchargement indisponible dans cet aperçu');
+  saveBlob(blob, filename); toast(`⬇ ${filename}` + (inFrame ? ' — si rien n\'arrive, ouvre la page dans ton navigateur' : ''));
+}
 function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob); const a = document.createElement('a');
   a.href = url; a.download = filename; a.rel = 'noopener'; a.style.display = 'none'; document.body.appendChild(a); a.click(); a.remove();
@@ -2438,7 +2453,7 @@ function midiExport(kind) {
   return { blob, fname };
 }
 function openMidiDialog() {
-  const pop = $('#pop'); const canShare = !!(navigator.canShare && window.File);
+  const pop = $('#pop'); const canShare = !onClaude() && !!(navigator.canShare && window.File);
   pop.innerHTML = `<h4>⬇ Exporter en MIDI</h4>
     <div class="subs">
       ${S.song && S.song.order.length ? '<button data-mx="song">🎬 Morceau entier <i>structure</i></button>' : ''}
@@ -2449,7 +2464,9 @@ function openMidiDialog() {
     </div>
     <div class="row"><label class="tp">Longueur <select id="midiLoops"><option value="1">1 boucle</option><option value="4" selected>4 boucles</option><option value="8">8 boucles</option></select></label>
       ${canShare ? '<label class="tp"><input type="checkbox" id="midiShare"> 📤 Partager</label>' : ''}</div>
-    <p class="muted" style="font-size:.74rem;line-height:1.5;margin:8px 0 0">${inFrame
+    <p class="muted" style="font-size:.74rem;line-height:1.5;margin:8px 0 0">${onClaude()
+      ? 'Une confirmation s\'affiche avant d\'enregistrer. Les fichiers MIDI arrivent dans un <b>.zip</b> : ouvre-le, puis glisse le .mid dans ton logiciel (batterie sur le canal 10).'
+      : inFrame
       ? '⚠️ La page est ouverte dans un aperçu (application, visionneuse…) qui <b>bloque souvent les téléchargements</b>. Si rien ne se passe : ouvre le fichier <b>atelier-rythme</b> directement avec Chrome, Firefox ou Edge (clic droit → Ouvrir avec).'
       : 'Le fichier arrive dans ton dossier <b>Téléchargements</b>. Glisse-le ensuite dans ton logiciel (FL Studio, Ableton, GarageBand…). La batterie est sur le canal 10 (General MIDI).'}</p>`;
   pop.classList.add('show'); const r = $('#midi').getBoundingClientRect();
@@ -2458,7 +2475,7 @@ function openMidiDialog() {
     try {
       const { blob, fname } = midiExport(b.dataset.mx);
       if ($('#midiShare') && $('#midiShare').checked) shareBlob(blob, fname);
-      else { saveBlob(blob, fname); toast(`⬇ ${fname}` + (inFrame ? ' — si rien n\'arrive, ouvre la page dans ton navigateur' : '')); }
+      else saveFile(blob, fname);
     } catch (e) { console.error(e); toast('Erreur pendant l\'export : ' + e.message); }
   });
 }
@@ -2838,8 +2855,7 @@ function bind() {
   };
   $('#favExport').onclick = () => {
     const f = loadFavs(); if (!Object.keys(f).length) { f[defaultFavName()] = deep(S); }
-    saveBlob(new Blob([JSON.stringify({ ...f, __habitudes__: loadHabits() })], { type: 'application/json' }), 'atelier-rythme-favoris.json');
-    toast('Favoris téléchargés (atelier-rythme-favoris.json)');
+    saveFile(new Blob([JSON.stringify({ ...f, __habitudes__: loadHabits() })], { type: 'application/json' }), 'atelier-rythme-favoris.json');
   };
   $('#favImport').onclick = () => $('#favFile').click();
   $('#favFile').onchange = async e => {
@@ -2863,7 +2879,9 @@ function bind() {
   ['#pagerDrums', '#pagerRoll'].forEach(id => $(id).addEventListener('click', e => { const b = e.target.closest('[data-page]'); if (b) { VIEW.follow = false; setPage(+b.dataset.page); renderPagers(); } }));
   ['#pagerDrums', '#pagerRoll'].forEach(id => $(id).addEventListener('change', e => { if (e.target.matches('[data-follow]')) { VIEW.follow = e.target.checked; renderPagers(); } }));
   const THEMES = ['auto', 'light', 'dark'], THEME_ICON = { auto: '🌓', light: '☀️', dark: '🌙' };
-  const applyTheme = t => { if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t; $('#theme').textContent = THEME_ICON[t]; THEME_C = null; roll.bg = false; renderRoll(); };
+  // « auto » ne retire que le thème posé par l'atelier lui-même (sur claude.ai, le site peut imposer le sien)
+  const applyTheme = t => { const r = document.documentElement;
+    if (t === 'auto') { if (r.dataset.themeApp) { r.removeAttribute('data-theme'); delete r.dataset.themeApp; } } else { r.dataset.theme = t; r.dataset.themeApp = '1'; } $('#theme').textContent = THEME_ICON[t]; THEME_C = null; roll.bg = false; renderRoll(); };
   let theme = 'auto'; try { theme = localStorage.getItem('atelier-theme') || 'auto'; } catch (e) {}
   applyTheme(theme);
   $('#theme').onclick = () => { theme = THEMES[(THEMES.indexOf(theme) + 1) % 3]; try { localStorage.setItem('atelier-theme', theme); } catch (e) {} applyTheme(theme); toast({ auto: 'Thème automatique (suit ton appareil)', light: 'Thème clair', dark: 'Thème sombre' }[theme]); };
@@ -2900,6 +2918,7 @@ function renderFavs() { const f = loadFavs(); const keys = Object.keys(f); fillS
 
 // ---- démarrage ----
 (function init() {
+  if (onClaude()) $('#backLink').hidden = true;
   bind(); renderFavs();
   let restored = false;
   try { const s = JSON.parse(localStorage.getItem(LS_LAST)); if (s && s.drums && s.drums.kick && s.drums.kick.cells.length) { S = Object.assign(defaultState(), s); restored = true; } } catch (e) {}

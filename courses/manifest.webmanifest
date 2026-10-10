@@ -1,0 +1,14 @@
+{
+  "name": "Mes Courses",
+  "short_name": "Courses",
+  "description": "Liste de courses habituelles avec cases à cocher.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#2f8a57",
+  "icons": [
+    { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

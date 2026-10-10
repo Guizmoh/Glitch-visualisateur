@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maquette 3D détaillée — Plaine de Feuillebois</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⛰️</text></svg>">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0a12;
+               font-family: ui-monospace, Menlo, monospace; color: #fff; }
+  canvas { display: block; }
+  .hud { position: fixed; inset: 0; pointer-events: none; }
+  .vignette { position: absolute; inset: 0;
+              background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.42) 100%); }
+  .coeurs { position: absolute; top: 22px; left: 26px; display: flex; gap: 2px; }
+  .coeurs canvas { width: 22px; height: 22px; image-rendering: pixelated;
+                   filter: drop-shadow(0 2px 3px rgba(0,0,0,.7)); }
+  .endurance { position: absolute; bottom: 74px; right: 90px; width: 74px; height: 74px; }
+  .endurance svg { transform: rotate(-90deg); filter: drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+  .boussole { position: absolute; bottom: 84px; left: 50%; transform: translateX(-50%);
+              display: flex; gap: 26px; font-size: 12px; letter-spacing: 3px; opacity: .8;
+              text-shadow: 0 2px 4px #000; }
+  .boussole b { color: #ffd98a; }
+  .titre { position: absolute; top: 38%; left: 0; right: 0; text-align: center; }
+  .titre span { font-size: 15px; letter-spacing: 8px; color: #ffe9b8; text-transform: uppercase;
+                text-shadow: 0 3px 12px rgba(0,0,0,.9); }
+  .titre h1 { margin: 10px 0 0; font-size: 40px; font-weight: 400; letter-spacing: 6px;
+              color: #fff8e6; text-shadow: 0 4px 16px rgba(0,0,0,.9); }
+  .titre { animation: fondu 8s ease forwards; }
+  @keyframes fondu { 0%,55% { opacity: 1; } 100% { opacity: 0; } }
+  .aide { position: absolute; bottom: 20px; right: 24px; font-size: 11px; opacity: .6;
+          text-align: right; line-height: 1.8; text-shadow: 0 1px 3px #000; }
+  .compteur { position: absolute; bottom: 22px; left: 26px; text-shadow: 0 3px 8px rgba(0,0,0,.8); }
+  .compteur .vitesse { font-size: 44px; font-weight: 700; line-height: 1; color: #fff8e6;
+                       font-variant-numeric: tabular-nums; }
+  .compteur .unite { font-size: 12px; letter-spacing: 3px; opacity: .7; }
+  .compteur .combo { font-size: 13px; letter-spacing: 2px; color: #8ef07a; margin-top: 4px; min-height: 16px; }
+  .verdict { position: absolute; top: 30%; left: 0; right: 0; text-align: center;
+             font-size: 34px; font-weight: 700; letter-spacing: 4px; opacity: 0;
+             text-shadow: 0 4px 14px rgba(0,0,0,.9); transition: opacity .18s; }
+  .verdict small { display: block; font-size: 14px; letter-spacing: 2px; font-weight: 400; margin-top: 6px; }
+  .verdict.visible { opacity: 1; }
+  .chrono-air { position: absolute; top: 42%; left: 0; right: 0; text-align: center;
+                font-size: 20px; letter-spacing: 3px; color: #cfeaff; opacity: 0;
+                text-shadow: 0 3px 10px rgba(0,0,0,.9); }
+  .chrono-air.visible { opacity: .95; }
+  .temoin { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 4px; opacity: .8; }
+  .temoin .croix { display: grid; grid-template-columns: repeat(3, 26px);
+                   grid-template-rows: repeat(2, 24px); justify-items: center; align-items: center; }
+  .temoin [data-c="haut"] { grid-column: 2; grid-row: 1; }
+  .temoin [data-c="gauche"] { grid-column: 1; grid-row: 2; }
+  .temoin [data-c="bas"] { grid-column: 2; grid-row: 2; }
+  .temoin [data-c="droite"] { grid-column: 3; grid-row: 2; }
+  .temoin span { font-size: 15px; color: rgba(255,255,255,.3); transition: color .08s, text-shadow .08s; }
+  .temoin span.on { color: #8ef07a; text-shadow: 0 0 10px rgba(142,240,122,.9); }
+  .temoin .codes { font-size: 10px; color: #cfeaff; opacity: .55; min-height: 13px; letter-spacing: 1px; }
+  .retour { position: fixed; top: 16px; right: 24px; font-size: 11px; color: #cfe8ff;
+            opacity: .55; text-decoration: none; z-index: 5; }
+  .chargement { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+                background: #0b0a12; font-size: 13px; letter-spacing: 2px; color: #ffd98a; z-index: 9; }
+</style>
+</head>
+<body>
+
+<div class="chargement" id="chargement">SCULPTURE DU TERRAIN…</div>
+
+<div class="hud">
+  <div class="vignette"></div>
+  <div class="coeurs" id="coeurs"></div>
+  <div class="endurance">
+    <svg viewBox="0 0 74 74" width="74" height="74">
+      <circle cx="37" cy="37" r="30" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="7"/>
+      <circle cx="37" cy="37" r="30" fill="none" stroke="#9fe870" stroke-width="7"
+              stroke-linecap="round" stroke-dasharray="188" stroke-dashoffset="34"/>
+    </svg>
+  </div>
+  <div class="boussole"><span>O</span><b>N</b><span>E</span></div>
+  <div class="titre"><span>Les terres de</span><h1>Night</h1>
+    <span style="font-size:12px;letter-spacing:2px;display:block;margin-top:14px;color:#cfeaff">
+      descends les pentes · saute sur les bosses · atterris À PLAT pour garder ta vitesse
+    </span>
+  </div>
+  <div class="aide">
+    <b>Flèches</b> ou <b>ZQSD</b> : diriger · <b>Espace</b> (maintenir = plus haut) : sauter<br>
+    <b>Maj</b> : se baisser, on glisse plus vite · <b>R</b> : remonter en haut d'une pente<br>
+    <b>B</b> : descendre de la planche · glisser la <b>souris</b> : tourner la caméra
+  </div>
+</div>
+<a class="retour" href="index.html">← le jeu 2D</a>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+/* =========================================================================
+   maquette-3d-detaillee.html — JUSQU'OU PEUT-ON POUSSER LE RENDU ?
+   Meme carte que le jeu 2D, mais avec les techniques qui donnent aux jeux
+   modernes leur cachet :
+     - un TERRAIN sculpte par du bruit (fBm), pas un plan plat
+     - de l'HERBE en dizaines de milliers de brins, agitee par le vent
+     - un CIEL calcule par un shader (degrade, halo solaire, nuages)
+     - un eclairage d'heure doree, des ombres douces, du brouillard aerien
+     - un ombrage CEL (a bandes) + lumiere de contour sur les personnages
+     - une exposition cinema (tone mapping ACES)
+   Tout est genere par le code : aucune texture, aucun modele 3D telecharge.
+   ========================================================================= */
+
+import * as THREE from 'three';
+import { CARTES } from './src/contenu/cartes.js';
+import { TUILES } from './src/contenu/tuiles.js';
+import { Atlas, creerCanvas } from './src/noyau/pixels.js';
+import { SPRITES, PALETTE } from './src/contenu/sprites.js';
+
+/* ===================================================================== */
+/* 1. BRUIT — la base de tout paysage genere                             */
+/* ===================================================================== */
+
+function alea(x, y) {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function bruitDouux(x, y) {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = alea(xi, yi);
+  const b = alea(xi + 1, yi);
+  const c = alea(xi, yi + 1);
+  const d = alea(xi + 1, yi + 1);
+  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+}
+
+/** Bruit "en crete" : au lieu de bosses rondes, il produit des aretes vives.
+    C'est lui qui donne les falaises plutot que des collines en coussin. */
+function bruitCrete(x, y, octaves = 4) {
+  let valeur = 0;
+  let amplitude = 0.5;
+  let frequence = 1;
+  for (let i = 0; i < octaves; i++) {
+    const n = 1 - Math.abs(bruitDouux(x * frequence, y * frequence) * 2 - 1);
+    valeur += n * n * amplitude;
+    amplitude *= 0.5;
+    frequence *= 2.1;
+  }
+  return valeur;
+}
+
+/** fBm : on empile plusieurs bruits de plus en plus fins. */
+function fbm(x, y, octaves = 5) {
+  let valeur = 0;
+  let amplitude = 0.5;
+  let frequence = 1;
+  for (let i = 0; i < octaves; i++) {
+    valeur += bruitDouux(x * frequence, y * frequence) * amplitude;
+    amplitude *= 0.5;
+    frequence *= 2;
+  }
+  return valeur;
+}
+
+/* ===================================================================== */
+/* 2. LE TERRAIN                                                         */
+/* ===================================================================== */
+
+const SALLE = CARTES.village;
+const GRILLE = SALLE.decor.map((l) => l.split(''));
+const LARGEUR = GRILLE[0].length;
+const PROFONDEUR = GRILLE.length;
+const CASE = 2.4;
+const CENTRE = new THREE.Vector2((LARGEUR * CASE) / 2, (PROFONDEUR * CASE) / 2);
+const RAYON_VILLAGE = 30;
+const TAILLE_MONDE = 320;
+
+/** Hauteur du sol en tout point. Le village, lui, reste bien plat. */
+function hauteurTerrain(x, z) {
+  // Trois echelles qui s'additionnent, de la plus ample a la plus fine.
+  const collines = (fbm(x * 0.008, z * 0.008, 5) - 0.5) * 40;   // les grandes formes
+  const vallons = (fbm(x * 0.021 + 3.3, z * 0.021 + 8.1, 3) - 0.5) * 13; // le vallonnement
+  const bosses = (fbm(x * 0.055, z * 0.055, 2) - 0.5) * 2.6;    // les petits tremplins
+
+  // Les cretes rocheuses ne sortent que TRES haut : en bas, on veut du
+  // terrain roulant sur lequel la planche file sans accrocher.
+  const altitude = collines + vallons;
+  const forceCretes = THREE.MathUtils.smoothstep(altitude, 10, 24);
+  const cretes = bruitCrete(x * 0.014, z * 0.014, 4) * 22 * forceCretes;
+
+  let h = collines + vallons + bosses + cretes;
+
+  // Terrassement : uniquement en altitude, et bien plus doux qu'avant.
+  // Les falaises restent du decor ; la zone de jeu, elle, reste lisse.
+  const pas = 5.0;
+  const marches = Math.floor(h / pas) * pas + pas * 0.5;
+  h = THREE.MathUtils.lerp(h, marches, 0.38 * THREE.MathUtils.smoothstep(h, 11, 26));
+  // Aplatissement progressif autour du village.
+  const d = Math.hypot(x - CENTRE.x, z - CENTRE.y);
+  const melange = THREE.MathUtils.smoothstep(d, RAYON_VILLAGE * 0.45, RAYON_VILLAGE * 1.5);
+  h *= 0.1 + 0.9 * melange; // le village reste jouable, sans etre une crepe
+  // Un grain tres fin, juste pour que le sol ne soit pas une surface parfaite.
+  h += (fbm(x * 0.12, z * 0.12, 2) - 0.5) * 0.4;
+  return h;
+}
+
+function normaleTerrain(x, z, pas = 0.6) {
+  const hx = hauteurTerrain(x + pas, z) - hauteurTerrain(x - pas, z);
+  const hz = hauteurTerrain(x, z + pas) - hauteurTerrain(x, z - pas);
+  return new THREE.Vector3(-hx, 2 * pas, -hz).normalize();
+}
+
+/* ===================================================================== */
+/* 3. SCENE, CAMERA, RENDU                                               */
+/* ===================================================================== */
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.25, 900);
+
+const rendu = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+rendu.setSize(innerWidth, innerHeight);
+rendu.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+rendu.shadowMap.enabled = true;
+rendu.shadowMap.type = THREE.PCFSoftShadowMap;
+// Exposition facon cinema : c'est ce qui donne les belles hautes lumieres.
+rendu.toneMapping = THREE.ACESFilmicToneMapping;
+rendu.toneMappingExposure = 1.0;
+rendu.outputColorSpace = THREE.SRGBColorSpace;
+document.body.append(rendu.domElement);
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  rendu.setSize(innerWidth, innerHeight);
+});
+
+/* --- Heure doree : le soleil est bas et chaud ------------------------ */
+const DIRECTION_SOLEIL = new THREE.Vector3(0.55, 0.24, -0.78).normalize();
+const COULEUR_SOLEIL = new THREE.Color(0xffd9a0);
+const COULEUR_HORIZON = new THREE.Color(0xf6d9b4);
+const COULEUR_BRUME = new THREE.Color(0xc7d9e8);
+
+// La couleur doit etre CELLE DE L'HORIZON DU CIEL, sinon on voit une
+// couture nette la ou le terrain s'arrete.
+scene.fog = new THREE.FogExp2(0xe6d2b4, 0.0046);
+
+const soleil = new THREE.DirectionalLight(COULEUR_SOLEIL, 2.35);
+soleil.position.copy(DIRECTION_SOLEIL).multiplyScalar(90);
+soleil.castShadow = true;
+soleil.shadow.mapSize.set(2048, 2048);
+soleil.shadow.bias = -0.0009;
+soleil.shadow.normalBias = 0.05;
+const boite = soleil.shadow.camera;
+boite.left = -34; boite.right = 34; boite.top = 34; boite.bottom = -34;
+boite.near = 1; boite.far = 220;
+boite.updateProjectionMatrix();
+scene.add(soleil, soleil.target);
+
+scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x516b40, 0.95));
+const appoint = new THREE.DirectionalLight(0x9ec8ff, 0.35); // lumiere du ciel, en contre
+appoint.position.set(-40, 30, 50);
+scene.add(appoint);
+
+/* ===================================================================== */
+/* 4. LE CIEL (shader maison)                                            */
+/* ===================================================================== */
+
+const ciel = new THREE.Mesh(
+  new THREE.SphereGeometry(600, 32, 24),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    uniforms: {
+      soleil: { value: DIRECTION_SOLEIL },
+      temps: { value: 0 },
+    },
+    vertexShader: `
+      varying vec3 vDir;
+      void main() {
+        vDir = position;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: `
+      uniform vec3 soleil;
+      uniform float temps;
+      varying vec3 vDir;
+
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float bruit(vec2 p){
+        vec2 i = floor(p), f = fract(p);
+        vec2 u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1,0)), u.x),
+                   mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x), u.y);
+      }
+      float fbm(vec2 p){
+        float v = 0.0, a = 0.5;
+        for (int i = 0; i < 5; i++) { v += bruit(p) * a; p *= 2.02; a *= 0.5; }
+        return v;
+      }
+
+      void main() {
+        vec3 d = normalize(vDir);
+        float h = max(d.y, 0.0);
+
+        // Degrade : brume chaude en bas, bleu profond au zenith.
+        vec3 zenith  = vec3(0.16, 0.38, 0.72);
+        vec3 horizon = vec3(0.92, 0.82, 0.70);
+        vec3 couleur = mix(horizon, zenith, pow(h, 0.42));
+
+        // Halo puis disque solaire.
+        float s = max(dot(d, normalize(soleil)), 0.0);
+        couleur += vec3(1.0, 0.62, 0.30) * pow(s, 6.0) * 0.55;
+        couleur += vec3(1.0, 0.86, 0.62) * pow(s, 160.0) * 2.2;
+        couleur += vec3(1.0, 0.95, 0.85) * smoothstep(0.9995, 0.9999, s) * 8.0;
+
+        // Nuages : du fBm projete sur le dome, qui derive lentement.
+        if (d.y > 0.02) {
+          vec2 uv = d.xz / (d.y + 0.28) * 0.9 + vec2(temps * 0.004, temps * 0.002);
+          float n = fbm(uv * 1.4);
+          float nuage = smoothstep(0.52, 0.86, n) * smoothstep(0.02, 0.22, d.y);
+          vec3 tonNuage = mix(vec3(0.62, 0.60, 0.66), vec3(1.0, 0.94, 0.86), pow(s, 2.0) * 0.8 + 0.35);
+          couleur = mix(couleur, tonNuage, nuage * 0.82);
+        }
+        gl_FragColor = vec4(couleur, 1.0);
+      }`,
+  })
+);
+ciel.frustumCulled = false;
+scene.add(ciel);
+
+/* ===================================================================== */
+/* 5. MATIERES : ombrage cel + lumiere de contour                        */
+/* ===================================================================== */
+
+/**
+ * LA RAMPE DE TONS. C'est le coeur du cel shading : au lieu d'un degrade
+ * continu, la lumiere ne peut prendre que ces quelques valeurs. On la donne
+ * a three.js sous forme d'une minuscule image de 4 pixels, lue au plus
+ * proche voisin (donc sans aucun adoucissement).
+ */
+const degradeToon = new THREE.DataTexture(
+  new Uint8Array([44, 104, 188, 255]), 4, 1, THREE.RedFormat
+);
+degradeToon.minFilter = THREE.NearestFilter;
+degradeToon.magFilter = THREE.NearestFilter;
+degradeToon.needsUpdate = true;
+
+/** Matiere d'encre pour les contours (voir ajouterContour plus bas). */
+function matiereContour(epaisseur, couleur = 0x191823) {
+  return new THREE.ShaderMaterial({
+    side: THREE.BackSide,   // on ne voit que l'interieur de la coque gonflee
+    fog: true,
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      { epaisseur: { value: epaisseur }, encre: { value: new THREE.Color(couleur) } },
+    ]),
+    vertexShader: `
+      uniform float epaisseur;
+      #include <common>
+      #include <fog_pars_vertex>
+      void main() {
+        #include <beginnormal_vertex>
+        #include <begin_vertex>
+        transformed += objectNormal * epaisseur;  // on gonfle le long des normales
+        #include <project_vertex>
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform vec3 encre;
+      #include <common>
+      #include <fog_pars_fragment>
+      void main() {
+        gl_FragColor = vec4(encre, 1.0);
+        #include <fog_fragment>
+      }`,
+  });
+}
+
+/**
+ * CONTOUR A L'ENCRE, methode de la "coque inversee" : on redessine l'objet
+ * une deuxieme fois, legerement gonfle, en noir, et en ne gardant que ses
+ * faces arriere. Il depasse tout autour : c'est le trait.
+ */
+function ajouterContour(maille, epaisseur = 0.05) {
+  const materiau = matiereContour(epaisseur);
+  let contour;
+  if (maille.isInstancedMesh) {
+    contour = new THREE.InstancedMesh(maille.geometry, materiau, maille.count);
+    contour.instanceMatrix = maille.instanceMatrix; // on partage les positions
+  } else {
+    contour = new THREE.Mesh(maille.geometry, materiau);
+  }
+  contour.frustumCulled = maille.frustumCulled;
+  contour.castShadow = false;
+  contour.receiveShadow = false;
+  contour.renderOrder = -1;
+  maille.add(contour); // enfant : il suit l'objet automatiquement
+  return maille;
+}
+
+/** Applique un contour a toutes les mailles d'un groupe (un personnage). */
+function contournerGroupe(groupe, epaisseur = 0.028) {
+  const mailles = [];
+  groupe.traverse((o) => { if (o.isMesh) mailles.push(o); });
+  for (const m of mailles) ajouterContour(m, epaisseur);
+  return groupe;
+}
+
+/**
+ * Ombrage cel : MeshToonMaterial de three.js (qui apporte gratuitement les
+ * ombres portees, le brouillard et les lumieres) + la rampe de tons ci-dessus
+ * + une lumiere de contour greffee dans le shader.
+ */
+function matiereCel(couleur, options = {}) {
+  const { contour = 0.5 } = options;
+  const materiau = new THREE.MeshToonMaterial({
+    color: couleur,
+    gradientMap: degradeToon,
+  });
+  materiau.onBeforeCompile = (shader) => {
+    shader.uniforms.forceRim = { value: contour * 0.42 };
+    shader.uniforms.couleurRim = { value: new THREE.Color(0xfff0d8) };
+    shader.fragmentShader = `
+      uniform float forceRim;
+      uniform vec3 couleurRim;
+      ${shader.fragmentShader}`
+      .replace('#include <fog_fragment>', `
+        // Lumiere de contour : les bords qui s'eloignent de la camera
+        // recoivent un liseré clair. C'est ce qui detache du decor.
+        float bordure = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 3.5);
+        gl_FragColor.rgb += couleurRim * bordure * forceRim;
+        #include <fog_fragment>`);
+  };
+  return materiau;
+}
+
+/* ===================================================================== */
+/* 6. LES TEXTURES DU SOL (fabriquees pixel par pixel)                   */
+/* ===================================================================== */
+
+/** Bruit qui se raccorde parfaitement d'un bord a l'autre : la texture
+    peut donc etre repetee a l'infini sans coupure visible. */
+function bruitPeriodique(x, y, periode) {
+  const enroule = (v) => ((v % periode) + periode) % periode;
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = alea(enroule(xi), enroule(yi));
+  const b = alea(enroule(xi + 1), enroule(yi));
+  const c = alea(enroule(xi), enroule(yi + 1));
+  const d = alea(enroule(xi + 1), enroule(yi + 1));
+  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
+}
+
+function fbmPeriodique(x, y, octaves = 4, periodeDepart = 4) {
+  let valeur = 0;
+  let amplitude = 0.5;
+  let periode = periodeDepart;
+  for (let i = 0; i < octaves; i++) {
+    valeur += bruitPeriodique(x * periode, y * periode, periode) * amplitude;
+    amplitude *= 0.5;
+    periode *= 2;
+  }
+  return valeur;
+}
+
+const TAILLE_TEXTURE = 256;
+
+function textureProcedurale(calculer) {
+  const { canvas, ctx } = creerCanvas(TAILLE_TEXTURE, TAILLE_TEXTURE);
+  const image = ctx.createImageData(TAILLE_TEXTURE, TAILLE_TEXTURE);
+  for (let y = 0; y < TAILLE_TEXTURE; y++) {
+    for (let x = 0; x < TAILLE_TEXTURE; x++) {
+      const [r, v, b] = calculer(x / TAILLE_TEXTURE, y / TAILLE_TEXTURE);
+      const i = (y * TAILLE_TEXTURE + x) * 4;
+      image.data[i] = r; image.data[i + 1] = v; image.data[i + 2] = b; image.data[i + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  const t = new THREE.CanvasTexture(canvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = rendu.capabilities.getMaxAnisotropy();
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+// Herbe : un fond vert module, plus de fines stries dans un sens.
+const texHerbe = textureProcedurale((u, v) => {
+  const touffes = fbmPeriodique(u, v, 4, 5);
+  const brins = bruitPeriodique(u * 40, v * 40, 40) * 0.7
+              + bruitPeriodique(u * 70, v * 14, 70) * 0.3;
+  const sec = Math.pow(fbmPeriodique(u + 3.1, v + 7.7, 3, 3), 2);
+  const melange = touffes * 0.65 + brins * 0.35;
+  const r = 48 + melange * 92 + sec * 74;
+  const g = 84 + melange * 108 - sec * 6;
+  const b = 32 + melange * 48 + sec * 18;
+  return [r, g, b];
+});
+
+// Terre : brun, avec des cailloux clairs semes dedans.
+const texTerre = textureProcedurale((u, v) => {
+  const grain = fbmPeriodique(u, v, 5, 6);
+  const cailloux = bruitPeriodique(u * 40, v * 40, 40);
+  const pierre = cailloux > 0.86 ? (cailloux - 0.86) * 5 : 0;
+  const r = 104 + grain * 64 + pierre * 90;
+  const g = 80 + grain * 52 + pierre * 88;
+  const b = 54 + grain * 34 + pierre * 84;
+  return [r, g, b];
+});
+
+// Roche : gris froid, strie horizontalement comme un affleurement.
+const texRoche = textureProcedurale((u, v) => {
+  // Des bandes horizontales (comme des couches geologiques) plutot que du
+  // bruit isotrope : c'est ce qui fait "lire" une paroi rocheuse.
+  const strates = fbmPeriodique(u * 0.5, v * 3.2, 4, 4);
+  const grain = fbmPeriodique(u * 2.0, v * 2.0, 3, 8);
+  // Joints reguliers entre les couches.
+  const position = ((v * 5) % 1 + 1) % 1;
+  const joint = Math.min(position, 1 - position) < 0.045 ? 0.62 : 1;
+  const base = (86 + strates * 82 + grain * 26) * joint;
+  return [base * 1.06, base * 1.0, base * 0.9];
+});
+
+/* ===================================================================== */
+/* 7. LE SOL                                                             */
+/* ===================================================================== */
+
+const SEGMENTS = 190;
+const geoTerrain = new THREE.PlaneGeometry(TAILLE_MONDE, TAILLE_MONDE, SEGMENTS, SEGMENTS);
+geoTerrain.rotateX(-Math.PI / 2);
+{
+  const pos = geoTerrain.attributes.position;
+  const couleurs = [];
+  const c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i) + CENTRE.x;
+    const z = pos.getZ(i) + CENTRE.y;
+    const h = hauteurTerrain(x, z);
+    pos.setXYZ(i, pos.getX(i), h, pos.getZ(i));
+    // La couleur des sommets nuance de grandes zones ; le detail vient des
+    // textures. Sans ca, tout le paysage serait du meme vert.
+    const variation = fbm(x * 0.05, z * 0.05, 3);
+    const zones = fbm(x * 0.013 + 11.3, z * 0.013 + 4.7, 3);
+    const altitude = THREE.MathUtils.clamp(h / 22, -1, 1);
+    const luminosite = 0.78 + variation * 0.34 + altitude * 0.14;
+    c.setRGB(luminosite, luminosite, luminosite);
+    // Plaques d'herbe seche, et hauteurs qui tirent vers le froid.
+    c.lerp(new THREE.Color(0xd8c070), THREE.MathUtils.smoothstep(zones, 0.54, 0.8) * 0.7);
+    c.lerp(new THREE.Color(0x93a6ba), THREE.MathUtils.smoothstep(h, 16, 34) * 0.55);
+    // Les parois raides virent au mineral chaud.
+    const pente = 1 - normaleTerrain(x, z).y;
+    c.lerp(new THREE.Color(0xb49a7c), THREE.MathUtils.smoothstep(pente, 0.2, 0.5) * 0.85);
+    couleurs.push(c.r, c.g, c.b);
+  }
+  geoTerrain.setAttribute('color', new THREE.Float32BufferAttribute(couleurs, 3));
+  geoTerrain.computeVertexNormals();
+}
+/**
+ * Le materiau du sol. On part d'un materiau standard de three.js (pour
+ * garder gratuitement les ombres, le brouillard et les lumieres), et on
+ * greffe dedans notre melange de textures : herbe a plat, roche sur les
+ * pentes, terre par plaques. Chaque texture est plaquee DEUX FOIS, a deux
+ * echelles differentes : c'est l'astuce qui casse l'effet "papier peint".
+ */
+const matiereSol = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: degradeToon });
+matiereSol.onBeforeCompile = (shader) => {
+  shader.uniforms.texHerbe = { value: texHerbe };
+  shader.uniforms.texTerre = { value: texTerre };
+  shader.uniforms.texRoche = { value: texRoche };
+
+  shader.vertexShader = `varying vec3 vMonde;\nvarying vec3 vNormaleMonde;\n${shader.vertexShader}`
+    .replace('#include <begin_vertex>', `#include <begin_vertex>
+      vMonde = (modelMatrix * vec4(transformed, 1.0)).xyz;
+      vNormaleMonde = normalize(mat3(modelMatrix) * normal);`);
+
+  shader.fragmentShader = `
+    uniform sampler2D texHerbe;
+    uniform sampler2D texTerre;
+    uniform sampler2D texRoche;
+    varying vec3 vMonde;
+    varying vec3 vNormaleMonde;
+    ${shader.fragmentShader}`
+    .replace('#include <color_fragment>', `#include <color_fragment>
+      vec2 uvLarge = vMonde.xz * 0.028;
+      vec2 uvFine  = vMonde.xz * 0.19;
+      vec3 herbe = mix(texture2D(texHerbe, uvLarge).rgb, texture2D(texHerbe, uvFine).rgb, 0.5);
+      vec3 terre = mix(texture2D(texTerre, uvLarge).rgb, texture2D(texTerre, uvFine).rgb, 0.5);
+
+      // PROJECTION TRIPLANAIRE pour la roche : on plaque la texture selon les
+      // trois axes et on melange d'apres la normale. Sans ca, la texture est
+      // etiree verticalement sur les falaises (le defaut classique).
+      vec3 n = abs(normalize(vNormaleMonde));
+      vec3 poids = n / max(n.x + n.y + n.z, 0.0001);
+      float k = 0.075;
+      vec3 rocheX = texture2D(texRoche, vMonde.zy * k).rgb;
+      vec3 rocheY = texture2D(texRoche, vMonde.xz * k).rgb;
+      vec3 rocheZ = texture2D(texRoche, vMonde.xy * k).rgb;
+      vec3 roche = rocheX * poids.x + rocheY * poids.y + rocheZ * poids.z;
+
+      float pente = 1.0 - clamp(vNormaleMonde.y, 0.0, 1.0);
+      float masqueRoche = smoothstep(0.13, 0.34, pente);
+      float plaques = texture2D(texTerre, vMonde.xz * 0.0055).r;
+      float masqueTerre = smoothstep(0.52, 0.78, plaques) * (1.0 - masqueRoche);
+
+      vec3 sol = mix(herbe, terre, masqueTerre * 0.85);
+      sol = mix(sol, roche, masqueRoche);
+      diffuseColor.rgb *= sol * 1.35;`);
+};
+
+const terrain = new THREE.Mesh(geoTerrain, matiereSol);
+terrain.position.set(CENTRE.x, 0, CENTRE.y);
+terrain.receiveShadow = true;
+scene.add(terrain);
+
+/* ===================================================================== */
+/* 8. L'HERBE — 34 000 brins agites par le vent                          */
+/* ===================================================================== */
+
+const NB_BRINS = 56000;
+const RAYON_HERBE = 48;
+
+const brin = new THREE.BufferGeometry();
+// Un brin = un losange etroit : 4 sommets, 2 triangles.
+brin.setAttribute('position', new THREE.Float32BufferAttribute([
+  -0.032, 0, 0, 0.032, 0, 0, -0.014, 0.46, 0, 0.014, 0.46, 0,
+], 3));
+brin.setIndex([0, 1, 2, 2, 1, 3]);
+
+const geoHerbe = new THREE.InstancedBufferGeometry();
+geoHerbe.index = brin.index;
+geoHerbe.attributes.position = brin.attributes.position;
+{
+  const decalages = new Float32Array(NB_BRINS * 3);
+  const variations = new Float32Array(NB_BRINS * 3);
+  let n = 0;
+  for (let i = 0; i < NB_BRINS; i++) {
+    // Disque autour du village, densite plus forte au centre.
+    const angle = Math.random() * Math.PI * 2;
+    const rayon = Math.pow(Math.random(), 0.72) * RAYON_HERBE; // dense au centre
+    const x = CENTRE.x + Math.cos(angle) * rayon;
+    const z = CENTRE.y + Math.sin(angle) * rayon;
+    // Pas d'herbe sur les pentes trop raides ni sur les chemins.
+    const col = Math.floor(x / CASE);
+    const ligne = Math.floor(z / CASE);
+    const lettre = (GRILLE[ligne] && GRILLE[ligne][col]) || null;
+    if (lettre === ':' || lettre === 'T') continue;
+    if (normaleTerrain(x, z).y < 0.82) continue; // rien sur les falaises
+    decalages[n * 3] = x;
+    decalages[n * 3 + 1] = hauteurTerrain(x, z);
+    decalages[n * 3 + 2] = z;
+    variations[n * 3] = Math.random();
+    variations[n * 3 + 1] = Math.random() * Math.PI;
+    // Les brins raccourcissent vers le bord : sinon on voit un disque d'herbe.
+    variations[n * 3 + 2] = 1 - THREE.MathUtils.smoothstep(rayon, RAYON_HERBE * 0.7, RAYON_HERBE);
+    n++;
+  }
+  geoHerbe.instanceCount = n;
+  geoHerbe.setAttribute('decalage', new THREE.InstancedBufferAttribute(decalages.slice(0, n * 3), 3));
+  geoHerbe.setAttribute('variation', new THREE.InstancedBufferAttribute(variations.slice(0, n * 3), 3));
+}
+
+const matiereHerbe = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  fog: true,
+  uniforms: THREE.UniformsUtils.merge([
+    THREE.UniformsLib.fog,
+    {
+      temps: { value: 0 },
+      soleil: { value: DIRECTION_SOLEIL },
+      basHerbe: { value: new THREE.Color(0x3d6b28) },
+      hautHerbe: { value: new THREE.Color(0x93c750) },
+      couleurSoleil: { value: COULEUR_SOLEIL },
+    },
+  ]),
+  vertexShader: `
+    attribute vec3 decalage;
+    attribute vec3 variation;
+    uniform float temps;
+    varying float vHaut;
+    varying float vLumiere;
+    #include <fog_pars_vertex>
+    void main() {
+      vec3 p = position;
+      float haut = p.y / 0.46;
+      vHaut = haut;
+
+      // Chaque brin a sa taille et son orientation.
+      float echelle = (0.65 + variation.x * 0.85) * (0.15 + 0.85 * variation.z);
+      float angle = variation.y * 2.0;
+      float ca = cos(angle), sa = sin(angle);
+      p.xz = vec2(p.x * ca - p.z * sa, p.x * sa + p.z * ca);
+      p *= echelle;
+
+      // Le vent : deux ondes qui traversent la plaine.
+      float onde = sin(temps * 1.5 + decalage.x * 0.16 + decalage.z * 0.11)
+                 + sin(temps * 2.7 + decalage.z * 0.3) * 0.4;
+      float pliage = haut * haut * (0.42 + variation.x * 0.3);
+      p.x += onde * pliage;
+      p.z += onde * pliage * 0.5;
+
+      vec3 monde = p + decalage;
+      // Un brin pris de face capte plus de lumiere.
+      // Legere variation d'un brin a l'autre, mais aucun ne doit etre noir.
+      vLumiere = 0.78 + 0.22 * abs(sin(angle * 1.7));
+
+      // Le morceau <fog_vertex> de three.js attend une variable qui
+      // s'appelle exactement "mvPosition" : c'est pour ca qu'on la nomme ainsi.
+      vec4 mvPosition = modelViewMatrix * vec4(monde, 1.0);
+      gl_Position = projectionMatrix * mvPosition;
+      #include <fog_vertex>
+    }`,
+  fragmentShader: `
+    uniform vec3 basHerbe, hautHerbe, couleurSoleil;
+    varying float vHaut;
+    varying float vLumiere;
+    #include <fog_pars_fragment>
+    void main() {
+      vec3 couleur = mix(basHerbe, hautHerbe, vHaut * vHaut);
+      couleur *= (0.72 + 0.28 * vLumiere) * mix(vec3(1.0), couleurSoleil, 0.5);
+      gl_FragColor = vec4(couleur, 1.0);
+      #include <fog_fragment>
+    }`,
+});
+// Un truc de metier : sans ca, three.js retire l'herbe de l'ecran des que
+// le centre de l'objet sort du champ.
+const herbe = new THREE.Mesh(geoHerbe, matiereHerbe);
+herbe.frustumCulled = false;
+scene.add(herbe);
+
+/* ===================================================================== */
+/* 9. ARBRES, ROCHERS, BUISSONS (instancies)                             */
+/* ===================================================================== */
+
+function instancier(geometrie, matiere, placements, ombre = true, contour = 0) {
+  const maille = new THREE.InstancedMesh(geometrie, matiere, placements.length);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler();
+  const s = new THREE.Vector3();
+  placements.forEach((p, i) => {
+    e.set(0, p.rotation || 0, 0);
+    q.setFromEuler(e);
+    s.setScalar(p.echelle || 1);
+    m.compose(new THREE.Vector3(p.x, p.y, p.z), q, s);
+    maille.setMatrixAt(i, m);
+  });
+  maille.castShadow = ombre;
+  maille.receiveShadow = true;
+  maille.frustumCulled = false;
+  scene.add(maille);
+  if (contour > 0) ajouterContour(maille, contour);
+  return maille;
+}
+
+/* --- Ou poser les arbres ? Ceux de la carte, plus une foret alentour --- */
+const placementsArbres = [];
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    if (GRILLE[ligne][col] !== 'T') continue;
+    const x = col * CASE + CASE / 2;
+    const z = ligne * CASE + CASE / 2;
+    placementsArbres.push({ x, y: hauteurTerrain(x, z), z, rotation: Math.random() * 6.28, echelle: 0.9 + Math.random() * 0.5 });
+  }
+}
+// Une foret qui s'etend au-dela, semee par le bruit.
+for (let i = 0; i < 1400; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const rayon = 48 + Math.sqrt(Math.random()) * 110;
+  const x = CENTRE.x + Math.cos(angle) * rayon;
+  const z = CENTRE.y + Math.sin(angle) * rayon;
+  const densite = fbm(x * 0.012, z * 0.012, 3);
+  if (densite < 0.52) continue;                    // clairieres
+  if (normaleTerrain(x, z).y < 0.86) continue;     // pas sur les falaises
+  placementsArbres.push({ x, y: hauteurTerrain(x, z), z, rotation: Math.random() * 6.28, echelle: 0.8 + Math.random() * 0.9 });
+}
+
+// Deux especes, pour que la foret ne soit pas une rangee de sucettes.
+const feuillus = placementsArbres.filter((_, i) => i % 3 !== 0);
+const coniferes = placementsArbres.filter((_, i) => i % 3 === 0);
+
+const geoTronc = new THREE.CylinderGeometry(0.2, 0.38, 3.0, 6).translate(0, 1.5, 0);
+const matTronc = matiereCel(0x6b5238, { contour: 0.15 });
+
+// Feuillu : deux masses aplaties et decalees -> silhouette irreguliere.
+const geoHouppier = new THREE.IcosahedronGeometry(1.25, 0);
+geoHouppier.scale(1.15, 0.62, 1.05);
+geoHouppier.translate(0, 3.5, 0);
+const geoHouppier2 = new THREE.IcosahedronGeometry(0.95, 0);
+geoHouppier2.scale(1.0, 0.72, 0.95);
+geoHouppier2.translate(0.45, 4.35, -0.3);
+
+// Conifere : deux cones empiles, tres graphiques.
+const geoConeBas = new THREE.ConeGeometry(1.35, 2.9, 7).translate(0, 3.1, 0);
+const geoConeHaut = new THREE.ConeGeometry(0.85, 2.2, 7).translate(0, 4.9, 0);
+
+instancier(geoTronc, matTronc, placementsArbres, true, 0.032);
+instancier(geoHouppier, matiereCel(0x34702c, { contour: 0.3 }), feuillus, true, 0.05);
+instancier(geoHouppier2, matiereCel(0x437f30, { contour: 0.34 }), feuillus, true, 0.045);
+instancier(geoConeBas, matiereCel(0x24563a, { contour: 0.28 }), coniferes, true, 0.05);
+instancier(geoConeHaut, matiereCel(0x2e6741, { contour: 0.32 }), coniferes, true, 0.045);
+
+/* --- Rochers --- */
+const placementsRochers = [];
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    if (GRILLE[ligne][col] !== '%') continue;
+    const x = col * CASE + CASE / 2;
+    const z = ligne * CASE + CASE / 2;
+    placementsRochers.push({ x, y: hauteurTerrain(x, z) + 0.4, z, rotation: Math.random() * 6.28, echelle: 0.9 + Math.random() * 0.4 });
+  }
+}
+for (let i = 0; i < 260; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const rayon = 26 + Math.sqrt(Math.random()) * 120;
+  const x = CENTRE.x + Math.cos(angle) * rayon;
+  const z = CENTRE.y + Math.sin(angle) * rayon;
+  placementsRochers.push({ x, y: hauteurTerrain(x, z) + 0.2, z, rotation: Math.random() * 6.28, echelle: 0.5 + Math.random() * 1.6 });
+}
+instancier(new THREE.DodecahedronGeometry(0.85, 0), matiereCel(0x9a9c9b, { contour: 0.2 }), placementsRochers, true, 0.04);
+
+/* --- Buissons --- */
+const placementsBuissons = [];
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    if (GRILLE[ligne][col] !== 'o') continue;
+    const x = col * CASE + CASE / 2;
+    const z = ligne * CASE + CASE / 2;
+    placementsBuissons.push({ x, y: hauteurTerrain(x, z) + 0.45, z, rotation: Math.random() * 6.28, echelle: 0.85 + Math.random() * 0.3 });
+  }
+}
+for (let i = 0; i < 420; i++) {
+  const angle = Math.random() * Math.PI * 2;
+  const rayon = 12 + Math.sqrt(Math.random()) * 70;
+  const x = CENTRE.x + Math.cos(angle) * rayon;
+  const z = CENTRE.y + Math.sin(angle) * rayon;
+  if (normaleTerrain(x, z).y < 0.9) continue;
+  placementsBuissons.push({ x, y: hauteurTerrain(x, z) + 0.4, z, rotation: Math.random() * 6.28, echelle: 0.6 + Math.random() * 0.7 });
+}
+instancier(new THREE.IcosahedronGeometry(0.75, 0), matiereCel(0x437d2e, { contour: 0.4 }), placementsBuissons, true, 0.035);
+
+/* ===================================================================== */
+/* 10. LE CHEMIN DU VILLAGE                                               */
+/* ===================================================================== */
+
+const matChemin = matiereCel(0xa07a4e, { contour: 0.12, bandes: 4 });
+for (let ligne = 0; ligne < PROFONDEUR; ligne++) {
+  for (let col = 0; col < LARGEUR; col++) {
+    if (GRILLE[ligne][col] !== ':') continue;
+    const x = col * CASE + CASE / 2;
+    const z = ligne * CASE + CASE / 2;
+    const dalle = new THREE.Mesh(new THREE.CircleGeometry(CASE * 0.78, 7), matChemin);
+    dalle.rotation.x = -Math.PI / 2;
+    dalle.rotation.z = Math.random() * 3;
+    dalle.position.set(x, hauteurTerrain(x, z) + 0.06, z);
+    dalle.receiveShadow = true;
+    scene.add(dalle);
+  }
+}
+
+/* ===================================================================== */
+/* 11. UN LAC ET UNE TOUR AU LOIN (des points de repere)                 */
+/* ===================================================================== */
+
+const lac = new THREE.Mesh(
+  new THREE.CircleGeometry(34, 48),
+  new THREE.ShaderMaterial({
+    transparent: true,
+    fog: true,
+    uniforms: THREE.UniformsUtils.merge([
+      THREE.UniformsLib.fog,
+      { temps: { value: 0 }, soleil: { value: DIRECTION_SOLEIL } },
+    ]),
+    vertexShader: `
+      varying vec3 vMonde;
+      #include <fog_pars_vertex>
+      void main() {
+        vMonde = (modelMatrix * vec4(position, 1.0)).xyz;
+        #include <begin_vertex>
+        #include <project_vertex>
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `
+      uniform float temps;
+      uniform vec3 soleil;
+      varying vec3 vMonde;
+      #include <fog_pars_fragment>
+      void main() {
+        float rides = sin(vMonde.x * 1.6 + temps * 1.4) * 0.5
+                    + sin(vMonde.z * 2.1 - temps * 1.1) * 0.5;
+        vec3 profond = vec3(0.07, 0.24, 0.36);
+        vec3 surface = vec3(0.35, 0.66, 0.78);
+        vec3 couleur = mix(profond, surface, 0.45 + rides * 0.18);
+        // Un eclat de soleil sur l'eau
+        couleur += vec3(1.0, 0.85, 0.6) * pow(max(rides, 0.0), 6.0) * 0.5;
+        gl_FragColor = vec4(couleur, 0.9);
+        #include <fog_fragment>
+      }`,
+  })
+);
+lac.rotation.x = -Math.PI / 2;
+lac.position.set(CENTRE.x - 96, hauteurTerrain(CENTRE.x - 96, CENTRE.y + 74) + 1.2, CENTRE.y + 74);
+scene.add(lac);
+
+// Une tour de guet sur une colline : l'oeil a besoin d'un point d'accroche.
+{
+  const x = CENTRE.x + 104;
+  const z = CENTRE.y - 92;
+  const y = hauteurTerrain(x, z);
+  const tour = new THREE.Group();
+  const fut = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 3.4, 26, 8), matiereCel(0x9a968a, { contour: 0.3 }));
+  fut.position.y = 13;
+  const couronne = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 3.2, 3.4, 8), matiereCel(0x6f6a5e, { contour: 0.6 }));
+  couronne.position.y = 27;
+  const fanion = new THREE.Mesh(new THREE.ConeGeometry(2.2, 5, 8), matiereCel(0xc9a24a, { contour: 0.8 }));
+  fanion.position.y = 31;
+  tour.add(fut, couronne, fanion);
+  for (const piece of [fut, couronne, fanion]) ajouterContour(piece, 0.12);
+  tour.position.set(x, y, z);
+  scene.add(tour);
+}
+
+/* ===================================================================== */
+/* 12. LES PERSONNAGES                                                   */
+/* ===================================================================== */
+
+function personnage({
+  tunique, cheveux = 0xe8c85a, chapeau = null, peau = 0xf3c6a0,
+  pantalon = 0x6b4a2f, yeux = 0x1b2036, taille = 1,
+}) {
+  const g = new THREE.Group();
+  const matTunique = matiereCel(tunique, { contour: 0.7 });
+  const matPeau = matiereCel(peau, { contour: 0.6 });
+  const matCuir = matiereCel(pantalon, { contour: 0.4 });
+
+  const jambeG = new THREE.Mesh(new THREE.CapsuleGeometry(0.095, 0.4, 3, 6), matCuir);
+  jambeG.position.set(-0.12, 0.3, 0);
+  jambeG.castShadow = true;
+  const jambeD = jambeG.clone();
+  jambeD.position.x = 0.12;
+
+  const corps = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.37, 0.66, 10), matTunique);
+  corps.position.y = 0.84;
+  corps.castShadow = true;
+
+  const ceinture = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.31, 0.1, 10), matCuir);
+  ceinture.position.y = 0.6;
+
+  const brasG = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.3, 3, 6), matPeau);
+  brasG.position.set(-0.32, 0.84, 0);
+  brasG.rotation.z = 0.24;
+  brasG.castShadow = true;
+  const brasD = brasG.clone();
+  brasD.position.x = 0.32;
+  brasD.rotation.z = -0.24;
+
+  const tete = new THREE.Mesh(new THREE.SphereGeometry(0.235, 14, 12), matPeau);
+  tete.position.y = 1.32;
+  tete.castShadow = true;
+
+  const chevelure = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 10), matiereCel(cheveux, { contour: 0.7 }));
+  chevelure.position.set(0, 1.35, -0.045);
+  chevelure.scale.set(1, 0.9, 0.88);
+
+  const matOeil = new THREE.MeshBasicMaterial({ color: yeux });
+  g.add(jambeG, jambeD, corps, ceinture, brasG, brasD, chevelure, tete);
+  for (const cote of [-1, 1]) {
+    const oeil = new THREE.Mesh(new THREE.SphereGeometry(0.032, 8, 6), matOeil);
+    oeil.position.set(0.082 * cote, 1.345, 0.208);
+    const oreille = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.19, 4), matPeau);
+    oreille.position.set(0.228 * cote, 1.35, 0.015);
+    oreille.rotation.z = -0.95 * cote;
+    g.add(oeil, oreille);
+  }
+
+  if (chapeau) {
+    const forme = new THREE.ConeGeometry(0.255, 0.9, 10).translate(0, 0.45, 0);
+    const bonnet = new THREE.Mesh(forme, matiereCel(chapeau, { contour: 0.75 }));
+    bonnet.position.set(0, 1.4, -0.04);
+    bonnet.rotation.x = -1.2;
+    bonnet.castShadow = true;
+    g.add(bonnet);
+  }
+
+  g.scale.setScalar(taille);
+  contournerGroupe(g, 0.022);
+  g.userData.bras = [brasG, brasD];
+  g.userData.jambes = [jambeG, jambeD];
+  return g;
+}
+
+// NIGHT — 12 ans, yeux verts, haut marron, pantalon beige (voir SCENARIO.md).
+const heros = personnage({
+  tunique: 0x9a6b43,   // le haut marron
+  pantalon: 0xc9b184,  // le pantalon beige
+  cheveux: 0x5a3a22,   // bruns, en bataille
+  yeux: 0x3f9e52,      // verts
+});
+{
+  const bouclier = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.3, 0.17, 0.62, 6),
+    matiereCel(0x3f63b5, { contour: 0.8 })
+  );
+  bouclier.position.set(0, 0.92, -0.33);
+  bouclier.rotation.x = Math.PI / 2;
+  bouclier.castShadow = true;
+  const blason = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.19, 0.1, 0.36, 6),
+    matiereCel(0xdde3ee, { contour: 0.6 })
+  );
+  blason.position.set(0, 0.97, -0.385);
+  blason.rotation.x = Math.PI / 2;
+  const fourreau = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.68, 0.085), matiereCel(0x4e3b2a));
+  fourreau.position.set(-0.2, 1.08, -0.31);
+  fourreau.rotation.z = -0.42;
+  const poignee = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.22, 0.065), matiereCel(0xd8b455, { contour: 0.9 }));
+  poignee.position.set(-0.33, 1.45, -0.34);
+  poignee.rotation.z = -0.42;
+  heros.add(bouclier, blason, fourreau, poignee);
+  for (const piece of [bouclier, blason, fourreau, poignee]) ajouterContour(piece, 0.02);
+}
+heros.position.set(CENTRE.x - 2, 0, CENTRE.y + 5);
+scene.add(heros);
+
+for (const e of SALLE.entites) {
+  if (e.type !== 'pnj') continue;
+  const estSage = e.dialogue === 'sage';
+  const pnj = personnage({
+    tunique: estSage ? 0x7b4fc4 : 0x4a8fd9,
+    cheveux: estSage ? 0xe9e6de : 0x8b5a3c,
+    taille: estSage ? 1.06 : 0.96,
+  });
+  const x = e.x * CASE + CASE / 2;
+  const z = e.y * CASE + CASE / 2;
+  pnj.position.set(x, hauteurTerrain(x, z), z);
+  pnj.rotation.y = Math.PI * 0.85;
+  scene.add(pnj);
+}
+
+/* Le coffre */
+{
+  const d = SALLE.entites.find((e) => e.type === 'coffre');
+  const x = d.x * CASE + CASE / 2;
+  const z = d.y * CASE + CASE / 2;
+  const coffre = new THREE.Group();
+  const caisse = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.72, 0.85), matiereCel(0x7a5433, { contour: 0.4 }));
+  caisse.position.y = 0.36;
+  caisse.castShadow = true;
+  const couvercle = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.44, 1.2, 10, 1, false, 0, Math.PI), matiereCel(0x8f6540, { contour: 0.5 }));
+  couvercle.rotation.z = Math.PI / 2;
+  couvercle.position.y = 0.72;
+  couvercle.castShadow = true;
+  const ferrure = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.26, 0.07), matiereCel(0xd8b455, { contour: 0.9 }));
+  ferrure.position.set(0, 0.62, 0.44);
+  coffre.add(caisse, couvercle, ferrure);
+  for (const piece of [caisse, couvercle, ferrure]) ajouterContour(piece, 0.025);
+  coffre.position.set(x, hauteurTerrain(x, z), z);
+  coffre.rotation.y = 0.3;
+  scene.add(coffre);
+}
+
+/* ===================================================================== */
+/* 13. HUD : les coeurs du jeu 2D                                        */
+/* ===================================================================== */
+
+const atlas = new Atlas(PALETTE);
+for (const [nom, motif] of Object.entries(SPRITES)) atlas.ajouterMotif(nom, motif);
+const conteneurCoeurs = document.getElementById('coeurs');
+for (let i = 0; i < 7; i++) {
+  const source = atlas.image('coeur');
+  const c = document.createElement('canvas');
+  c.width = source.width;
+  c.height = source.height;
+  c.getContext('2d').drawImage(source, 0, 0);
+  conteneurCoeurs.append(c);
+}
+
+/* ===================================================================== */
+/* 14. L'OVERBOARD : glisser, decoller, atterrir                         */
+/* ===================================================================== */
+
+/**
+ * TOUT LE JEU TIENT DANS TROIS REGLES :
+ *   1. la gravite pousse le long de la pente -> on accelere en descente ;
+ *   2. quand le sol se derobe plus vite qu'on ne tombe, on DECOLLE ;
+ *   3. a l'atterrissage, on ne garde que la vitesse PARALLELE au sol.
+ * La troisieme est la plus importante : atterrir a plat sur une pente qui
+ * descend conserve (et meme augmente) la vitesse, atterrir "en piqué" contre
+ * la pente la detruit. C'est ce qui fait tout l'interet du jeu.
+ *
+ * Ces nombres sont faits pour etre tripatouilles !
+ */
+const REGLAGES_PLANCHE = {
+  gravite: 30,             // plus fort que la vraie gravite : ca repond mieux
+  frottementSol: 0.42,     // freinage naturel sur le sol (par seconde)
+  frottementRentre: 0.05,  // quand on se baisse (Maj) : on glisse presque sans frein
+  frottementAir: 0.015,
+  poussee: 7,              // acceleration quand on appuie sur avant
+  freinage: 16,
+  virage: 3.1,             // agilite ; elle baisse quand on va vite
+  forceSaut: 8.5,          // saut de base
+  bonusCharge: 9,          // saut supplementaire si on a charge
+  chargeMax: 0.5,          // duree de charge maximale, en secondes
+  vitesseMax: 55,
+  seuilMur: 1.25,          // au-dela, c'est un mur : on ne grimpe pas
+  bonusParfait: 1.07,      // vitesse gagnee sur un atterrissage parfait
+  hauteurPlanche: 0.18,    // la planche flotte un peu au-dessus du sol
+};
+
+const planche = {
+  actif: true,
+  v: new THREE.Vector3(),
+  auSol: true,
+  tempsAir: 0,
+  charge: 0,
+  combo: 0,
+  record: 0,
+  normale: new THREE.Vector3(0, 1, 0),
+  roulis: 0,
+  maille: null,
+};
+
+/** Hauteur de glisse en un point (le sol + l'epaisseur de la planche). */
+function solGlisse(x, z) {
+  return hauteurTerrain(x, z) + REGLAGES_PLANCHE.hauteurPlanche;
+}
+
+/* --- La planche elle-meme ------------------------------------------- */
+{
+  const g = new THREE.Group();
+  const corps = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.09, 1.35), matiereCel(0x2a2d44, { contour: 0.6 }));
+  ajouterContour(corps, 0.02);
+  const dessus = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.035, 1.12), matiereCel(0xe0663f, { contour: 0.5 }));
+  dessus.position.y = 0.06;
+  ajouterContour(dessus, 0.014);
+  // La lueur sous la planche : un simple rectangle lumineux, ca suffit.
+  const lueur = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.62, 1.55),
+    new THREE.MeshBasicMaterial({ color: 0x7ee0e8, transparent: true, opacity: 0.5, depthWrite: false })
+  );
+  lueur.rotation.x = -Math.PI / 2;
+  lueur.position.y = -0.14;
+  g.add(corps, dessus, lueur);
+  g.position.y = -0.09;
+  planche.maille = g;
+  heros.add(g);
+}
+
+/* --- Poussiere : un petit stock d'eclats recycles en boucle ---------- */
+const NB_POUSSIERE = 150;
+const poussiere = {
+  maille: new THREE.InstancedMesh(
+    new THREE.IcosahedronGeometry(0.17, 0),
+    matiereCel(0xd9cdb4, { contour: 0 }),
+    NB_POUSSIERE
+  ),
+  grains: [],
+  curseur: 0,
+  _m: new THREE.Matrix4(),
+  _q: new THREE.Quaternion(),
+  _s: new THREE.Vector3(),
+  _p: new THREE.Vector3(),
+};
+poussiere.maille.frustumCulled = false;
+poussiere.maille.castShadow = false;
+scene.add(poussiere.maille);
+for (let i = 0; i < NB_POUSSIERE; i++) {
+  poussiere.grains.push({ x: 0, y: -999, z: 0, vx: 0, vy: 0, vz: 0, vie: 0, duree: 1, taille: 1 });
+}
+
+function emettrePoussiere(x, y, z, nombre, force = 1) {
+  for (let i = 0; i < nombre; i++) {
+    const grain = poussiere.grains[poussiere.curseur];
+    poussiere.curseur = (poussiere.curseur + 1) % NB_POUSSIERE;
+    grain.x = x + (Math.random() - 0.5) * 0.6;
+    grain.y = y + Math.random() * 0.25;
+    grain.z = z + (Math.random() - 0.5) * 0.6;
+    grain.vx = (Math.random() - 0.5) * 3 * force;
+    grain.vy = (0.6 + Math.random() * 2.2) * force;
+    grain.vz = (Math.random() - 0.5) * 3 * force;
+    grain.duree = 0.45 + Math.random() * 0.5;
+    grain.vie = grain.duree;
+    grain.taille = 0.5 + Math.random() * 0.8;
+  }
+}
+
+function majPoussiere(dt) {
+  for (let i = 0; i < NB_POUSSIERE; i++) {
+    const grain = poussiere.grains[i];
+    let echelle = 0;
+    if (grain.vie > 0) {
+      grain.vie -= dt;
+      grain.x += grain.vx * dt;
+      grain.y += grain.vy * dt;
+      grain.z += grain.vz * dt;
+      grain.vy -= 9 * dt;
+      echelle = Math.max(0, grain.vie / grain.duree) * grain.taille;
+    }
+    poussiere._p.set(grain.x, grain.y, grain.z);
+    poussiere._s.setScalar(echelle);
+    poussiere._m.compose(poussiere._p, poussiere._q, poussiere._s);
+    poussiere.maille.setMatrixAt(i, poussiere._m);
+  }
+  poussiere.maille.instanceMatrix.needsUpdate = true;
+}
+
+/* --- Affichage ------------------------------------------------------- */
+const zoneHud = document.querySelector('.hud');
+const affichageCompteur = document.createElement('div');
+affichageCompteur.className = 'compteur';
+affichageCompteur.innerHTML = '<div class="vitesse">0</div><div class="unite">KM/H</div><div class="combo"></div>';
+zoneHud.append(affichageCompteur);
+const affichageVerdict = document.createElement('div');
+affichageVerdict.className = 'verdict';
+zoneHud.append(affichageVerdict);
+const affichageAir = document.createElement('div');
+affichageAir.className = 'chrono-air';
+zoneHud.append(affichageAir);
+
+let minuteurVerdict = 0;
+function montrerVerdict(titre, detail, couleur) {
+  affichageVerdict.innerHTML = `${titre}<small>${detail}</small>`;
+  affichageVerdict.style.color = couleur;
+  affichageVerdict.classList.add('visible');
+  minuteurVerdict = 1.4;
+}
+
+/* --- L'atterrissage : le coeur du jeu -------------------------------- */
+function atterrir(alignement, tempsAir) {
+  const force = Math.min(2.5, planche.v.length() / 14);
+  emettrePoussiere(heros.position.x, heros.position.y, heros.position.z, 16, force);
+  camera.userData.secousse = Math.min(0.5, tempsAir * 0.35);
+
+  if (alignement > 0.93) {
+    planche.combo++;
+    planche.v.multiplyScalar(REGLAGES_PLANCHE.bonusParfait);
+    montrerVerdict('PARFAIT !', `${tempsAir.toFixed(1)} s en l'air · +vitesse`, '#8ef07a');
+  } else if (alignement > 0.76) {
+    montrerVerdict('BIEN', `${tempsAir.toFixed(1)} s en l'air`, '#ffd76a');
+  } else {
+    planche.combo = 0;
+    montrerVerdict('RATÉ', 'atterris à plat sur la pente !', '#ff7a6a');
+  }
+  if (tempsAir > planche.record) planche.record = tempsAir;
+}
+
+function sauter() {
+  const R = REGLAGES_PLANCHE;
+  const force = R.forceSaut + (planche.charge / R.chargeMax) * R.bonusCharge;
+  // On saute le long de la NORMALE du sol : sur une pente, ca projette vers
+  // l'avant en plus de vers le haut. Sauter pile sur la bosse envoie loin.
+  planche.v.addScaledVector(planche.normale, force);
+  planche.charge = 0;
+  planche.auSol = false;
+  emettrePoussiere(heros.position.x, heros.position.y, heros.position.z, 8, 1);
+}
+
+/** Monter sur la planche ou en descendre. */
+function basculerPlanche() {
+  planche.actif = !planche.actif;
+  planche.v.set(0, 0, 0);
+  planche.charge = 0;
+  planche.maille.visible = planche.actif;
+  heros.rotation.set(0, heros.rotation.y, 0);
+  heros.scale.y = 1;
+  heros.userData.jambes[0].rotation.z = 0;
+  heros.userData.jambes[1].rotation.z = 0;
+  heros.userData.bras[0].rotation.z = 0.24;
+  heros.userData.bras[1].rotation.z = -0.24;
+  montrerVerdict(planche.actif ? 'EN PLANCHE' : 'À PIED', planche.actif ? 'Espace pour sauter' : 'B pour remonter dessus', '#7ee0e8');
+}
+
+/** Cherche un bon point de depart : haut, degage, et bien pentu. */
+function remonterEnHaut() {
+  let meilleur = null;
+  for (let i = 0; i < 2500; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const rayon = 45 + Math.random() * 95;
+    const x = CENTRE.x + Math.cos(angle) * rayon;
+    const z = CENTRE.y + Math.sin(angle) * rayon;
+    const h = hauteurTerrain(x, z);
+    const note = h + normaleTerrain(x, z).y * -8;
+    if (!meilleur || note > meilleur.note) meilleur = { x, z, h, note };
+  }
+  heros.position.set(meilleur.x, solGlisse(meilleur.x, meilleur.z), meilleur.z);
+  planche.v.set(0, 0, 0);
+  planche.combo = 0;
+  montrerVerdict('EN HAUT !', 'descends la pente et prends de la vitesse', '#7ee0e8');
+}
+
+/* --- La physique ----------------------------------------------------- */
+function majSurf(dt) {
+  const R = REGLAGES_PLANCHE;
+  const p = heros.position;
+  const v = planche.v;
+
+  const gauche = demande('gauche');
+  const droite = demande('droite');
+  const avance = demande('haut');
+  const freine = demande('bas');
+  const rentre = demande('baisser');
+
+  // --- 1. Le saut : on accumule la charge tant que la touche est tenue.
+  //     Le saut lui-meme part au RELACHEMENT (voir l'ecouteur 'keyup') :
+  //     une tape tres breve serait sinon perdue entre deux images.
+  if (touches.has('Space') && planche.auSol) {
+    planche.charge = Math.min(R.chargeMax, planche.charge + dt);
+  }
+
+  // --- 2. Tourner : on fait pivoter le VECTEUR VITESSE, pas le personnage.
+  //     Plus on va vite, moins on tourne : c'est ce qui donne le poids.
+  const vitesseHorizontale = Math.hypot(v.x, v.z);
+  const agilite = (R.virage * (planche.auSol ? 1 : 0.45)) / (1 + vitesseHorizontale * 0.03);
+  let pivot = 0;
+  if (gauche) pivot += agilite * dt;
+  if (droite) pivot -= agilite * dt;
+  if (pivot !== 0 && vitesseHorizontale > 0.8) {
+    // En mouvement : on fait pivoter la VITESSE (on incline la planche).
+    const c = Math.cos(pivot);
+    const si = Math.sin(pivot);
+    const nx = v.x * c + v.z * si;
+    const nz = -v.x * si + v.z * c;
+    v.x = nx;
+    v.z = nz;
+  } else if (pivot !== 0) {
+    // A l'arret : on se tourne simplement sur place, sinon on est prisonnier
+    // de la direction dans laquelle on s'est immobilise.
+    heros.rotation.y += pivot * 1.6;
+  }
+  planche.roulis = THREE.MathUtils.lerp(planche.roulis, pivot * 26, 0.12);
+
+  // --- 3. Pousser / freiner dans l'axe de la planche
+  if (vitesseHorizontale > 0.8) {
+    const ix = v.x / vitesseHorizontale;
+    const iz = v.z / vitesseHorizontale;
+    if (avance && planche.auSol) { v.x += ix * R.poussee * dt; v.z += iz * R.poussee * dt; }
+    if (freine && planche.auSol) {
+      const frein = Math.min(R.freinage * dt, vitesseHorizontale);
+      v.x -= ix * frein;
+      v.z -= iz * frein;
+    }
+  } else if (avance) {
+    // Depart a l'arret : on pousse dans la direction du regard.
+    v.x += Math.sin(heros.rotation.y) * R.poussee * dt;
+    v.z += Math.cos(heros.rotation.y) * R.poussee * dt;
+  }
+
+  // --- 4. Gravite et frottements
+  v.y -= R.gravite * dt;
+  const frottement = planche.auSol ? (rentre ? R.frottementRentre : R.frottementSol) : R.frottementAir;
+  v.multiplyScalar(Math.max(0, 1 - frottement * dt));
+  if (v.length() > R.vitesseMax) v.setLength(R.vitesseMax);
+
+  // --- 5. Integration par petits pas (sinon on traverse les falaises)
+  const etaitEnAir = !planche.auSol;
+  let enVol = etaitEnAir;   // devient faux des le premier vrai contact
+  let contact = false;
+  let alignementContact = 1;
+  const nbPas = Math.max(1, Math.ceil((v.length() * dt) / 0.45));
+  const dtPas = dt / nbPas;
+
+  for (let i = 0; i < nbPas; i++) {
+    const ancienX = p.x;
+    const ancienZ = p.z;
+    const ancienY = p.y;
+    p.x += v.x * dtPas;
+    p.y += v.y * dtPas;
+    p.z += v.z * dtPas;
+
+    const sol = solGlisse(p.x, p.z);
+
+    // Un mur : le sol monte d'un coup. On ne le grimpe pas, on s'y cogne.
+    if (sol - ancienY > R.seuilMur && p.y < sol) {
+      p.x = ancienX;
+      p.z = ancienZ;
+      const perdue = Math.hypot(v.x, v.z);
+      v.x *= 0.2;
+      v.z *= 0.2;
+      if (perdue > 9) {
+        emettrePoussiere(p.x, p.y + 0.4, p.z, 10, 1.4);
+        camera.userData.secousse = 0.3;
+        planche.combo = 0;
+        montrerVerdict('AÏE !', 'il fallait contourner...', '#ff7a6a');
+      }
+      continue;
+    }
+
+    if (p.y <= sol) {
+      p.y = sol;
+      const N = normaleTerrain(p.x, p.z);
+      const vitesse = v.length();
+      const versLeSol = v.dot(N);
+      if (versLeSol < 0) {
+        if (enVol) {
+          // VRAI ATTERRISSAGE. Alignement : 1 = on arrive a plat sur la pente,
+          // 0 = on arrive dessus perpendiculairement. C'est LA note.
+          const alignement = 1 - Math.min(1, Math.abs(versLeSol) / Math.max(vitesse, 0.001));
+          alignementContact = Math.min(alignementContact, alignement);
+          v.addScaledVector(N, -versLeSol);
+          // On perd d'autant plus de vitesse qu'on est arrive mal.
+          const perte = THREE.MathUtils.lerp(0.6, 0, Math.pow(alignement, 0.6));
+          v.multiplyScalar(1 - perte);
+          enVol = false;
+        } else {
+          // On roulait deja : la gravite a juste pousse un peu dans le sol,
+          // on l'annule SANS aucune penalite. (Appliquer la penalite ici
+          // freinait la planche a chaque image sur terrain plat.)
+          v.addScaledVector(N, -versLeSol);
+        }
+      }
+      planche.normale.copy(N);
+      contact = true;
+    }
+  }
+
+  // --- 6. Bilan de l'image
+  if (contact && etaitEnAir && planche.tempsAir > 0.3) atterrir(alignementContact, planche.tempsAir);
+  planche.auSol = contact;
+  planche.tempsAir = contact ? 0 : planche.tempsAir + dt;
+  if (!contact) planche.charge = 0;
+
+  // On ne sort pas du monde.
+  const distance = Math.hypot(p.x - CENTRE.x, p.z - CENTRE.y);
+  if (distance > TAILLE_MONDE / 2 - 12) remonterEnHaut();
+
+  // --- 7. Orientation du personnage et de la planche
+  if (vitesseHorizontale > 0.6) {
+    const cap = Math.atan2(v.x, v.z);
+    const ecart = cap - heros.rotation.y;
+    heros.rotation.y += Math.atan2(Math.sin(ecart), Math.cos(ecart)) * Math.min(1, dt * 9);
+  }
+  const devant = new THREE.Vector3(Math.sin(heros.rotation.y), 0, Math.cos(heros.rotation.y));
+  const tangage = planche.auSol
+    ? -Math.asin(THREE.MathUtils.clamp(planche.normale.dot(devant), -0.9, 0.9))
+    : THREE.MathUtils.clamp(-v.y / 40, -0.5, 0.5);
+  heros.rotation.x = THREE.MathUtils.lerp(heros.rotation.x, tangage, 0.16);
+  heros.rotation.z = THREE.MathUtils.lerp(heros.rotation.z, planche.roulis, 0.16);
+
+  // Position accroupie quand on se baisse, jambes ecartees sur la planche
+  const accroupi = rentre && planche.auSol ? 0.82 : 1;
+  heros.scale.y = THREE.MathUtils.lerp(heros.scale.y, accroupi, 0.15);
+  heros.userData.jambes[0].rotation.z = 0.28;
+  heros.userData.jambes[1].rotation.z = -0.28;
+  heros.userData.jambes[0].rotation.x = 0;
+  heros.userData.jambes[1].rotation.x = 0;
+  const equilibre = Math.min(1, v.length() / 30);
+  heros.userData.bras[0].rotation.z = 0.25 + equilibre * 0.9;
+  heros.userData.bras[1].rotation.z = -0.25 - equilibre * 0.9;
+
+  // --- 8. Effets
+  const vitesseFinale = v.length();
+  if (planche.auSol && vitesseFinale > 7 && Math.random() < vitesseFinale * 0.06 * dt * 60 / 60) {
+    emettrePoussiere(p.x - v.x * 0.03, p.y, p.z - v.z * 0.03, 1, 0.5 + vitesseFinale / 40);
+  }
+  planche.maille.children[2].material.opacity = 0.25 + Math.min(0.5, vitesseFinale / 50);
+
+  // --- 9. Compteur
+  const kmh = Math.round(vitesseFinale * 3.6);
+  affichageCompteur.querySelector('.vitesse').textContent = kmh;
+  affichageCompteur.querySelector('.combo').textContent =
+    planche.combo > 1 ? `x${planche.combo} atterrissages parfaits` : '';
+  if (!planche.auSol && planche.tempsAir > 0.35) {
+    affichageAir.textContent = `${planche.tempsAir.toFixed(1)} s`;
+    affichageAir.classList.add('visible');
+  } else {
+    affichageAir.classList.remove('visible');
+  }
+}
+
+/* ===================================================================== */
+/* 15. DEPLACEMENT ET CAMERA                                             */
+/* ===================================================================== */
+
+/**
+ * Les codes clavier de la norme Web designent des POSITIONS de touches,
+ * nommees d'apres le clavier americain. Sur un AZERTY, la touche marquee
+ * "Z" occupe la position appelee "KeyW", et la touche "Q" la position
+ * "KeyA". On accepte donc les deux jeux de positions : ZQSD et WASD
+ * tombent alors exactement sur les memes touches physiques.
+ */
+const TOUCHES = {
+  // A GAUCHE : les POSITIONS de touches (nommees d'apres le clavier US).
+  // A DROITE : les LETTRES reellement produites.
+  // On accepte les deux, donc AZERTY, QWERTY et QWERTZ marchent sans reglage.
+  haut: { positions: ['ArrowUp', 'KeyW', 'KeyZ'], lettres: ['z', 'w'] },
+  bas: { positions: ['ArrowDown', 'KeyS'], lettres: ['s'] },
+  gauche: { positions: ['ArrowLeft', 'KeyA', 'KeyQ'], lettres: ['q', 'a'] },
+  droite: { positions: ['ArrowRight', 'KeyD'], lettres: ['d'] },
+  baisser: { positions: ['ShiftLeft', 'ShiftRight'], lettres: [] },
+};
+
+const touches = new Set();
+
+/** Cette commande est-elle demandee ? */
+function demande(nom) {
+  const t = TOUCHES[nom];
+  return t.positions.some((c) => touches.has(c)) || t.lettres.some((l) => touches.has(l));
+}
+
+/** Quelles etiquettes ce clavier a-t-il envoyees pour cette touche ? */
+function etiquettes(e) {
+  const liste = [e.code];
+  if (e.key && e.key.length === 1) liste.push(e.key.toLowerCase());
+  return liste;
+}
+
+addEventListener('keydown', (e) => {
+  for (const etiquette of etiquettes(e)) touches.add(etiquette);
+  // Les fleches feraient defiler la page sur certains navigateurs.
+  if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+  if (e.repeat) return;
+  // Les actions "une seule fois" sont traitees ICI et pas dans la boucle :
+  // sinon un appui tres bref tombe entre deux images et se perd.
+  if (e.code === 'KeyB' || e.key === 'b' || e.key === 'B') basculerPlanche();
+  if ((e.code === 'KeyR' || e.key === 'r' || e.key === 'R') && planche.actif) remonterEnHaut();
+}, { passive: false });
+
+addEventListener('keyup', (e) => {
+  for (const etiquette of etiquettes(e)) touches.delete(etiquette);
+  if (e.code === 'Space' && planche.actif) {
+    if (planche.auSol) sauter();
+    else planche.charge = 0;
+  }
+});
+
+// Si la fenetre perd le focus (clic ailleurs, alt-tab), le "relachement" de
+// la touche n'arrive jamais : la planche tournerait toute seule sans fin.
+addEventListener('blur', () => touches.clear());
+document.addEventListener('visibilitychange', () => { if (document.hidden) touches.clear(); });
+
+/* --- Temoin des commandes : on voit tout de suite ce que le clavier envoie */
+const temoin = document.createElement('div');
+temoin.className = 'temoin';
+temoin.innerHTML = `
+  <div class="croix">
+    <span data-c="haut">▲</span>
+    <span data-c="gauche">◀</span>
+    <span data-c="bas">▼</span>
+    <span data-c="droite">▶</span>
+  </div>
+  <div class="codes"></div>`;
+document.querySelector('.hud').append(temoin);
+function majTemoin() {
+  for (const bouton of temoin.querySelectorAll('[data-c]')) {
+    bouton.classList.toggle('on', demande(bouton.dataset.c));
+  }
+  temoin.querySelector('.codes').textContent = [...touches].join(' ');
+}
+
+let angleCamera = 0.4;
+let distanceCamera = 9;
+let hauteurCamera = 4.2;
+
+/* --- La camera se pilote a la souris : universel, quel que soit le clavier */
+let sourisEnfoncee = false;
+rendu.domElement.addEventListener('pointerdown', () => { sourisEnfoncee = true; });
+addEventListener('pointerup', () => { sourisEnfoncee = false; });
+addEventListener('pointercancel', () => { sourisEnfoncee = false; });
+addEventListener('pointermove', (e) => {
+  if (!sourisEnfoncee) return;
+  angleCamera -= e.movementX * 0.006;
+  hauteurCamera = THREE.MathUtils.clamp(hauteurCamera + e.movementY * 0.035, 1.2, 16);
+});
+addEventListener('wheel', (e) => {
+  distanceCamera = THREE.MathUtils.clamp(distanceCamera + e.deltaY * 0.012, 3.5, 30);
+}, { passive: true });
+
+const horloge = new THREE.Clock();
+const positionCamera = new THREE.Vector3();
+
+function animer() {
+  requestAnimationFrame(animer);
+  const dt = Math.min(horloge.getDelta(), 0.05);
+  const t = horloge.getElapsedTime();
+
+  ciel.material.uniforms.temps.value = t;
+  matiereHerbe.uniforms.temps.value = t;
+  lac.material.uniforms.temps.value = t;
+
+  if (planche.actif) {
+    /* ================= EN PLANCHE ================= */
+    majSurf(dt);
+
+    // La camera se place d'elle-meme derriere le sens de la glisse, et
+    // s'ecarte quand ca va vite : c'est ce qui donne la sensation de vitesse.
+    const vitesse = planche.v.length();
+    const part = Math.min(1, vitesse / REGLAGES_PLANCHE.vitesseMax);
+    if (Math.hypot(planche.v.x, planche.v.z) > 1.2) {
+      const cap = Math.atan2(planche.v.x, planche.v.z);
+      const ecart = cap - angleCamera;
+      angleCamera += Math.atan2(Math.sin(ecart), Math.cos(ecart)) * Math.min(1, dt * 2.2);
+    }
+    distanceCamera = 6.5 + part * 4.5;
+    hauteurCamera = 2.2 + part * 1.4;
+    const champCible = 55 + part * 28;   // le grand-angle "etire" l'image
+    camera.fov += (champCible - camera.fov) * Math.min(1, dt * 3);
+    camera.updateProjectionMatrix();
+  } else {
+    /* ================= A PIED ================= */
+    // La camera se tourne a la SOURIS (voir plus bas) : aucune lettre n'est
+    // utilisee, donc rien ne peut entrer en conflit avec ZQSD ou WASD.
+    let avant = 0;
+    let cote = 0;
+    if (demande('haut')) avant += 1;
+    if (demande('bas')) avant -= 1;
+    if (demande('gauche')) cote -= 1;
+    if (demande('droite')) cote += 1;
+    const courir = demande('baisser');
+
+    const bouge = avant !== 0 || cote !== 0;
+    if (bouge) {
+      const direction = Math.atan2(cote, avant) + angleCamera;
+      const vitesse = (courir ? 11 : 5) * dt;
+      heros.position.x += Math.sin(direction) * vitesse;
+      heros.position.z += Math.cos(direction) * vitesse;
+      const ecart = direction - heros.rotation.y;
+      heros.rotation.y += Math.atan2(Math.sin(ecart), Math.cos(ecart)) * 0.18;
+    }
+    heros.position.y = hauteurTerrain(heros.position.x, heros.position.z);
+
+    const cadence = bouge ? Math.sin(t * (courir ? 15 : 10)) : Math.sin(t * 1.4) * 0.12;
+    heros.userData.jambes[0].rotation.x = cadence * 0.75;
+    heros.userData.jambes[1].rotation.x = -cadence * 0.75;
+    heros.userData.bras[0].rotation.x = -cadence * 0.65;
+    heros.userData.bras[1].rotation.x = cadence * 0.65;
+
+    const champCible = 55;
+    camera.fov += (champCible - camera.fov) * Math.min(1, dt * 3);
+    camera.updateProjectionMatrix();
+  }
+
+  majTemoin();
+  majPoussiere(dt);
+  if (minuteurVerdict > 0) {
+    minuteurVerdict -= dt;
+    if (minuteurVerdict <= 0) affichageVerdict.classList.remove('visible');
+  }
+
+  // L'ombre suit le joueur : une petite boite d'ombre = des ombres nettes.
+  soleil.target.position.copy(heros.position);
+  soleil.position.copy(heros.position).addScaledVector(DIRECTION_SOLEIL, 90);
+
+  positionCamera.set(
+    heros.position.x - Math.sin(angleCamera) * distanceCamera,
+    heros.position.y + hauteurCamera,
+    heros.position.z - Math.cos(angleCamera) * distanceCamera
+  );
+  // La camera ne rentre pas dans le sol.
+  const solSousCamera = hauteurTerrain(positionCamera.x, positionCamera.z) + 1.6;
+  positionCamera.y = Math.max(positionCamera.y, solSousCamera);
+  camera.position.lerp(positionCamera, planche.actif ? 0.16 : 0.12);
+
+  // Petite secousse a l'atterrissage et dans les chocs.
+  const secousse = camera.userData.secousse || 0;
+  if (secousse > 0) {
+    camera.position.x += (Math.random() - 0.5) * secousse;
+    camera.position.y += (Math.random() - 0.5) * secousse;
+    camera.userData.secousse = Math.max(0, secousse - dt * 2.2);
+  }
+  camera.lookAt(heros.position.x, heros.position.y + 1.4, heros.position.z);
+
+  ciel.position.copy(camera.position);
+  rendu.render(scene, camera);
+}
+
+document.getElementById('chargement').remove();
+animer();
+
+window.maquette = {
+  scene, camera, heros, rendu,
+  reglerCamera: (angle, distance, hauteur) => {
+    angleCamera = angle;
+    distanceCamera = distance;
+    if (hauteur !== undefined) hauteurCamera = hauteur;
+  },
+  placerHeros: (x, z) => { heros.position.x = x; heros.position.z = z; },
+  hauteurTerrain,
+  planche,
+  REGLAGES_PLANCHE,
+  remonterEnHaut,
+  touches,          // pour piloter la planche depuis un test
+  demande,          // pour verifier une commande sans dependre de l'affichage
+  TOUCHES,
+  majSurf,          // pour faire avancer la physique sans attendre le rendu
+  centre: CENTRE,
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,1914 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>Tempête — visualisateur à particules</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌪️</text></svg>">
+<style>
+  :root{
+    --bg:#000;
+    --surface:rgba(16,14,13,0.9);
+    --surface-haut:rgba(32,28,26,0.94);
+    --bord:#332d29;
+    --bord-clair:#473f39;
+    --texte-0:#f3ece7;
+    --texte-1:#a79c93;
+    --texte-2:#6c635c;
+    --accent:#c8503a;
+    --accent-doux:rgba(200,80,58,0.16);
+    --accent-bord:rgba(200,80,58,0.6);
+    --mono:ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --r:10px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; overflow:hidden; background:#000; }
+  body{ color:var(--texte-0); font-family:var(--sans); -webkit-font-smoothing:antialiased; }
+  #scene{ position:fixed; inset:0; width:100%; height:100%; display:block; background:#000; }
+
+  .accueil{
+    position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:24px;
+    background:radial-gradient(ellipse at center, rgba(28,12,8,0.5), rgba(0,0,0,0.95));
+    transition:opacity .45s ease, visibility .45s ease;
+  }
+  .accueil.parti{ opacity:0; visibility:hidden; pointer-events:none; }
+  .carte{
+    width:100%; max-width:440px; text-align:center; background:var(--surface);
+    border:1px solid var(--bord); border-radius:14px; padding:34px 28px 26px;
+    backdrop-filter:blur(14px); box-shadow:0 24px 60px rgba(0,0,0,0.7);
+  }
+  .surtitre{ font-family:var(--mono); font-size:0.68rem; letter-spacing:0.2em; text-transform:uppercase;
+             color:var(--accent); margin:0 0 14px; }
+  .carte h1{ font-size:1.45rem; font-weight:700; letter-spacing:-0.02em; margin:0 0 10px; }
+  .carte p{ color:var(--texte-1); font-size:0.9rem; line-height:1.6; margin:0 0 6px; }
+  .boutons{ display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:22px 0 14px; }
+  .aide{ color:var(--texte-2); font-size:0.74rem; font-family:var(--mono); line-height:1.7; margin-top:14px; }
+  .aide kbd{ font-family:var(--mono); font-size:0.72rem; background:#221d1a; border:1px solid var(--bord);
+             border-bottom-width:2px; border-radius:4px; padding:1px 5px; color:var(--texte-1); }
+
+  button{ font:inherit; cursor:pointer; }
+  .b{ display:inline-flex; align-items:center; gap:7px; padding:9px 15px; background:var(--surface-haut);
+      color:var(--texte-0); border:1px solid var(--bord-clair); border-radius:var(--r);
+      font-size:0.85rem; font-weight:500; transition:background .15s, border-color .15s; }
+  .b:hover{ background:#3b332e; border-color:#5a4f47; }
+  .b.primaire{ background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .b.primaire:hover{ background:#dc5d44; border-color:#dc5d44; }
+  .b.icone{ padding:9px 11px; }
+  .b:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .barre{
+    position:fixed; z-index:30; left:50%; transform:translateX(-50%); bottom:18px;
+    width:calc(100% - 32px); max-width:740px; display:flex; align-items:center; gap:12px;
+    padding:10px 12px; background:var(--surface); border:1px solid var(--bord); border-radius:13px;
+    backdrop-filter:blur(14px); box-shadow:0 14px 40px rgba(0,0,0,0.6);
+    transition:opacity .3s ease, transform .3s ease;
+  }
+  .barre.cachee{ opacity:0; pointer-events:none; transform:translateX(-50%) translateY(14px); }
+  .panneau.cachee{ opacity:0; pointer-events:none; transform:translateY(14px); }
+  .piste{ flex:1; height:26px; position:relative; cursor:pointer; display:flex; align-items:center; }
+  .piste .rail{ position:absolute; left:0; right:0; height:4px; background:#2f2a26; border-radius:99px; overflow:hidden; }
+  .piste .rempli{ position:absolute; inset:0 auto 0 0; width:0%; background:var(--accent); }
+  .piste .curseur{ position:absolute; top:50%; left:0%; width:11px; height:11px; margin:-6px 0 0 -5px;
+                   background:var(--texte-0); border-radius:99px; box-shadow:0 0 0 3px rgba(0,0,0,0.55); }
+  .temps{ font-family:var(--mono); font-size:0.74rem; color:var(--texte-1); white-space:nowrap; }
+  .vol{ width:74px; accent-color:var(--accent); }
+
+  .panneau{
+    position:fixed; z-index:31; top:18px; right:18px; width:296px; max-height:calc(100vh - 36px);
+    overflow-y:auto; overscroll-behavior:contain; background:var(--surface); border:1px solid var(--bord);
+    border-radius:13px; backdrop-filter:blur(14px); box-shadow:0 14px 40px rgba(0,0,0,0.6);
+    padding:14px; transition:opacity .3s ease, transform .3s ease;
+  }
+  .panneau[hidden]{ display:none; }
+  .panneau h2{ font-family:var(--mono); font-size:0.66rem; letter-spacing:0.16em; text-transform:uppercase;
+               color:var(--texte-2); margin:0 0 10px; font-weight:500; }
+  .panneau h2:not(:first-child){ margin-top:20px; }
+  .grille-presets{ display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .puce{ padding:8px 9px; background:#1f1b19; border:1px solid var(--bord); border-radius:8px;
+         color:var(--texte-1); font-size:0.76rem; text-align:left; line-height:1.3;
+         transition:background .15s, border-color .15s, color .15s; }
+  .puce:hover{ background:#2a2421; color:var(--texte-0); }
+  .puce.actif{ background:var(--accent-doux); border-color:var(--accent-bord); color:var(--texte-0); }
+  .ligne{ display:flex; align-items:center; gap:10px; margin:9px 0; }
+  .ligne label{ flex:1; font-size:0.79rem; color:var(--texte-1); }
+  .ligne input[type=range]{ width:112px; accent-color:var(--accent); }
+  .ligne .val{ font-family:var(--mono); font-size:0.7rem; color:var(--texte-2); width:30px; text-align:right; }
+  .ligne.inter{ justify-content:space-between; }
+  .interrupteur{ position:relative; width:34px; height:19px; flex:none; }
+  .interrupteur input{ position:absolute; inset:0; opacity:0; margin:0; cursor:pointer; }
+  .interrupteur span{ position:absolute; inset:0; background:#2f2a26; border-radius:99px;
+                      transition:background .18s; pointer-events:none; }
+  .interrupteur span::after{ content:""; position:absolute; top:2px; left:2px; width:15px; height:15px;
+                             border-radius:99px; background:var(--texte-1); transition:transform .18s, background .18s; }
+  .interrupteur input:checked + span{ background:var(--accent-bord); }
+  .interrupteur input:checked + span::after{ transform:translateX(15px); background:#fff; }
+  select{ font:inherit; font-size:0.79rem; background:#1f1b19; color:var(--texte-0);
+          border:1px solid var(--bord); border-radius:8px; padding:6px 8px; width:100%; }
+  .note{ color:var(--texte-2); font-size:0.71rem; line-height:1.6; margin:12px 0 0; font-family:var(--mono); }
+
+  .depot{ position:fixed; inset:0; z-index:60; display:none; place-items:center;
+          background:rgba(200,80,58,0.1); backdrop-filter:blur(3px); border:3px dashed var(--accent-bord); }
+  .depot.visible{ display:grid; }
+  .depot span{ font-family:var(--mono); font-size:0.95rem; letter-spacing:0.08em; text-transform:uppercase;
+               background:var(--surface); border:1px solid var(--accent-bord); border-radius:10px; padding:14px 20px; }
+
+  .coin{ position:fixed; z-index:30; top:20px; left:20px; display:flex; align-items:center; gap:8px;
+         transition:opacity .3s ease; }
+  .coin.cachee{ opacity:0; pointer-events:none; }
+  .etiquette{ font-family:var(--mono); font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase;
+              color:var(--texte-2); background:var(--surface); border:1px solid var(--bord);
+              border-radius:8px; padding:7px 10px; max-width:42vw; overflow:hidden;
+              text-overflow:ellipsis; white-space:nowrap; text-decoration:none; }
+  a.etiquette:hover{ color:var(--texte-0); border-color:var(--bord-clair); }
+  .rec{ color:#ff5a5a; }
+
+  @media (max-width:720px){
+    .panneau{ top:auto; bottom:86px; right:12px; left:12px; width:auto; max-height:52vh; }
+    .vol{ display:none; }
+    .coin{ top:12px; left:12px; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+
+<div class="coin cachee" id="coin">
+  <span class="etiquette" id="nomFichier">—</span>
+  <a class="etiquette" href="./index.html" title="Passer au rendu VHS / glitch">↔ rendu VHS</a>
+  <span class="etiquette rec" id="tempoinRec" hidden>● ENREGISTRE</span>
+</div>
+
+<div class="barre cachee" id="barre">
+  <button class="b icone" id="btnLecture" title="Lecture / pause (Espace)" aria-label="Lecture ou pause">▶</button>
+  <div class="piste" id="piste" role="slider" tabindex="0" aria-label="Position dans le morceau"
+       aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="rail"><div class="rempli" id="rempli"></div></div>
+    <div class="curseur" id="curseur"></div>
+  </div>
+  <span class="temps" id="temps">0:00 / 0:00</span>
+  <input class="vol" id="volume" type="range" min="0" max="100" value="85" title="Volume" aria-label="Volume">
+  <button class="b icone" id="btnReglages" title="Réglages (R)" aria-label="Réglages">⚙</button>
+  <button class="b icone" id="btnPlein" title="Plein écran (F)" aria-label="Plein écran">⛶</button>
+</div>
+
+<aside class="panneau" id="panneau" hidden aria-label="Réglages de la tempête">
+  <h2>Matière</h2>
+  <div class="grille-presets" id="presets"></div>
+
+  <h2>Mouvement</h2>
+  <div class="ligne"><label for="sTourbillon">Tourbillon</label>
+    <input id="sTourbillon" type="range" min="0" max="250" value="100"><span class="val" id="vTourbillon">100</span></div>
+  <div class="ligne"><label for="sChaos">Chaos</label>
+    <input id="sChaos" type="range" min="0" max="250" value="100"><span class="val" id="vChaos">100</span></div>
+  <div class="ligne"><label for="sNappes">Nappes</label>
+    <input id="sNappes" type="range" min="0" max="250" value="100"><span class="val" id="vNappes">100</span></div>
+  <div class="ligne"><label for="sContraction">Implosion</label>
+    <input id="sContraction" type="range" min="0" max="200" value="100"><span class="val" id="vContraction">100</span></div>
+  <div class="ligne"><label for="sSouffle">Souffle (frappes)</label>
+    <input id="sSouffle" type="range" min="0" max="250" value="100"><span class="val" id="vSouffle">100</span></div>
+  <div class="ligne"><label for="sVitesse">Vitesse</label>
+    <input id="sVitesse" type="range" min="10" max="250" value="100"><span class="val" id="vVitesse">100</span></div>
+
+  <h2>Rendu</h2>
+  <div class="ligne"><label for="sDensite">Densité du sable</label>
+    <input id="sDensite" type="range" min="10" max="300" value="100"><span class="val" id="vDensite">100</span></div>
+  <div class="ligne"><label for="sTaille">Taille des grains</label>
+    <input id="sTaille" type="range" min="30" max="300" value="100"><span class="val" id="vTaille">100</span></div>
+  <div class="ligne"><label for="sTrainee">Fibres (traînée)</label>
+    <input id="sTrainee" type="range" min="0" max="200" value="100"><span class="val" id="vTrainee">100</span></div>
+  <div class="ligne"><label for="sFeu">Feu du cœur</label>
+    <input id="sFeu" type="range" min="0" max="300" value="100"><span class="val" id="vFeu">100</span></div>
+  <div class="ligne"><label for="sLueur">Lueur</label>
+    <input id="sLueur" type="range" min="0" max="250" value="100"><span class="val" id="vLueur">100</span></div>
+  <div class="ligne"><label for="sExpo">Exposition</label>
+    <input id="sExpo" type="range" min="20" max="300" value="100"><span class="val" id="vExpo">100</span></div>
+  <div class="ligne"><label for="sGrain">Grain de l'image</label>
+    <input id="sGrain" type="range" min="0" max="200" value="100"><span class="val" id="vGrain">100</span></div>
+  <div class="ligne inter"><label for="cCamera">Caméra qui tourne</label>
+    <span class="interrupteur"><input id="cCamera" type="checkbox" checked><span></span></span></div>
+
+  <h2>Réaction au son</h2>
+  <div class="ligne"><label for="sReaction">Sensibilité</label>
+    <input id="sReaction" type="range" min="20" max="250" value="100"><span class="val" id="vReaction">100</span></div>
+
+  <h2>Cadre</h2>
+  <select id="choixFormat" aria-label="Format de l'image">
+    <option value="plein">Plein écran</option>
+    <option value="0.5625">Vertical 9:16 (réseaux)</option>
+    <option value="1">Carré 1:1</option>
+    <option value="1.7778">Paysage 16:9</option>
+  </select>
+
+  <h2>Qualité</h2>
+  <select id="choixQualite" aria-label="Nombre de particules">
+    <option value="512">262 000 grains (léger)</option>
+    <option value="768" selected>590 000 grains</option>
+    <option value="1024">1 million de grains</option>
+    <option value="1448">2 millions de grains (costaud)</option>
+  </select>
+
+  <h2>Sortie</h2>
+  <div class="boutons" style="margin:0; justify-content:flex-start;">
+    <button class="b" id="btnPhoto">Image PNG</button>
+    <button class="b" id="btnEnr">Enregistrer</button>
+  </div>
+  <p class="note" id="noteEnr">L'enregistrement produit un fichier .webm (image + son).</p>
+  <p class="note">Raccourcis : <kbd>Espace</kbd> lecture · <kbd>R</kbd> réglages · <kbd>F</kbd> plein écran ·
+     <kbd>H</kbd> masquer l'interface · <kbd>1</kbd>–<kbd>5</kbd> matières</p>
+</aside>
+
+<div class="accueil" id="accueil">
+  <div class="carte">
+    <p class="surtitre">tempête · visualisateur</p>
+    <h1>Dépose un morceau</h1>
+    <p>Une tempête de sable qui tourbillonne autour d'un cœur en feu, calculée sur la carte
+       graphique. Les basses la font imploser, les frappes l'embrasent. Tout reste sur ta machine.</p>
+    <div class="boutons">
+      <button class="b primaire" id="btnFichier">Choisir un fichier</button>
+      <button class="b" id="btnDemo">Écouter la démo</button>
+    </div>
+    <p class="aide"><kbd>Espace</kbd> lecture · <kbd>R</kbd> réglages · <kbd>F</kbd> plein écran<br>
+       <a href="./index.html" style="color:var(--texte-1)">→ l'autre rendu, VHS / glitch</a></p>
+  </div>
+</div>
+
+<div class="depot" id="depot"><span>Lâche le fichier ici</span></div>
+<input type="file" id="fichier" accept="audio/*" hidden>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════════════════
+   Tempête — visualisateur audio à particules
+   Une tempête de sable gris qui tourbillonne autour d'un cœur en feu.
+   Deux populations de grains, simulées entièrement sur la carte graphique
+   (WebGL2) : positions et vitesses vivent dans des textures flottantes.
+     · le SABLE forme le voile extérieur : il tourne en vortex, se contracte
+       sur les basses (implosion) et masque le feu là où il est dense ;
+     · les BRAISES forment le cœur : une masse incandescente qui bouillonne
+       et s'embrase sur les frappes.
+   Chaque population est dessinée dans sa propre couche, puis les deux sont
+   composées : le feu se devine entre les grains, et rougit ceux qui sont
+   tout près de lui.
+   Aucune dépendance, aucune compilation. Tout est en français.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const $ = (id) => document.getElementById(id);
+
+const scene    = $("scene");
+const accueil  = $("accueil");
+const barre    = $("barre");
+const panneau  = $("panneau");
+const coin     = $("coin");
+const depot    = $("depot");
+const champFichier = $("fichier");
+
+/* ───────────────────────────── état global ───────────────────────────── */
+
+const COTE_REFERENCE = 768;      // densité pour laquelle les réglages sont calibrés
+const PART_BRAISES   = 0.08;     // 8 % des grains sont des braises, le reste du sable
+
+const etat = {
+  nom: "",
+  demo: false,
+  matiere: "tempete",
+  format: "plein",
+  cote: 768,                     // racine du nombre de grains (768² ≈ 590 000)
+  camera: true,
+  reaction: 1,
+  interfaceVisible: true,
+  reg: {                         // facteurs réglables (1 = nominal)
+    tourbillon:1, chaos:1, nappes:1, contraction:1, souffle:1, vitesse:1,
+    densite:1, taille:1, trainee:1, feu:1, lueur:1, expo:1, grain:1,
+  },
+};
+
+/* Une matière = les couleurs du sable (ombre → lumière), celles des braises
+   (rouge sourd → incandescent), à quel point le sable cache le feu, et un
+   tempérament. Les curseurs viennent ensuite multiplier tout ça. */
+const MATIERES = {
+  tempete: {
+    nom:"Tempête", desc:"sable gris, cœur en feu",
+    sable:["#0e0b0a", "#8f8983"], braises:["#6e1508", "#ff2f0e"],
+    occultation:0.94, diffusion:0.55,
+    reg:{ tourbillon:1.00, chaos:1.00, contraction:1.00, souffle:1.00, vitesse:1.00,
+          densite:1.00, taille:1.00, trainee:1.00, feu:1.00, lueur:1.00, expo:1.00 },
+  },
+  cendres: {
+    nom:"Cendres", desc:"épais, sombre, braise sourde",
+    sable:["#110f0e", "#6f6862"], braises:["#5e1305", "#ff4412"],
+    occultation:0.97, diffusion:1.05,
+    reg:{ tourbillon:0.70, chaos:0.85, contraction:1.20, souffle:0.80, vitesse:0.80,
+          densite:1.60, taille:1.10, trainee:1.25, feu:1.25, lueur:0.85, expo:1.10 },
+  },
+  poudre: {
+    nom:"Poudre", desc:"rouille et poussière",
+    sable:["#4a1a10", "#e8d6c8"], braises:["#7d1f10", "#e8643c"],
+    occultation:0.55, diffusion:0.60,
+    reg:{ tourbillon:0.55, chaos:1.20, contraction:0.60, souffle:1.30, vitesse:0.90,
+          densite:0.80, taille:1.20, trainee:1.30, feu:0.65, lueur:1.10, expo:1.05 },
+  },
+  encre: {
+    nom:"Encre", desc:"bleu nuit, cœur froid",
+    sable:["#0a1422", "#8fb4d4"], braises:["#123a7a", "#4fc8ff"],
+    occultation:0.90, diffusion:0.80,
+    reg:{ tourbillon:0.60, chaos:1.45, contraction:0.80, souffle:0.70, vitesse:0.70,
+          densite:1.10, taille:1.00, trainee:1.40, feu:0.95, lueur:0.95, expo:1.00 },
+  },
+  nebuleuse: {
+    nom:"Nébuleuse", desc:"violet, tourne très vite",
+    sable:["#1a0e26", "#cdb0e6"], braises:["#5a1060", "#ff5fa8"],
+    occultation:0.85, diffusion:0.90,
+    reg:{ tourbillon:1.60, chaos:1.10, contraction:0.75, souffle:1.20, vitesse:1.10,
+          densite:0.90, taille:1.00, trainee:1.20, feu:1.20, lueur:1.35, expo:1.05 },
+  },
+};
+
+function couleurVersRvb(hex){
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+/* ───────────────────────────── audio ───────────────────────────── */
+
+let ctxAudio = null, analyseur = null, melange = null, srcElement = null;
+let srcDemo = null, sortieEnr = null;
+const lecteur = new Audio();
+lecteur.preload = "auto";
+
+function preparerAudio(){
+  if (ctxAudio) return ctxAudio;
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  ctxAudio  = new Ctx();
+  melange   = ctxAudio.createGain();
+  analyseur = ctxAudio.createAnalyser();
+  analyseur.fftSize = 2048;
+  analyseur.smoothingTimeConstant = 0.7;
+  melange.connect(analyseur);
+  analyseur.connect(ctxAudio.destination);
+  melange.gain.value = 0.85;
+  return ctxAudio;
+}
+
+function brancherLecteur(){
+  preparerAudio();
+  if (!srcElement){
+    srcElement = ctxAudio.createMediaElementSource(lecteur);
+    srcElement.connect(melange);
+  }
+}
+
+/* ——— démo intégrée : une boucle glitch fabriquée à la main ———
+   Quatre mesures à 120 BPM écrites directement dans un AudioBuffer :
+   grosse caisse, basse, charleston et petits clics numériques. */
+function tamponDemo(ctx){
+  const bpm = 120, tempsParNoire = 60 / bpm;
+  const duree = tempsParNoire * 16;                 // 4 mesures
+  const fe = ctx.sampleRate;
+  const tampon = ctx.createBuffer(2, Math.ceil(duree * fe), fe);
+  const G = tampon.getChannelData(0), D = tampon.getChannelData(1);
+
+  const ajouter = (debut, longueur, f) => {
+    const i0 = Math.floor(debut * fe), n = Math.floor(longueur * fe);
+    for (let i = 0; i < n; i++){
+      const j = i0 + i; if (j >= G.length) break;
+      const [g, d] = f(i / fe, i / n);
+      G[j] += g; D[j] += d;
+    }
+  };
+
+  for (let pas = 0; pas < 16; pas++){
+    const t0 = pas * tempsParNoire;
+
+    // grosse caisse : sinus qui plonge de 110 Hz à 45 Hz
+    if (pas % 4 === 0 || pas === 10){
+      ajouter(t0, 0.34, (t, p) => {
+        const f = 110 - 65 * Math.min(1, t * 9);
+        const v = Math.sin(2 * Math.PI * f * t) * Math.pow(1 - p, 2.4) * 0.72;
+        return [v, v];
+      });
+    }
+    // basse carrée filtrée à la main (une octave sous la fondamentale)
+    const notes = [55, 55, 82.4, 73.4];
+    {
+      const f = notes[Math.floor(pas / 2) % 4];
+      ajouter(t0, tempsParNoire * (pas % 2 === 0 ? 0.9 : 0.45), (t, p) => {
+        const carre = Math.sin(2 * Math.PI * f * t) >= 0 ? 1 : -1;
+        const doux  = carre * 0.55 + Math.sin(2 * Math.PI * f * t) * 0.45;
+        const v = doux * Math.pow(1 - p, 1.5) * (pas % 2 === 0 ? 0.22 : 0.12);
+        return [v, v * 0.92];
+      });
+    }
+    // charleston : bruit filtré, décalé à gauche/droite
+    {
+      ajouter(t0 + (pas % 2 ? 0 : tempsParNoire * 0.5), 0.09, (t, p) => {
+        const v = (Math.random() * 2 - 1) * Math.pow(1 - p, 5) * 0.16;
+        return [v * (pas % 4 === 1 ? 1 : 0.55), v * (pas % 4 === 1 ? 0.55 : 1)];
+      });
+    }
+    // clics et sauts numériques : la signature « glitch »
+    if (pas === 3 || pas === 7 || pas === 11 || pas === 14){
+      for (let k = 0; k < 5; k++){
+        ajouter(t0 + k * 0.021, 0.014, (t, p) => {
+          const v = (Math.random() * 2 - 1) * (1 - p) * 0.22;
+          return [k % 2 ? v : v * 0.3, k % 2 ? v * 0.3 : v];
+        });
+      }
+    }
+    // nappe aiguë tenue, pour que les hautes fréquences vivent aussi
+    ajouter(t0, tempsParNoire, (t, p) => {
+      const souffle = (Math.random() * 2 - 1) * 0.012;
+      const v = (Math.sin(2 * Math.PI * 1320 * t) + Math.sin(2 * Math.PI * 1976 * t)) * 0.035
+              * (0.45 + 0.55 * Math.sin(Math.PI * p)) + souffle;
+      return [v, -v];
+    });
+  }
+  for (let i = 0; i < G.length; i++){              // sécurité anti-saturation
+    G[i] = Math.max(-1, Math.min(1, G[i]));
+    D[i] = Math.max(-1, Math.min(1, D[i]));
+  }
+  return tampon;
+}
+
+function lancerDemo(){
+  preparerAudio();
+  arreterDemo();
+  lecteur.pause();
+  srcDemo = ctxAudio.createBufferSource();
+  srcDemo.buffer = tamponDemo(ctxAudio);
+  srcDemo.loop = true;
+  srcDemo.connect(melange);
+  srcDemo.start();
+  etat.demo = true;
+  etat.nom  = "DEMO — boucle glitch 120 BPM";
+  ctxAudio.resume();
+  majInterface();
+}
+
+function arreterDemo(){
+  if (srcDemo){ try { srcDemo.stop(); } catch(e){} srcDemo.disconnect(); srcDemo = null; }
+  etat.demo = false;
+}
+
+/* ───────────────────────────── analyse ───────────────────────────── */
+
+const mesures = { basses:0, mediums:0, aigus:0, volume:0, choc:0, temps:0 };
+let spectre = null, onde = null, spectrePrec = null;
+let fluxMoyen = 0, fluxEcart = 1;
+
+function binPour(hz){
+  if (!ctxAudio) return 0;
+  return Math.round(hz / (ctxAudio.sampleRate / analyseur.fftSize));
+}
+
+
+/* Énergie moyenne d'une bande de fréquences, normalisée entre 0 et 1. */
+function energieBande(hzBas, hzHaut){
+  const a = Math.max(1, binPour(hzBas));
+  const b = Math.min(spectre.length - 1, binPour(hzHaut));
+  let somme = 0;
+  for (let i = a; i <= b; i++) somme += spectre[i];
+  return (somme / Math.max(1, b - a + 1)) / 255;
+}
+
+function analyser(dt){
+  if (!analyseur){                       // pas encore de son : légère respiration
+    const t = mesures.temps;
+    mesures.basses  = 0.18 + 0.14 * Math.sin(t * 1.1);
+    mesures.mediums = 0.12 + 0.08 * Math.sin(t * 1.7 + 1);
+    mesures.aigus   = 0.08 + 0.06 * Math.sin(t * 2.3 + 2);
+    mesures.volume  = 0.16;
+    mesures.choc    = Math.max(0, mesures.choc - dt * 2.2);
+    if (Math.sin(t * 1.1) > 0.995) mesures.choc = 0.5;
+    return;
+  }
+  if (!spectre){
+    spectre     = new Uint8Array(analyseur.frequencyBinCount);
+    onde        = new Uint8Array(analyseur.fftSize);
+    spectrePrec = new Float32Array(analyseur.frequencyBinCount);
+  }
+  analyseur.getByteFrequencyData(spectre);
+  analyseur.getByteTimeDomainData(onde);
+
+  const s = etat.reaction;
+  mesures.basses  = Math.min(1, energieBande(30, 160)    * 1.15 * s);
+  mesures.mediums = Math.min(1, energieBande(160, 2000)  * 1.30 * s);
+  mesures.aigus   = Math.min(1, energieBande(2000, 11000)* 1.70 * s);
+
+  let crete = 0;
+  for (let i = 0; i < onde.length; i += 4) crete = Math.max(crete, Math.abs(onde[i] - 128) / 128);
+  mesures.volume = Math.min(1, crete * 1.1 * s);
+
+  // Flux spectral positif : sert de détecteur de frappe / transitoire.
+  let flux = 0;
+  for (let i = 1; i < spectre.length; i++){
+    const d = spectre[i] - spectrePrec[i];
+    if (d > 0) flux += d;
+    spectrePrec[i] = spectre[i];
+  }
+  flux /= spectre.length * 255;
+  fluxMoyen += (flux - fluxMoyen) * 0.06;
+  fluxEcart += (Math.abs(flux - fluxMoyen) - fluxEcart) * 0.06;
+  const saillance = (flux - fluxMoyen) / (fluxEcart * 2.4 + 0.0005);
+
+  mesures.choc = Math.max(mesures.choc - dt * 3.4, 0);
+  if (saillance > 1) mesures.choc = Math.min(1.4, Math.max(mesures.choc, Math.min(1.4, saillance * 0.45 * s)));
+}
+
+
+/* ───────────────────────────── un peu de calcul matriciel ───────────────────────────── */
+
+function perspective(fovDeg, rapport, pres, loin){
+  const f = 1 / Math.tan((fovDeg * Math.PI / 180) / 2);
+  const d = 1 / (pres - loin);
+  return new Float32Array([
+    f / rapport, 0, 0, 0,
+    0, f, 0, 0,
+    0, 0, (loin + pres) * d, -1,
+    0, 0, 2 * loin * pres * d, 0,
+  ]);
+}
+
+function regard(oeil, cible, haut){
+  const sous = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+  const norme = (a) => { const l = Math.hypot(a[0],a[1],a[2]) || 1; return [a[0]/l, a[1]/l, a[2]/l]; };
+  const prod = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  const point = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+  const z = norme(sous(oeil, cible));
+  const x = norme(prod(haut, z));
+  const y = prod(z, x);
+  return new Float32Array([
+    x[0], y[0], z[0], 0,
+    x[1], y[1], z[1], 0,
+    x[2], y[2], z[2], 0,
+    -point(x, oeil), -point(y, oeil), -point(z, oeil), 1,
+  ]);
+}
+
+function produit(a, b){                      // a · b, colonnes d'abord
+  const r = new Float32Array(16);
+  for (let i = 0; i < 4; i++)
+    for (let j = 0; j < 4; j++)
+      r[i * 4 + j] = a[j] * b[i * 4] + a[4 + j] * b[i * 4 + 1]
+                   + a[8 + j] * b[i * 4 + 2] + a[12 + j] * b[i * 4 + 3];
+  return r;
+}
+
+
+/* ───────────────────────────── WebGL2 ───────────────────────────── */
+
+const gl = scene.getContext("webgl2", { alpha:false, antialias:false, depth:false,
+                                        stencil:false, powerPreference:"high-performance",
+                                        preserveDrawingBuffer:false });
+
+const QUAD = `#version 300 es
+out vec2 vUv;
+void main(){
+  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  vUv = p;
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+/* — Le chaos, commun à la simulation et à la mesure de dérive : du bruit de
+     valeur, son rotationnel, et deux octaves qui évoluent sur place. — */
+const CHAOS = `
+float empreinte(vec3 p){
+  p = fract(p * 0.3183099 + vec3(0.11, 0.27, 0.43));
+  p *= 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+/* Bruit de valeur avec son gradient calculé analytiquement : un seul appel
+   donne la valeur ET les trois dérivées, là où il en faudrait sept autrement. */
+vec4 bruitD(vec3 x){
+  vec3 i  = floor(x);
+  vec3 w  = fract(x);
+  vec3 u  = w * w * (3.0 - 2.0 * w);
+  vec3 du = 6.0 * w * (1.0 - w);
+  float a = empreinte(i);
+  float b = empreinte(i + vec3(1.0, 0.0, 0.0));
+  float c = empreinte(i + vec3(0.0, 1.0, 0.0));
+  float d = empreinte(i + vec3(1.0, 1.0, 0.0));
+  float e = empreinte(i + vec3(0.0, 0.0, 1.0));
+  float f = empreinte(i + vec3(1.0, 0.0, 1.0));
+  float g = empreinte(i + vec3(0.0, 1.0, 1.0));
+  float h = empreinte(i + vec3(1.0, 1.0, 1.0));
+  float k1 = b - a, k2 = c - a, k3 = e - a;
+  float k4 = a - b - c + d;
+  float k5 = a - c - e + g;
+  float k6 = a - b - e + f;
+  float k7 = -a + b + c - d + e - f - g + h;
+  float v = a + k1 * u.x + k2 * u.y + k3 * u.z + k4 * u.x * u.y
+          + k5 * u.y * u.z + k6 * u.z * u.x + k7 * u.x * u.y * u.z;
+  return vec4(v, du * vec3(k1 + k4 * u.y + k6 * u.z + k7 * u.y * u.z,
+                           k2 + k5 * u.z + k4 * u.x + k7 * u.z * u.x,
+                           k3 + k6 * u.x + k5 * u.y + k7 * u.x * u.y));
+}
+
+/* Potentiel de bruit (trois composantes, centrées sur zéro) et son
+   rotationnel, en un point x des coordonnées du bruit. */
+void potentiel(vec3 x, out vec3 psi, out vec3 rot){
+  vec4 a = bruitD(x);
+  vec4 b = bruitD(x + vec3(31.41, 17.30, 9.70));
+  vec4 c = bruitD(x + vec3(-23.90, 41.70, 57.73));
+  psi = vec3(a.x, b.x, c.x) - 0.5;
+  rot = vec3(c.z - b.w, a.w - c.y, b.y - a.z);
+}
+
+/* Hasard entier (PCG) : exact et identique sur toutes les cartes graphiques,
+   là où un hachage en virgule flottante peut se biaiser. */
+uvec3 pcg3(uvec3 v){
+  v = v * 1664525u + 1013904223u;
+  v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+  v ^= v >> 16u;
+  v.x += v.y * v.z; v.y += v.z * v.x; v.z += v.x * v.y;
+  return v;
+}
+vec3 hasard3(uvec3 v){ return vec3(pcg3(v)) * (1.0 / 4294967296.0); }
+
+/* Rotation d'angle a autour de l'axe unitaire k (formule de Rodrigues). */
+vec3 tourner(vec3 p, vec3 k, float a){
+  float c = cos(a), s = sin(a);
+  return p * c + cross(k, p) * s + k * dot(k, p) * (1.0 - c);
+}
+
+
+/* Le chaos : trois octaves de volutes, bornées à la boule.
+
+   Un bruit rotationnel ordinaire ne sait pas qu'il est dans une boule : il
+   pousse les grains à travers la paroi, qui les retient, et le sable finit
+   entassé contre elle — l'intérieur se vide. On multiplie donc le potentiel
+   par une rampe qui s'éteint en douceur au bord (Bridson, « Curl-Noise for
+   Procedural Fluid Flow », 2007) : le rotationnel de (rampe × potentiel)
+   reste sans divergence, et au bord il LONGE la paroi au lieu de la
+   traverser. Conséquence : sa moyenne sur la boule est exactement nulle, la
+   tempête ne peut ni dériver, ni se tasser, et la densité reste uniforme.
+   Le bord est bosselé par deux bruits : la silhouette devient un chou-fleur.
+
+   La grande octave évolue par fondu enchaîné entre deux champs immobiles
+   (un champ qui glisse emporterait les grains, un champ qui tourne se
+   « redresserait » en courant le long de son axe) ; les octaves fines
+   restent immobiles dans le repère de la tempête. */
+/* Le bord bosselé de la tempête (rayon et gradient), en coordonnées de la
+   tempête. Les grandes bosses changent sans cesse (fondu enchaîné) : la
+   silhouette se déforme, pousse des lobes, les résorbe. */
+vec4 bord(vec3 q, float R, float t){
+  float ph = t * 0.12, kb = floor(ph), wb = fract(ph);
+  wb = wb * wb * (3.0 - 2.0 * wb);
+  const vec3 pasB = vec3(5.31, 9.17, 2.63);
+  vec4 bosse  = mix(bruitD(q * 1.7 + pasB * kb + vec3(5.3, 1.1, 8.2)),
+                    bruitD(q * 1.7 + pasB * (kb + 1.0) + vec3(5.3, 1.1, 8.2)), wb);
+  vec4 bosse2 = bruitD(q * 4.1 + vec3(2.9, 6.4, 0.7));
+  return vec4(R * (1.0 + 1.15 * (bosse.x - 0.5) + 0.35 * (bosse2.x - 0.5)),
+              R * (1.15 * 1.7 * bosse.yzw + 0.35 * 4.1 * bosse2.yzw));
+}
+
+/* Les nappes. Les grains sont attirés vers la surface où un bruit lent
+   s'annule : cette surface est un labyrinthe de feuillets qui remplit la
+   boule. Le sable s'y concentre en nappes — denses et claires vues par la
+   tranche, voiles fins vues de face — et le vide se creuse entre elles, là où
+   le feu apparaît. En fondu enchaîné, les feuillets ondulent, se replient et
+   se déchirent ; la turbulence en arrache des filaments. (C'est une vitesse
+   −φ∇φ, qui pousse vers φ = 0 depuis les deux côtés.) */
+vec4 champNappe(vec3 q, float t, float f, float decalage){
+  float ph = t * 0.16, kn = floor(ph), wn = fract(ph);
+  wn = wn * wn * (3.0 - 2.0 * wn);
+  const vec3 pasN = vec3(3.77, 11.31, 6.07);
+  vec4 na = bruitD(q * f + pasN * kn + decalage);
+  vec4 nb = bruitD(q * f + pasN * (kn + 1.0) + decalage);
+  float norme = 1.0 / sqrt(wn * wn + (1.0 - wn) * (1.0 - wn));
+  return vec4((mix(na.x, nb.x, wn) - 0.5) * norme, mix(na.yzw, nb.yzw, wn) * norme * f);
+}
+
+vec3 nappe(vec3 q, float t, float f, float decalage){
+  vec4 c = champNappe(q, t, f, decalage);
+  // seuls les grains déjà proches d'une nappe y sont ramenés : sinon une petite
+  // bulle de la surface aspirerait les grains de tout un volume autour d'elle
+  return -c.x * c.yzw * exp(-c.x * c.x / 0.04);
+}
+
+const float FREQ_NAPPES = 0.95;      // de grands feuillets, peu nombreux, lisibles
+
+vec3 chaosBorne(vec3 q, float ech, float t, float fin, float R, float L, out float dedans){
+  vec4  b  = bord(q, R, t);
+  float d  = max(length(q), 1e-4);
+  float Rb = b.x;
+  vec3  gradRb = b.yzw;
+  float s  = clamp((Rb - d) / L, 0.0, 1.0);
+  float alpha = s * s * (3.0 - 2.0 * s);
+  vec3  gradAlpha = 6.0 * s * (1.0 - s) * (gradRb - q / d) / L;
+  dedans = s;
+
+  vec3 psi, rot, u = vec3(0.0);
+  float phase = t * 0.14, k = floor(phase), w = fract(phase);
+  w = w * w * (3.0 - 2.0 * w);
+  float norme = 2.1 / sqrt(w * w + (1.0 - w) * (1.0 - w));   // deux champs mêlés perdent de l'amplitude
+  const vec3 pas = vec3(17.13, 7.71, 3.37);
+  potentiel(q * ech + pas * k, psi, rot);
+  u += (1.0 - w) * norme * (alpha * rot + cross(gradAlpha, psi) / ech);
+  potentiel(q * ech + pas * (k + 1.0), psi, rot);
+  u += w * norme * (alpha * rot + cross(gradAlpha, psi) / ech);
+
+  float e2 = ech * 2.7;
+  potentiel(q * e2 + 11.0, psi, rot);
+  u += 0.8 * fin * (alpha * rot + cross(gradAlpha, psi) / e2);
+  float e3 = ech * 6.3;
+  potentiel(q * e3 + 23.0, psi, rot);
+  u += 0.4 * fin * (alpha * rot + cross(gradAlpha, psi) / e3);
+  return u;
+}`;
+
+/* — Simulation : une texture = un état. Position et vitesse sont écrites en
+     une seule passe grâce aux deux sorties (MRT). Les premiers grains de la
+     texture sont les braises, tous les autres du sable. — */
+const SIM = `#version 300 es
+precision highp float;
+uniform sampler2D uPos;
+uniform sampler2D uVel;
+uniform int   uCote, uNbBraises;
+uniform float uDt, uTemps, uAlea;
+uniform float uAigus, uVolume, uChoc;
+uniform float uContraction, uFlamme;
+uniform float uChaos, uImplosion, uSouffle, uVitesse, uOmega, uNappes;
+uniform vec3  uAxe;
+uniform mat3  uRepere;   // rotation cumulée de la tempête depuis le début
+uniform uint uTirage;       // change à chaque pas : le hasard des renaissances
+const int GRAINS_PAR_BRIN  = 48;
+const int GRAINS_PAR_FOYER = 64;
+
+
+layout(location = 0) out vec4 sortiePos;
+layout(location = 1) out vec4 sortieVel;
+
+${CHAOS}
+vec3 alea3(vec3 g){
+  return vec3(empreinte(g), empreinte(g + 19.7), empreinte(g + 43.3));
+}
+
+/* Où naissent les brins : un champ de « présence » à grande échelle, qui dérive
+   lentement dans le repère de la tempête. Comme l'écoulement conserve la
+   densité le long des trajectoires, ces masses seront emportées, étirées et
+   repliées — des amas et des vides organiques, qui ne s'effondrent jamais. */
+float presence(vec3 c, float t){
+  return smoothstep(0.3, 0.72, bruitD(transpose(uRepere) * c * 1.4 + vec3(t * 0.03, 4.1, 2.7)).x);
+}
+
+vec3 dansLaBoule(vec3 h){
+  float z = h.x * 2.0 - 1.0, phi = h.y * 6.2831853;
+  return vec3(sqrt(1.0 - z * z) * cos(phi), z, sqrt(1.0 - z * z) * sin(phi)) * pow(h.z, 1.0 / 3.0);
+}
+
+/* L'écoulement en un point : le chaos borné, vu depuis la tempête, et un filet
+   de sécurité au-delà du bord pour les rares grains que l'intégration
+   laisserait fuir. */
+vec3 ecoulement(vec3 p, bool braise, float Rc, float t, out float dedans){
+  float R = braise ? Rc * 0.8 : 1.0;
+  float d = max(0.001, length(p));
+  vec3  q = transpose(uRepere) * p;                  // p, vu depuis la tempête
+  vec3  Uq = chaosBorne(q, braise ? 2.3 : 1.2, t, 0.35 + 1.1 * uAigus, R, R * 0.35, dedans) * uChaos;
+  // les nappes (et, pour le feu, des langues), éteintes près du bord comme le chaos
+  float alpha = dedans * dedans * (3.0 - 2.0 * dedans);
+  Uq += nappe(q, t, braise ? 1.2 : FREQ_NAPPES, braise ? 11.0 : 41.0) * (braise ? 0.7 : 1.0) * uNappes * alpha;
+  vec3  U = uRepere * Uq;
+  U += -(p / d) * max(0.0, d - R * 1.3) * 3.0;
+  return braise ? U * 0.8 : U;
+}
+
+void main(){
+  ivec2 ic = ivec2(gl_FragCoord.xy);
+  bool braise = ic.y * uCote + ic.x < uNbBraises;
+
+  vec4 P = texelFetch(uPos, ic, 0);
+  vec4 V = texelFetch(uVel, ic, 0);
+  vec3 p = P.xyz;  float vie    = P.w;
+  vec3 v = V.xyz;  float graine = V.w;
+
+  float dt = min(uDt, 0.034);
+  float t  = uTemps;
+
+  // Le sable vit dans un espace NORMALISÉ : sa boule a toujours un rayon 1.
+  // L'implosion et la respiration ne sont pas simulées : c'est au dessin que la
+  // tempête est mise à l'échelle. Simuler une boule qui rétrécit écraserait le
+  // sable contre sa paroi à chaque temps fort ; la mettre à l'échelle la fait
+  // rétrécir parfaitement uniformément.
+  float R  = 1.0;
+  float Rc = 0.68 * (1.0 + 0.4 * uFlamme);           // rayon du cœur (braises)
+
+  // ——— tourbillon : une rotation EXACTE autour d'un axe qui bascule sans cesse.
+  // (Ajouter une vitesse tangente à chaque pas ferait dériver les grains vers
+  // l'extérieur — force centrifuge numérique — et aplatirait tout en anneau.)
+  // Toute la tempête tourne d'un bloc à uOmega, exactement comme le repère du
+  // chaos : un œil qui tournerait plus vite redresserait le chaos près de l'axe.
+  float omega = uOmega;
+  p = tourner(p, uAxe, omega * dt * uVitesse);
+
+  // ——— chaos et forces, intégrés au POINT MILIEU (Runge-Kutta d'ordre 2). Un
+  // pas droit le long de la vitesse (Euler) « sort » des volutes à chaque fois :
+  // une divergence artificielle qui vide les cœurs des tourbillons et entasse le
+  // sable entre eux. Le point milieu est cent fois plus fidèle ici.
+  float dedans, dedansMilieu;
+  vec3 k1 = ecoulement(p, braise, Rc, t, dedans);
+  vec3 k2 = ecoulement(p + 0.5 * dt * uVitesse * k1, braise, Rc, t, dedansMilieu);
+  p += k2 * dt * uVitesse;
+  // vitesse totale, gardée seulement pour l'affichage (les grains rapides brillent)
+  v = k2 + cross(uAxe, p) * omega;
+  // Le sable naît en BRINS : des lignes de grains qui naissent et meurent
+  // ensemble. L'écoulement les étire et les replie en filaments et en nappes,
+  // avec du vide entre eux — c'est ce qui rend la matière fibreuse et
+  // organique (des grains nés un par un au hasard donneraient une boule
+  // uniforme, sans structure). Les braises, elles, naissent une par une.
+  int indice = ic.y * uCote + ic.x;
+  int brin   = (indice - uNbBraises) / GRAINS_PAR_BRIN;
+  int foyer  = indice / GRAINS_PAR_FOYER;
+  float hasardVie = braise ? hasard3(uvec3(uint(foyer), 7u, 5u)).x : hasard3(uvec3(uint(brin), 7u, 1u)).x;
+  vie -= dt * (braise ? (0.30 + 0.45 * hasardVie) : (0.025 + 0.05 * hasardVie));
+  // hors du bord, l'écoulement est nul : un grain qui s'y trouve y resterait
+  // figé. Il vieillit donc vite, s'efface, et renaît à l'intérieur.
+  if (!braise && dedans < 0.02) vie -= dt * 0.8;
+  else if (!braise && dedans < 0.25) vie -= dt * 0.35;
+
+  float dn = length(p);
+  if (vie <= 0.0 || dn > 4.5){
+    if (braise){
+      // les braises renaissent en FOYERS : un amas autour d'un point du cœur,
+      // que l'écoulement étirera en langue de feu
+      vec3 hf = hasard3(uvec3(uint(foyer), uTirage, 5u));
+      vec3 centre = dansLaBoule(hf) * Rc * 0.65;
+      float etale = 0.1 + 0.16 * hasard3(uvec3(uint(foyer), uTirage, 6u)).x;
+      p = centre + (hasard3(uvec3(ic, uTirage)) - 0.5) * 2.0 * etale;
+    } else {
+      // un brin renaît d'un coup : tous ses grains tirent le même brin (même
+      // centre, même direction), chacun se place le long, un peu décalé. Le
+      // centre est tiré de préférence là où la « présence » est forte.
+      // Au-delà du bord bosselé l'écoulement est nul : un grain né là resterait
+      // figé, et ces grains figés redessineraient une sphère parfaite. On tire
+      // donc le centre à l'intérieur du bord, et de préférence là où la
+      // « présence » est forte.
+      vec3 centre = vec3(0.0);
+      float Rb = 1.0;
+      for (int essai = 0; essai < 8; essai++){
+        vec3 hb = hasard3(uvec3(uint(brin), uTirage, 2u + uint(essai) * 7u));
+        centre = dansLaBoule(hb) * 1.05;
+        Rb = bord(transpose(uRepere) * centre, 1.0, t).x;
+        if (length(centre) < Rb * 0.78) break;
+      }
+      // si aucun essai n'a convenu, on ramène le dernier à l'intérieur du bord
+      centre *= min(1.0, Rb * 0.7 / max(length(centre), 1e-4));
+      vec3 hd = hasard3(uvec3(uint(brin), uTirage, 3u));
+      float zd = hd.x * 2.0 - 1.0, phid = hd.y * 6.2831853;
+      vec3 sens = vec3(sqrt(1.0 - zd * zd) * cos(phid), zd, sqrt(1.0 - zd * zd) * sin(phid));
+      float le  = float(indice - uNbBraises - brin * GRAINS_PAR_BRIN) / float(GRAINS_PAR_BRIN - 1) - 0.5;
+      vec3 bruitage = hasard3(uvec3(ic, uTirage)) - 0.5;
+      // des brins de toutes sortes : fins et nets, ou diffus comme une bouffée de poussière
+      // des bouffées plutôt que des brins peignés : courtes, plus ou moins
+      // diffuses — l'écoulement les étirera en nappes
+      float diffus = hd.z;
+      p = centre + sens * le * (0.08 + 0.25 * hasard3(uvec3(uint(brin), uTirage, 8u)).x)
+        + bruitage * mix(0.05, 0.3, diffus);
+      // le grain naît directement SUR une nappe (deux pas de Newton vers la
+      // surface φ = 0) : les feuillets sont denses, le vide entre eux reste vide
+      for (int k = 0; k < 2; k++){
+        vec4 cn = champNappe(transpose(uRepere) * p, t, FREQ_NAPPES, 41.0);
+        vec3 g  = uRepere * cn.yzw;
+        p -= cn.x * g / max(dot(g, g), 0.05);
+      }
+      // la teinture : un ton propre au brin, qui fera des fibres plus ou moins claires
+      graine = hasard3(uvec3(uint(brin), uTirage, 4u)).x;
+    }
+    v = vec3(0.0);
+    vie = 1.0;
+  }
+
+  sortiePos = vec4(p, vie);
+  sortieVel = vec4(v, graine);
+}`;
+
+/* — Le sable, rendu comme un milieu continu. Chaque grain dépose une petite
+     tache douce dans une carte de densité (demi-résolution) : r = densité,
+     g = lumière reçue, b = feu reçu, a = teinte (chaque canal pondéré par la
+     densité, pour en faire la moyenne à la composition). Une fraction des
+     grains est aussi tracée nette, en pleine résolution : les étincelles. — */
+const SABLE_S = `#version 300 es
+precision highp float;
+uniform sampler2D uPos;
+uniform sampler2D uVel;
+uniform sampler2D uFeuTex;      // la couche des braises de cette image, avec ses mipmaps
+uniform mat4  uVueProjection;
+uniform mat3  uRepere;
+uniform int   uCote, uDebut;
+uniform float uTaille, uEchelle, uDistCentre, uPoids, uRayonBraises, uRayon, uFeuForce;
+uniform float uEchelleTempete;   // taille de la tempête (implosion, respiration, souffle)
+uniform float uTempsTempete;
+uniform vec3  uVueDirection;     // direction du regard de la caméra
+uniform vec3  uDirLumiere;
+uniform int   uMode;             // 0 : tache de densité ; 1 : trait (flou de mouvement) ; 2 : étincelle
+uniform float uFlou;             // durée couverte par un trait, en temps de tempête
+uniform vec2  uTailleEcran;
+out vec4 vDonnees;
+${CHAOS}
+
+void main(){
+  int idx  = uMode == 1 ? gl_VertexID / 2 : gl_VertexID;
+  int bout = gl_VertexID - 2 * idx;                   // 0 : la tête, 1 : la queue du trait
+  int i = idx + uDebut;
+  ivec2 c = ivec2(i % uCote, i / uCote);
+  vec4 P = texelFetch(uPos, c, 0);
+  vec4 V = texelFetch(uVel, c, 0);
+  vec3 q = transpose(uRepere) * P.xyz;               // dans l'espace normalisé, vu depuis la tempête
+  // masses et trouées : un champ lent, attaché à la tempête
+  float masse = smoothstep(0.42, 0.64, bruitD(q * 1.6 + vec3(uTempsTempete * 0.05, 1.7, 4.2)).x);
+  P.xyz *= uEchelleTempete;                            // de l'espace normalisé au monde
+  V.xyz *= uEchelleTempete;
+
+  vec4 clip = uVueProjection * vec4(P.xyz, 1.0);
+  float trait = 1.0, longueur = 1.0;
+  if (uMode == 1){
+    vec4 clipAvant = uVueProjection * vec4(P.xyz - V.xyz * uFlou, 1.0);
+    vec2 e = (clip.xy / clip.w - clipAvant.xy / clipAvant.w) * uTailleEcran * 0.5;
+    longueur = length(e);
+    trait = clamp((longueur - 2.5) / 8.0, 0.0, 1.0) * (bout == 0 ? 1.0 : 0.0);
+    if (bout == 1) clip = clipAvant;
+  }
+  gl_Position = clip;
+  float prof  = max(0.2, clip.w);
+  float tache = clamp(uTaille * uEchelle * (uDistCentre / prof), 1.5, 14.0);
+  gl_PointSize = uMode == 0 ? tache : 1.0;
+
+  // ——— la lumière reçue : chaque grain est éclairé comme un morceau de son
+  // feuillet (la normale est le gradient du champ des nappes), le côté opposé
+  // à la lumière reste dans l'ombre de la masse, et de grands bourrelets
+  // modulent le tout
+  float d  = length(P.xyz);
+  vec3  n  = P.xyz / max(d, 0.001);
+  vec4  b  = bruitD(q * 2.4 + vec3(3.1, 7.7, 1.3));
+  vec4  cn = champNappe(q, uTempsTempete, FREQ_NAPPES, 41.0);
+  vec3  nb = normalize(uRepere * cn.yzw + n * 0.25);
+  float face    = abs(dot(nb, uDirLumiere));
+  float cote    = smoothstep(-0.7, 0.9, dot(P.xyz, uDirLumiere) / uRayon);
+  float appoint = 0.16 * abs(dot(nb, normalize(-uVueDirection)));
+  float nuage   = bruitD(q * 1.1 + vec3(9.3, 2.1, 5.5)).x;
+  float lumiere = clamp((0.08 + appoint + 0.85 * face * cote * (0.45 + 1.1 * b.x)) * mix(0.4, 1.3, nuage), 0.0, 1.0);
+
+  // ——— la lumière du feu : lue dans la couche des braises, là où se trouve le
+  // grain ; un grain situé DEVANT le feu ne la reçoit que sur sa face arrière,
+  // qu'on ne voit pas : il reste gris, un voile sur le rouge
+  vec2 uv = clip.xy / clip.w * 0.5 + 0.5;
+  vec3 feuTex = textureLod(uFeuTex, uv, 1.5).rgb * 0.6 + textureLod(uFeuTex, uv, 3.5).rgb * 0.4;
+  float proche = exp(-pow(d / (uRayonBraises * 3.0), 2.0));
+  float devant = smoothstep(0.0, 0.45 * uRayon, uDistCentre - clip.w);
+  float feu = dot(feuTex, vec3(0.35, 0.5, 0.15)) * uFeuForce * (0.35 + 0.65 * proche) * mix(1.0, 0.18, devant);
+
+  float teinte = V.w;
+  float w = smoothstep(0.0, 0.12, P.w) * smoothstep(1.0, 0.9, P.w)
+          * mix(0.45, 1.0, smoothstep(0.2, 0.8, teinte)) * mix(0.55, 1.0, masse)
+          * mix(1.0, 0.65, smoothstep(0.0, 0.9, clip.w - uDistCentre));
+
+  if (uMode == 2){
+    // une étincelle : un grain net, plus ou moins brillant
+    float h = hasard3(uvec3(uint(i), 3u, 11u)).x;
+    float eclat = 0.5 + 0.5 * h + step(0.95, fract(h * 13.7)) * 1.5;
+    vDonnees = vec4(lumiere, feu, 0.0, 0.0) * eclat * w;
+    return;
+  }
+  // une tache de densité (sa masse totale ne dépend pas de sa taille à l'écran),
+  // ou un trait dont la masse s'étale sur sa longueur
+  w *= uPoids * (uMode == 1 ? trait / max(2.0, longueur) : 1.0 / (0.358 * tache * tache));
+  vDonnees = vec4(w, w * lumiere, w * feu, w * teinte);
+}`;
+
+const SABLE_F = `#version 300 es
+precision highp float;
+uniform highp int uMode;      // même précision que dans le nuanceur de sommets, sinon la liaison échoue
+in vec4 vDonnees;
+out vec4 sortie;
+void main(){
+  if (uMode == 0){
+    vec2 q = gl_PointCoord - 0.5;
+    sortie = vDonnees * exp(-8.0 * dot(q, q));       // une tache douce
+  } else {
+    sortie = vDonnees;                              // un trait, ou une étincelle
+  }
+}`;
+
+/* — Les braises : de grosses taches douces, en lumière additive. Mille taches
+     superposées puis floutées, ça fait un gaz incandescent. — */
+const BRAISES_S = `#version 300 es
+precision highp float;
+uniform sampler2D uPos;
+uniform sampler2D uVel;
+uniform mat4  uVueProjection;
+uniform mat3  uRepere;
+uniform int   uCote;
+uniform float uTaille, uEchelle, uDistCentre, uEnergie, uFlamme, uTempsTempete;
+uniform vec3  uBas, uHaut;
+out vec3 vCouleur;
+${CHAOS}
+
+void main(){
+  int i = gl_VertexID;
+  ivec2 c = ivec2(i % uCote, i / uCote);
+  vec4 P = texelFetch(uPos, c, 0);
+  vec4 V = texelFetch(uVel, c, 0);
+
+  vec4 clip = uVueProjection * vec4(P.xyz, 1.0);
+  gl_Position = clip;
+  float prof = max(0.2, clip.w);
+  gl_PointSize = clamp(uTaille * uEchelle * 14.0 * (uDistCentre / prof), 2.0, 110.0);
+
+  float chaleur = clamp(0.25 + 0.35 * length(V.xyz) + 0.55 * uFlamme, 0.0, 1.0);
+  vec3 col = mix(uBas, uHaut, chaleur);
+  float a = smoothstep(0.0, 0.2, P.w) * smoothstep(1.0, 0.85, P.w);
+  // le feu se découpe en plaques et en langues (un champ lent, attaché à la
+  // tempête) ; quand il s'embrase, les plaques se rejoignent
+  float plaque = smoothstep(0.45, 0.63 - 0.2 * uFlamme,
+                            bruitD(transpose(uRepere) * P.xyz * 2.6 + vec3(2.2, uTempsTempete * 0.11, 6.1)).x);
+  // chaque foyer a sa propre ardeur : quelques points chauds percent le voile
+  float ardeur = hasard3(uvec3(uint(i / 64), 9u, 13u)).x;
+  vCouleur = col * a * plaque * (0.45 + 1.8 * ardeur * ardeur) * uEnergie * (0.55 + 1.6 * uFlamme);
+}`;
+
+const BRAISES_F = `#version 300 es
+precision highp float;
+in vec3 vCouleur;
+out vec4 sortie;
+void main(){
+  vec2 q = gl_PointCoord - 0.5;
+  float r2 = dot(q, q) * 4.0;
+  if (r2 >= 1.0) discard;
+  float m = 1.0 - r2;
+  sortie = vec4(vCouleur * m * m * m, 1.0);
+}`;
+
+/* — L'image précédente s'efface un peu : ce sont les traînées, donc les fibres. — */
+const FONDU = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uSrc;
+uniform float uFacteur;
+out vec4 sortie;
+void main(){
+  sortie = texture(uSrc, vUv) * uFacteur;
+}`;
+
+/* — Composition finale. Le sable est rendu comme un milieu continu : son
+     opacité monte avec l'épaisseur (loi de Beer-Lambert) ; sa densité, un peu
+     floutée, est vue comme un relief éclairé (des bourrelets clairs, des creux
+     sombres) ; le cœur des grandes masses reste dans l'ombre ; le feu
+     transparaît là où le sable est mince, et colore le sable qu'il éclaire.
+     Par-dessus, les étincelles ; puis lueur, exposition, vignette, grain. — */
+const SORTIE = `#version 300 es
+precision highp float;
+in vec2 vUv;
+uniform sampler2D uBraises;
+uniform sampler2D uSable;       // densité (r), lumière (g), feu reçu (b), teinte (a)
+uniform sampler2D uEtincelles;
+uniform float uTemps, uLueur, uExpo, uGrain, uFeu, uFlamme, uOccultation, uAbsorption, uRelief;
+uniform vec3  uOmbre, uClair, uFeuCouleur;
+out vec4 sortie;
+
+float alea(vec2 p){
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+/* Lire un niveau de mipmap flou sans voir ses gros pixels : quatre lectures
+   décalées en diagonale, moyennées (filtre en tente). */
+vec3 flou(float niveau){
+  vec2 pas = exp2(niveau) * 0.75 / vec2(textureSize(uBraises, 0));
+  return 0.25 * (textureLod(uBraises, vUv + vec2( pas.x,  pas.y), niveau).rgb
+               + textureLod(uBraises, vUv + vec2(-pas.x,  pas.y), niveau).rgb
+               + textureLod(uBraises, vUv + vec2( pas.x, -pas.y), niveau).rgb
+               + textureLod(uBraises, vUv + vec2(-pas.x, -pas.y), niveau).rgb);
+}
+
+float densite(float niveau, vec2 decalage){
+  return textureLod(uSable, vUv + decalage, niveau).r;
+}
+
+void main(){
+  vec3 feu     = texture(uBraises, vUv).rgb;
+  vec3 feuFlou = flou(1.0);
+  vec3 halo    = flou(3.5) * 0.6 + flou(5.5) * 0.4;
+
+  // ——— le sable
+  vec4  s = texture(uSable, vUv);
+  float D = s.r / (1.0 + s.r / 5.0);                 // les amas extrêmes ne crèvent pas l'image
+  float opacite = 1.0 - exp(-uAbsorption * D);
+  float lum     = s.g / max(D, 1e-5);
+  float feuRecu = s.b / max(D, 1e-5);
+  float teinte  = s.a / max(D, 1e-5);
+  // relief : la densité un peu floutée, éclairée d'en haut à gauche
+  vec2  e  = 2.5 / vec2(textureSize(uSable, 0));
+  float hG = densite(1.5, vec2(-e.x, 0.0)), hD = densite(1.5, vec2(e.x, 0.0));
+  float hB = densite(1.5, vec2(0.0, -e.y)), hH = densite(1.5, vec2(0.0, e.y));
+  vec3  nr = normalize(vec3((hG - hD) * uRelief, (hB - hH) * uRelief, 1.0));
+  float relief = clamp(0.55 + 0.75 * dot(nr, normalize(vec3(-0.45, 0.65, 0.6))), 0.2, 1.4);
+  // ombre de volume : le cœur des grandes masses reste sombre
+  float ombre = exp(-0.5 * uAbsorption * densite(3.5, vec2(0.0)));
+  vec3 sable = mix(uOmbre, uClair, clamp(0.03 + 1.45 * lum * relief * mix(0.6, 1.2, teinte) * mix(0.2, 1.0, ombre), 0.0, 1.0))
+             + uFeuCouleur * feuRecu * 1.3;
+
+  // ——— le feu transparaît là où le sable est mince
+  float transparence = pow(1.0 - opacite, 1.0 + uOccultation);
+  vec3 c = sable * opacite + (feu * 1.25 + feuFlou * 0.5) * uFeu * transparence;
+
+  // ——— les étincelles : quelques grains restent nets et scintillent
+  vec4 et = texture(uEtincelles, vUv);
+  c += (uClair * min(et.r, 1.5) + uFeuCouleur * min(et.g, 1.5)) * 0.2;
+
+  // ——— la grande lueur, surtout quand le cœur s'embrase
+  c += halo * uFeu * uLueur * (0.03 + 1.0 * uFlamme);
+
+  c *= uExpo;
+  c = vec3(1.0) - exp(-c);                     // compression douce des hautes lumières
+
+  vec2 q = vUv * 2.0 - 1.0;
+  c *= clamp(1.0 - 0.26 * dot(q, q), 0.0, 1.0);
+  c += (alea(gl_FragCoord.xy + fract(uTemps) * vec2(37.0, 91.0)) - 0.5) * 0.024 * uGrain;
+
+  sortie = vec4(max(c, 0.0), 1.0);
+}`;
+
+/* ───────────────────────────── construction ───────────────────────────── */
+
+let progSim = null, progSable = null, progBraises = null, progFondu = null, progSortie = null;
+let uSim = null, uSable = null, uBraisesU = null, uFondu = null, uSortie = null;
+let sim = [], iSim = 0;                  // deux états ping-pong (position + vitesse)
+let accSable = [], accBraises = [];      // deux couches, chacune en ping-pong
+let etincelles = null;                   // les grains nets, redessinés à chaque image
+let iAcc = 0;
+let nbBraises = 0;
+let vao = null;
+let cadre = { x:0, y:0, l:1, h:1 };
+let angleCamera = 0;
+let photoDemandee = false;
+
+function compiler(type, source){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, source);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+
+function lier(vs, fs){
+  const p = gl.createProgram();
+  gl.attachShader(p, compiler(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, compiler(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  return p;
+}
+
+function reperes(prog, noms){
+  const o = {};
+  for (const n of noms) o[n] = gl.getUniformLocation(prog, n);
+  return o;
+}
+
+function textureFlottante(l, h, donnees){
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, l, h, 0, gl.RGBA, gl.FLOAT, donnees || null);
+  return t;
+}
+
+/* Deux textures (position, vitesse) attachées au même cadre : la simulation
+   écrit les deux d'un coup. */
+function creerEtat(cote, pos, vel){
+  const tPos = textureFlottante(cote, cote, pos);
+  const tVel = textureFlottante(cote, cote, vel);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tPos, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, tVel, 0);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { pos:tPos, vel:tVel, fbo };
+}
+
+/* Une couche d'accumulation en demi-flottants. Celle des braises garde ses
+   mipmaps : la lueur se lit dedans, c'est un flou gratuit. */
+function creerCouche(l, h, avecMipmaps){
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, avecMipmaps ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, l, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+  if (avecMipmaps) gl.generateMipmap(gl.TEXTURE_2D);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+  gl.clearColor(0, 0, 0, 0);                  // alpha à 0 : aucun grain n'a encore rien couvert
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return { tex:t, fbo, l, h };
+}
+
+/* Semer : les braises en boule au centre, le sable réparti uniformément dans
+   tout le volume autour. Les âges sont décalés pour que les renaissances ne
+   tombent pas toutes en même temps. */
+function semer(cote){
+  const n = cote * cote;
+  nbBraises = Math.round(n * PART_BRAISES);
+  const pos = new Float32Array(n * 4), vel = new Float32Array(n * 4);
+  const direction = () => {
+    const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, s = Math.sqrt(1 - u * u);
+    return [Math.cos(a) * s, u, Math.sin(a) * s];
+  };
+  const dansBoule = () => { const d = direction(), r = Math.cbrt(Math.random()); return [d[0] * r, d[1] * r, d[2] * r]; };
+  const presence = (c) => 0.5 + 0.5 * Math.sin(3.1 * c[0] + 0.5) * Math.sin(2.7 * c[1] + 1.9) * Math.sin(3.3 * c[2] + 0.8);
+  let brin = null, foyer = null;
+  for (let i = 0; i < n; i++){
+    if (i < nbBraises){
+      if (i % 64 === 0){
+        const c = dansBoule();
+        foyer = { c:[c[0] * 0.33, c[1] * 0.33, c[2] * 0.33], etale:0.1 + 0.16 * Math.random(), vie:Math.random() };
+      }
+      for (let k = 0; k < 3; k++) pos[i*4 + k] = foyer.c[k] + (Math.random() - 0.5) * 2 * foyer.etale;
+      pos[i*4 + 3] = foyer.vie;
+    } else {
+      // le sable, en brins de 48 grains (même tirage que dans la simulation)
+      const j = (i - nbBraises) % 48;
+      if (j === 0){
+        let c = dansBoule();
+        for (let e = 0; e < 3 && Math.random() > presence(c); e++) c = dansBoule();
+        brin = { c:[c[0] * 0.92, c[1] * 0.92, c[2] * 0.92], s:direction(),
+                 l:0.08 + 0.25 * Math.random(), bruit:0.05 + 0.25 * Math.random(),
+                 vie:Math.random(), teinte:Math.random() };
+      }
+      const le = j / 47 - 0.5;
+      for (let k = 0; k < 3; k++) pos[i*4 + k] = brin.c[k] + brin.s[k] * le * brin.l + (Math.random() - 0.5) * brin.bruit;
+      pos[i*4 + 3] = brin.vie;
+    }
+    vel[i*4]     = (Math.random() - 0.5) * 0.2;
+    vel[i*4 + 1] = (Math.random() - 0.5) * 0.2;
+    vel[i*4 + 2] = (Math.random() - 0.5) * 0.2;
+    vel[i*4 + 3] = i < nbBraises ? Math.random() : brin.teinte;
+  }
+  for (const e of sim){ gl.deleteTexture(e.pos); gl.deleteTexture(e.vel); gl.deleteFramebuffer(e.fbo); }
+  sim = [creerEtat(cote, pos, vel), creerEtat(cote, null, null)];
+  iSim = 0;
+}
+
+function calculerCadre(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+  const L = Math.max(320, Math.round(window.innerWidth * dpr));
+  const H = Math.max(240, Math.round(window.innerHeight * dpr));
+  scene.width = L; scene.height = H;
+
+  let l = L, h = H;
+  if (etat.format !== "plein"){
+    const rapport = parseFloat(etat.format);
+    if (L / H > rapport){ h = H; l = Math.round(H * rapport); }
+    else { l = L; h = Math.round(L / rapport); }
+  }
+  const maxPixels = 3200000;
+  const f = Math.sqrt(maxPixels / Math.max(1, l * h));
+  if (f < 1){ l = Math.round(l * f); h = Math.round(h * f); }
+  cadre = { x: Math.round((L - l) / 2), y: Math.round((H - h) / 2), l, h };
+
+  for (const c of [...accSable, ...accBraises, ...(etincelles ? [etincelles] : [])]){
+    gl.deleteTexture(c.tex); gl.deleteFramebuffer(c.fbo);
+  }
+  etincelles = creerCouche(l, h, false);
+  // le feu est flou de toute façon : demi-résolution, quatre fois moins de pixels
+  const lb = Math.max(2, Math.round(l / 2)), hb = Math.max(2, Math.round(h / 2));
+  accBraises = [creerCouche(lb, hb, true), creerCouche(lb, hb, true)];
+  // la densité du sable est lissée de toute façon : demi-résolution aussi
+  accSable   = [creerCouche(lb, hb, true), creerCouche(lb, hb, true)];
+  iAcc = 0;
+}
+
+function initGL(){
+  if (!gl.getExtension("EXT_color_buffer_float")) throw new Error("textures flottantes indisponibles (EXT_color_buffer_float)");
+  gl.getExtension("OES_texture_float_linear");
+
+  progSim     = lier(QUAD, SIM);
+  progSable   = lier(SABLE_S, SABLE_F);
+  progBraises = lier(BRAISES_S, BRAISES_F);
+  progFondu   = lier(QUAD, FONDU);
+  progSortie  = lier(QUAD, SORTIE);
+
+  uSim = reperes(progSim, ["uPos","uVel","uCote","uNbBraises","uDt","uTemps","uAlea","uAigus",
+                           "uVolume","uChoc","uContraction","uFlamme","uChaos",
+                           "uImplosion","uSouffle","uVitesse","uAxe","uOmega","uRepere","uTirage","uNappes"]);
+  uSable = reperes(progSable, ["uPos","uVel","uFeuTex","uVueProjection","uRepere","uCote","uDebut",
+                               "uTaille","uEchelle","uDistCentre","uPoids","uRayonBraises","uRayon",
+                               "uFeuForce","uDirLumiere","uMode","uFlou","uTailleEcran","uEchelleTempete",
+                               "uTempsTempete","uVueDirection"]);
+  uBraisesU = reperes(progBraises, ["uPos","uVel","uVueProjection","uRepere","uCote","uTaille","uEchelle",
+                                    "uDistCentre","uEnergie","uFlamme","uBas","uHaut","uTempsTempete"]);
+  uFondu  = reperes(progFondu,  ["uSrc","uFacteur"]);
+  uSortie = reperes(progSortie, ["uBraises","uSable","uEtincelles","uTemps","uLueur","uExpo","uGrain",
+                                 "uFeu","uFlamme","uOccultation","uAbsorption","uRelief","uOmbre",
+                                 "uClair","uFeuCouleur"]);
+
+  vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  gl.disable(gl.DEPTH_TEST);
+  gl.disable(gl.CULL_FACE);
+}
+
+/* ───────────────────────────── dynamique musicale ─────────────────────────────
+   Deux grandeurs lissées pilotent la tempête :
+     · la CONTRACTION (implosion) : attaque rapide, relâche lente — la tempête
+       s'effondre d'un coup sur un coup de grosse caisse et se regonfle ensuite ;
+     · la FLAMME (embrasement du cœur) : encore plus nerveuse.
+   On réagit aux basses AU-DESSUS de leur moyenne récente, pour que la tempête
+   batte avec la grosse caisse même dans un morceau très chargé en basses. */
+const dyn = { tirage:0, contraction:0, flamme:0, basMoyen:0.2, axe:[0, 1, 0], omega:0, vitesse:0.3, tempsSim:0, dtTempete:0,
+              repere:new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+              coup:0, precBasses:null, fluxMoy:0, fluxEcart:0.01 };
+
+/* La grosse caisse : même principe que le détecteur de frappe général (flux
+   spectral), mais limité aux basses — sinon chaque charleston ferait imploser
+   la tempête. */
+function detecterCoup(dt){
+  dyn.coup = Math.max(0, dyn.coup - dt * 3.5);
+  if (!spectre || !analyseur){ dyn.coup = Math.max(dyn.coup, mesures.choc * 0.6); return; }
+  const a = Math.max(1, binPour(30)), b = Math.min(spectre.length - 1, binPour(160));
+  if (!dyn.precBasses) dyn.precBasses = new Float32Array(spectre.length);
+  let flux = 0;
+  for (let i = a; i <= b; i++){
+    const d = spectre[i] - dyn.precBasses[i];
+    if (d > 0) flux += d;
+    dyn.precBasses[i] = spectre[i];
+  }
+  flux /= (b - a + 1) * 255;
+  dyn.fluxMoy   += (flux - dyn.fluxMoy) * 0.08;
+  dyn.fluxEcart += (Math.abs(flux - dyn.fluxMoy) - dyn.fluxEcart) * 0.08;
+  const saillance = (flux - dyn.fluxMoy) / (dyn.fluxEcart * 2.2 + 0.002);
+  if (saillance > 1) dyn.coup = Math.min(1, Math.max(dyn.coup, saillance * 0.35 * etat.reaction));
+}
+
+function majDynamique(dt){
+  const m = mesures;
+  dyn.basMoyen += (m.basses - dyn.basMoyen) * (1 - Math.exp(-0.6 * dt));
+  const exces = Math.max(0, m.basses - dyn.basMoyen * 0.85);
+
+  detecterCoup(dt);
+  const cibleC = Math.min(1, dyn.coup * 0.9 + exces * 0.8);
+  const kC = cibleC > dyn.contraction ? 12 : 3.0;
+  dyn.contraction += (cibleC - dyn.contraction) * (1 - Math.exp(-kC * dt));
+
+  const cibleF = Math.min(1.2, dyn.coup * 0.8 + m.choc * 0.3 + exces * 0.8);
+  const kF = cibleF > dyn.flamme ? 14 : 2.5;
+  dyn.flamme += (cibleF - dyn.flamme) * (1 - Math.exp(-kF * dt));
+
+  // le temps de la tempête : lourd et presque figé au repos, emballé sur les
+  // coups — c'est ce qui donne ces rafales où tout tourbillonne d'un coup
+  const cibleV = 0.45 + 2.6 * dyn.coup * dyn.coup + 0.8 * exces;
+  const kV = cibleV > dyn.vitesse ? 30 : 6.0;
+  dyn.vitesse += (cibleV - dyn.vitesse) * (1 - Math.exp(-kV * dt));
+
+  // l'axe du tourbillon précesse, au rythme de la tempête elle-même
+  const t = dyn.tempsSim;
+  const ax = [Math.sin(t * 0.31) * 0.7 + Math.sin(t * 0.83) * 0.2, 1, Math.cos(t * 0.23) * 0.7];
+  const l = Math.hypot(ax[0], ax[1], ax[2]);
+  dyn.axe = [ax[0] / l, ax[1] / l, ax[2] / l];
+}
+
+/* Matrice de rotation d'angle th autour de l'axe unitaire a, rangée par colonnes. */
+function matRotation(a, th){
+  const c = Math.cos(th), s = Math.sin(th), u = 1 - c, [x, y, z] = a;
+  return [u*x*x + c,   u*x*y + s*z, u*x*z - s*y,
+          u*x*y - s*z, u*y*y + c,   u*y*z + s*x,
+          u*x*z + s*y, u*y*z - s*x, u*z*z + c];
+}
+
+/* Le repère de la tempête accumule toutes ses rotations. On le ré-orthonormalise
+   à chaque image pour que les erreurs d'arrondi ne le déforment pas. */
+function tournerRepere(a, th){
+  const R = matRotation(a, th), M = dyn.repere, C = new Float32Array(9);
+  for (let j = 0; j < 3; j++)
+    for (let i = 0; i < 3; i++)
+      C[j*3 + i] = R[i] * M[j*3] + R[3 + i] * M[j*3 + 1] + R[6 + i] * M[j*3 + 2];
+  const col = (k) => [C[k*3], C[k*3 + 1], C[k*3 + 2]];
+  const norme = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return v.map((x) => x / l); };
+  const e0 = norme(col(0));
+  let e1 = col(1); const d = e0[0]*e1[0] + e0[1]*e1[1] + e0[2]*e1[2];
+  e1 = norme([e1[0] - d*e0[0], e1[1] - d*e0[1], e1[2] - d*e0[2]]);
+  const e2 = [e0[1]*e1[2] - e0[2]*e1[1], e0[2]*e1[0] - e0[0]*e1[2], e0[0]*e1[1] - e0[1]*e1[0]];
+  dyn.repere = new Float32Array([...e0, ...e1, ...e2]);
+}
+
+/* ───────────────────────────── une image ───────────────────────────── */
+
+function rendre(dt){
+  simuler(dt);
+  dessiner(dt);
+}
+
+/* Le temps de la tempête avance à sa propre vitesse (dyn.vitesse) : lente et
+   lourde au repos, emballée sur les coups. On le découpe en sous-pas pour que
+   les grands bonds restent stables. */
+function simuler(dt){
+  const dtTempete = Math.min(dt, 0.05) * dyn.vitesse * etat.reg.vitesse;
+  dyn.dtTempete = dtTempete;
+  const n = Math.min(5, Math.max(1, Math.ceil(dtTempete / 0.02)));
+  const h = Math.min(0.034, dtTempete / n);
+  for (let k = 0; k < n; k++) pasDeSimulation(h);
+}
+
+function pasDeSimulation(h){
+  const r = etat.reg;
+  const cote = etat.cote;
+  dyn.tempsSim = (dyn.tempsSim + h) % 3600;
+
+  // ——— 1. simulation ———
+  // vitesse angulaire d'ensemble : plus forte quand ça joue fort, et encore plus
+  // quand la tempête se contracte (la patineuse qui ramène les bras)
+  dyn.omega = 0.45 * r.tourbillon * (1 + 0.6 * mesures.volume + 1.2 * dyn.contraction);
+  tournerRepere(dyn.axe, dyn.omega * h);
+
+  const source = sim[iSim], cible = sim[1 - iSim];
+  gl.bindFramebuffer(gl.FRAMEBUFFER, cible.fbo);
+  gl.viewport(0, 0, cote, cote);
+  gl.useProgram(progSim);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, source.pos); gl.uniform1i(uSim.uPos, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, source.vel); gl.uniform1i(uSim.uVel, 1);
+  gl.uniform1i(uSim.uCote, cote);
+  gl.uniform1i(uSim.uNbBraises, nbBraises);
+  gl.uniform1f(uSim.uDt, h);
+  gl.uniform1f(uSim.uTemps, dyn.tempsSim);
+  gl.uniform1f(uSim.uAlea, Math.random() * 1000);
+  dyn.tirage = (dyn.tirage + 1) >>> 0;
+  gl.uniform1ui(uSim.uTirage, dyn.tirage);
+  gl.uniform1f(uSim.uAigus, mesures.aigus);
+  gl.uniform1f(uSim.uVolume, mesures.volume);
+  gl.uniform1f(uSim.uChoc, Math.min(1.2, mesures.choc));
+  gl.uniform1f(uSim.uContraction, dyn.contraction);
+  gl.uniform1f(uSim.uFlamme, dyn.flamme);
+  gl.uniform1f(uSim.uOmega, dyn.omega);
+  gl.uniformMatrix3fv(uSim.uRepere, false, dyn.repere);
+  gl.uniform1f(uSim.uChaos, r.chaos);
+  gl.uniform1f(uSim.uNappes, 6.0 * r.nappes);
+  gl.uniform1f(uSim.uImplosion, r.contraction);
+  gl.uniform1f(uSim.uSouffle, r.souffle);
+  gl.uniform1f(uSim.uVitesse, 1);                    // la vitesse est déjà dans h
+  gl.uniform3f(uSim.uAxe, dyn.axe[0], dyn.axe[1], dyn.axe[2]);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  iSim = 1 - iSim;
+}
+
+function dessiner(dt){
+  const r = etat.reg;
+  const m = MATIERES[etat.matiere];
+  const cote = etat.cote, n = cote * cote;
+  const compensation = (COTE_REFERENCE * COTE_REFERENCE) / n;   // plus de grains = grains plus fins
+  const etatCourant = sim[iSim];
+
+  // ——— caméra : recule assez pour que la tempête tienne dans le cadre ———
+  if (etat.camera) angleCamera += dt * 0.05;
+  const rapport = cadre.l / cadre.h;
+  const tanDemiFov = Math.tan(25 * Math.PI / 180);
+  const dist = 1.15 / (tanDemiFov * Math.min(1, rapport));
+  const sa = Math.sin(angleCamera), ca = Math.cos(angleCamera);
+  const oeil = [sa * dist, 0.15 + dist * 0.12 * Math.sin(angleCamera * 0.63), ca * dist];
+  const vueProjection = produit(perspective(50, rapport, 0.1, 80), regard(oeil, [0, 0, 0], [0, 1, 0]));
+  // lumière en contre-jour, d'en haut et de l'arrière : le gris ne prend que le
+  // dessus et les bords de la tempête, la face tournée vers nous reste sombre —
+  // c'est là que le rouge du feu domine
+  const versCam = [oeil[0] / dist, oeil[1] / dist, oeil[2] / dist];
+  // (avec un peu de lumière d'appoint de face, pour que le voile qui passe
+  // devant le feu reste gris)
+  const lum = [-versCam[0] * 0.2 - ca * 0.3, -versCam[1] * 0.2 + 0.85, -versCam[2] * 0.2 + sa * 0.3];
+  const ll = Math.hypot(lum[0], lum[1], lum[2]);
+  const rayonBoulePx = 1.3 * (cadre.h / 2) / (dist * tanDemiFov);
+  const rayonBraises = 0.68 * (1 + 0.4 * dyn.flamme);
+  // taille de la tempête : elle respire au repos, s'effondre sur les coups de
+  // grosse caisse (implosion) et se dilate un peu sur les frappes (souffle)
+  const ts = dyn.tempsSim;
+  const rayonTempete = (1 + 0.05 * Math.sin(ts * 0.61) + 0.035 * Math.sin(ts * 1.73 + 1.3))
+                     * (1 - 0.38 * r.contraction * dyn.contraction)
+                     * (1 + 0.06 * r.souffle * Math.min(1, mesures.choc));
+
+  const [so, sc] = [couleurVersRvb(m.sable[0]), couleurVersRvb(m.sable[1])];
+  const [bb, bh] = [couleurVersRvb(m.braises[0]), couleurVersRvb(m.braises[1])];
+
+  const sableAvant = accSable[iAcc], sableApres = accSable[1 - iAcc];
+  const feuAvant = accBraises[iAcc], feuApres = accBraises[1 - iAcc];
+
+  // ——— 2. les braises d'abord, dans leur propre couche : elles servent aussi
+  //        de source de lumière au sable ———
+  gl.bindFramebuffer(gl.FRAMEBUFFER, feuApres.fbo);
+  gl.viewport(0, 0, feuApres.l, feuApres.h);
+  gl.disable(gl.BLEND);
+  gl.useProgram(progFondu);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, feuAvant.tex); gl.uniform1i(uFondu.uSrc, 0);
+  gl.uniform1f(uFondu.uFacteur, Math.pow(0.55, dt * 60));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(progBraises);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, etatCourant.pos); gl.uniform1i(uBraisesU.uPos, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, etatCourant.vel); gl.uniform1i(uBraisesU.uVel, 1);
+  gl.uniformMatrix4fv(uBraisesU.uVueProjection, false, vueProjection);
+  gl.uniform1i(uBraisesU.uCote, cote);
+  gl.uniform1f(uBraisesU.uTaille, 1);
+  gl.uniform1f(uBraisesU.uEchelle, rayonBoulePx * 0.0036 * (feuApres.h / cadre.h));
+  gl.uniform1f(uBraisesU.uDistCentre, dist);
+  gl.uniform1f(uBraisesU.uEnergie, 0.009 * compensation);
+  gl.uniform1f(uBraisesU.uFlamme, dyn.flamme);
+  gl.uniformMatrix3fv(uBraisesU.uRepere, false, dyn.repere);
+  gl.uniform1f(uBraisesU.uTempsTempete, dyn.tempsSim);
+  gl.uniform3f(uBraisesU.uBas, bb[0], bb[1], bb[2]);
+  gl.uniform3f(uBraisesU.uHaut, bh[0], bh[1], bh[2]);
+  gl.drawArrays(gl.POINTS, 0, nbBraises);
+  gl.disable(gl.BLEND);
+  gl.bindTexture(gl.TEXTURE_2D, feuApres.tex);
+  gl.generateMipmap(gl.TEXTURE_2D);                 // lueur et lumière du sable se lisent dans les mipmaps
+
+  // ——— 3. le sable : chaque grain dépose une tache douce dans la carte de
+  //        densité ; l'image d'avant s'efface un peu (les traînées) ———
+  const k60Sable = Math.max(0, Math.min(0.965, 1 - 0.55 / Math.max(0.1, r.trainee)));
+  gl.bindFramebuffer(gl.FRAMEBUFFER, sableApres.fbo);
+  gl.viewport(0, 0, sableApres.l, sableApres.h);
+  gl.useProgram(progFondu);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, sableAvant.tex); gl.uniform1i(uFondu.uSrc, 0);
+  gl.uniform1f(uFondu.uFacteur, Math.pow(k60Sable, dt * 60));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  // rayon de la boule en pixels de la carte de densité : la taille des taches
+  // et leur masse en dépendent, pour que l'image ne change pas avec la fenêtre
+  const rayonCartePx = rayonBoulePx * (sableApres.h / cadre.h);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.ONE, gl.ONE);                     // une densité : on additionne
+  gl.useProgram(progSable);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, etatCourant.pos); gl.uniform1i(uSable.uPos, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, etatCourant.vel); gl.uniform1i(uSable.uVel, 1);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, feuApres.tex);    gl.uniform1i(uSable.uFeuTex, 2);
+  gl.uniformMatrix4fv(uSable.uVueProjection, false, vueProjection);
+  gl.uniformMatrix3fv(uSable.uRepere, false, dyn.repere);
+  gl.uniform1i(uSable.uCote, cote);
+  gl.uniform1i(uSable.uDebut, nbBraises);
+  gl.uniform1f(uSable.uTaille, r.taille);
+  gl.uniform1f(uSable.uEchelle, rayonCartePx * 0.02);
+  gl.uniform1f(uSable.uDistCentre, dist);
+  gl.uniform1f(uSable.uPoids, 0.08 * r.densite * compensation * Math.pow(rayonCartePx / 150, 2));
+  gl.uniform1f(uSable.uRayonBraises, rayonBraises);
+  gl.uniform1f(uSable.uRayon, rayonTempete);
+  gl.uniform1f(uSable.uEchelleTempete, rayonTempete);
+  gl.uniform1f(uSable.uTempsTempete, dyn.tempsSim);
+  gl.uniform3f(uSable.uVueDirection, -versCam[0], -versCam[1], -versCam[2]);
+  gl.uniform1f(uSable.uFeuForce, m.diffusion * r.feu * 3.4);
+  gl.uniform3f(uSable.uDirLumiere, lum[0] / ll, lum[1] / ll, lum[2] / ll);
+  gl.uniform2f(uSable.uTailleEcran, sableApres.l, sableApres.h);
+  gl.uniform1i(uSable.uMode, 0);
+  gl.drawArrays(gl.POINTS, 0, n - nbBraises);
+  // pendant les rafales, les grains parcourent des dizaines de pixels par image :
+  // des taches laisseraient une traînée en pointillés ; on trace donc aussi
+  // chaque grain en trait, de sa position d'avant à celle d'après
+  if (dyn.dtTempete > 0.012){
+    gl.uniform1i(uSable.uMode, 1);
+    gl.uniform1f(uSable.uFlou, dyn.dtTempete * 1.2);
+    gl.drawArrays(gl.LINES, 0, 2 * (n - nbBraises));
+  }
+  gl.bindTexture(gl.TEXTURE_2D, sableApres.tex);
+  gl.generateMipmap(gl.TEXTURE_2D);                 // le relief et l'ombre se lisent dans les mipmaps
+
+  // ——— 3 bis. les étincelles : un grain sur cinq, net, en pleine résolution ———
+  gl.bindFramebuffer(gl.FRAMEBUFFER, etincelles.fbo);
+  gl.viewport(0, 0, etincelles.l, etincelles.h);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.uniform1i(uSable.uMode, 2);
+  gl.uniform2f(uSable.uTailleEcran, etincelles.l, etincelles.h);
+  gl.drawArrays(gl.POINTS, 0, Math.floor((n - nbBraises) / 5));
+  gl.disable(gl.BLEND);
+
+  iAcc = 1 - iAcc;
+
+  // ——— 4. composition, à l'écran ———
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.viewport(0, 0, scene.width, scene.height);
+  gl.clearColor(0, 0, 0, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.viewport(cadre.x, cadre.y, cadre.l, cadre.h);
+  gl.useProgram(progSortie);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, feuApres.tex);    gl.uniform1i(uSortie.uBraises, 0);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, sableApres.tex);  gl.uniform1i(uSortie.uSable, 1);
+  gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, etincelles.tex);  gl.uniform1i(uSortie.uEtincelles, 2);
+  gl.uniform1f(uSortie.uTemps, mesures.temps);
+  gl.uniform1f(uSortie.uLueur, 0.55 * r.lueur);
+  gl.uniform1f(uSortie.uExpo, 1.35 * r.expo);
+  gl.uniform1f(uSortie.uGrain, r.grain);
+  gl.uniform1f(uSortie.uFeu, r.feu);
+  gl.uniform1f(uSortie.uFlamme, dyn.flamme);
+  gl.uniform1f(uSortie.uOccultation, m.occultation);
+  gl.uniform1f(uSortie.uAbsorption, 1.4);
+  gl.uniform1f(uSortie.uRelief, 2.5);
+  gl.uniform3f(uSortie.uOmbre, so[0], so[1], so[2]);
+  gl.uniform3f(uSortie.uClair, sc[0], sc[1], sc[2]);
+  gl.uniform3f(uSortie.uFeuCouleur, bh[0], bh[1], bh[2]);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  if (photoDemandee){
+    photoDemandee = false;
+    try {
+      const a = document.createElement("a");
+      a.href = scene.toDataURL("image/png");
+      a.download = "tempete-" + Date.now() + ".png";
+      a.click();
+    } catch(err){ console.warn(err); }
+  }
+}
+
+/* ───────────────────────────── interface ───────────────────────────── */
+
+const CURSEURS = {
+  sTourbillon:"tourbillon", sChaos:"chaos", sNappes:"nappes", sContraction:"contraction", sSouffle:"souffle",
+  sVitesse:"vitesse", sDensite:"densite", sTaille:"taille", sTrainee:"trainee", sFeu:"feu",
+  sLueur:"lueur", sExpo:"expo", sGrain:"grain",
+};
+
+function fmtTemps(sec){
+  if (!isFinite(sec) || sec < 0) sec = 0;
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return m + ":" + String(s).padStart(2, "0");
+}
+
+function construireMatieres(){
+  const hote = $("presets");
+  hote.innerHTML = "";
+  Object.keys(MATIERES).forEach((cle, i) => {
+    const m = MATIERES[cle];
+    const b = document.createElement("button");
+    b.className = "puce" + (cle === etat.matiere ? " actif" : "");
+    b.dataset.matiere = cle;
+    b.innerHTML = "<strong>" + (i + 1) + ". " + m.nom + "</strong><br><span style='opacity:.6'>"
+                + m.desc + "</span>";
+    b.addEventListener("click", () => appliquerMatiere(cle));
+    hote.appendChild(b);
+  });
+}
+
+function appliquerMatiere(cle){
+  const m = MATIERES[cle];
+  if (!m) return;
+  etat.matiere = cle;
+  for (const [id, champ] of Object.entries(CURSEURS)){
+    const v = m.reg[champ];
+    if (v === undefined) continue;
+    etat.reg[champ] = v;
+    const curseur = $(id);
+    curseur.value = Math.round(Math.max(curseur.min, Math.min(curseur.max, v * 100)));
+    $("v" + id.slice(1)).textContent = curseur.value;
+  }
+  document.querySelectorAll(".puce").forEach((b) =>
+    b.classList.toggle("actif", b.dataset.matiere === cle));
+}
+
+for (const [id, champ] of Object.entries(CURSEURS)){
+  $(id).addEventListener("input", (ev) => {
+    etat.reg[champ] = ev.target.value / 100;
+    $("v" + id.slice(1)).textContent = ev.target.value;
+  });
+}
+
+$("sReaction").addEventListener("input", (ev) => {
+  etat.reaction = ev.target.value / 100;
+  $("vReaction").textContent = ev.target.value;
+});
+$("cCamera").addEventListener("change", (ev) => { etat.camera = ev.target.checked; });
+$("choixFormat").addEventListener("change", (ev) => { etat.format = ev.target.value; calculerCadre(); });
+$("choixQualite").addEventListener("change", (ev) => {
+  etat.cote = parseInt(ev.target.value, 10);
+  semer(etat.cote);
+});
+
+function basculerPanneau(force){
+  const ouvert = force !== undefined ? force : panneau.hasAttribute("hidden");
+  if (ouvert) panneau.removeAttribute("hidden"); else panneau.setAttribute("hidden", "");
+  if (ouvert) reveiller();
+}
+$("btnReglages").addEventListener("click", () => basculerPanneau());
+
+/* ——— transport ——— */
+
+function enLecture(){ return etat.demo || (!!lecteur.src && !lecteur.paused); }
+
+function basculerLecture(){
+  if (etat.demo){
+    if (ctxAudio.state === "running") ctxAudio.suspend(); else ctxAudio.resume();
+    majInterface();
+    return;
+  }
+  if (!lecteur.src){ champFichier.click(); return; }
+  if (ctxAudio) ctxAudio.resume();
+  if (lecteur.paused){
+    if (lecteur.ended) lecteur.currentTime = 0;
+    lecteur.play().catch(() => {});
+  } else lecteur.pause();
+  majInterface();
+}
+$("btnLecture").addEventListener("click", basculerLecture);
+
+$("volume").addEventListener("input", (ev) => {
+  if (melange) melange.gain.value = ev.target.value / 100;
+});
+
+const piste = $("piste");
+let glisse = false;
+function chercher(ev){
+  if (!lecteur.duration || !isFinite(lecteur.duration)) return;
+  const r = piste.getBoundingClientRect();
+  const x = (ev.clientX - r.left) / r.width;
+  lecteur.currentTime = Math.max(0, Math.min(1, x)) * lecteur.duration;
+  majTransport(true);
+}
+piste.addEventListener("pointerdown", (ev) => { glisse = true; piste.setPointerCapture(ev.pointerId); chercher(ev); });
+piste.addEventListener("pointermove", (ev) => { if (glisse) chercher(ev); });
+piste.addEventListener("pointerup",   () => { glisse = false; });
+piste.addEventListener("keydown", (ev) => {
+  if (!lecteur.duration) return;
+  if (ev.key === "ArrowRight") lecteur.currentTime = Math.min(lecteur.duration, lecteur.currentTime + 5);
+  if (ev.key === "ArrowLeft")  lecteur.currentTime = Math.max(0, lecteur.currentTime - 5);
+});
+
+let horlogeUI = 0;
+function majTransport(force){
+  horlogeUI += 1;
+  if (!force && horlogeUI % 6 !== 0) return;
+  const d = lecteur.duration, t = lecteur.currentTime;
+  const pct = (d && isFinite(d)) ? (t / d) * 100 : 0;
+  $("rempli").style.width = pct + "%";
+  $("curseur").style.left = pct + "%";
+  piste.setAttribute("aria-valuenow", Math.round(pct));
+  $("temps").textContent = etat.demo ? "boucle" : (fmtTemps(t) + " / " + fmtTemps(d));
+}
+
+function majInterface(){
+  const pret = etat.demo || !!lecteur.src;
+  accueil.classList.toggle("parti", pret);
+  barre.classList.toggle("cachee", !pret || !etat.interfaceVisible);
+  coin.classList.toggle("cachee", !pret || !etat.interfaceVisible);
+  $("btnLecture").textContent = enLecture() && (!ctxAudio || ctxAudio.state === "running") ? "‖" : "▶";
+  $("nomFichier").textContent = etat.nom || "—";
+}
+
+lecteur.addEventListener("play",  majInterface);
+lecteur.addEventListener("pause", majInterface);
+lecteur.addEventListener("ended", majInterface);
+lecteur.addEventListener("loadedmetadata", () => majTransport(true));
+
+/* ——— fichiers ——— */
+
+function chargerFichier(f){
+  if (!f || !/^audio\//.test(f.type || "")) return;
+  arreterDemo();
+  brancherLecteur();
+  if (lecteur.src) URL.revokeObjectURL(lecteur.src);
+  lecteur.src = URL.createObjectURL(f);
+  etat.nom = f.name;
+  ctxAudio.resume();
+  lecteur.play().catch(() => {});
+  majInterface();
+}
+
+champFichier.addEventListener("change", (ev) => chargerFichier(ev.target.files[0]));
+$("btnFichier").addEventListener("click", () => champFichier.click());
+$("btnDemo").addEventListener("click", lancerDemo);
+
+let compteurDepot = 0;
+window.addEventListener("dragenter", (ev) => { ev.preventDefault(); compteurDepot++; depot.classList.add("visible"); });
+window.addEventListener("dragover",  (ev) => { ev.preventDefault(); });
+window.addEventListener("dragleave", (ev) => { ev.preventDefault(); if (--compteurDepot <= 0) depot.classList.remove("visible"); });
+window.addEventListener("drop", (ev) => {
+  ev.preventDefault(); compteurDepot = 0; depot.classList.remove("visible");
+  chargerFichier(ev.dataTransfer.files && ev.dataTransfer.files[0]);
+});
+
+/* ——— plein écran, photo, enregistrement ——— */
+
+$("btnPlein").addEventListener("click", () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+});
+$("btnPhoto").addEventListener("click", () => { photoDemandee = true; });
+
+let enregistreur = null, morceaux = [];
+function basculerEnregistrement(){
+  const note = $("noteEnr"), bouton = $("btnEnr");
+  if (enregistreur){ enregistreur.stop(); return; }
+  if (!scene.captureStream || typeof MediaRecorder === "undefined"){
+    note.textContent = "Ce navigateur ne sait pas enregistrer la toile."; return;
+  }
+  const flux = scene.captureStream(30);
+  if (ctxAudio){
+    if (!sortieEnr){ sortieEnr = ctxAudio.createMediaStreamDestination(); analyseur.connect(sortieEnr); }
+    const pisteSon = sortieEnr.stream.getAudioTracks()[0];
+    if (pisteSon) flux.addTrack(pisteSon);
+  }
+  const types = ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"];
+  const type = types.find((t) => MediaRecorder.isTypeSupported(t));
+  try { enregistreur = new MediaRecorder(flux, type ? { mimeType:type, videoBitsPerSecond:10000000 } : undefined); }
+  catch(err){ note.textContent = "Enregistrement impossible : " + err.message; return; }
+  morceaux = [];
+  enregistreur.ondataavailable = (ev) => { if (ev.data.size) morceaux.push(ev.data); };
+  enregistreur.onstop = () => {
+    const lien = document.createElement("a");
+    lien.href = URL.createObjectURL(new Blob(morceaux, { type:"video/webm" }));
+    lien.download = "tempete-" + Date.now() + ".webm";
+    lien.click();
+    enregistreur = null;
+    bouton.textContent = "Enregistrer";
+    note.textContent = "Fichier .webm téléchargé.";
+    $("tempoinRec").hidden = true;
+  };
+  enregistreur.start();
+  bouton.textContent = "Arrêter";
+  note.textContent = "Enregistrement en cours…";
+  $("tempoinRec").hidden = false;
+}
+$("btnEnr").addEventListener("click", basculerEnregistrement);
+
+/* ——— clavier ——— */
+
+const CLES = Object.keys(MATIERES);
+window.addEventListener("keydown", (ev) => {
+  if (ev.target.matches("input, select, textarea")) return;
+  const k = ev.key.toLowerCase();
+  if (k === " " || ev.code === "Space"){ ev.preventDefault(); basculerLecture(); }
+  else if (k === "r"){ basculerPanneau(); }
+  else if (k === "f"){ $("btnPlein").click(); }
+  else if (k === "h"){ etat.interfaceVisible = !etat.interfaceVisible; majInterface(); }
+  else if (k === "s"){ photoDemandee = true; }
+  else if (k >= "1" && k <= "5"){ appliquerMatiere(CLES[parseInt(k, 10) - 1]); }
+});
+
+let minuteurUI = 0;
+function reveiller(){
+  etat.interfaceVisible = true;
+  majInterface();
+  clearTimeout(minuteurUI);
+  minuteurUI = setTimeout(() => {
+    if (enLecture() && panneau.hasAttribute("hidden")){
+      etat.interfaceVisible = false;
+      majInterface();
+    }
+  }, 2800);
+}
+["pointermove", "pointerdown", "keydown", "wheel"].forEach((e) =>
+  window.addEventListener(e, reveiller, { passive:true }));
+
+/* ───────────────────────────── boucle ───────────────────────────── */
+
+let dernier = performance.now();
+function boucle(maintenant){
+  requestAnimationFrame(boucle);
+  const dt = Math.min(0.05, Math.max(0.0001, (maintenant - dernier) / 1000));
+  dernier = maintenant;
+  mesures.temps += dt;
+  analyser(dt);
+  majDynamique(dt);
+  rendre(dt);
+  majTransport(false);
+}
+
+window.addEventListener("resize", calculerCadre);
+scene.addEventListener("webglcontextlost", (ev) => ev.preventDefault());
+
+function echec(titre, detail){
+  accueil.innerHTML = "<div class='carte'><p class='surtitre'>tempête · visualisateur</p><h1>"
+    + titre + "</h1><p>" + detail + "</p><p class='aide'>"
+    + "<a href='./index.html' style='color:var(--texte-1)'>→ essayer l'autre rendu, VHS / glitch</a></p></div>";
+}
+
+function demarrer(){
+  if (!gl){
+    echec("WebGL2 indisponible",
+          "Ce nuage est calculé sur la carte graphique et demande WebGL2 : "
+        + "tous les navigateurs récents l'ont, mais il peut être désactivé "
+        + "(accélération matérielle coupée, ou pilote trop ancien).");
+    return;
+  }
+  try { initGL(); }
+  catch(err){
+    console.error(err);
+    echec("Le rendu n'a pas pu démarrer",
+          "<span style='font-family:var(--mono);font-size:.74rem'>"
+        + String(err.message).replace(/</g, "&lt;") + "</span>");
+    return;
+  }
+  construireMatieres();
+  appliquerMatiere(etat.matiere);
+  calculerCadre();
+  semer(etat.cote);
+  majInterface();
+  requestAnimationFrame(boucle);
+}
+
+demarrer();
+</script>
+</body>
+</html>

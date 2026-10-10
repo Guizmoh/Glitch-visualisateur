@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Guizmoh — applications</title>
-<meta name="description" content="Deux applications web : Page noir (inspiration musicale) et Plan de morceau (arrangement).">
+<meta name="description" content="Les applications web de Guizmoh : musique, visuels, jeux et outils.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎵</text></svg>">
 <meta name="theme-color" content="#100d0c">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -31,12 +31,13 @@
       radial-gradient(1000px 640px at 6% 112%, rgba(60,48,110,0.24), transparent 60%),
       linear-gradient(180deg, #16110e 0%, #100d0c 46%, #0a0909 100%);
   }
-  .wrap{ max-width:720px; width:100%; }
+  .wrap{ max-width:1040px; width:100%; }
   header{ text-align:center; margin-bottom:34px; }
   .eyebrow{ font-family:var(--mono); font-size:0.66rem; letter-spacing:0.24em; text-transform:uppercase; color:var(--accent-2); margin:0 0 12px; }
   h1{ font-size:clamp(1.7rem,5vw,2.2rem); font-weight:800; letter-spacing:-0.02em; margin:0; }
-  .cards{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-  @media (max-width:600px){ .cards{ grid-template-columns:1fr; } }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+  h3{ font-family:var(--mono); font-size:0.7rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--txt-3); font-weight:500; margin:30px 0 12px; }
+  h3:first-of-type{ margin-top:0; }
   a.card{
     display:block; text-decoration:none; color:var(--txt); padding:26px 22px;
     background:var(--glass); backdrop-filter:blur(30px); -webkit-backdrop-filter:blur(30px);
@@ -55,23 +56,63 @@
 <div class="wrap">
   <header>
     <p class="eyebrow">Guizmoh</p>
-    <h1>Deux applications, chacune installable</h1>
+    <h1>Toutes les applications</h1>
   </header>
+  <h3>Musique</h3>
   <div class="cards">
-    <a class="card" href="plan-de-morceau/">
-      <span class="emo">🎼</span>
-      <h2>Plan de morceau</h2>
-      <p>Calcule l'arrangement d'un morceau — intro, couplet, refrain, pont, drop, outro — selon la durée, le tempo et le genre, avec plusieurs variantes.</p>
-      <div class="go">Ouvrir →</div>
-    </a>
     <a class="card" href="page-noir/">
       <span class="emo">🌑</span>
       <h2>Page noir</h2>
       <p>Générateur d'inspiration musicale : style, morceaux de référence, BPM, pattern rythmique, gamme, ambiance, structure et contraintes.</p>
       <div class="go">Ouvrir →</div>
     </a>
+    <a class="card" href="atelier-rythme/">
+      <span class="emo">🥁</span>
+      <h2>Atelier rythme & mélodie</h2>
+      <p>Boîte à rythmes d'abord, puis accords, mélodie et basse en option. Verrouille ce qui te plaît, relance le reste, exporte en MIDI.</p>
+      <div class="go">Ouvrir →</div>
+    </a>
+    <a class="card" href="plan-de-morceau/">
+      <span class="emo">🎼</span>
+      <h2>Plan de morceau</h2>
+      <p>Calcule l'arrangement d'un morceau (intro, couplet, refrain, pont, drop, outro) selon la durée, le tempo et le genre.</p>
+      <div class="go">Ouvrir →</div>
+    </a>
+    <a class="card" href="midi/">
+      <span class="emo">🎛️</span>
+      <h2>Fiches MIDI</h2>
+      <p>Assigne les contrôles de tes machines MIDI (potards, encodeur, pages Shift) et exporte la fiche en image, JSON ou impression.</p>
+      <div class="go">Ouvrir →</div>
+    </a>
   </div>
-  <footer>Chaque application peut s'installer séparément depuis son propre écran, via le menu du navigateur.</footer>
+  <h3>Visuels</h3>
+  <div class="cards">
+    <a class="card" href="visualisateur/">
+      <span class="emo">🌪️</span>
+      <h2>Glitch, visualisateur</h2>
+      <p>Tempête de sable et de particules qui réagit au son : nappes, fumée, silhouette mouvante.</p>
+      <div class="go">Ouvrir →</div>
+    </a>
+  </div>
+  <h3>Jeux</h3>
+  <div class="cards">
+    <a class="card" href="moteur/">
+      <span class="emo">🗡️</span>
+      <h2>La Légende de Night</h2>
+      <p>Jeu d'action-aventure façon Zelda, en 3D (la version 2D et l'éditeur de cartes sont aussi dans le dossier).</p>
+      <div class="go">Ouvrir →</div>
+    </a>
+  </div>
+  <h3>Perso</h3>
+  <div class="cards">
+    <a class="card" href="mariages/">
+      <span class="emo">💍</span>
+      <h2>Carnet de mariages</h2>
+      <p>Carnet de commandes : demandes, devis, lieux, contacts, argent, heures et échéances. Les données restent dans ton navigateur.</p>
+      <div class="go">Ouvrir →</div>
+    </a>
+  </div>
+  <footer>Chaque application peut s'installer séparément depuis son propre écran, via le menu du navigateur.<br>Le Studio Omnipotard (vidéo) tourne sur PC : voir le dépôt Omnipotard-HARDWARE-VISUEL.</footer>
 </div>
 </body>
 </html>

@@ -1,22 +1,27 @@
-# Pages de Guizmoh
+# Applications de Guizmoh
 
-Branche dédiée à la publication GitHub Pages : elle ne contient pas de code
-source à modifier, seulement le résultat déployé de deux applications
-indépendantes, chacune installable séparément sur mobile (Ajouter à l'écran
-d'accueil / Installer l'application).
+Branche `main` : c'est elle qui est publiée sur GitHub Pages, à l'adresse
+https://guizmoh.github.io/Glitch-visualisateur/
 
-- [`plan-de-morceau/`](plan-de-morceau/) — généré depuis la branche
-  `claude/music-arrangement-app-4llo35`.
-- [`page-noir/`](page-noir/) — généré depuis la branche
-  `claude/inspiration-musicale-6kua9g`.
+Chaque application est dans son propre dossier et garde sa branche de travail.
+Ici, on ne fait que rassembler la dernière version de chacune.
 
-`index.html` à la racine n'est qu'une page d'accueil qui pointe vers les deux.
+| Dossier | Application | Branche de travail |
+| --- | --- | --- |
+| [`page-noir/`](page-noir/) | Page noir, inspiration musicale | `claude/inspiration-musicale-6kua9g` |
+| [`atelier-rythme/`](atelier-rythme/) | Atelier rythme & mélodie | `ccr-015edbb0-iznl6d` |
+| [`plan-de-morceau/`](plan-de-morceau/) | Plan de morceau | `claude/music-arrangement-app-4llo35` (version PWA : `pages-site`) |
+| [`midi/`](midi/) | Fiches MIDI (fichier `midi.html` de la branche) | `claude/midi-controller-mapping-tool-djr5gc` |
+| [`visualisateur/`](visualisateur/) | Glitch, visualisateur | `claude/visualisateur-rendu-yiwotw` |
+| [`moteur/`](moteur/) | La Légende de Night (jeu Zelda-like) | `claude/busy-bohr-bei1po` |
+| [`mariages/`](mariages/) | Carnet de mariages | `claude/friendly-planck-1tqdoy` |
 
-## Mettre à jour une des deux applications
+`index.html` à la racine est la page d'accueil qui pointe vers toutes les applications.
 
-Republier le contenu du dossier correspondant depuis sa branche source, puis
-relancer le workflow **Deploy to GitHub Pages** (onglet Actions, « Run
-workflow » sur cette branche-ci, `pages-site`).
+Le Studio Omnipotard (vidéo, sur PC) n'est pas ici : il vit dans le dépôt
+`Guizmoh/Omnipotard-HARDWARE-VISUEL`, que `Mettre-a-jour.bat` télécharge.
 
-Ne pas développer directement ici : les deux applications gardent leur
-propre branche de travail.
+## Mettre à jour une application
+
+1. Copier la nouvelle version du dossier depuis sa branche de travail vers `main`.
+2. Pousser sur `main` : le workflow **Deploy to GitHub Pages** republie le site tout seul.

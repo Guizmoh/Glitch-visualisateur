@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Planche de sprites</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body { display: block; padding: 18px 22px 40px; }
+  h1 { margin: 0 0 4px; }
+  p.info { font-size: 11px; color: var(--texte-doux); margin: 0 0 18px; }
+  h2 { font-size: 11px; letter-spacing: 2px; color: var(--accent); text-transform: uppercase;
+       margin: 24px 0 10px; border-bottom: 1px solid var(--bord); padding-bottom: 6px; }
+  .planche { display: flex; flex-wrap: wrap; gap: 14px; }
+  figure { margin: 0; text-align: center; }
+  figure canvas { image-rendering: pixelated; background: #1b1730;
+                  border: 1px solid var(--bord); border-radius: 4px; display: block; }
+  figcaption { font-size: 10px; color: var(--texte-doux); margin-top: 5px; }
+  .palette { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pastille { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--texte-doux); }
+  .pastille i { width: 20px; height: 20px; border-radius: 4px; border: 1px solid var(--bord); display: block; }
+</style>
+</head>
+<body>
+
+<h1>Planche de sprites</h1>
+<p class="info">
+  Tous les dessins du jeu, agrandis. Ils sont écrits en texte dans
+  <b>src/contenu/sprites.js</b> — une lettre = une couleur de la palette.
+  · <a href="index.html" style="color:var(--accent)">retour au jeu</a>
+</p>
+
+<h2>La palette</h2>
+<div class="palette" id="palette"></div>
+
+<h2>Night et les personnages</h2>
+<div class="planche" id="perso"></div>
+
+<h2>Les monstres</h2>
+<div class="planche" id="monstres"></div>
+
+<h2>Les objets et le reste</h2>
+<div class="planche" id="objets"></div>
+
+<script type="module">
+import { SPRITES, PALETTE } from './src/contenu/sprites.js';
+import { Atlas } from './src/noyau/pixels.js';
+
+const atlas = new Atlas(PALETTE);
+for (const [nom, motif] of Object.entries(SPRITES)) atlas.ajouterMotif(nom, motif);
+
+const ZOOM = 6;
+function afficher(conteneur, noms) {
+  const zone = document.getElementById(conteneur);
+  for (const nom of noms) {
+    const source = atlas.image(nom);
+    if (!source) continue;
+    const fig = document.createElement('figure');
+    const c = document.createElement('canvas');
+    c.width = source.width * ZOOM;
+    c.height = source.height * ZOOM;
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(source, 0, 0, c.width, c.height);
+    const legende = document.createElement('figcaption');
+    legende.textContent = nom;
+    fig.append(c, legende);
+    zone.append(fig);
+  }
+}
+
+const noms = Object.keys(SPRITES);
+const estPerso = (n) => n.startsWith('heros') || n.startsWith('villageois') || n.startsWith('sage');
+const estMonstre = (n) => ['gluant', 'chauve', 'squelette', 'roi_'].some((p) => n.startsWith(p));
+afficher('perso', noms.filter(estPerso));
+afficher('monstres', noms.filter(estMonstre));
+afficher('objets', noms.filter((n) => !estPerso(n) && !estMonstre(n)));
+
+const zonePalette = document.getElementById('palette');
+for (const [lettre, couleur] of Object.entries(PALETTE)) {
+  const d = document.createElement('div');
+  d.className = 'pastille';
+  d.innerHTML = `<i style="background:${couleur}"></i> ${lettre} · ${couleur}`;
+  zonePalette.append(d);
+}
+</script>
+</body>
+</html>

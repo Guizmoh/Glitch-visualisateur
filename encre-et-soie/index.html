@@ -1,0 +1,2704 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Encre et Soie</title>
+<script>(function(){var m=document.createElement("meta");m.name="viewport";m.content="width=device-width,initial-scale=1,viewport-fit=cover";document.head.appendChild(m);})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=IBM+Plex+Mono:wght@300;400;500&display=swap">
+
+<style>
+:root{
+  --ground:#04060A;
+  --panel:rgba(8,12,17,.62);
+  --hair:#17212C;
+  --hair-hi:#283644;
+  --ink:#D3DCE4;
+  --ink-dim:#7A8A97;
+  --ink-mute:#4B5A66;
+  --gold:#E5C46A;
+  --gold-deep:#9C7C2A;
+  --sea:#5FC7BE;
+  --alert:#E4693F;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --disp:"Bodoni Moda","Didot","Bodoni MT",Georgia,serif;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--mono);
+  overflow:hidden;-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0;background:var(--ground)}
+#gl{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#gl.grab{cursor:grabbing}
+body.nocursor #gl{cursor:none}
+
+
+#hud{position:absolute;inset:0;pointer-events:none;z-index:10;opacity:1;transition:opacity .5s var(--ease)}
+body.nohud #hud{opacity:0}
+#hud .hit{pointer-events:auto}
+
+#mast{position:absolute;top:30px;left:32px;display:flex;gap:13px;align-items:flex-start}
+#mast .rule{width:1px;height:42px;background:linear-gradient(180deg,var(--gold),transparent)}
+#mast h1{margin:0;font-family:var(--disp);font-weight:500;font-size:22px;letter-spacing:.01em;line-height:1}
+#mast h1 em{font-style:italic;font-weight:400;color:var(--gold)}
+#mast p{margin:7px 0 0;font-size:8.5px;letter-spacing:.30em;text-transform:uppercase;color:var(--ink-mute)}
+
+#tele{position:absolute;top:30px;right:32px;text-align:right;font-size:9px;letter-spacing:.13em;
+  color:var(--ink-mute);font-variant-numeric:tabular-nums;text-transform:uppercase}
+#tele div{display:flex;justify-content:flex-end;gap:12px;line-height:1.95}
+#tele b{font-weight:500;color:var(--ink-dim);min-width:78px;text-align:right;letter-spacing:.05em}
+#tele .ok{color:var(--sea)}
+#tele .warn{color:var(--gold)}
+#tele .bad{color:var(--alert)}
+
+/* ---- analyseur audio ---- */
+#audio{position:absolute;top:152px;right:32px;width:186px;text-align:right;opacity:.32;
+  transition:opacity .4s var(--ease)}
+#audio.on{opacity:1}
+#spec{display:block;width:186px;height:38px;margin-left:auto}
+#track{font-size:8.5px;letter-spacing:.16em;color:var(--ink-mute);text-transform:uppercase;
+  margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#audio.on #track{color:var(--sea)}
+#beat{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--hair-hi);
+  margin-left:8px;vertical-align:middle}
+
+#phase{position:absolute;left:32px;bottom:30px;display:flex;gap:18px;align-items:flex-end}
+#dial{width:74px;height:74px;flex:0 0 auto;position:relative}
+#dial svg{width:100%;height:100%;transform:rotate(-90deg);display:block}
+#dial .bg{fill:none;stroke:var(--hair);stroke-width:1}
+#dial .arc{fill:none;stroke:var(--gold);stroke-width:1.5;stroke-linecap:round;
+  filter:drop-shadow(0 0 5px rgba(229,196,106,.55));transition:stroke-dashoffset .2s linear}
+#dial .tick{stroke:var(--hair-hi);stroke-width:1}
+#dial b{position:absolute;inset:0;display:grid;place-items:center;font-size:15px;font-weight:400;
+  color:var(--ink);font-variant-numeric:tabular-nums}
+#phase .txt{padding-bottom:5px}
+#phase .idx{font-size:8.5px;letter-spacing:.30em;text-transform:uppercase;color:var(--gold);margin-bottom:9px}
+#phase h2{margin:0;font-family:var(--disp);font-weight:400;font-size:clamp(28px,3.4vw,42px);
+  line-height:.98;letter-spacing:-.01em}
+#phase p{margin:11px 0 0;font-size:10px;font-weight:300;line-height:1.8;letter-spacing:.04em;
+  color:var(--ink-dim);max-width:38ch}
+#phase.in{animation:pIn 1.1s var(--ease) both}
+@keyframes pIn{from{opacity:0;transform:translateY(12px);filter:blur(4px)}to{opacity:1;transform:none;filter:blur(0)}}
+
+#bar{position:absolute;right:32px;bottom:30px;display:flex;gap:8px;align-items:center}
+.btn{height:32px;min-width:32px;padding:0 11px;border:1px solid var(--hair);background:var(--panel);
+  color:var(--ink-dim);border-radius:2px;cursor:pointer;display:inline-flex;align-items:center;
+  justify-content:center;gap:7px;font-family:var(--mono);font-size:8.5px;letter-spacing:.18em;
+  text-transform:uppercase;-webkit-backdrop-filter:blur(9px);backdrop-filter:blur(9px);
+  transition:.18s var(--ease);max-width:200px;overflow:hidden;white-space:nowrap}
+.btn:hover{border-color:var(--gold-deep);color:var(--gold)}
+.btn:focus-visible{outline:1px solid var(--sea);outline-offset:2px}
+.btn.on{border-color:var(--gold);color:var(--gold)}
+.btn.live{border-color:var(--sea);color:var(--sea)}
+.btn svg{width:11px;height:11px;fill:currentColor;display:block;flex:0 0 auto}
+.btn span{overflow:hidden;text-overflow:ellipsis}
+
+#keys{position:absolute;right:32px;bottom:74px;font-size:8px;letter-spacing:.18em;color:var(--ink-mute);
+  text-transform:uppercase;text-align:right;line-height:2.1;pointer-events:none}
+#keys kbd{font-family:var(--mono);border:1px solid var(--hair);padding:1px 5px;border-radius:2px;
+  color:var(--ink-dim);font-size:8px;letter-spacing:.08em}
+
+#pan{position:absolute;right:32px;bottom:118px;width:238px;padding:16px 16px 13px;
+  background:var(--panel);border:1px solid var(--hair);border-radius:3px;
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  opacity:0;transform:translateY(8px);pointer-events:none;transition:.28s var(--ease);
+  max-height:78vh;overflow:auto}
+#pan.on{opacity:1;transform:none;pointer-events:auto}
+#pan h3{margin:0 0 13px;font-size:8.5px;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--gold-deep);font-weight:400}
+#pan label+h3,#pan .sel+h3{margin-top:19px}
+#pan label{display:block;margin-bottom:13px}
+#pan .row{display:flex;justify-content:space-between;font-size:8.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-dim);margin-bottom:7px;gap:8px}
+#pan .row b{font-weight:500;color:var(--gold);font-variant-numeric:tabular-nums;letter-spacing:.04em}
+#pan input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:1px;
+  background:var(--hair-hi);outline:none;margin:0}
+#pan input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:9px;height:9px;border-radius:50%;
+  background:var(--gold);cursor:pointer;box-shadow:0 0 8px rgba(229,196,106,.7)}
+#pan input[type=range]::-moz-range-thumb{width:9px;height:9px;border:0;border-radius:50%;
+  background:var(--gold);cursor:pointer;box-shadow:0 0 8px rgba(229,196,106,.7)}
+#pan input[type=range]:focus-visible{outline:1px solid var(--sea);outline-offset:4px}
+
+#pan .sel{display:flex;gap:6px;margin-bottom:16px}
+#pan select{flex:1;min-width:0;background:rgba(255,255,255,.02);border:1px solid var(--hair);
+  border-radius:2px;color:var(--ink-dim);font-family:var(--mono);font-size:8px;letter-spacing:.10em;
+  text-transform:uppercase;padding:0 5px;height:26px;outline:none;cursor:pointer;
+  -webkit-appearance:none;appearance:none}
+#pan select:hover{border-color:var(--gold-deep);color:var(--gold)}
+#pan select:focus-visible{outline:1px solid var(--sea);outline-offset:1px}
+#pan option{background:#080C11;color:var(--ink);text-transform:none;letter-spacing:0}
+#pan optgroup{background:#080C11;color:var(--gold-deep);font-style:normal;
+  text-transform:uppercase;letter-spacing:.10em;font-size:8px}
+
+#presets{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:13px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--hair);
+  background:rgba(255,255,255,.02);color:var(--ink-dim);font-family:var(--mono);font-size:8.5px;
+  letter-spacing:.08em;text-transform:uppercase;padding:6px 7px 6px 10px;border-radius:2px;
+  cursor:pointer;transition:.15s var(--ease);max-width:150px}
+.chip:hover{border-color:var(--gold-deep);color:var(--gold)}
+.chip b{font-weight:400;color:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip s{flex:0 0 auto;width:13px;height:13px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:50%;text-decoration:none;color:var(--ink-mute);font-size:11px;line-height:1}
+.chip s:hover{color:var(--alert)}
+#presetRow{display:flex;gap:6px;margin-bottom:15px}
+#presetName{flex:1;min-width:0;background:transparent;border:1px solid var(--hair);border-radius:2px;
+  color:var(--ink);font-family:var(--mono);font-size:10px;padding:0 8px;letter-spacing:.02em;
+  outline:none;height:30px}
+#presetName::placeholder{color:var(--ink-mute)}
+#presetName:focus-visible{outline:1px solid var(--sea);outline-offset:1px}
+#presetEmpty{font-size:8.5px;letter-spacing:.08em;color:var(--ink-mute);margin:0 0 13px;font-style:normal}
+
+#dz{position:absolute;inset:0;z-index:30;display:none;place-items:center;
+  background:rgba(4,6,10,.80);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+body.dragging #dz{display:grid}
+#dz div{border:1px dashed var(--sea);border-radius:4px;padding:34px 54px;text-align:center;
+  font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--sea)}
+
+#boot{position:absolute;inset:0;z-index:40;background:var(--ground);display:grid;place-content:center;
+  justify-items:center;gap:24px;text-align:center;padding:24px;transition:opacity .9s var(--ease)}
+#boot.gone{opacity:0;pointer-events:none}
+#boot .glyph{width:88px;height:88px;position:relative}
+#boot .glyph s{position:absolute;inset:0;border:1px solid var(--hair-hi);border-radius:50%;
+  text-decoration:none;animation:pulse 3.2s var(--ease) infinite}
+#boot .glyph s:nth-child(2){inset:14px;animation-delay:-.45s;border-color:var(--sea)}
+#boot .glyph s:nth-child(3){inset:28px;animation-delay:-.9s;border-color:var(--gold-deep)}
+#boot .glyph s:nth-child(4){inset:40px;background:var(--sea);border:0;
+  box-shadow:0 0 30px var(--sea);animation-delay:-1.35s}
+@keyframes pulse{0%,100%{opacity:.2;transform:scale(.92)}50%{opacity:1;transform:scale(1.07)}}
+#boot h1{margin:0;font-family:var(--disp);font-size:clamp(26px,4.6vw,38px);font-weight:400}
+#boot h1 em{font-style:italic;color:var(--gold)}
+#boot .sub{font-size:8.5px;letter-spacing:.38em;text-transform:uppercase;color:var(--ink-mute);margin-top:-16px}
+#boot .barwrap{width:min(320px,62vw);height:1px;background:var(--hair);position:relative;overflow:hidden}
+#boot .barwrap s{position:absolute;left:0;top:0;height:100%;width:0;background:var(--gold);
+  text-decoration:none;box-shadow:0 0 9px var(--gold);transition:width .3s var(--ease)}
+#boot .status{font-size:8.5px;letter-spacing:.24em;color:var(--ink-dim);text-transform:uppercase;min-height:13px}
+#boot .err{color:var(--alert);font-size:11px;max-width:64ch;line-height:1.7;text-align:left;
+  white-space:pre-wrap;display:none}
+#boot .err.on{display:block}
+
+@media (max-width:980px){
+  #keys,#tele,#audio{display:none}
+  #mast{top:20px;left:20px}
+  #phase{left:20px;right:20px;bottom:76px;gap:14px}
+  #phase p{display:none}
+  #bar{right:20px;bottom:24px}
+  #pan{right:20px;bottom:110px}
+}
+/* Téléphones en portrait : la barre de commandes mesure ~423 px et débordait
+   par la gauche, laissant Pause hors écran. On la laisse passer à deux rangées
+   et on remonte la légende et le panneau d'autant. */
+@media (max-width:470px){
+  #bar{left:20px;right:20px;justify-content:flex-end;flex-wrap:wrap;row-gap:8px}
+  .btn{height:38px}
+  #phase{bottom:122px}
+  #pan{bottom:156px;max-height:calc(100vh - 176px)}
+}
+@supports (height:100dvh){
+  @media (max-width:470px){ #pan{max-height:calc(100dvh - 176px)} }
+}
+
+@media (prefers-reduced-motion:reduce){
+  #phase.in{animation:none}
+  #boot .glyph s{animation:none}
+}
+
+#mast p.retour{margin-top:7px}#mast p.retour a{color:inherit;text-decoration:none;pointer-events:auto;opacity:.85}#mast p.retour a:hover{opacity:1;text-decoration:underline}
+</style>
+
+<div id="stage">
+  <canvas id="gl"></canvas>
+  <input type="file" id="fAudio" accept="audio/*" style="position:absolute;left:-9999px;width:1px;height:1px">
+
+  <div id="hud">
+    <div id="mast">
+      <div class="rule"></div>
+      <div>
+        <h1>Encre <em>et Soie</em></h1>
+        <p>Navier-Stokes &middot; advection MacCormack</p> <p class="retour"><a href="../">&larr; toutes les applications</a></p>
+      </div>
+    </div>
+
+    <div id="tele">
+      <div><span>grille</span><b id="tGrid">&mdash;</b></div>
+      <div><span>pression</span><b id="tJac">&mdash;</b></div>
+      <div><span>rendu</span><b id="tRes">&mdash;</b></div>
+      <div><span>images/s</span><b id="tFps">&mdash;</b></div>
+      <div><span>qualité</span><b id="tQ" class="ok">&mdash;</b></div>
+      <div><span>tempo</span><b id="tBpm">&mdash;</b></div>
+    </div>
+
+    <div id="audio">
+      <canvas id="spec" width="372" height="76"></canvas>
+      <div id="track">aucune piste<span id="beat"></span></div>
+    </div>
+
+    <div id="phase">
+      <div id="dial">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="bg" cx="50" cy="50" r="42"></circle>
+          <circle class="arc" id="arc" cx="50" cy="50" r="42" stroke-dasharray="263.9" stroke-dashoffset="263.9"></circle>
+          <line class="tick" x1="50" y1="4" x2="50" y2="11"></line>
+          <line class="tick" x1="96" y1="50" x2="89" y2="50"></line>
+          <line class="tick" x1="50" y1="96" x2="50" y2="89"></line>
+          <line class="tick" x1="4" y1="50" x2="11" y2="50"></line>
+        </svg>
+        <b id="dialN">1</b>
+      </div>
+      <div class="txt">
+        <div class="idx" id="pIdx">PHASE 01 / 04 &middot; CYCLE 01</div>
+        <h2 id="pName">&mdash;</h2>
+        <p id="pDesc">&mdash;</p>
+      </div>
+    </div>
+
+    <div id="keys">
+      <div><kbd>espace</kbd> pause &nbsp; <kbd>G</kbd> goutte &nbsp; <kbd>V</kbd> vider &nbsp; <kbd>N</kbd> phase</div>
+      <div><kbd>M</kbd> musique &nbsp; <kbd>S</kbd> souris &nbsp; <kbd>Q</kbd> qualité &nbsp; <kbd>P</kbd> réglages</div>
+      <div>molette : zoom &nbsp;·&nbsp; glisser : remuer &nbsp;·&nbsp; clic droit : effacer</div>
+      <div>déposez un fichier audio n&rsquo;importe où sur l&rsquo;image</div>
+    </div>
+
+    <div id="pan">
+      <h3>Préréglages</h3>
+      <div id="presets"></div>
+      <p id="presetEmpty">Aucun préréglage enregistré.</p>
+      <div id="presetRow">
+        <input type="text" id="presetName" placeholder="Nom du préréglage" maxlength="24">
+        <button class="btn hit" id="bSavePreset" style="max-width:none">Enregistrer</button>
+      </div>
+
+      <h3>Qualité</h3>
+      <div class="sel">
+        <select id="dQual" aria-label="Qualité de rendu">
+          <option value="0">Éco &mdash; téléphone</option>
+          <option value="1">Standard</option>
+          <option value="2">Haute</option>
+          <option value="3">Ultra</option>
+        </select>
+      </div>
+
+      <h3>Fluide</h3>
+      <label><span class="row">Zoom <b id="vZoom">1,00</b></span>
+        <input type="range" id="sZoom" min="100" max="500" value="100"></label>
+      <label><span class="row">Vitesse <b id="vRate">1,00</b></span>
+        <input type="range" id="sRate" min="10" max="250" value="100"></label>
+      <label><span class="row">Vorticité <b id="vVort">1,00</b></span>
+        <input type="range" id="sVort" min="0" max="200" value="100"></label>
+      <label><span class="row">Taille des tourbillons <b id="vVsize">10,00</b></span>
+        <input type="range" id="sVsize" min="10" max="400" value="100"></label>
+      <label><span class="row">Tornade <b id="vTorn">0,00</b></span>
+        <input type="range" id="sTorn" min="0" max="200" value="0"></label>
+      <label><span class="row">Fumée &mdash; liquide / volute <b id="vSmoke">0,00</b></span>
+        <input type="range" id="sSmoke" min="0" max="100" value="0"></label>
+      <label><span class="row">Tornade &mdash; creusement du vide <b id="vTvoid">1,00</b></span>
+        <input type="range" id="sTvoid" min="0" max="200" value="100"></label>
+      <label><span class="row">Diffusion &mdash; frontières diluées <b id="vDilute">0,00</b></span>
+        <input type="range" id="sDilute" min="0" max="180" value="0"></label>
+      <label><span class="row">Densité de l&rsquo;encre <b id="vBuoy">1,00</b></span>
+        <input type="range" id="sBuoy" min="0" max="260" value="100"></label>
+      <label><span class="row">Persistance <b id="vPers">1,00</b></span>
+        <input type="range" id="sPers" min="20" max="200" value="100"></label>
+      <label><span class="row">Chute des gouttes &mdash; 0 : aucune <b id="vFall">1,00</b></span>
+        <input type="range" id="sFall" min="0" max="320" value="100"></label>
+
+      <h3>Tempo</h3>
+      <label><span class="row">Durée d’une phase <b id="vPhasedur">62,0</b></span>
+        <input type="range" id="sPhasedur" min="40" max="1800" value="620"></label>
+      <div class="sel">
+        <select id="dPhasebars" aria-label="Calage des phases sur le tempo">
+          <option value="0">Phases — durée libre</option>
+          <option value="8">Phases — 8 mesures</option>
+          <option value="16">Phases — 16 mesures</option>
+          <option value="32">Phases — 32 mesures</option>
+          <option value="64">Phases — 64 mesures</option>
+        </select>
+      </div>
+      <div class="sel">
+        <button class="btn hit" id="bTap" style="max-width:none">Taper le tempo</button>
+      </div>
+
+      <h3>Oscillateurs</h3>
+      <label><span class="row">LFO 1 &mdash; vitesse <b id="vL1r">0,30</b></span>
+        <input type="range" id="sL1r" min="0" max="300" value="30"></label>
+      <label style="margin-bottom:7px"><span class="row">LFO 1 &mdash; amplitude <b id="vL1a">0,00</b></span>
+        <input type="range" id="sL1a" min="0" max="200" value="0"></label>
+      <div class="sel">
+        <select id="dL1" aria-label="Destination du LFO 1">
+          <optgroup label="Fluide">
+            <option value="vort">Vorticité</option>
+            <option value="vsize">Taille des tourbillons</option>
+            <option value="buoy">Densité de l'encre</option>
+            <option value="dilute">Dilution</option>
+            <option value="rate">Vitesse du fluide</option>
+            <option value="torn">Tornade</option>
+          </optgroup>
+          <optgroup label="Caméra et image">
+            <option value="zoom">Zoom</option>
+            <option value="rot">Rotation caméra</option>
+            <option value="warmth">Teinte chaude</option>
+            <option value="hcycle">Dérive chromatique</option>
+            <option value="bands">Veinage</option>
+          </optgroup>
+          <optgroup label="Glitch">
+            <option value="glitch">Glitch numérique</option>
+            <option value="split">Décalage RVB</option>
+            <option value="pix">Pixellisation</option>
+            <option value="inv">Inversion par bandes</option>
+            <option value="echo">Traînée &mdash; persistance</option>
+            <option value="ezoom">Traînée &mdash; zoom</option>
+          </optgroup>
+          <optgroup label="Gelée">
+            <option value="gel">Épaisseur de la gelée</option>
+            <option value="glight">Orientation de la lampe</option>
+          </optgroup>
+        </select>
+        
+        </div>
+      <div class="sel">
+        <select id="uL1" aria-label="Source du LFO 1">
+          <option value="0">Libre</option>
+          <option value="1">Grave</option>
+          <option value="2">Médium</option>
+          <option value="3">Aigu</option>
+          <option value="4">Niveau global</option>
+        </select>
+        <select id="kL1" aria-label="Division du LFO 1">
+          <option value="0">Libre</option>
+          <option value="16">16 temps</option>
+          <option value="8">8 temps</option>
+          <option value="4">1 mesure</option>
+          <option value="2">1/2 mesure</option>
+          <option value="1">1 temps</option>
+          <option value="0.5">1/2 temps</option>
+          <option value="0.25">1/4 temps</option>
+        </select>
+
+      </div>
+      <label><span class="row">LFO 2 &mdash; vitesse <b id="vL2r">0,17</b></span>
+        <input type="range" id="sL2r" min="0" max="300" value="17"></label>
+      <label style="margin-bottom:7px"><span class="row">LFO 2 &mdash; amplitude <b id="vL2a">0,00</b></span>
+        <input type="range" id="sL2a" min="0" max="200" value="0"></label>
+      <div class="sel">
+        <select id="dL2" aria-label="Destination du LFO 2">
+          <optgroup label="Fluide">
+            <option value="vort">Vorticité</option>
+            <option value="vsize">Taille des tourbillons</option>
+            <option value="buoy">Densité de l'encre</option>
+            <option value="dilute">Dilution</option>
+            <option value="rate">Vitesse du fluide</option>
+            <option value="torn">Tornade</option>
+          </optgroup>
+          <optgroup label="Caméra et image">
+            <option value="zoom">Zoom</option>
+            <option value="rot">Rotation caméra</option>
+            <option value="warmth">Teinte chaude</option>
+            <option value="hcycle">Dérive chromatique</option>
+            <option value="bands">Veinage</option>
+          </optgroup>
+          <optgroup label="Glitch">
+            <option value="glitch">Glitch numérique</option>
+            <option value="split">Décalage RVB</option>
+            <option value="pix">Pixellisation</option>
+            <option value="inv">Inversion par bandes</option>
+            <option value="echo">Traînée &mdash; persistance</option>
+            <option value="ezoom">Traînée &mdash; zoom</option>
+          </optgroup>
+          <optgroup label="Gelée">
+            <option value="gel">Épaisseur de la gelée</option>
+            <option value="glight">Orientation de la lampe</option>
+          </optgroup>
+        </select>
+        
+        </div>
+      <div class="sel">
+        <select id="uL2" aria-label="Source du LFO 2">
+          <option value="0">Libre</option>
+          <option value="1">Grave</option>
+          <option value="2">Médium</option>
+          <option value="3">Aigu</option>
+          <option value="4">Niveau global</option>
+        </select>
+        <select id="kL2" aria-label="Division du LFO 2">
+          <option value="0">Libre</option>
+          <option value="16">16 temps</option>
+          <option value="8">8 temps</option>
+          <option value="4">1 mesure</option>
+          <option value="2">1/2 mesure</option>
+          <option value="1">1 temps</option>
+          <option value="0.5">1/2 temps</option>
+          <option value="0.25">1/4 temps</option>
+        </select>
+
+      </div>
+      <label><span class="row">LFO 3 &mdash; vitesse <b id="vL3r">0,53</b></span>
+        <input type="range" id="sL3r" min="0" max="300" value="53"></label>
+      <label style="margin-bottom:7px"><span class="row">LFO 3 &mdash; amplitude <b id="vL3a">0,00</b></span>
+        <input type="range" id="sL3a" min="0" max="200" value="0"></label>
+      <div class="sel">
+        <select id="dL3" aria-label="Destination du LFO 3">
+          <optgroup label="Fluide">
+            <option value="vort">Vorticité</option>
+            <option value="vsize">Taille des tourbillons</option>
+            <option value="buoy">Densité de l'encre</option>
+            <option value="dilute">Dilution</option>
+            <option value="rate">Vitesse du fluide</option>
+            <option value="torn">Tornade</option>
+          </optgroup>
+          <optgroup label="Caméra et image">
+            <option value="zoom">Zoom</option>
+            <option value="rot">Rotation caméra</option>
+            <option value="warmth">Teinte chaude</option>
+            <option value="hcycle">Dérive chromatique</option>
+            <option value="bands">Veinage</option>
+          </optgroup>
+          <optgroup label="Glitch">
+            <option value="glitch">Glitch numérique</option>
+            <option value="split">Décalage RVB</option>
+            <option value="pix">Pixellisation</option>
+            <option value="inv">Inversion par bandes</option>
+            <option value="echo">Traînée &mdash; persistance</option>
+            <option value="ezoom">Traînée &mdash; zoom</option>
+          </optgroup>
+          <optgroup label="Gelée">
+            <option value="gel">Épaisseur de la gelée</option>
+            <option value="glight">Orientation de la lampe</option>
+          </optgroup>
+        </select>
+        
+        </div>
+      <div class="sel">
+        <select id="uL3" aria-label="Source du LFO 3">
+          <option value="0">Libre</option>
+          <option value="1">Grave</option>
+          <option value="2">Médium</option>
+          <option value="3">Aigu</option>
+          <option value="4">Niveau global</option>
+        </select>
+        <select id="kL3" aria-label="Division du LFO 3">
+          <option value="0">Libre</option>
+          <option value="16">16 temps</option>
+          <option value="8">8 temps</option>
+          <option value="4">1 mesure</option>
+          <option value="2">1/2 mesure</option>
+          <option value="1">1 temps</option>
+          <option value="0.5">1/2 temps</option>
+          <option value="0.25">1/4 temps</option>
+        </select>
+
+      </div>
+
+      <h3>Gelée</h3>
+      <label><span class="row">Agglomération &mdash; dosage <b id="vAgg">1,00</b></span>
+        <input type="range" id="sAgg" min="0" max="200" value="100"></label>
+      <label><span class="row">Épaisseur de la gelée <b id="vGel">1,00</b></span>
+        <input type="range" id="sGel" min="0" max="200" value="100"></label>
+      <label><span class="row">Ombre portée <b id="vGshadow">1,00</b></span>
+        <input type="range" id="sGshadow" min="0" max="300" value="100"></label>
+      <label><span class="row">Rayons de lumière <b id="vGrays">1,00</b></span>
+        <input type="range" id="sGrays" min="0" max="300" value="100"></label>
+      <label><span class="row">Orientation de la lampe <b id="vGlight">0,00</b></span>
+        <input type="range" id="sGlight" min="-314" max="314" value="0"></label>
+
+      <h3>Image</h3>
+      <label><span class="row">Irisation <b id="vIrid">1,00</b></span>
+        <input type="range" id="sIrid" min="0" max="220" value="100"></label>
+      <label><span class="row">Couleur &mdash; teinte <b id="vHue">0,00</b></span>
+        <input type="range" id="sHue" min="-100" max="100" value="0"></label>
+      <label><span class="row">Couleur &mdash; saturation <b id="vPalsat">1,00</b></span>
+        <input type="range" id="sPalsat" min="0" max="220" value="100"></label>
+      <label><span class="row">Teinte &mdash; froide / rouge-orangé <b id="vColor">0,00</b></span>
+        <input type="range" id="sColor" min="0" max="100" value="0"></label>
+      <label><span class="row">Exposition <b id="vExp">1,00</b></span>
+        <input type="range" id="sExp" min="30" max="260" value="100"></label>
+      <label><span class="row">Veinage &mdash; fil du bois <b id="vBands">0,00</b></span>
+        <input type="range" id="sBands" min="0" max="120" value="0"></label>
+      <label><span class="row">Relief de surface <b id="vRelief">1,00</b></span>
+        <input type="range" id="sRelief" min="0" max="200" value="100"></label>
+      <label><span class="row">Liseré des nappes <b id="vEdge">1,00</b></span>
+        <input type="range" id="sEdge" min="0" max="200" value="100"></label>
+      <label><span class="row">Dérive chromatique <b id="vHcycle">0,00</b></span>
+        <input type="range" id="sHcycle" min="-150" max="150" value="0"></label>
+      <label><span class="row">Halo lumineux <b id="vBloom">0,52</b></span>
+        <input type="range" id="sBloom" min="0" max="200" value="52"></label>
+      <label><span class="row">Vignettage <b id="vVig">0,50</b></span>
+        <input type="range" id="sVig" min="0" max="100" value="50"></label>
+      <label><span class="row">Grain <b id="vGrain">0,20</b></span>
+        <input type="range" id="sGrain" min="0" max="150" value="20"></label>
+
+      <h3>Glitch</h3>
+      <label><span class="row">Rotation caméra <b id="vRot">0,00</b></span>
+        <input type="range" id="sRot" min="-100" max="100" value="0"></label>
+      <label><span class="row">Glitch numérique <b id="vGlitch">0,00</b></span>
+        <input type="range" id="sGlitch" min="0" max="100" value="0"></label>
+      <label><span class="row">Traînée &mdash; persistance <b id="vEcho">0,00</b></span>
+        <input type="range" id="sEcho" min="0" max="100" value="0"></label>
+      <label><span class="row">Traînée &mdash; zoom <b id="vEzoom">0,00</b></span>
+        <input type="range" id="sEzoom" min="-100" max="100" value="0"></label>
+      <label><span class="row">Décalage RVB <b id="vSplit">0,00</b></span>
+        <input type="range" id="sSplit" min="0" max="100" value="0"></label>
+      <label><span class="row">Pixellisation <b id="vPix">0,00</b></span>
+        <input type="range" id="sPix" min="0" max="100" value="0"></label>
+      <label><span class="row">Inversion par bandes <b id="vInv">0,00</b></span>
+        <input type="range" id="sInv" min="0" max="100" value="0"></label>
+
+      <h3>Réaction à la musique</h3>
+      <label><span class="row">Intensité <b id="vReact">1,00</b></span>
+        <input type="range" id="sReact" min="0" max="250" value="100"></label>
+      <label><span class="row">Pulsation lumineuse <b id="vFlash">1,00</b></span>
+        <input type="range" id="sFlash" min="0" max="300" value="100"></label>
+      <label><span class="row">Secousse caméra <b id="vShake">1,00</b></span>
+        <input type="range" id="sShake" min="0" max="300" value="100"></label>
+      <label><span class="row">Gouttes sur les graves <b id="vKick">1,00</b></span>
+        <input type="range" id="sKick" min="0" max="300" value="100"></label>
+      <label><span class="row">Turbulence sur les aigus <b id="vMturb">1,00</b></span>
+        <input type="range" id="sMturb" min="0" max="300" value="100"></label>
+      <label><span class="row">Vorticité sur les médiums <b id="vMvort">1,00</b></span>
+        <input type="range" id="sMvort" min="0" max="300" value="100"></label>
+      <label><span class="row">Teinte sur le spectre <b id="vMhue">1,00</b></span>
+        <input type="range" id="sMhue" min="0" max="300" value="100"></label>
+      <label><span class="row">Respiration du zoom <b id="vMzoom">0,00</b></span>
+        <input type="range" id="sMzoom" min="0" max="200" value="0"></label>
+      <label style="margin-bottom:2px"><span class="row">Glitch sur les attaques <b id="vMglitch">0,00</b></span>
+        <input type="range" id="sMglitch" min="0" max="200" value="0"></label>
+    </div>
+
+    <div id="bar">
+      <button class="btn hit" id="bPause" aria-label="Pause">
+        <svg viewBox="0 0 12 12" id="icP" aria-hidden="true"><path d="M1.5 1h3.2v10H1.5zM7.3 1h3.2v10H7.3z"/></svg>
+      </button>
+      <button class="btn hit" id="bMusic" aria-label="Charger une musique">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M11.4 0L3.9 1.65v6.9a2.05 2.05 0 1 0 1.2 1.87V3.4l5.1-1.12v4.35a2.05 2.05 0 1 0 1.2 1.87V0z"/></svg>
+        <span id="mLabel">Musique</span>
+      </button>
+      <button class="btn hit" id="bDrop" aria-label="Lâcher une goutte">Goutte</button>
+      <button class="btn hit" id="bClear" aria-label="Vider le bassin">Vider</button>
+      <button class="btn hit" id="bMouse" aria-label="Masquer la souris et l'interface">Souris</button>
+      <button class="btn hit" id="bPan" aria-label="Réglages">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M0 1.4h12v1.3H0zM0 5.35h12v1.3H0zM0 9.3h12v1.3H0z"/></svg>
+      </button>
+      <button class="btn hit" id="bFull" aria-label="Plein écran">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M0 0h4.6v1.4H1.4V4.6H0zM7.4 0H12v4.6h-1.4V1.4H7.4zM0 7.4h1.4v3.2h3.2V12H0zM10.6 7.4H12V12H7.4v-1.4h3.2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="dz"><div>Déposez un fichier audio</div></div>
+
+  <div id="boot">
+    <div class="glyph"><s></s><s></s><s></s><s></s></div>
+    <h1>Encre <em>et Soie</em></h1>
+    <div class="sub">Solveur de fluide WebGL 2</div>
+    <div class="barwrap"><s id="bootBar"></s></div>
+    <div class="status" id="bootStatus">Initialisation du contexte</div>
+    <div class="err" id="bootErr"></div>
+  </div>
+</div>
+
+<script id="sh-common" type="x-shader">
+/* ================= socle partagé (sans en-tête ni sorties) ================= */
+#define TAU 6.28318530718
+
+uniform vec2  uRes;      /* résolution de la cible courante */
+uniform float uT;
+uniform float uDt;
+uniform float uAspect;
+
+float sat(float x){ return clamp(x,0.0,1.0); }
+vec2 UV(){ return gl_FragCoord.xy/uRes; }
+
+float h12(vec2 p){ vec3 q=fract(vec3(p.xyx)*0.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+float n2(vec2 x){
+  vec2 i=floor(x),f=fract(x); f=f*f*(3.0-2.0*f);
+  return mix(mix(h12(i),h12(i+vec2(1,0)),f.x),mix(h12(i+vec2(0,1)),h12(i+vec2(1,1)),f.x),f.y);
+}
+const mat2 M2=mat2(0.80,0.60,-0.60,0.80);
+float fbm2(vec2 p,int o){ float a=0.5,s=0.0; for(int i=0;i<6;i++){ if(i>=o)break; s+=a*n2(p); p=M2*p*2.03; a*=0.5; } return s; }
+/* rotationnel d un champ scalaire : écoulement à divergence nulle */
+vec2 curl2(vec2 p,float t){
+  const float e=0.11;
+  float a=fbm2(p+vec2(0.0, e)+t,3), b=fbm2(p-vec2(0.0, e)+t,3);
+  float c=fbm2(p+vec2( e,0.0)+t,3), d=fbm2(p-vec2( e,0.0)+t,3);
+  return vec2(a-b,d-c)/(2.0*e);
+}
+
+/* ---- irisation : rampe cyclique pétrole → turquoise → nacre → or ---- */
+uniform float uWarmth;  /* 0 = palette froide (pétrole/turquoise/nacre/or), 1 = rouge-orangé */
+uniform float uHue;     /* rotation de teinte de toute la palette, en tours */
+uniform float uPalSat;  /* saturation de la palette */
+/* Rotation de teinte écrite en produits scalaires plutôt qu en matrice : les
+   coefficients restent lisibles et on évite toute ambiguïté de convention sur
+   l ordre des colonnes. */
+vec3 rotHue(vec3 c,float a){
+  float u=cos(a*TAU), w=sin(a*TAU);
+  return vec3(
+    dot(c,vec3(0.299+0.701*u+0.168*w, 0.587-0.587*u+0.330*w, 0.114-0.114*u-0.497*w)),
+    dot(c,vec3(0.299-0.299*u-0.328*w, 0.587+0.413*u+0.035*w, 0.114-0.114*u+0.292*w)),
+    dot(c,vec3(0.299-0.300*u+1.250*w, 0.587-0.588*u-1.050*w, 0.114+0.886*u-0.203*w)));
+}
+vec3 irid(float t){
+  t=fract(t)*4.0;
+  float w=clamp(uWarmth,0.0,1.0);
+  vec3 c0=mix(vec3(0.038,0.105,0.170),vec3(0.150,0.026,0.020),w);
+  vec3 c1=mix(vec3(0.115,0.505,0.560),vec3(0.660,0.078,0.040),w);
+  vec3 c2=mix(vec3(0.775,0.365,0.720),vec3(0.985,0.330,0.070),w);
+  vec3 c3=mix(vec3(0.995,0.780,0.420),vec3(1.000,0.700,0.260),w);
+  vec3 c=mix(c0,c1,smoothstep(0.0,1.0,t));
+  c=mix(c,c2,smoothstep(1.0,2.0,t));
+  c=mix(c,c3,smoothstep(2.0,3.0,t));
+  c=mix(c,c0,smoothstep(3.0,4.0,t));
+  c=rotHue(c,uHue);
+  c=mix(vec3(dot(c,vec3(0.299,0.587,0.114))),c,uPalSat);
+  return max(c,vec3(0.0));
+}
+/* la vitesse est en unités « monde » (x ∈ [0,aspect], y ∈ [0,1]) :
+   le déplacement en coordonnées de texture doit être corrigé de l aspect */
+vec2 toUV(vec2 v){ return v*vec2(1.0/uAspect,1.0); }
+
+/* ---- reconstruction lissée d une texture plus grossière que la cible ----
+   La bilinéaire est continue mais sa dérivée ne l est pas : elle casse à
+   chaque frontière de texel. Le champ de vitesse étant deux fois moins fin
+   que l encre, ces cassures s impriment dans la nappe advectée et se lisent
+   comme un quadrillage dès que l image est chargée. En adoucissant la
+   fraction avant l interpolation, la dérivée redevient continue — même
+   nombre de lectures, quelques opérations en plus.                        */
+uniform vec2 uVelRes;
+vec2 smoothUV(vec2 uv,vec2 res){
+  vec2 p=uv*res-0.5;
+  vec2 i=floor(p), f=p-i;
+  return (i+f*f*(3.0-2.0*f)+0.5)/res;
+}
+</script>
+
+
+<script id="sh-advect" type="x-shader">
+/* ================= advection semi-lagrangienne (un demi-pas de MacCormack) ================= */
+uniform sampler2D uVel;
+uniform sampler2D uSrc;
+uniform float uStep;     /* pas signé, en secondes */
+uniform float uDiss;
+void main(){
+  vec2 p=UV();
+  vec2 v=texture(uVel,smoothUV(p,uVelRes)).xy;
+  OC=texture(uSrc,p-toUV(v)*uStep)*uDiss;
+}
+</script>
+
+<script id="sh-mac" type="x-shader">
+/* ================= MacCormack : correction du second ordre + limiteur =================
+   phi1 = A(phi0,+dt)   phi2 = A(phi1,-dt)
+   phi  = phi1 + (phi0-phi2)/2, borné aux valeurs sources pour rester stable.
+   C est ce seul étage qui préserve les filaments au lieu de les fondre.        */
+uniform sampler2D uVel;
+uniform sampler2D uPhi0;
+uniform sampler2D uPhi1;
+uniform sampler2D uPhi2;
+uniform float uStep;
+void main(){
+  vec2 p=UV();
+  vec4 a1=texture(uPhi1,p);
+  vec4 r=a1+0.5*(texture(uPhi0,p)-texture(uPhi2,p));
+
+  vec2 v=texture(uVel,smoothUV(p,uVelRes)).xy;
+  vec2 q=p-toUV(v)*uStep;
+  vec2 t=1.0/uRes;
+  vec4 s0=texture(uPhi0,q+vec2(-0.5,-0.5)*t);
+  vec4 s1=texture(uPhi0,q+vec2( 0.5,-0.5)*t);
+  vec4 s2=texture(uPhi0,q+vec2(-0.5, 0.5)*t);
+  vec4 s3=texture(uPhi0,q+vec2( 0.5, 0.5)*t);
+  vec4 mn=min(min(s0,s1),min(s2,s3));
+  vec4 mx=max(max(s0,s1),max(s2,s3));
+  OC=clamp(r,mn,mx);
+}
+</script>
+
+<script id="sh-force" type="x-shader">
+/* ================= forces : flottabilité, turbulence, confinement, curseur ================= */
+uniform sampler2D uVel;
+uniform sampler2D uDye;
+uniform vec2  uGrav;     /* direction de la pesanteur, tourne lentement */
+uniform float uBuoy;
+uniform float uSwirl;
+uniform float uDamp;
+uniform float uConf;
+uniform vec4  uPtr;      /* xy = position, zw = vitesse du curseur */
+uniform float uPtrOn;
+uniform float uPtrR;
+uniform vec4  uPulse;    /* xy = centre, z = rayon, w = force radiale */
+uniform vec4  uTornado;   /* aspirante : xy centre, z rayon, w force */
+uniform vec4  uTornado2;  /* sa jumelle : contre-rotation et souffle */
+uniform float uFineTurb; /* volutes fines : bruit haute frequence, propre a la fumee */
+void main(){
+  vec2 p=UV();
+  vec2 v=texture(uVel,smoothUV(p,uVelRes)).xy;
+  vec3 d=texture(uDye,p).rgb;
+  float m=d.r+d.g+d.b;
+
+  /* l encre est plus dense que l eau : elle tombe et entraîne le fluide */
+  v+=uGrav*m*uBuoy*uDt;
+
+  /* bruit de rotationnel : entretient la turbulence fine sans créer de divergence */
+  v+=curl2(vec2(p.x*uAspect,p.y)*3.6,mod(uT,2048.0)*0.045)*uSwirl*uDt;
+
+  /* second etage de turbulence, a plus haute frequence : cest lui qui donne
+     aux volutes leurs petits plissements, absent du simple brassage large */
+  if(uFineTurb>0.001){
+    v+=curl2(vec2(p.x*uAspect,p.y)*11.0+vec2(7.3,2.1),mod(uT,2048.0)*0.13+31.0)*uFineTurb*uDt;
+  }
+
+  /* amortissement de paroi. Un rappel radial vers le centre serait une source de
+     divergence permanente que la projection ne peut jamais résorber : on amortit
+     seulement près des bords, ce qui n introduit aucun point de convergence. */
+  float bmin=min(min(p.x,1.0-p.x),min(p.y,1.0-p.y));
+  float border=1.0-smoothstep(0.0,0.13,bmin);
+  v*=1.0-border*uConf*uDt;
+
+  if(uPtrOn>0.5){
+    vec2 dd=vec2((p.x-uPtr.x)*uAspect,p.y-uPtr.y);
+    float g=exp(-dot(dd,dd)/(uPtrR*uPtrR));
+    v+=uPtr.zw*g;
+  }
+  /* Couple de tornades. Une seule tornade s étouffe : elle avale l encre, la
+     tasse au centre, et la rotation d un disque symétrique ne se voit plus.
+     En face, une jumelle contra-rotative qui souffle vers l extérieur renvoie
+     la matière — les deux s alimentent et le brassage ne retombe jamais. */
+  if(uTornado.w>0.001){
+    vec2 dd=vec2((p.x-uTornado.x)*uAspect,p.y-uTornado.y);
+    float r=length(dd)+1e-5;
+    float g=exp(-(r*r)/(uTornado.z*uTornado.z));
+    v+=(vec2(-dd.y,dd.x)/r - dd/r*0.42)*g*uTornado.w*uDt;
+  }
+  if(uTornado2.w>0.001){
+    vec2 dd=vec2((p.x-uTornado2.x)*uAspect,p.y-uTornado2.y);
+    float r=length(dd)+1e-5;
+    float g=exp(-(r*r)/(uTornado2.z*uTornado2.z));
+    v+=(vec2(dd.y,-dd.x)/r + dd/r*0.34)*g*uTornado2.w*uDt;
+  }
+
+  /* Impulsion dimpact. Une poussee parfaitement radiale fabrique un champ de
+     vitesse a symetrie parfaite ; or le reflet anisotrope culmine la ou
+     lecoulement est perpendiculaire a la lumiere, cest-a-dire en deux points
+     diametralement opposes de lanneau. Do les deux traits clairs et les deux
+     ombres, immanquablement symetriques. On casse la symetrie a la source :
+     lamplitude et lorientation de la poussee varient avec langle.          */
+  if(uPulse.w>0.0){
+    vec2 dd=vec2((p.x-uPulse.x)*uAspect,p.y-uPulse.y);
+    float r2=dot(dd,dd);
+    vec2 dir=normalize(dd+vec2(1e-6,1e-6));
+    vec2 ring=vec2(dir.x,dir.y)*2.7+uPulse.xy*53.0;
+    float amp=0.45+1.05*fbm2(ring,3);
+    float tw=(fbm2(ring*1.7+19.0,3)-0.5)*1.1;
+    dir=normalize(dir+vec2(-dir.y,dir.x)*tw);
+    v+=dir*exp(-r2/(uPulse.z*uPulse.z))*uPulse.w*amp*uDt;
+  }
+
+  v*=1.0-uDamp*uDt;
+  /* garde-fou de stabilité : on borne la vitesse pour que le nombre de Courant
+     reste raisonnable quel que soit le réglage. */
+  float sp=length(v);
+  if(sp>0.95) v*=0.95/sp;
+  OC=vec4(v,0.0,1.0);
+}
+</script>
+
+<script id="sh-splat" type="x-shader">
+/* ================= injection d encre ================= */
+uniform sampler2D uDye;
+uniform vec4  uDrops[3];  /* xy = position, z = rayon, w = débit instantané */
+uniform vec3  uDropC[3];
+uniform vec4  uPtr;
+uniform float uPtrOn;
+uniform float uPtrR;
+uniform vec3  uPtrCol;
+uniform float uPtrMode;  /* +1 = deposer de lencre, -1 = creuser du vide */
+uniform float uRibbon;   /* deux rubans continus, pour la phase de tressage */
+uniform float uDiss;     /* persistance de l encre */
+uniform vec4  uVoid;     /* jumelle de la tornade : xy centre, z rayon, w creusement */
+uniform vec4  uSmokeSrc; /* encensoir : xy position fixe, z rayon, w debit continu */
+uniform vec3  uSmokeCol;
+uniform float uAgg;      /* agglomeration : lencre se rassemble au lieu de setaler */
+void main(){
+  vec2 p=UV();
+  /* l encre se dissout en atteignant les parois au lieu de s y accumuler */
+  float bmin=min(min(p.x,1.0-p.x),min(p.y,1.0-p.y));
+  vec3 d=texture(uDye,p).rgb*uDiss*(1.0-(1.0-smoothstep(0.0,0.07,bmin))*uDt*1.1);
+
+  /* Agglomeration. Masque de nettete sur le champ dencre : on ajoute lecart
+     entre la valeur locale et sa moyenne a quelques texels. Cest exactement
+     linverse dune diffusion — les bosses gonflent, les creux se creusent, et
+     la matiere se rassemble en amas. Le rayon du noyau fixe la taille des
+     amas ; pris au texel pres, on namplifierait que le bruit de la grille.
+     Une force de cohesion sur la vitesse aurait ete annulee par la projection,
+     qui retire precisement la part convergente du champ.                    */
+  if(uAgg>0.0001){
+    vec3 c0=texture(uDye,p).rgb;
+    float m0=c0.r+c0.g+c0.b;
+    /* Difference de gaussiennes, et non ecart a la moyenne. La reponse de
+       (valeur - flou) croit avec la frequence : elle amplifie donc en premier
+       le bruit au texel, ce qui gresille. Deux flous de rayons differents se
+       compensent aux tres hautes frequences et ne laissent passer que la
+       bande utile — lechelle des amas.                                      */
+    vec2 t1=1.7/uRes, t2=3.9/uRes;
+    float n1=0.25*(dot(texture(uDye,p+vec2(t1.x,0.0)).rgb,vec3(1.0))
+                  +dot(texture(uDye,p-vec2(t1.x,0.0)).rgb,vec3(1.0))
+                  +dot(texture(uDye,p+vec2(0.0,t1.y)).rgb,vec3(1.0))
+                  +dot(texture(uDye,p-vec2(0.0,t1.y)).rgb,vec3(1.0)));
+    float n2=0.25*(dot(texture(uDye,p+vec2(t2.x,0.0)).rgb,vec3(1.0))
+                  +dot(texture(uDye,p-vec2(t2.x,0.0)).rgb,vec3(1.0))
+                  +dot(texture(uDye,p+vec2(0.0,t2.y)).rgb,vec3(1.0))
+                  +dot(texture(uDye,p-vec2(0.0,t2.y)).rgb,vec3(1.0)));
+    /* Un seul scalaire pilote les trois canaux, repartis selon la couleur
+       deja presente. Amplifier chaque canal pour son compte les fait diverger
+       et fabrique des teintes fluo qui nexistent dans aucune encre.         */
+    vec3 hue=c0/max(m0,1e-4);
+    /* Facteur de saturation : sans lui, lamplification est une boucle a gain
+       positif qui court jusqua la borne et remplit tout lecran de blanc. */
+    vec3 room=max(vec3(0.0),vec3(1.0)-c0*0.45);
+    d+=hue*(n1-n2)*uAgg*uDt*7.0*room;
+  }
+
+  /* une goutte ne surgit pas d un bloc : elle verse pendant toute sa chute */
+  for(int i=0;i<3;i++){
+    if(uDrops[i].w<=0.0) continue;
+    vec2 q=vec2((p.x-uDrops[i].x)*uAspect,p.y-uDrops[i].y);
+    float g=exp(-dot(q,q)/(uDrops[i].z*uDrops[i].z));
+    /* Bord irregulier. Le bruit est mis a lechelle du rayon de la goutte, et
+       non a celle de lecran : a frequence fixe il ne couvrait quune demi-
+       periode sur toute la largeur dune goutte, qui restait donc une cloche
+       parfaitement lisse — et une cloche parfaite, eclairee, donne des lobes
+       parfaitement symetriques. Ici le bruit porte plusieurs periodes en
+       travers de la goutte, qui arrive bosselee comme une vraie.           */
+    g*=0.55+0.85*fbm2(q/max(uDrops[i].z,1e-4)*1.9+uDrops[i].xy*37.0,4);
+    d+=uDropC[i]*g*uDrops[i].w;
+  }
+
+  /* encensoir : une source ponctuelle et continue, comme un baton dencens.
+     Le bord scintille (bruit qui defile) au lieu detre un disque lisse. */
+  if(uSmokeSrc.w>0.0001){
+    vec2 q=vec2((p.x-uSmokeSrc.x)*uAspect,p.y-uSmokeSrc.y);
+    float g=exp(-dot(q,q)/(uSmokeSrc.z*uSmokeSrc.z));
+    g*=0.62+0.55*fbm2(q*22.0+uSmokeSrc.xy*41.0+vec2(0.0,uT*0.6),3);
+    d+=uSmokeCol*g*uSmokeSrc.w*uDt;
+  }
+
+  if(uRibbon>0.001){
+    for(int i=0;i<2;i++){
+      float f=float(i);
+      float s=uT*(0.21+f*0.07)+f*3.1;
+      vec2 c=vec2(0.5+0.30*sin(s*1.00+f*1.9),0.72+0.16*sin(s*1.61+f*2.4));
+      vec2 q=vec2((p.x-c.x)*uAspect,p.y-c.y);
+      float g=exp(-dot(q,q)/0.00082);
+      d+=mix(vec3(1.00,0.42,0.22),vec3(0.22,0.72,1.00),f)*g*uRibbon*uDt;
+    }
+  }
+
+  /* la jumelle de la tornade evide la nappe : elle creuse un puits que
+     laspirante va chercher a recombler, do le va-et-vient permanent */
+  if(uVoid.w>0.001){
+    vec2 q=vec2((p.x-uVoid.x)*uAspect,p.y-uVoid.y);
+    float g=exp(-dot(q,q)/(uVoid.z*uVoid.z));
+    d*=1.0-sat(g*uVoid.w*uDt);
+  }
+
+  if(uPtrOn>0.5){
+    vec2 q=vec2((p.x-uPtr.x)*uAspect,p.y-uPtr.y);
+    float g=exp(-dot(q,q)/(uPtrR*uPtrR*0.34));
+    if(uPtrMode>0.0) d+=uPtrCol*g*uDt*2.6;
+    else             d*=1.0-sat(g*uDt*4.2);
+  }
+
+  OC=vec4(clamp(d,vec3(0.0),vec3(5.0)),1.0);
+}
+</script>
+
+<script id="sh-curl" type="x-shader">
+uniform sampler2D uVel;
+void main(){
+  vec2 t=1.0/uRes, p=UV();
+  float top=texture(uVel,p+vec2(0.0,t.y)).x;
+  float bot=texture(uVel,p-vec2(0.0,t.y)).x;
+  float rig=texture(uVel,p+vec2(t.x,0.0)).y;
+  float lef=texture(uVel,p-vec2(t.x,0.0)).y;
+  OC=vec4(0.5*(rig-lef-top+bot),0.0,0.0,1.0);
+}
+</script>
+
+<script id="sh-curlblur" type="x-shader">
+/* ================= lissage du rotationnel =================
+   Appliqué au texel près, le confinement sculpte des dents de scie. En lissant
+   le champ de vorticité avant den prendre le gradient, la force agit sur de
+   grandes structures : on obtient des vagues au lieu dune lime.             */
+uniform sampler2D uCurl;
+uniform vec2  uDir;
+uniform float uRad;
+void main(){
+  vec2 p=UV();
+  vec2 t=uDir/uRes*uRad;
+  float s =texture(uCurl,p).x*0.204164;
+  s+=texture(uCurl,p+t*1.407333).x*0.304005;
+  s+=texture(uCurl,p-t*1.407333).x*0.304005;
+  s+=texture(uCurl,p+t*3.294215).x*0.093913;
+  s+=texture(uCurl,p-t*3.294215).x*0.093913;
+  OC=vec4(s,0.0,0.0,1.0);
+}
+</script>
+
+<script id="sh-vort" type="x-shader">
+/* ================= confinement de vorticité : réinjecte l énergie perdue ================= */
+uniform sampler2D uVel;
+uniform sampler2D uCurl;
+uniform float uEps;
+uniform float uStencil;   /* portée du gradient, en texels */
+void main(){
+  vec2 t=uStencil/uRes, p=UV();
+  float top=texture(uCurl,p+vec2(0.0,t.y)).x;
+  float bot=texture(uCurl,p-vec2(0.0,t.y)).x;
+  float rig=texture(uCurl,p+vec2(t.x,0.0)).x;
+  float lef=texture(uCurl,p-vec2(t.x,0.0)).x;
+  float c=texture(uCurl,p).x;
+  vec2 g=0.5*vec2(abs(rig)-abs(lef),abs(top)-abs(bot));
+  float gl=length(g);
+  /* là où le gradient est du bruit numérique, normaliser donnerait une direction
+     arbitraire multipliée par uEps : c est ce qui fabriquait une croix au centre. */
+  vec2 N=g/max(gl,1e-9);
+  /* garde-fou invariant d échelle : on ne suit la direction du gradient que
+     lorsqu elle porte un signal, pas quand elle sort du bruit de la demi-précision. */
+  float w=smoothstep(0.020,0.130,gl/(abs(c)+1e-9));
+  vec2 f=vec2(N.y,-N.x)*c*uEps*w;
+  /* plafond : le confinement ne doit jamais devenir la force dominante,
+     sinon il alimente le bruit à l échelle de la grille au lieu des tourbillons. */
+  float fl=length(f);
+  if(fl>1.10) f*=1.10/fl;
+  OC=vec4(texture(uVel,p).xy+f*uDt,0.0,1.0);
+}
+</script>
+
+<script id="sh-div" type="x-shader">
+uniform sampler2D uVel;
+void main(){
+  vec2 t=1.0/uRes, p=UV();
+  float rig=texture(uVel,p+vec2(t.x,0.0)).x;
+  float lef=texture(uVel,p-vec2(t.x,0.0)).x;
+  float top=texture(uVel,p+vec2(0.0,t.y)).y;
+  float bot=texture(uVel,p-vec2(0.0,t.y)).y;
+  OC=vec4(0.5*(rig-lef+top-bot),0.0,0.0,1.0);
+}
+</script>
+
+<script id="sh-jacobi" type="x-shader">
+uniform sampler2D uPres;
+uniform sampler2D uDiv;
+void main(){
+  vec2 t=1.0/uRes, p=UV();
+  float l=texture(uPres,p-vec2(t.x,0.0)).x;
+  float r=texture(uPres,p+vec2(t.x,0.0)).x;
+  float b=texture(uPres,p-vec2(0.0,t.y)).x;
+  float u=texture(uPres,p+vec2(0.0,t.y)).x;
+  OC=vec4((l+r+b+u-texture(uDiv,p).x)*0.25,0.0,0.0,1.0);
+}
+</script>
+
+<script id="sh-grad" type="x-shader">
+uniform sampler2D uPres;
+uniform sampler2D uVel;
+void main(){
+  vec2 t=1.0/uRes, p=UV();
+  float l=texture(uPres,p-vec2(t.x,0.0)).x;
+  float r=texture(uPres,p+vec2(t.x,0.0)).x;
+  float b=texture(uPres,p-vec2(0.0,t.y)).x;
+  float u=texture(uPres,p+vec2(0.0,t.y)).x;
+  OC=vec4(texture(uVel,p).xy-vec2(r-l,u-b)*0.5,0.0,1.0);
+}
+</script>
+
+<script id="sh-clear" type="x-shader">
+uniform sampler2D uTex;
+uniform float uMul;
+void main(){ OC=texture(uTex,UV())*uMul; }
+</script>
+
+<script id="sh-dyeblur" type="x-shader">
+/* ================= dilution =================
+   Flou gaussien séparable appliqué à la nappe encre avant le rendu : la sépare
+   du champ de simulation (qui reste net) pour adoucir la frontière entre
+   tourbillons sans changer la physique.                                       */
+uniform sampler2D uTex;
+uniform vec2  uDir;
+uniform float uRad;
+void main(){
+  vec2 p=UV();
+  vec2 t=uDir/uRes*uRad;
+  vec3 s =texture(uTex,p).rgb*0.204164;
+  s+=texture(uTex,p+t*1.407333).rgb*0.304005;
+  s+=texture(uTex,p-t*1.407333).rgb*0.304005;
+  s+=texture(uTex,p+t*3.294215).rgb*0.093913;
+  s+=texture(uTex,p-t*3.294215).rgb*0.093913;
+  OC=vec4(s,1.0);
+}
+</script>
+
+<script id="sh-render" type="x-shader">
+/* ================= rendu : la nappe d encre en couche mince ================= */
+uniform sampler2D uDye;
+uniform sampler2D uDyeSoft; /* nappe adoucie : source pour la matière et le relief */
+uniform sampler2D uVel;
+uniform float uZoom;
+uniform vec2  uPan;
+uniform float uThick;    /* compression de l épaisseur optique */
+uniform float uRelief;   /* amplitude du relief tiré du gradient */
+uniform float uEdge;     /* strioscopie : les bords de nappe */
+uniform float uIridA;    /* dosage de l irisation */
+uniform vec2  uShake;    /* secousse de caméra, en fraction d écran */
+uniform float uHueShift; /* décalage de teinte piloté par le spectre */
+uniform float uGain;
+uniform float uRot;     /* rotation continue de la caméra, en radians */
+uniform float uBands;   /* veinage : contours iso-épaisseur, façon fil du bois */
+uniform float uSmoke;   /* 0 = encre dans l eau, 1 = volute de fumée */
+uniform float uGel;     /* 0 = nappe mince, 1 = gelée épaisse et translucide */
+uniform float uGShadow; /* portée de l ombre projetée par la gelée */
+uniform float uGRays;   /* rayons : la part de lumière qui traverse */
+uniform float uLightAng;/* orientation de la lampe, en radians */
+
+float mass(vec2 q){ return dot(texture(uDyeSoft,q).rgb,vec3(1.0)); }
+
+void main(){
+  /* rotation en espace corrigé de l aspect : les cercles restent des cercles */
+  vec2 rc=UV()-0.5+uShake;
+  rc.x*=uAspect;
+  float rcs=cos(uRot), rsn=sin(uRot);
+  rc=vec2(rc.x*rcs-rc.y*rsn, rc.x*rsn+rc.y*rcs);
+  rc.x/=uAspect;
+  vec2 uv=rc/uZoom+0.5+uPan;
+  vec2 t=max(vec2(1.0)/uRes/uZoom,vec2(0.72)/uRes);
+
+  vec3 d=texture(uDyeSoft,uv).rgb;
+  float m=d.r+d.g+d.b;
+  vec2 vel=texture(uVel,smoothUV(uv,uVelRes)).xy;
+  float spd=length(vel);
+
+  /* Relief de la nappe : le gradient de densité fait office de normale. La base
+     est prise un peu plus large qu un texel. Au texel près, la différence
+     centrée résout la trame même de la grille de simulation — qui est plus
+     grossière que l écran — et la révèle en quadrillage fin dès que la nappe
+     est dense. Élargir la base filtre cette trame sans effacer le relief. */
+  vec2 tg=t*1.75;
+  vec2 g=vec2(mass(uv+vec2(tg.x,0.0))-mass(uv-vec2(tg.x,0.0)),
+              mass(uv+vec2(0.0,tg.y))-mass(uv-vec2(0.0,tg.y)));
+  /* le gradient couvre plusieurs ordres de grandeur : on le comprime avant d en faire une pente */
+  vec2 gg=g*uRelief;
+  gg/=1.0+length(gg);
+  vec3 n=normalize(vec3(-gg*2.2,1.0));
+
+  vec3 V=vec3(0.0,0.0,1.0);
+  /* la lampe tourne dans le plan de l image : l ombre et les rayons suivent */
+  float lc=cos(uLightAng), ls=sin(uLightAng);
+  vec3 L1=normalize(vec3(-0.42*lc-0.62*ls, -0.42*ls+0.62*lc, 0.60));
+  vec3 L2=normalize(vec3( 0.63*lc+0.28*ls,  0.63*ls-0.28*lc, 0.68));
+
+  float fres=pow(1.0-sat(dot(n,V)),3.0);
+
+  /* épaisseur : masse d encre, angle de vue, et étirement par l écoulement */
+  float thick=0.040+0.44*(1.0-exp(-m*uThick))+fres*0.28+sat(spd*1.6)*0.20;
+  /* Chaque encre a sa propre teinte de départ. Mais là où il n y a presque
+     rien, l écart entre canaux n est plus que du bruit de quantification en
+     demi-précision : on le referme, sinon le fond se couvre de points colorés
+     que la rampe irisée transforme en fluo. */
+  float hueOff=((d.g-d.b)*0.075+(d.r-d.g)*0.045)*smoothstep(0.015,0.13,m);
+  vec3 tint=irid(thick+hueOff+uHueShift);
+  tint=mix(vec3(0.58,0.66,0.78),tint,uIridA);
+
+  /* reflet anisotrope aligné sur l écoulement : la soie suit le fil */
+  vec3 T=normalize(vec3(vel*vec2(1.0,1.0),0.0)+vec3(1e-5,0.0,0.0));
+  float tl=dot(T,L1), tv=dot(T,V);
+  float aniso=max(0.0,sqrt(max(0.0,1.0-tl*tl))*sqrt(max(0.0,1.0-tv*tv))-tl*tv);
+  float sheen=pow(aniso,26.0)*sat(spd*5.0);
+
+  /* La deuxième source passe en simple remplissage enveloppant. En clé franche
+     elle dessinait sur chaque dôme un second croissant clair, symétrique du
+     premier : deux traits de lumière et deux ombres, ce qu aucune goutte
+     réelle ne produit. Le terme enveloppant varie doucement et ne fabrique
+     plus de lobe opposé. */
+  float wrap=dot(n,L2)*0.5+0.5;
+  float diff=0.30+0.62*sat(dot(n,L1))+0.16*wrap*wrap;
+  float ms=sat(m*1.25);
+
+  vec3 col=tint*diff*ms*1.30;
+  col+=tint*fres*ms*1.10;
+  col+=vec3(0.92,0.96,1.06)*pow(sat(dot(reflect(-L1,n),V)),64.0)*ms*0.70;
+  col+=mix(vec3(1.0),tint*2.2,0.55)*sheen*ms*0.55;
+
+  /* strioscopie : la lisière des nappes, c est là que la dentelle se voit */
+  float edge=length(g)*uEdge;
+  col+=irid(thick*1.55+0.36+uHueShift)*sat(edge)*0.95;
+
+  /* cœur saturé : l encre profonde s embrase */
+  col+=irid(thick*1.85+0.58+uHueShift)*pow(sat(m*0.30),2.2)*1.30;
+
+  /* Mode fumée : la nappe cesse d être un film mince tendu pour devenir un
+     volume diffus. On abandonne le reflet spéculaire et l irisation au profit
+     d une luminance douce qui s épaissit avec la masse. */
+  /* Mode fumée : la nappe cesse d être un film mince tendu pour devenir un
+     volume diffus. Une texture fine (bruit à haute fréquence, advectée par la
+     vitesse locale) casse les zones plates en filaments, et un tâtonnement de
+     la densité dans la direction de la lumière simule un auto-ombrage —
+     les volutes épaisses assombrissent ce qu il y a derrière elles. */
+  if(uSmoke>0.001){
+    vec2 wq=uv*vec2(uAspect,1.0)*10.0 - vel*0.85 + vec2(0.0,uT*0.05);
+    float wisp=fbm2(wq,5);
+    float wisp2=fbm2(wq*2.35+vec2(19.0,4.0),4);
+    float detail=mix(0.50,1.40,wisp)*mix(0.75,1.20,wisp2);
+
+    float mSelf=mass(uv-L1.xy*t*26.0)+mass(uv-L1.xy*t*52.0)*0.6;
+    float shadow=exp(-mSelf*0.85);
+
+    vec3 sc=mix(vec3(0.63,0.655,0.70),tint,0.22);
+    float dens=pow(ms,0.60)*mix(0.55,1.35,detail);
+    float lit=0.30+0.70*sat(dot(n,L1)*0.5+0.5);
+    lit*=mix(1.0,shadow,0.60);
+    vec3 vol=sc*dens*lit;
+    vol+=sc*fres*0.30*ms;
+    vol+=vec3(1.0,0.97,0.93)*pow(sat(detail-0.15),3.0)*dens*0.40;
+    col=mix(col,vol*1.35,uSmoke);
+  }
+
+  /* ================= Gelée =================
+     La nappe cesse d être un film : elle devient un corps épais. Trois choses
+     s ajoutent, et ce sont elles qui font lire le volume.
+
+     1. L épaisseur. La masse devient une profondeur optique et l absorption
+        suit Beer-Lambert, chaque canal à son propre taux : le cœur épais vire
+        profond pendant que les bords minces restent clairs. Une simple
+        opacité proportionnelle donnerait un aplat, pas un volume.
+     2. L ombre portée. On marche dans le champ vers la lampe et on cumule la
+        matière traversée. Un seul échantillon ne donnerait qu un liseré ;
+        c est la longueur du chemin qui fabrique une vraie ombre.
+     3. Les rayons. Le même chemin, mais on garde cette fois ce qui passe au
+        lieu de ce qui bloque — la lumière filtrée par les parties minces. */
+  float gelShadow=1.0;
+  if(uGel>0.001){
+    /* Profondeur bornée : au-delà d une certaine épaisseur une gelée ne
+       s assombrit plus, elle vire. Laisser l exponentielle courir sur une
+       masse non bornée envoie tout le cœur au noir pur. */
+    float th=sat(m*0.55);
+    vec3 absorb=exp(-th*vec3(1.10,1.90,2.60));
+
+    float acc=0.0;
+    for(int i=1;i<=10;i++) acc+=mass(uv-L1.xy*t*float(i)*7.0);
+    gelShadow=exp(-acc*0.145*uGShadow);
+
+    /* Le rayon est pondéré par la matière rencontrée. Sans ce facteur, un
+       chemin entièrement vide renvoie exp(0)=1 à chaque pas et le terme
+       badigeonne l image entière d un voile uniforme, ce qui aplatit tout au
+       lieu de creuser le volume. Le produit m·exp(-m) culmine à l occultation
+       partielle : exactement là où un rai de lumière se voit. */
+    float ray=0.0;
+    for(int i=1;i<=12;i++){
+      float w=1.0-float(i)/13.0;
+      float mm=mass(uv-L1.xy*t*float(i)*11.0);
+      ray+=mm*exp(-mm*1.9)*w;
+    }
+    ray=ray*0.85*uGRays;
+
+    float body=smoothstep(0.05,0.52,m);
+    /* Diffusion interne : une gelée ne fait pas qu absorber, elle rediffuse.
+       Sans ce terme, l épaisseur tombe au noir au lieu de virer au profond —
+       on perdrait justement la lecture de volume qu on cherche. */
+    vec3 deep=mix(tint*1.30,tint*absorb*2.60,th);
+    vec3 g2=deep*(0.26+0.74*gelShadow)*body*1.45;
+    /* reflet serré : la surface d une gelée est mouillée, pas mate */
+    g2+=vec3(0.95,0.99,1.06)*pow(sat(dot(reflect(-L1,n),V)),90.0)*body*0.95;
+    g2+=tint*fres*body*0.85;
+    g2+=irid(th*0.9+0.20+uHueShift)*ray*0.55;
+    col=mix(col,g2,uGel);
+    gelShadow=mix(1.0,gelShadow,uGel*(1.0-body));
+  }
+
+  /* Veinage. On trace les contours iso-épaisseur, mais la phase est portée par
+     des grandeurs que le fluide transporte réellement — masse et rapport des
+     encres — et la trame est déplacée par le courant local. La veine vit donc
+     dans l eau et se déforme avec elle au lieu d être imprimée sur le fond. */
+  if(uBands>0.01){
+    vec2 wv=vec2(uv.x*uAspect,uv.y)*2.6 - vel*1.35 + vec2(0.0,uT*0.055);
+    float wrp=fbm2(wv,4);
+    float chan=(d.g-d.b)*0.90+(d.r-d.g)*0.55;
+    float ph=(thick*0.55+chan*0.30+wrp*0.40)*uBands*7.0;
+    float f=fract(ph);
+    float dl=min(f,1.0-f)*2.0;
+    float w=max(fwidth(ph)*2.4,0.015);
+    float vein=smoothstep(0.0,w,dl);
+    float ph2=ph*2.7;
+    float f2=fract(ph2), d2=min(f2,1.0-f2)*2.0;
+    float w2=max(fwidth(ph2)*2.4,0.05);
+    vein*=mix(1.0,smoothstep(0.0,w2,d2),0.40);
+    /* hors de l encre, aucune veine : le fond reste net */
+    vein=mix(1.0,vein,sat(ms*1.5));
+    float veinK=1.0-uSmoke;
+    col*=mix(1.0,mix(0.32,1.0,vein),veinK);
+    col+=tint*pow(1.0-vein,2.2)*0.75*ms*veinK;
+  }
+
+  /* le canal alpha transporte lombre : la composition sen sert pour
+     assombrir leau derriere la gelee, ce quun rendu de la seule nappe
+     ne pourrait pas faire — lombre doit tomber sur le fond, pas sur elle. */
+  OC=vec4(col*uGain,gelShadow);
+}
+</script>
+
+<script id="sh-bright" type="x-shader">
+uniform sampler2D uTex;
+uniform float uThresh,uKnee;
+void main(){
+  vec3 c=texture(uTex,UV()).rgb;
+  float br=max(c.r,max(c.g,c.b));
+  float s=clamp(br-uThresh+uKnee,0.0,2.0*uKnee);
+  s=s*s/(4.0*uKnee+1e-4);
+  OC=vec4(c*max(s,br-uThresh)/max(br,1e-4),1.0);
+}
+</script>
+
+<script id="sh-down" type="x-shader">
+uniform sampler2D uTex;
+uniform vec2 uTexel;
+vec3 TT(vec2 q){ return texture(uTex,q).rgb; }
+void main(){
+  vec2 q=UV(); vec2 t=uTexel;
+  vec3 a=TT(q+t*vec2(-2,2)),b=TT(q+t*vec2(0,2)),c=TT(q+t*vec2(2,2));
+  vec3 d=TT(q+t*vec2(-2,0)),e=TT(q),f=TT(q+t*vec2(2,0));
+  vec3 g=TT(q+t*vec2(-2,-2)),h=TT(q+t*vec2(0,-2)),i=TT(q+t*vec2(2,-2));
+  vec3 j=TT(q+t*vec2(-1,1)),k=TT(q+t*vec2(1,1)),l=TT(q+t*vec2(-1,-1)),mm=TT(q+t*vec2(1,-1));
+  OC=vec4(e*0.125+(a+c+g+i)*0.03125+(b+d+f+h)*0.0625+(j+k+l+mm)*0.125,1.0);
+}
+</script>
+
+<script id="sh-up" type="x-shader">
+uniform sampler2D uTex;
+uniform vec2 uTexel;
+uniform float uRadius;
+vec3 TT(vec2 q){ return texture(uTex,q).rgb; }
+void main(){
+  vec2 q=UV(); vec2 t=uTexel*uRadius;
+  vec3 o=TT(q+vec2(-1,-1)*t)+TT(q+vec2(0,-1)*t)*2.0+TT(q+vec2(1,-1)*t)
+        +TT(q+vec2(-1, 0)*t)*2.0+TT(q)*4.0+TT(q+vec2(1,0)*t)*2.0
+        +TT(q+vec2(-1, 1)*t)+TT(q+vec2(0, 1)*t)*2.0+TT(q+vec2(1,1)*t);
+  OC=vec4(o*0.0625,1.0);
+}
+</script>
+
+<script id="sh-echo" type="x-shader">
+/* ================= écho / traînée =================
+   Rétroaction : l image précédente est relue légèrement tournée et dilatée, puis
+   atténuée. Le max() (plutôt qu une somme) empêche l accumulation de saturer. */
+uniform sampler2D uScene;
+uniform sampler2D uPrev;
+uniform float uDecay;
+uniform float uScaleAmt;
+uniform float uRotAmt;
+void main(){
+  vec2 uv=UV();
+  vec2 c=uv-0.5; c.x*=uAspect;
+  float cs=cos(uRotAmt), sn=sin(uRotAmt);
+  c=vec2(c.x*cs-c.y*sn, c.x*sn+c.y*cs)*uScaleAmt;
+  c.x/=uAspect;
+  vec3 prev=texture(uPrev,c+0.5).rgb*uDecay;
+  vec3 cur=texture(uScene,uv).rgb;
+  OC=vec4(max(cur,prev),1.0);
+}
+</script>
+
+<script id="sh-comp" type="x-shader">
+uniform sampler2D uScene,uBloom,uEcho;
+uniform float uExp,uBloomI,uCA,uVig,uGrain,uFadeIn,uSat;
+uniform float uEchoAmt;
+uniform float uGlitch;   /* 0 = propre, 1 = arrachement numérique franc */
+uniform float uGlitchT;  /* horloge saccadée : le glitch avance par paliers */
+uniform float uSplit;    /* décalage RVB permanent, indépendant du glitch */
+uniform float uPix;      /* pixellisation : l image tombe sur une grille grossière */
+uniform float uInv;      /* inversion par bandes horizontales */
+vec3 aces(vec3 x){
+  const mat3 m1=mat3(0.59719,0.07600,0.02840, 0.35458,0.90834,0.13383, 0.04823,0.01566,0.83777);
+  const mat3 m2=mat3( 1.60475,-0.10208,-0.00327, -0.53108,1.10813,-0.07276, -0.07367,-0.00605,1.07602);
+  vec3 v=m1*x; vec3 a=v*(v+0.0245786)-0.000090537; vec3 b=v*(0.983729*v+0.4329510)+0.238081;
+  return clamp(m2*(a/b),0.0,1.0);
+}
+void main(){
+  vec2 uv=UV();
+  vec2 cc=uv-0.5; float r2=dot(cc,cc);
+
+  /* ---- glitch numérique : arrachement par bandes puis par blocs ---- */
+  vec2 guv=uv;
+  float gsplit=0.0;
+  if(uGlitch>0.001){
+    float g=uGlitch;
+    float rowH=mix(0.16,0.022,g);
+    float row=floor(uv.y/rowH);
+    float seed=floor(uGlitchT*11.0);
+    float rr=h12(vec2(row,seed));
+    float torn=step(1.0-g*0.55,rr);
+    guv.x+=(h12(vec2(row*3.1,seed+7.0))-0.5)*0.20*g*torn;
+
+    vec2 bs=vec2(mix(0.32,0.05,g));
+    vec2 blk=floor(uv/bs);
+    float br=h12(blk+seed*13.7);
+    if(br>1.0-g*0.28){
+      guv+=(vec2(h12(blk+1.3),h12(blk+5.7))-0.5)*0.05*g;
+    }
+    gsplit=g*0.012*(0.4+0.6*h12(vec2(seed,3.0)));
+  }
+  /* décalage RVB à part : une dérive constante, sans arrachement */
+  gsplit+=uSplit*0.022;
+
+  /* pixellisation : on rabat les coordonnées sur une grille. Le pas est
+     corrigé de l aspect, sinon les blocs sortent rectangulaires. */
+  if(uPix>0.001){
+    float ny=mix(240.0,11.0,uPix);
+    vec2 n=vec2(ny*uAspect,ny);
+    guv=(floor(guv*n)+0.5)/n;
+  }
+
+  float k=uCA*(0.40+r2*3.0);
+  vec3 col;
+  col.r=texture(uScene,guv+cc*k+vec2( gsplit,0.0)).r;
+  vec4 mid=texture(uScene,guv);
+  col.g=mid.g;
+  col.b=texture(uScene,guv-cc*k-vec2( gsplit,0.0)).b;
+  col+=texture(uBloom,uv).rgb*uBloomI;
+  if(uEchoAmt>0.001) col+=texture(uEcho,guv).rgb*uEchoAmt;
+  /* le bassin : une eau presque noire, à peine éclairée par le haut */
+  col+=mix(vec3(0.0125,0.0165,0.0270),vec3(0.0022,0.0032,0.0062),sat(r2*2.4))
+      *mix(1.0,1.5,sat(uv.y))*mid.a;
+  col*=uExp;
+  col=aces(col);
+  float lum=dot(col,vec3(0.2126,0.7152,0.0722));
+  col=mix(vec3(lum),col,uSat);
+  col=mix(col,col*col*(3.0-2.0*col),0.15);
+
+  /* Inversion par bandes. Appliquée après le rendu tonal : on renverse une
+     image déjà bornée à [0,1], sinon le négatif d une valeur hors plage
+     partirait dans le noir. Les bandes sont tirées au sort et changent au
+     rythme de l horloge du glitch. */
+  if(uInv>0.001){
+    float rows=mix(34.0,7.0,uInv);
+    float band=floor(uv.y*rows);
+    float on=step(1.0-uInv*0.55,h12(vec2(band*2.7,floor(uGlitchT*5.0)+11.0)));
+    col=mix(col,1.0-col,on*uInv);
+  }
+
+  col*=mix(1.0,smoothstep(1.05,0.10,r2*2.2),uVig);
+  col+=(h12(gl_FragCoord.xy+fract(uT)*719.0)-0.5)*uGrain;
+  OC=vec4(max(col*uFadeIn,vec3(0.0)),1.0);
+}
+</script>
+<script>
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i);};
+var canvas=$("gl"), bootEl=$("boot"), bootBar=$("bootBar"),
+    bootStatus=$("bootStatus"), bootErr=$("bootErr");
+function fatal(m){
+  bootStatus.textContent="Échec de l'initialisation";
+  bootErr.textContent=m; bootErr.className="err on"; console.error(m);
+}
+
+var gl=canvas.getContext("webgl2",{antialias:false,alpha:false,depth:false,stencil:false,
+  premultipliedAlpha:false,preserveDrawingBuffer:false,powerPreference:"high-performance"});
+if(!gl){ fatal("WebGL 2 n'est pas disponible.\nActivez l'accélération matérielle, ou utilisez Chrome / Edge / Firefox à jour."); return; }
+if(!gl.getExtension("EXT_color_buffer_float")){
+  fatal("Le rendu en virgule flottante (EXT_color_buffer_float) n'est pas disponible sur ce GPU."); return; }
+gl.getExtension("OES_texture_float_linear");
+
+/* ================= shaders ================= */
+function src(id){ var e=$(id); return e?e.textContent:""; }
+var COMMON=src("sh-common");
+var H_FS="#version 300 es\nprecision highp float;\nprecision highp int;\nlayout(location=0) out vec4 OC;\n";
+var QUAD="#version 300 es\nvoid main(){ vec2 v=vec2(float((gl_VertexID&1)*4-1),float((gl_VertexID>>1)*4-1)); gl_Position=vec4(v,0.0,1.0); }\n";
+
+function compile(type,code,label){
+  var s=gl.createShader(type);
+  gl.shaderSource(s,code); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)){
+    var log=gl.getShaderInfoLog(s)||"";
+    var ln=parseInt((log.match(/\d+:(\d+)/)||[0,0])[1],10);
+    var L=code.split("\n"),ctx="";
+    for(var i=Math.max(0,ln-4);i<Math.min(L.length,ln+3);i++) ctx+=(i+1===ln?"→ ":"  ")+(i+1)+" | "+L[i]+"\n";
+    throw new Error("["+label+"]\n"+log+"\n"+ctx);
+  }
+  return s;
+}
+function prog(id,label){
+  var p=gl.createProgram();
+  gl.attachShader(p,compile(gl.VERTEX_SHADER,QUAD,label+" · sommet"));
+  gl.attachShader(p,compile(gl.FRAGMENT_SHADER,H_FS+COMMON+src(id),label));
+  gl.linkProgram(p);
+  if(!gl.getProgramParameter(p,gl.LINK_STATUS)) throw new Error("["+label+"] lien : "+gl.getProgramInfoLog(p));
+  var u={},n=gl.getProgramParameter(p,gl.ACTIVE_UNIFORMS);
+  for(var i=0;i<n;i++){
+    var a=gl.getActiveUniform(p,i), loc=gl.getUniformLocation(p,a.name);
+    u[a.name]=loc;
+    var k=a.name.indexOf("[0]");
+    if(k>0) u[a.name.slice(0,k)]=loc;   /* les tableaux sont exposés sous leur nom nu */
+  }
+  return {p:p,u:u};
+}
+
+/* ================= cibles ================= */
+function rt(w,h,filter){
+  var t=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA16F,w,h,0,gl.RGBA,gl.HALF_FLOAT,null);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,filter||gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,filter||gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  var f=gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER,f);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,t,0);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  return {t:t,f:f,w:w,h:h};
+}
+function del(o){ if(o){ gl.deleteTexture(o.t); gl.deleteFramebuffer(o.f); } }
+function clr(o){ gl.bindFramebuffer(gl.FRAMEBUFFER,o.f); gl.viewport(0,0,o.w,o.h);
+  gl.clearColor(0,0,0,1); gl.clear(gl.COLOR_BUFFER_BIT); }
+function bindTex(u,t,loc){ if(loc==null) return; gl.activeTexture(gl.TEXTURE0+u);
+  gl.bindTexture(gl.TEXTURE_2D,t); gl.uniform1i(loc,u); }
+
+var VAO=gl.createVertexArray();
+gl.bindVertexArray(VAO);
+gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
+
+/* ================= configuration ================= */
+var PRESETS=[
+  {n:"ÉCO",      res:0.55, jac:22},
+  {n:"STANDARD", res:0.78, jac:32},
+  {n:"HAUTE",    res:1.00, jac:44},
+  {n:"ULTRA",    res:1.00, jac:58}
+];
+var PHASES=[
+ {n:"La Goutte", d:"Une goutte tombe. Elle s’épanouit en champignon, puis laisse descendre ses racines.",
+  buoy:0.110, swirl:0.030, damp:0.55, conf:2.6, vort:24, diss:0.9988, ribbon:0.0, drops:1.00},
+ {n:"Les Volutes", d:"La turbulence s’installe. Les nappes s’enroulent, se déchirent et se relacent.",
+  buoy:0.065, swirl:0.090, damp:0.40, conf:2.9, vort:46, diss:0.9985, ribbon:0.0, drops:0.46},
+ {n:"Le Tressage", d:"Deux encres se croisent sans se confondre. Elles se tressent le long des lignes de courant.",
+  buoy:0.045, swirl:0.055, damp:0.36, conf:3.1, vort:38, diss:0.9991, ribbon:4.20, drops:0.30},
+ {n:"La Dissolution", d:"Plus rien n’entre. Tout s’étale, s’amincit, devient voile, puis s’efface.",
+  buoy:0.022, swirl:0.028, damp:0.72, conf:2.1, vort:14, diss:0.9948, ribbon:0.0, drops:0.00},
+ /* Les quatre premières phases tiennent leurs réglages et se fondent l une
+    dans l autre. Celle-ci non : ses paramètres respirent sur un cycle propre
+    d environ neuf secondes, et la pesanteur bascule au lieu de dériver. */
+ {n:"Le Ressac", d:"Le bassin respire. La poussée enfle, se retire, revient — et la pesanteur bascule d un bord à l’autre.",
+  buoy:0.078, swirl:0.062, damp:0.44, conf:2.7, vort:34, diss:0.9979, ribbon:0.0, drops:0.62, surge:1.0},
+ /* Ici l encre cesse de se diluer : elle s agglomère. Brassage et vorticité
+    tombent bas — sinon les amas seraient déchirés aussitôt formés — et la
+    persistance monte pour que la masse tienne le temps de se rassembler. */
+ {n:"La Gelée", d:"L’encre ne se dilue plus : elle prend. Des masses épaisses et translucides se rassemblent, la lumière les traverse et porte leur ombre sur l’eau.",
+  buoy:0.030, swirl:0.018, damp:0.62, conf:2.4, vort:16, diss:0.9994, ribbon:0.0, drops:0.34, agg:1.0, gel:1.0},
+ /* Le comportement de la toute première version, avant qu on élargisse les
+    tourbillons et qu on adoucisse la chute des gouttes : confinement au texel
+    près et gouttes qui tombent d un bloc. */
+ {n:"La Source", d:"Le premier régime. La turbulence mord au grain de l’image, nerveuse et découpée, et les gouttes tombent d’un bloc.",
+  buoy:0.095, swirl:0.075, damp:0.42, conf:2.8, vort:42, diss:0.9986, ribbon:0.0, drops:0.85, raw:1.0}
+];
+var phaseProg=0;         /* position dans le cycle, en phases */
+var phaseDurEff=62;      /* duree effective dune phase, en secondes */
+var INKS=[[1.00,0.16,0.06],[0.07,1.00,0.30],[0.14,0.30,1.00],[0.85,0.55,0.10],[0.45,0.10,0.95]];
+
+/* ================= état ================= */
+var preset=1, RS=0.72, T=0, running=true, cycleN=1, lastPh=-1;
+/* le menu fixe la resolution visee ; l'asservissement de charge la redescend
+   si la carte ne suit pas, puis la fait remonter des qu'elle suit */
+function setQual(i){
+  preset=Math.max(0,Math.min(PRESETS.length-1,i|0));
+  RS=PRESETS[preset].res;
+  var d=$("dQual"); if(d) d.value=String(preset);
+}
+var SW=0,SH=0,FW=0,FH=0,ASP=1,MIP=5;
+var vel=null,velT=null,dye=null,dyeT=null,pres=null,curlT=null,curlB=null,divT=null,scene=null,mips=[];
+var dyeBlurA=null,dyeBlurB=null,echoA=null,echoB=null;
+var velSmooth=true;
+var rotAngle=0, glitchClock=0, tornPos=[0.5,0.5], tornPos2=[0.5,0.5], smokeSrc=[0.5,0.5];
+var fps=0,fpsAcc=0,fpsT=0,emaDt=16.7,frames=0,fadeIn=0;
+var gravT=0, grav=[0,-1], dropTimer=0.8;
+var MX=0.5,MY=0.5,PVX=0,PVY=0,ptrOn=0,dragging=false,lastX=0.5,lastY=0.5;
+var pan=[0,0], shake=[0,0], shakeV=[0,0], shakePend=[0,0], hueShift=0, pulse=[0,0,0.10,0];
+var hueCycle=0, hueSpec=0;
+var flashEnv=0;
+var CFG={zoom:1.0,rate:1.0,vort:1.0,buoy:1.0,pers:1.0,irid:1.0,exp:1.0,
+         fall:1.0,react:1.0,flash:1.0,shake:1.0,kick:1.0,vsize:10.0,warmth:0.0,dilute:0.0,
+         bands:0.0,rot:0.0,glitch:0.0,echo:0.0,ezoom:0.0,torn:0.0,smoke:0.0,tvoid:1.0,
+         hcycle:0.0,split:0.0,pix:0.0,inv:0.0,
+         mturb:1.0,mvort:1.0,mhue:1.0,mzoom:0.0,mglitch:0.0,
+         agg:0.0,gel:0.0,gshadow:1.0,grays:1.0,glight:0.0,
+         bloom:0.52,vig:0.50,grain:0.20,relief:1.0,edge:1.0,
+         hue:0.0,palsat:1.0,phasedur:62.0,phasebars:0};
+var zoomTarget=1.0, zoomVel=0, eraseMode=false;
+
+/* ================= oscillateurs =================
+   Trois oscillateurs libres. Chacun choisit sa destination et sa source : à
+   « Libre » il tourne seul, sinon la bande retenue lui sert de robinet — il ne
+   s exprime que lorsqu elle sonne. C est ce qui le fait suivre la musique sans
+   perdre son propre rythme.                                                  */
+var LFO=[
+  {rate:0.30, amt:0.0, tgt:"zoom", src:0, div:0, ph:0},
+  {rate:0.17, amt:0.0, tgt:"rot",  src:1, div:0, ph:0},
+  {rate:0.53, amt:0.0, tgt:"vort", src:3, div:0, ph:0}
+];
+/* course propre à chaque destination : une même amplitude ne veut pas dire la
+   même chose sur un zoom et sur une taille de tourbillon */
+var LFO_COURSE={zoom:0.55,rot:1.00,vort:0.85,vsize:8.0,buoy:0.75,dilute:1.20,
+                split:0.50,pix:0.50,inv:0.50,echo:0.50,ezoom:0.80,torn:0.70,bands:0.60,hue:0.50,
+                warmth:0.45,hcycle:1.00,glitch:0.45,gel:0.50,glight:1.60,rate:0.45};
+/* plancher : sous ces valeurs un réglage n a plus de sens physique */
+var LFO_MIN={zoom:1.0,vort:0.0,vsize:1.0,buoy:0.0,dilute:0.0,warmth:0.0,
+             split:0.0,pix:0.0,inv:0.0,echo:0.0,torn:0.0,bands:0.0,
+             glitch:0.0,gel:0.0,rate:0.05};
+var lfoOff={};
+function updateLFO(dt){
+  for(var k in lfoOff) lfoOff[k]=0;
+  for(var i=0;i<LFO.length;i++){
+    var L=LFO[i];
+    /* Calé sur le tempo, la phase est *dérivée* de l horloge des temps et non
+       intégrée : elle ne peut donc pas dériver, même si la période est
+       ré-estimée en cours de route. Libre, elle avance à sa propre cadence. */
+    if(L.div>0&&tempoOn&&tempoConf>0.12) L.ph=(beatPos/L.div)*6.283185;
+    else {
+      L.ph+=dt*L.rate*6.283185;
+      if(L.ph>62.83185) L.ph-=62.83185;
+    }
+    if(L.amt<0.0005) continue;
+    var gain = L.src===0?1.0 : (L.src===1?AU.bass : L.src===2?AU.mid :
+               L.src===3?AU.high : AU.level);
+    var v=Math.sin(L.ph)*L.amt*gain*(LFO_COURSE[L.tgt]||1.0);
+    lfoOff[L.tgt]=(lfoOff[L.tgt]||0)+v;
+  }
+}
+/* valeur effective : réglage du curseur plus ce que les oscillateurs y ajoutent */
+function PV(k){
+  var o=lfoOff[k];
+  if(!o) return CFG[k];
+  var v=CFG[k]+o, mn=LFO_MIN[k];
+  return (mn!==undefined&&v<mn)?mn:v;
+}
+var P={},CUR={};
+var DTS=1/60;
+
+/* ================= gouttes qui versent pendant leur chute ================= */
+var slots=[null,null,null], ptrCol=[1.0,0.42,0.20];
+var dropsU=new Float32Array(12), dropsC=new Float32Array(9), dropRate=new Float32Array(3);
+
+function spawnDrop(strength){
+  strength=strength||1;
+  var idx=0, worst=-1;
+  for(var i=0;i<3;i++){
+    if(!slots[i]){ idx=i; worst=2; break; }
+    var pr=slots[i].t/slots[i].dur;
+    if(pr>worst){ worst=pr; idx=i; }
+  }
+  var side=(Math.random()-0.5)*0.55;
+  var px=0.5-grav[0]*0.34+(-grav[1])*side;
+  var py=0.5-grav[1]*0.34+( grav[0])*side;
+  px=Math.max(0.08,Math.min(0.92,px));
+  py=Math.max(0.08,Math.min(0.92,py));
+  slots[idx]={
+    x:px, y:py,
+    r0:0.017+Math.random()*0.016,
+    amp:(1.05+Math.random()*0.75)*strength,
+    t:0, dur:(0.60+Math.random()*0.45)*Math.max(0.12,CFG.fall),
+    col:INKS[(Math.random()*INKS.length)|0],
+    vx:grav[0]*0.20, vy:grav[1]*0.20
+  };
+  /* le point d entrée pousse le fluide : c est l impact de la goutte */
+  pulse=[px,py,0.095,7.5*strength];
+}
+function updateDrops(dt){
+  for(var i=0;i<3;i++){
+    var s=slots[i];
+    dropRate[i]=0;
+    if(!s) continue;
+    s.t+=dt;
+    if(s.t>=s.dur){ slots[i]=null; continue; }
+    var u=s.t/s.dur;
+    /* Attaque douce, corps plein, longue traîne : rien ne surgit d un bloc.
+       Sauf en phase La Source, qui retrouve la chute abrupte d origine :
+       l attaque se raidit et la traîne se raccourcit. */
+    var rw=CUR.raw||0;
+    var env=Math.pow(u,0.42-0.32*rw)*Math.pow(1.0-u,1.15+1.05*rw)*(3.05+1.15*rw);
+    s.x+=s.vx*dt; s.y+=s.vy*dt;
+    dropsU[i*4  ]=s.x;
+    dropsU[i*4+1]=s.y;
+    dropsU[i*4+2]=s.r0*(0.70+u*0.95);
+    dropRate[i]=s.amp*env;
+    dropsC[i*3]=s.col[0]; dropsC[i*3+1]=s.col[1]; dropsC[i*3+2]=s.col[2];
+  }
+}
+
+/* ================= audio ================= */
+var AC=null,analyser=null,audioEl=null,srcNode=null,freqData=null,prevSpec=null;
+var AU={bass:0,low:0,mid:0,high:0,level:0,beat:0,kick:0,centroid:0.5,on:false};
+var mxB=0.02,mxL=0.02,mxM=0.02,mxH=0.02,mxLv=0.02;
+var fluxAvg=0,beatCool=0,kickCool=0,kickAvg=0,audioDropCool=0;
+
+/* ================= tempo =================
+   Deux problèmes distincts. Trouver la période : on autocorrèle l enveloppe
+   d attaque, rééchantillonnée à pas fixe, sur les décalages correspondant à
+   60–190 battements par minute. Puis trouver la phase — savoir *quand* tombe
+   le temps, pas seulement à quelle cadence : une boucle à verrouillage tire
+   doucement la phase vers chaque attaque détectée et corrige la période au
+   passage. Sans ce second étage on aurait la bonne fréquence au mauvais
+   moment, ce qui s entend immédiatement.                                    */
+var ENV_DT=1/100, ENV_N=600;
+var envBuf=new Float32Array(ENV_N), envHead=0, envT=0, envFill=0;
+var LAG_MIN=32, LAG_MAX=100;          /* 187 à 60 battements par minute */
+var tempoT=0, periode=0.5, tempoConf=0, tempoOn=false, tempoManuel=0;
+var beatPhase=0, beatIdx=0, beatPos=0, beatPulse=0;
+var taps=[];
+
+function envPush(flux,dt){
+  envT+=dt;
+  var garde=0;
+  while(envT>=ENV_DT&&garde<8){
+    envT-=ENV_DT; garde++;
+    envBuf[envHead]=flux; envHead=(envHead+1)%ENV_N;
+    if(envFill<ENV_N) envFill++;
+  }
+  if(garde>=8) envT=0;   /* image très longue : on ne remplit pas le tampon de copies */
+}
+function autocorr(){
+  if(envFill<ENV_N) return;
+  var moy=0,i;
+  for(i=0;i<ENV_N;i++) moy+=envBuf[i];
+  moy/=ENV_N;
+  function lu(k){ return envBuf[(envHead+k)%ENV_N]-moy; }
+  var v0=0;
+  for(i=0;i<ENV_N;i++){ var a=lu(i); v0+=a*a; }
+  v0/=ENV_N;
+  if(v0<1e-9) return;
+  var best=0,bestLag=0,score={};
+  for(var lag=LAG_MIN;lag<=LAG_MAX;lag++){
+    var s=0,n=ENV_N-lag;
+    for(i=0;i<n;i++) s+=lu(i)*lu(i+lag);
+    s=s/n/v0;
+    score[lag]=s;
+    if(s>best){ best=s; bestLag=lag; }
+  }
+  if(bestLag===0||best<0.12) return;
+  /* Ambiguïté d octave : la moitié et le double d une période corrèlent
+     presque aussi bien. À score comparable on retient le candidat le plus
+     proche de 120 battements, là où se tient la plupart de la musique. */
+  var cands=[bestLag];
+  if(bestLag*2<=LAG_MAX&&score[bestLag*2]>best*0.80) cands.push(bestLag*2);
+  var moitie=Math.round(bestLag/2);
+  if(moitie>=LAG_MIN&&score[moitie]>best*0.80) cands.push(moitie);
+  var choix=cands[0],ecart=1e9;
+  for(i=0;i<cands.length;i++){
+    var bpm=60.0/(cands[i]*ENV_DT), e=Math.abs(bpm-120);
+    if(e<ecart){ ecart=e; choix=cands[i]; }
+  }
+  var per=choix*ENV_DT;
+  tempoConf=best;
+  if(!tempoOn){ periode=per; tempoOn=true; }
+  else periode+=(per-periode)*0.25;
+}
+function tapTempo(){
+  var t=performance.now()/1000;
+  if(taps.length&&t-taps[taps.length-1]>2.4) taps=[];
+  taps.push(t); if(taps.length>5) taps.shift();
+  if(taps.length>=2){
+    var d=[]; for(var i=1;i<taps.length;i++) d.push(taps[i]-taps[i-1]);
+    d.sort(function(a,b){return a-b;});
+    var med=d[d.length>>1];
+    if(med>0.28&&med<1.2){
+      periode=med; tempoOn=true; tempoConf=1.0; tempoManuel=12.0;
+      beatPhase=0; beatIdx=0;
+    }
+  }
+}
+function suivreTempo(dt,attaque){
+  tempoManuel=Math.max(0,tempoManuel-dt);
+  if(!tempoOn) return;
+  beatPhase+=dt/periode;
+  while(beatPhase>=1.0){ beatPhase-=1.0; beatIdx=(beatIdx+1)%64; beatPulse=1.0; }
+  beatPulse*=Math.exp(-dt*9.0);
+  if(attaque&&tempoManuel<=0){
+    /* écart signé vers le temps le plus proche */
+    var err=beatPhase>0.5?beatPhase-1.0:beatPhase;
+    beatPhase-=err*0.16;
+    if(beatPhase<0){ beatPhase+=1.0; beatIdx=(beatIdx+63)%64; }
+    periode*=1.0+err*0.012;
+    periode=Math.max(0.30,Math.min(1.05,periode));
+  }
+  beatPos=beatIdx+beatPhase;
+}
+var specCv=$("spec"), specCtx=specCv?specCv.getContext("2d"):null;
+
+function ensureAudio(){
+  if(AC) return true;
+  var Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx) return false;
+  AC=new Ctx();
+  audioEl=new Audio();
+  audioEl.loop=true; audioEl.preload="auto";
+  srcNode=AC.createMediaElementSource(audioEl);
+  analyser=AC.createAnalyser();
+  analyser.fftSize=2048;
+  analyser.smoothingTimeConstant=0.62;
+  srcNode.connect(analyser); analyser.connect(AC.destination);
+  freqData=new Uint8Array(analyser.frequencyBinCount);
+  prevSpec=new Float32Array(analyser.frequencyBinCount);
+  return true;
+}
+function loadTrack(file){
+  if(!file||!ensureAudio()) return;
+  try{ if(audioEl.src) URL.revokeObjectURL(audioEl.src); }catch(e){}
+  audioEl.src=URL.createObjectURL(file);
+  var nm=file.name.replace(/\.[^.]+$/,"");
+  $("mLabel").textContent=nm.length>18?nm.slice(0,17)+"…":nm;
+  $("track").firstChild.nodeValue=nm.length>26?nm.slice(0,25)+"…":nm;
+  $("audio").classList.add("on");
+  $("bMusic").classList.add("live");
+  AC.resume().then(function(){ return audioEl.play(); }).catch(function(){});
+}
+function toggleTrack(){
+  if(!audioEl||!audioEl.src){ $("fAudio").click(); return; }
+  if(audioEl.paused){ AC.resume(); audioEl.play(); $("bMusic").classList.add("live"); }
+  else { audioEl.pause(); $("bMusic").classList.remove("live"); }
+}
+
+function analyse(dt){
+  if(!analyser||!audioEl||!audioEl.src||audioEl.paused){
+    AU.on=false;
+    var k=Math.exp(-dt*3.0);
+    AU.bass*=k; AU.low*=k; AU.mid*=k; AU.high*=k; AU.level*=k;
+    AU.beat*=Math.exp(-dt*6.0); AU.kick*=Math.exp(-dt*6.0);
+    /* sans piste, la phase continue de tourner : le tempo tapé à la main
+       reste utilisable et les oscillateurs calés gardent leur repère */
+    suivreTempo(dt,false);
+    return;
+  }
+  AU.on=true;
+  analyser.getByteFrequencyData(freqData);
+  var n=freqData.length, nyq=AC.sampleRate*0.5;
+  function band(f0,f1){
+    var i0=Math.max(0,(f0/nyq*n)|0), i1=Math.min(n-1,Math.ceil(f1/nyq*n));
+    var s=0,c=0;
+    for(var i=i0;i<=i1;i++){ s+=freqData[i]; c++; }
+    return c?s/(c*255):0;
+  }
+  var b=band(30,140), l=band(140,420), m=band(420,2400), h=band(2400,11000);
+  var lv=(b*1.25+l+m+h*0.8)/4.05;
+
+  var flux=0,num=0,den=0;
+  for(var i=0;i<n;i++){
+    var v=freqData[i]/255;
+    var d=v-prevSpec[i]; if(d>0) flux+=d;
+    prevSpec[i]=v; num+=v*i; den+=v;
+  }
+  flux/=n;
+  var cen=den>0.002?(num/den)/n:0.45;
+
+  /* gain automatique par bande : le visuel s adapte au mixage du morceau */
+  function ag(v,mx){ return Math.max(mx*Math.pow(0.9994,dt*60),v,0.02); }
+  mxB=ag(b,mxB); mxL=ag(l,mxL); mxM=ag(m,mxM); mxH=ag(h,mxH); mxLv=ag(lv,mxLv);
+  var nb=b/mxB, nl=l/mxL, nm=m/mxM, nh=h/mxH, nlv=lv/mxLv;
+
+  function env(cur,tgt,up,dn){
+    var r=tgt>cur?up:dn;
+    return cur+(tgt-cur)*Math.min(1,dt*r);
+  }
+  AU.bass=env(AU.bass,nb,26,7);
+  AU.low=env(AU.low,nl,22,7);
+  AU.mid=env(AU.mid,nm,20,6);
+  AU.high=env(AU.high,nh,24,8);
+  AU.level=env(AU.level,nlv,16,4);
+  AU.centroid+=(cen-AU.centroid)*Math.min(1,dt*2.5);
+
+  /* attaque spectrale : le battement général */
+  fluxAvg+=(flux-fluxAvg)*Math.min(1,dt*3.0);
+  beatCool-=dt;
+  var attaque=false;
+  if(flux>fluxAvg*1.65&&flux>0.0030&&beatCool<=0){ AU.beat=1; beatCool=0.11; attaque=true; }
+  else AU.beat*=Math.exp(-dt*6.5);
+
+  /* grave : déclenche les gouttes et la secousse */
+  kickAvg+=(nb-kickAvg)*Math.min(1,dt*2.2);
+  kickCool-=dt; audioDropCool-=dt;
+  if(nb>kickAvg*1.30&&nb>0.42&&kickCool<=0){
+    AU.kick=1; kickCool=0.16; onKick(nb);
+  } else AU.kick*=Math.exp(-dt*7.0);
+
+  /* tempo : on nourrit l enveloppe, on ré-estime la période deux fois et demie
+     par seconde, et on recale la phase sur chaque attaque */
+  envPush(flux,dt);
+  tempoT+=dt;
+  if(tempoT>=0.40){ tempoT=0; autocorr(); }
+  suivreTempo(dt,attaque);
+}
+function onKick(power){
+  var react=CFG.react;
+  /* une goutte par grave saturerait le bassin : on impose un intervalle minimal */
+  if(CFG.kick>0.01&&CFG.fall>0.005&&audioDropCool<=0&&Math.random()<Math.min(1,CFG.kick*0.90)){
+    spawnDrop(0.45+power*0.50);
+    audioDropCool=Math.max(0.42,1.15/Math.max(CFG.kick,0.2));
+  }
+  /* L impulsion est mise en attente au lieu d être versée d un coup dans la
+     vitesse : une marche de vitesse, c est une accélération infinie sur la
+     première image, et c est exactement ce qui se voit comme un à-coup.
+     Étalée sur ~80 ms, la même énergie devient une respiration. */
+  var amp=CFG.shake*react*power*0.016;
+  var a=Math.random()*Math.PI*2;
+  shakePend[0]+=Math.cos(a)*amp*60;
+  shakePend[1]+=Math.sin(a)*amp*60;
+}
+function drawSpectrum(){
+  if(!specCtx) return;
+  var W=specCv.width,H=specCv.height;
+  specCtx.clearRect(0,0,W,H);
+  var NB=26;
+  for(var i=0;i<NB;i++){
+    var t=i/(NB-1);
+    var v;
+    if(t<0.33) v=AU.bass+(AU.low-AU.bass)*(t/0.33);
+    else if(t<0.66) v=AU.low+(AU.mid-AU.low)*((t-0.33)/0.33);
+    else v=AU.mid+(AU.high-AU.mid)*((t-0.66)/0.34);
+    v=Math.max(0.02,Math.min(1,v*(0.75+0.45*Math.sin(i*2.7+T*3.0))));
+    var bh=v*(H-6);
+    var x=i*(W/NB);
+    specCtx.fillStyle=AU.on?"rgba(95,199,190,"+(0.30+v*0.65)+")":"rgba(75,90,102,0.35)";
+    specCtx.fillRect(x+1,H-bh,W/NB-3,bh);
+  }
+  specCtx.fillStyle="rgba(229,196,106,"+(0.15+AU.beat*0.85)+")";
+  specCtx.fillRect(0,0,W,2);
+  var bd=$("beat");
+  /* verrouille, le temoin bat sur le temps suivi et non sur chaque attaque :
+     on voit tout de suite si le calage tient */
+  var cale=tempoOn&&tempoConf>0.12;
+  var allume=cale?beatPulse>0.30:AU.beat>0.35;
+  if(bd) bd.style.background=allume?"#E5C46A":(AU.on?"#5FC7BE":"#283644");
+}
+
+/* ================= allocation ================= */
+function pair(w,h,f){ return [rt(w,h,f),rt(w,h,f)]; }
+function allocAll(){
+  var oldDye=dye?dye[0]:null, oldVel=vel?vel[0]:null;
+  if(dye){ del(dye[1]); del(dyeT[0]); del(dyeT[1]); }
+  if(vel){ del(vel[1]); del(velT[0]); del(velT[1]); }
+  if(pres){ del(pres[0]); del(pres[1]); }
+  del(curlT); del(curlB); del(divT); del(scene); del(dyeBlurA); del(dyeBlurB); del(echoA); del(echoB);
+  for(var i=0;i<mips.length;i++) del(mips[i]);
+  mips=[];
+
+  FW=Math.max(16,SW>>1); FH=Math.max(16,SH>>1); ASP=SW/SH;
+  vel=pair(FW,FH); velT=pair(FW,FH);
+  pres=pair(FW,FH,gl.NEAREST);
+  curlT=rt(FW,FH); curlB=rt(FW,FH); divT=rt(FW,FH,gl.NEAREST);
+  dye=pair(SW,SH); dyeT=pair(SW,SH);
+  /* flou en demi-résolution : le pas par passe reste sous le seuil de repliement */
+  dyeBlurA=rt(Math.max(8,SW>>1),Math.max(8,SH>>1));
+  dyeBlurB=rt(Math.max(8,SW>>1),Math.max(8,SH>>1));
+  scene=rt(SW,SH); echoA=rt(SW,SH); echoB=rt(SW,SH);
+  var w=Math.max(2,SW>>1),h=Math.max(2,SH>>1);
+  for(var j=0;j<MIP;j++){ mips.push(rt(w,h)); w=Math.max(2,w>>1); h=Math.max(2,h>>1); }
+  clearAll();
+  /* on garde le contenu : changer de résolution ne doit pas vider le bassin */
+  if(oldDye){ pass(dye[0],P.copy,function(u){ bindTex(0,oldDye.t,u.uTex); gl.uniform1f(u.uMul,1.0); }); del(oldDye); }
+  if(oldVel){ pass(vel[0],P.copy,function(u){ bindTex(0,oldVel.t,u.uTex); gl.uniform1f(u.uMul,1.0); }); del(oldVel); }
+}
+function clearAll(){
+  [vel[0],vel[1],velT[0],velT[1],dye[0],dye[1],dyeT[0],dyeT[1],
+   pres[0],pres[1],curlT,curlB,divT,scene,dyeBlurA,dyeBlurB,echoA,echoB].forEach(clr);
+}
+function resize(){
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  var w=Math.max(2,Math.floor(canvas.clientWidth*dpr));
+  var h=Math.max(2,Math.floor(canvas.clientHeight*dpr));
+  if(w===canvas.width&&h===canvas.height){ applyRes(false); return; }
+  canvas.width=w; canvas.height=h;
+  applyRes(true);
+}
+function applyRes(force){
+  var maxpx=3000000;
+  var w=Math.round(canvas.width*RS), h=Math.round(canvas.height*RS);
+  var s=Math.min(1,Math.sqrt(maxpx/Math.max(w*h,1)));
+  w=Math.max(16,Math.round(w*s)); h=Math.max(16,Math.round(h*s));
+  if(force||w!==SW||h!==SH){ SW=w; SH=h; allocAll(); }
+}
+window.addEventListener("resize",resize);
+if(window.ResizeObserver) new ResizeObserver(function(){ resize(); }).observe(canvas);
+document.addEventListener("visibilitychange",function(){ if(!document.hidden) resize(); });
+
+/* ================= passes ================= */
+function pass(target,pr,setup){
+  gl.bindFramebuffer(gl.FRAMEBUFFER,target?target.f:null);
+  var W=target?target.w:canvas.width, H=target?target.h:canvas.height;
+  gl.viewport(0,0,W,H);
+  gl.useProgram(pr.p);
+  if(pr.u.uRes) gl.uniform2f(pr.u.uRes,W,H);
+  if(pr.u.uT) gl.uniform1f(pr.u.uT,T);
+  if(pr.u.uDt) gl.uniform1f(pr.u.uDt,DTS);
+  if(pr.u.uAspect) gl.uniform1f(pr.u.uAspect,ASP);
+  /* declarer la resolution de la cible au lieu de celle de la vitesse annule
+     le lissage : sert de temoin pour comparer avec lancien comportement */
+  if(pr.u.uVelRes) gl.uniform2f(pr.u.uVelRes,velSmooth?FW:W,velSmooth?FH:H);
+  if(setup) setup(pr.u);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+}
+function macAdvect(s,tmp,velTex,st){
+  pass(tmp[0],P.adv,function(u){ bindTex(0,velTex,u.uVel); bindTex(1,s[0].t,u.uSrc);
+    gl.uniform1f(u.uStep,st); gl.uniform1f(u.uDiss,1.0); });
+  pass(tmp[1],P.adv,function(u){ bindTex(0,velTex,u.uVel); bindTex(1,tmp[0].t,u.uSrc);
+    gl.uniform1f(u.uStep,-st); gl.uniform1f(u.uDiss,1.0); });
+  pass(s[1],P.mac,function(u){
+    bindTex(0,velTex,u.uVel); bindTex(1,s[0].t,u.uPhi0);
+    bindTex(2,tmp[0].t,u.uPhi1); bindTex(3,tmp[1].t,u.uPhi2);
+    gl.uniform1f(u.uStep,st);
+  });
+  var x=s[0]; s[0]=s[1]; s[1]=x;
+}
+
+var vortMul=1,swirlMul=1,buoyMul=1,surgeB=1,surgeV=1,vszDbg=0,vradDbg=0;
+function step(dt){
+  DTS=dt;
+  macAdvect(vel,velT,vel[0].t,dt);
+
+  pass(vel[1],P.force,function(u){
+    bindTex(0,vel[0].t,u.uVel); bindTex(1,dye[0].t,u.uDye);
+    gl.uniform2f(u.uGrav,grav[0],grav[1]);
+    /* Fumée : la poussée sinverse (elle monte au lieu de tomber), le milieu
+       freine moins et brasse davantage. */
+    var sm=CFG.smoke;
+    gl.uniform1f(u.uBuoy,CUR.buoy*PV("buoy")*buoyMul*surgeB*(1.0-1.75*sm));
+    gl.uniform1f(u.uSwirl,CUR.swirl*swirlMul*surgeV*(1.0+2.4*sm));
+    gl.uniform1f(u.uDamp,CUR.damp*(1.0-0.45*sm));
+    gl.uniform1f(u.uFineTurb,sm*sm*0.85);
+    gl.uniform1f(u.uConf,CUR.conf);
+    gl.uniform4f(u.uPtr,MX,MY,PVX,PVY);
+    gl.uniform1f(u.uPtrOn,ptrOn);
+    gl.uniform1f(u.uPtrR,0.085);
+    gl.uniform4f(u.uPulse,pulse[0],pulse[1],pulse[2],pulse[3]);
+    gl.uniform4f(u.uTornado,tornPos[0],tornPos[1],0.33,Math.max(0,PV("torn"))*0.85);
+    gl.uniform4f(u.uTornado2,tornPos2[0],tornPos2[1],0.33,Math.max(0,PV("torn"))*0.85);
+  });
+  var a=vel[0]; vel[0]=vel[1]; vel[1]=a;
+
+  pass(curlT,P.curl,function(u){ bindTex(0,vel[0].t,u.uVel); });
+  /* on lisse la vorticité : le confinement agit alors sur de larges rouleaux */
+  var vsz=Math.max(1,PV("vsize")*(1.0+1.3*CFG.smoke));
+  /* La Source : retour au régime d origine. La portée revient au texel et le
+     rayon du lissage tombe à zéro — les cinq prises du noyau se superposent
+     alors sur le même point et la passe devient l identité, donc le champ de
+     vorticité arrive brut au confinement. En ramenant le rayon plutôt qu en
+     sautant la passe, le fondu entre phases reste continu. */
+  vsz=vsz*(1.0-CUR.raw)+CUR.raw;
+  var iters=Math.max(1,Math.min(6,Math.ceil(vsz/5)));
+  vszDbg=vsz;
+  var vrad=vsz/iters*(1.0-CUR.raw); vradDbg=vrad;
+  for(var q=0;q<iters;q++){
+    pass(curlB,P.cblur,function(u){ bindTex(0,curlT.t,u.uCurl);
+      gl.uniform2f(u.uDir,1,0); gl.uniform1f(u.uRad,vrad); });
+    pass(curlT,P.cblur,function(u){ bindTex(0,curlB.t,u.uCurl);
+      gl.uniform2f(u.uDir,0,1); gl.uniform1f(u.uRad,vrad); });
+  }
+  pass(vel[1],P.vort,function(u){ bindTex(0,vel[0].t,u.uVel); bindTex(1,curlT.t,u.uCurl);
+    gl.uniform1f(u.uEps,CUR.vort*PV("vort")*vortMul*surgeV);
+    gl.uniform1f(u.uStencil,Math.max(1.0,vsz*0.55)); });
+  a=vel[0]; vel[0]=vel[1]; vel[1]=a;
+
+  pass(divT,P.div,function(u){ bindTex(0,vel[0].t,u.uVel); });
+  clr(pres[0]);
+  var it=PRESETS[preset].jac;
+  for(var i=0;i<it;i++){
+    pass(pres[1],P.jac,function(u){ bindTex(0,pres[0].t,u.uPres); bindTex(1,divT.t,u.uDiv); });
+    var b=pres[0]; pres[0]=pres[1]; pres[1]=b;
+  }
+  pass(vel[1],P.grad,function(u){ bindTex(0,pres[0].t,u.uPres); bindTex(1,vel[0].t,u.uVel); });
+  a=vel[0]; vel[0]=vel[1]; vel[1]=a;
+
+  macAdvect(dye,dyeT,vel[0].t,dt);
+
+  for(var k=0;k<3;k++) dropsU[k*4+3]=dropRate[k]*dt;
+  pass(dye[1],P.splat,function(u){
+    bindTex(0,dye[0].t,u.uDye);
+    gl.uniform4fv(u.uDrops,dropsU);
+    gl.uniform3fv(u.uDropC,dropsC);
+    gl.uniform4f(u.uPtr,MX,MY,PVX,PVY);
+    gl.uniform1f(u.uPtrOn,(ptrOn>0.5&&dragging)?1:0);
+    gl.uniform1f(u.uPtrR,0.085);
+    gl.uniform3f(u.uPtrCol,ptrCol[0],ptrCol[1],ptrCol[2]);
+    gl.uniform1f(u.uPtrMode,eraseMode?-1:1);
+    gl.uniform1f(u.uRibbon,CUR.ribbon);
+    gl.uniform1f(u.uDiss,Math.pow(CUR.diss,dt*60/CFG.pers*(1.0+1.6*CFG.smoke)));
+    gl.uniform4f(u.uVoid,tornPos2[0],tornPos2[1],0.21,Math.max(0,PV("torn"))*CFG.tvoid*0.45);
+    gl.uniform4f(u.uSmokeSrc,smokeSrc[0],smokeSrc[1],0.052,CFG.smoke*CFG.smoke*4.2);
+    gl.uniform3f(u.uSmokeCol,ptrCol[0]*0.7+0.28,ptrCol[1]*0.7+0.28,ptrCol[2]*0.7+0.30);
+    /* Dosage. Le maximum avec la valeur de phase empechait le curseur
+       deteindre leffet la ou la phase limposait. Ici zero eteint partout,
+       un rend exactement ce que la phase demande, et au-dela le reglage
+       sert aussi hors de sa phase. */
+    gl.uniform1f(u.uAgg,Math.min(1.0,CUR.agg*CFG.agg+Math.max(0.0,CFG.agg-1.0)*(1.0-CUR.agg)));
+  });
+  a=dye[0]; dye[0]=dye[1]; dye[1]=a;
+}
+
+function draw(dt){
+  var react=CFG.react;
+  /* Le flash suit le grave, plus l attaque spectrale générale : le pic de la
+     caisse le déclenche, le niveau des basses lui donne un fond qui respire.
+     Attaque rapide (~40 ms) pour que ça claque sur le temps, retombée lente
+     (~170 ms) pour que la lumière traîne au lieu de clignoter. */
+  var flashTgt=Math.min(1.35,AU.kick*0.92+AU.bass*0.34);
+  flashEnv+=(flashTgt-flashEnv)*Math.min(1,dt*(flashTgt>flashEnv?26.0:6.0));
+  var flash=flashEnv*CFG.flash*react;
+  var shakeLen=Math.hypot(shake[0],shake[1]);
+  /* La respiration s applique au rendu, pas à CFG.zoom : le zoom molette
+     garde sa course propre et n est pas contaminé par la musique. */
+  var zoomEff=PV("zoom")*(1.0+shakeLen*1.5)*(1.0+AU.level*CFG.mzoom*0.10);
+  var glitchEff=Math.min(1.0,Math.max(0,PV("glitch"))+AU.beat*CFG.mglitch*0.55);
+
+  /* Dilution. Le flou tourne en demi-résolution et le rayon par passe est borné :
+     un noyau à 5 points dont les échantillons s écartent de plus d un texel et demi
+     sous-échantillonne la nappe et produit un peignage le long de l axe de flou. */
+  var dsz=Math.max(0,PV("dilute"));
+  var dyeSoftTex=dye[0].t;
+  if(dsz>0.03){
+    var half=dsz*0.5;                                  /* en texels demi-résolution */
+    var iters=Math.max(1,Math.min(8,Math.ceil(half/1.10)));
+    var drad=Math.min(1.10,half/iters);
+    var srcT=dye[0].t;
+    for(var qi=0;qi<iters;qi++){
+      pass(dyeBlurA,P.dblur,function(u){ bindTex(0,srcT,u.uTex);
+        gl.uniform2f(u.uDir,1,0); gl.uniform1f(u.uRad,drad); });
+      pass(dyeBlurB,P.dblur,function(u){ bindTex(0,dyeBlurA.t,u.uTex);
+        gl.uniform2f(u.uDir,0,1); gl.uniform1f(u.uRad,drad); });
+      srcT=dyeBlurB.t;
+    }
+    dyeSoftTex=dyeBlurB.t;
+  }
+
+  pass(scene,P.ren,function(u){
+    bindTex(0,dye[0].t,u.uDye); bindTex(1,vel[0].t,u.uVel); bindTex(2,dyeSoftTex,u.uDyeSoft);
+    gl.uniform1f(u.uZoom,zoomEff);
+    gl.uniform2f(u.uPan,pan[0],pan[1]);
+    gl.uniform2f(u.uShake,shake[0],shake[1]);
+    gl.uniform1f(u.uHueShift,hueShift);
+    gl.uniform1f(u.uThick,0.62);
+    gl.uniform1f(u.uRelief,40.0*CFG.relief);
+    gl.uniform1f(u.uEdge,4.0*CFG.edge);
+    gl.uniform1f(u.uIridA,CFG.irid);
+    gl.uniform1f(u.uWarmth,PV("warmth"));
+    gl.uniform1f(u.uHue,PV("hue"));
+    gl.uniform1f(u.uPalSat,Math.max(0,CFG.palsat));
+    gl.uniform1f(u.uRot,rotAngle);
+    gl.uniform1f(u.uBands,Math.max(0,PV("bands")));
+    gl.uniform1f(u.uSmoke,CFG.smoke);
+    var gd=Math.max(0,PV("gel"));
+    gl.uniform1f(u.uGel,Math.min(1.0,CUR.gel*gd+Math.max(0.0,gd-1.0)*(1.0-CUR.gel)));
+    gl.uniform1f(u.uGShadow,CFG.gshadow);
+    gl.uniform1f(u.uGRays,CFG.grays);
+    gl.uniform1f(u.uLightAng,PV("glight"));
+    gl.uniform1f(u.uGain,1.0+0.35*flash);
+  });
+  pass(mips[0],P.brg,function(u){ bindTex(0,scene.t,u.uTex);
+    gl.uniform1f(u.uThresh,0.72); gl.uniform1f(u.uKnee,0.40); });
+  for(var i=1;i<MIP;i++){
+    (function(i){ pass(mips[i],P.down,function(u){ bindTex(0,mips[i-1].t,u.uTex);
+      gl.uniform2f(u.uTexel,1/mips[i-1].w,1/mips[i-1].h); }); })(i);
+  }
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE,gl.ONE);
+  for(var j=MIP-1;j>0;j--){
+    (function(j){ pass(mips[j-1],P.up,function(u){ bindTex(0,mips[j].t,u.uTex);
+      gl.uniform2f(u.uTexel,1/mips[j].w,1/mips[j].h); gl.uniform1f(u.uRadius,1.25); }); })(j);
+  }
+  gl.disable(gl.BLEND);
+  /* écho : rétroaction dans un tampon persistant, relu tourné et dilaté */
+  var ech=Math.max(0,PV("echo"));
+  if(ech>0.004){
+    pass(echoB,P.echo,function(u){
+      bindTex(0,scene.t,u.uScene); bindTex(1,echoA.t,u.uPrev);
+      /* Deux réglages indépendants. « Persistance » ne fait que doser la durée
+         de la rémanence ; « zoom » ne fait que dilater ou contracter l image
+         relue. Avant, un seul curseur portait les deux plus une rotation, donc
+         on ne pouvait pas avoir de traînée sans fuite vers l extérieur. */
+      gl.uniform1f(u.uDecay,Math.pow(0.86+0.115*ech,dt*60));
+      gl.uniform1f(u.uScaleAmt,1.0-0.018*PV("ezoom"));
+      gl.uniform1f(u.uRotAmt,dt*CFG.rot*0.22);
+    });
+    var te=echoA; echoA=echoB; echoB=te;
+  }
+
+  pass(null,P.comp,function(u){
+    bindTex(0,scene.t,u.uScene); bindTex(1,mips[0].t,u.uBloom);
+    gl.uniform1f(u.uExp,1.05*CFG.exp*(1.0+0.38*flash));
+    gl.uniform1f(u.uBloomI,CFG.bloom*(1.0+1.15*flash));
+    /* l aberration suit la secousse lissée, plus le pic brut du grave :
+       elle enfle et retombe avec l image au lieu de claquer sur une image */
+    gl.uniform1f(u.uCA,Math.min(0.0052,0.0013*(1.0+45.0*shakeLen)));
+    gl.uniform1f(u.uVig,CFG.vig);
+    gl.uniform1f(u.uGrain,CFG.grain*0.10);
+    gl.uniform1f(u.uSat,1.16+0.30*flash);
+    gl.uniform1f(u.uFadeIn,fadeIn);
+    gl.uniform1f(u.uGlitch,glitchEff);
+    gl.uniform1f(u.uGlitchT,glitchClock);
+    gl.uniform1f(u.uSplit,Math.max(0,PV("split")));
+    gl.uniform1f(u.uPix,Math.max(0,PV("pix")));
+    gl.uniform1f(u.uInv,Math.max(0,PV("inv")));
+    gl.uniform1f(u.uEchoAmt,ech*1.15);
+    bindTex(2,echoA.t,u.uEcho);
+  });
+}
+
+/* ================= phases ================= */
+function lerpPhase(){
+  /* Modulo positif. Le reste de JavaScript garde le signe du dividende : si T
+     recule, le compteur peut devenir négatif, lindice de phase aussi, et
+     PHASES[-1] est indéfini — le visualiseur sarrête net. */
+  /* La position dans le cycle est un compteur propre, et non T divisé par une
+     durée. Si la durée d une phase change — parce qu elle est calée sur un
+     tempo qui vient d être ré-estimé — c est la cadence qui change, pas la
+     position : le cycle ne saute pas. */
+  var f=phaseProg;
+  if(!isFinite(f)) f=0;
+  var i=Math.floor(f)%PHASES.length; if(i<0) i+=PHASES.length;
+  var fr=f-Math.floor(f);
+  var w=fr<0.58?0:(fr-0.58)/0.42; w=w*w*(3-2*w);
+  var A=PHASES[i], B=PHASES[(i+1)%PHASES.length];
+  /* « surge » n existe que sur la cinquième phase : les autres doivent donc
+     lire 0 et non undefined, sinon l interpolation produit du NaN. */
+  function L(k){ var a=A[k]||0, b=B[k]||0; return a+(b-a)*w; }
+  CUR.i=i; CUR.frac=fr;
+  CUR.buoy=L("buoy"); CUR.swirl=L("swirl"); CUR.damp=L("damp"); CUR.conf=L("conf");
+  CUR.vort=L("vort"); CUR.diss=L("diss"); CUR.ribbon=L("ribbon"); CUR.drops=L("drops");
+  CUR.surge=L("surge"); CUR.agg=L("agg"); CUR.gel=L("gel"); CUR.raw=L("raw");
+}
+
+/* ================= interface ================= */
+var elGrid=$("tGrid"),elJac=$("tJac"),elRes=$("tRes"),elFps=$("tFps"),elQ=$("tQ");
+var elIdx=$("pIdx"),elName=$("pName"),elDesc=$("pDesc"),elDial=$("dialN"),arc=$("arc"),card=$("phase");
+var ARCLEN=263.9, uiT=0;
+function setPhase(i){
+  var p=PHASES[i];
+  elIdx.textContent="PHASE 0"+(i+1)+" / 0"+PHASES.length+"  ·  CYCLE "+(cycleN<10?"0":"")+cycleN;
+  elName.textContent=p.n; elDesc.textContent=p.d; elDial.textContent=String(i+1);
+  card.classList.remove("in"); void card.offsetWidth; card.classList.add("in");
+}
+function updateUI(dt){
+  arc.style.strokeDashoffset=String(ARCLEN*(1-CUR.frac));
+  drawSpectrum();
+  uiT+=dt; if(uiT<0.1) return; uiT=0;
+  var zl=$("vZoom"), zs=$("sZoom");
+  if(zl) zl.textContent=CFG.zoom.toFixed(2).replace(".",",");
+  if(zs&&document.activeElement!==zs) zs.value=String(Math.round(CFG.zoom*100));
+  elGrid.textContent=FW+"×"+FH;
+  elJac.textContent=PRESETS[preset].jac+" it.";
+  elRes.textContent=SW+"×"+SH;
+  elFps.textContent=fps.toFixed(0);
+  elQ.textContent=PRESETS[preset].n;
+  elQ.className=fps>50?"ok":(fps>28?"warn":"bad");
+  var eb=$("tBpm");
+  if(eb){
+    if(tempoOn&&tempoConf>0.12){ eb.textContent=(60/periode).toFixed(0)+" bpm"; eb.className="ok"; }
+    else { eb.textContent="—"; eb.className=""; }
+  }
+}
+
+/* ================= boucle ================= */
+var last=0, idleT=0, forceHide=false;
+function loop(now){
+  requestAnimationFrame(loop);
+  var dt=last?Math.min((now-last)/1000,1/25):1/60;
+  /* un horodatage qui recule (restauration d onglet, horloge ajustée) donnerait
+     un pas négatif : le temps du cycle reculerait avec lui */
+  if(!(dt>0)) dt=1/60;
+  last=now;
+  fadeIn=Math.min(1,fadeIn+dt*0.9);
+
+  analyse(dt);
+  updateLFO(dt);
+  var react=CFG.react;
+  vortMul =1.0+1.15*AU.mid  *react*CFG.mvort;
+  swirlMul=1.0+2.30*AU.high *react*CFG.mturb;
+  buoyMul =1.0+0.75*AU.level*react;
+
+  /* Teinte : deux apports distincts. Une dérive propre, qui tourne la palette
+     à vitesse constante même sans musique, et le déplacement dicté par le
+     centre de gravité du spectre. On les somme au lieu de les confondre. */
+  hueCycle+=dt*PV("hcycle")*0.055;
+  if(hueCycle>1.0) hueCycle-=1.0; else if(hueCycle<-1.0) hueCycle+=1.0;
+  hueSpec+=((AU.centroid-0.42)*0.30*react*CFG.mhue-hueSpec)*Math.min(1,dt*1.6);
+  hueShift=hueCycle+hueSpec;
+
+  /* Secousse : ressort amorti, réamorcé à chaque grave. Le ressort est plus
+     lent qu avant (1,6 Hz au lieu de 2,2) et mieux amorti, et l impulsion en
+     attente s y déverse progressivement — un balancement, pas une saccade. */
+  var give=Math.min(1,dt*12.0);
+  for(var s=0;s<2;s++){
+    shakeV[s]+=shakePend[s]*give;
+    shakePend[s]-=shakePend[s]*give;
+    shakeV[s]-=(shake[s]*105.0+shakeV[s]*11.5)*dt;
+    shake[s]+=shakeV[s]*dt;
+    if(Math.abs(shake[s])<1e-5&&Math.abs(shakeV[s])<1e-4&&Math.abs(shakePend[s])<1e-4){
+      shake[s]=0; shakeV[s]=0; shakePend[s]=0;
+    }
+  }
+  pulse[3]*=Math.exp(-dt*11.0);
+  if(pulse[3]<0.02) pulse[3]=0;
+
+  var sdt=dt*Math.max(0.05,PV("rate"));
+  /* Duree dune phase : en secondes, ou calee sur un nombre entier de mesures
+     des quun tempo est verrouille. Quatre temps par mesure. */
+  var dur=Math.max(4,CFG.phasedur);
+  if(CFG.phasebars>0&&tempoOn&&tempoConf>0.12) dur=CFG.phasebars*4.0*periode;
+  phaseDurEff+=(dur-phaseDurEff)*Math.min(1,dt*0.9);
+  if(running){
+    T+=sdt;
+    phaseProg+=sdt/Math.max(1,phaseDurEff);
+    gravT+=sdt*0.045;
+    /* Pendant Le Ressac la pesanteur ne dérive plus : elle bascule d un bord
+       à l autre, ce qui renvoie l encre au lieu de la laisser filer. */
+    var gAng=-Math.PI/2+gravT+(CUR.surge||0)*0.85*Math.sin(T*0.33);
+    grav=[Math.cos(gAng),Math.sin(gAng)];
+  }
+  lerpPhase();
+  /* Respiration de la cinquième phase : sur les quatre autres, surge vaut 0
+     et les deux multiplicateurs restent à 1 — rien ne change pour elles. */
+  var sg=CUR.surge;
+  surgeB=1.0+sg*0.95*Math.sin(T*0.70);
+  surgeV=1.0+sg*0.80*Math.sin(T*0.70+2.1);
+  if(CUR.i!==lastPh){
+    if(lastPh===PHASES.length-1&&CUR.i===0) cycleN++;
+    lastPh=CUR.i; setPhase(CUR.i);
+  }
+  /* sans musique, les gouttes gardent leur cadence propre */
+  /* les gouttes cedent la place a lencensoir continu quand la fumee monte */
+  /* a zero, la chute des gouttes coupe la source : plus aucune goutte, ni au
+     rythme propre du bassin ni sur les graves */
+  if(running&&CUR.drops>0.01&&CFG.fall>0.005&&!(AU.on&&CFG.kick>0.05)){
+    dropTimer-=sdt;
+    if(dropTimer<=0){
+      dropTimer=(1.9/CUR.drops)*(0.55+Math.random()*0.95);
+      if(Math.random()>CFG.smoke) spawnDrop(1);
+    }
+  }
+  if(running) updateDrops(sdt);
+
+  /* rotation continue : lente, signée, indépendante de la cadence du cycle */
+  rotAngle+=dt*PV("rot")*0.22;
+  if(rotAngle>6.283185) rotAngle-=6.283185;
+  if(rotAngle<-6.283185) rotAngle+=6.283185;
+  /* horloge du glitch : avance par paliers pour que larrachement saute au lieu de glisser */
+  glitchClock+=dt*(1.0+AU.beat*3.0);
+  /* la tornade dérive lentement dans le bassin */
+  /* les deux tornades tournent lune autour de lautre : le couple balaie le
+     bassin et rencontre sans cesse de lencre fraiche */
+  var tcx=0.5+0.13*Math.sin(T*0.071), tcy=0.5+0.10*Math.sin(T*0.053+1.7);
+  var ta=T*0.20, tsep=0.255;
+  tornPos =[tcx+Math.cos(ta)*tsep/ASP, tcy+Math.sin(ta)*tsep];
+  tornPos2=[tcx-Math.cos(ta)*tsep/ASP, tcy-Math.sin(ta)*tsep];
+  /* encensoir : un point precis, cote oppose de la portee, dou la fumee
+     traverse tout le bassin en montant */
+  smokeSrc=[0.5+grav[0]*0.37, 0.5+grav[1]*0.37];
+
+  /* Zoom continu : la molette pousse une cible, l image la rejoint par un
+     suivi du second ordre en amortissement critique. La vitesse part de zéro
+     et y revient — un simple lissage exponentiel, lui, démarre à sa vitesse
+     maximale, ce qui se lit comme un départ sec au premier cran. */
+  var zw=3.1;
+  zoomVel+=((zoomTarget-CFG.zoom)*zw*zw-zoomVel*2.0*zw)*dt;
+  CFG.zoom+=zoomVel*dt;
+  if(Math.abs(zoomTarget-CFG.zoom)<0.0005&&Math.abs(zoomVel)<0.004){ CFG.zoom=zoomTarget; zoomVel=0; }
+
+  var lim=Math.max(0,0.5-0.5/PV("zoom"));
+  var tx=Math.max(-lim,Math.min(lim,MX-0.5));
+  var ty=Math.max(-lim,Math.min(lim,MY-0.5));
+  pan[0]+=(tx-pan[0])*Math.min(1,dt*2.2);
+  pan[1]+=(ty-pan[1])*Math.min(1,dt*2.2);
+
+  applyRes(false);
+  if(running){
+    var sub=Math.max(1,Math.min(3,Math.ceil(sdt*55.0)));
+    for(var si=0;si<sub;si++) step(sdt/sub);
+  }
+  draw(dt);
+
+  PVX*=0.86; PVY*=0.86;
+  if(!dragging) ptrOn=Math.max(0,ptrOn-dt*3.0);
+
+  idleT+=dt;
+  var hide=forceHide||idleT>2.4;
+  if(hide!==document.body.classList.contains("nocursor"))
+    document.body.classList.toggle("nocursor",hide);
+
+  emaDt=emaDt*0.92+(dt*1000)*0.08;
+  fpsAcc++; fpsT+=dt;
+  if(fpsT>0.5){ fps=fpsAcc/fpsT; fpsAcc=0; fpsT=0; }
+  if(++frames%28===0){
+    var mx=PRESETS[preset].res;
+    if(emaDt>26.0&&RS>0.40) RS=Math.max(0.40,RS-0.05);
+    /* 20 ms, pas 15 : a 60 Hz la trame dure 16,7 ms et le seuil precedent
+       ne pouvait jamais etre franchi, la resolution ne remontait donc jamais */
+    else if(emaDt<20.0&&RS<mx) RS=Math.min(mx,RS+0.03);
+  }
+  updateUI(dt);
+}
+
+/* ================= commandes ================= */
+var icP=$("icP");
+function setRun(v){
+  running=v;
+  icP.innerHTML=v?'<path d="M1.5 1h3.2v10H1.5zM7.3 1h3.2v10H7.3z"/>':'<path d="M2 1l8 5-8 5z"/>';
+}
+$("bPause").onclick=function(){ setRun(!running); };
+$("bDrop").onclick=function(){ spawnDrop(1); };
+$("bClear").onclick=function(){ clearAll(); slots=[null,null,null]; };
+$("bMusic").onclick=function(){ toggleTrack(); };
+$("bMouse").onclick=function(){
+  forceHide=!forceHide;
+  this.classList.toggle("on",forceHide);
+  idleT=99;
+};
+$("bPan").onclick=function(){ $("pan").classList.toggle("on"); this.classList.toggle("on"); };
+$("bFull").onclick=function(){
+  if(document.fullscreenElement) document.exitFullscreen();
+  else if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+};
+$("fAudio").addEventListener("change",function(e){
+  if(e.target.files&&e.target.files[0]) loadTrack(e.target.files[0]);
+});
+
+function slider(id,vid,key,scale){
+  var s=$(id), v=$(vid);
+  if(!s) return;
+  function upd(){ CFG[key]=s.value/scale; v.textContent=CFG[key].toFixed(2).replace(".",","); }
+  s.addEventListener("input",upd); upd();
+}
+slider("sZoom","vZoom","zoom",100);
+$("sZoom").addEventListener("input",function(){ zoomTarget=CFG.zoom; zoomVel=0; });
+slider("sRate","vRate","rate",100);
+slider("sVort","vVort","vort",100);
+slider("sVsize","vVsize","vsize",10);
+slider("sBuoy","vBuoy","buoy",100);
+slider("sPers","vPers","pers",100);
+slider("sFall","vFall","fall",100);
+slider("sIrid","vIrid","irid",100);
+slider("sColor","vColor","warmth",100);
+slider("sDilute","vDilute","dilute",10);
+slider("sBands","vBands","bands",10);
+slider("sTorn","vTorn","torn",100);
+slider("sRot","vRot","rot",100);
+slider("sGlitch","vGlitch","glitch",100);
+slider("sEcho","vEcho","echo",100);
+slider("sEzoom","vEzoom","ezoom",100);
+slider("sSmoke","vSmoke","smoke",100);
+slider("sTvoid","vTvoid","tvoid",100);
+slider("sExp","vExp","exp",100);
+slider("sReact","vReact","react",100);
+slider("sFlash","vFlash","flash",100);
+slider("sShake","vShake","shake",100);
+slider("sKick","vKick","kick",100);
+slider("sHcycle","vHcycle","hcycle",100);
+slider("sSplit","vSplit","split",100);
+slider("sPix","vPix","pix",100);
+slider("sInv","vInv","inv",100);
+slider("sMturb","vMturb","mturb",100);
+slider("sMvort","vMvort","mvort",100);
+slider("sMhue","vMhue","mhue",100);
+slider("sMzoom","vMzoom","mzoom",100);
+slider("sMglitch","vMglitch","mglitch",100);
+slider("sAgg","vAgg","agg",100);
+slider("sGel","vGel","gel",100);
+slider("sGshadow","vGshadow","gshadow",100);
+slider("sGrays","vGrays","grays",100);
+slider("sGlight","vGlight","glight",100);
+slider("sBloom","vBloom","bloom",100);
+slider("sVig","vVig","vig",100);
+slider("sGrain","vGrain","grain",100);
+slider("sRelief","vRelief","relief",100);
+slider("sEdge","vEdge","edge",100);
+slider("sHue","vHue","hue",100);
+slider("sPalsat","vPalsat","palsat",100);
+slider("sPhasedur","vPhasedur","phasedur",10);
+
+/* ---- oscillateurs : curseurs et menus ---- */
+function bindLFO(i){
+  var L=LFO[i], n=i+1;
+  var sr=$("sL"+n+"r"), vr=$("vL"+n+"r"), sa=$("sL"+n+"a"), va=$("vL"+n+"a");
+  var dd=$("dL"+n), uu=$("uL"+n);
+  if(!sr||!dd) return;
+  function fmt(x){ return x.toFixed(2).replace(".",","); }
+  function up(){ L.rate=sr.value/100; vr.textContent=fmt(L.rate);
+                 L.amt=sa.value/100;  va.textContent=fmt(L.amt); }
+  sr.addEventListener("input",up); sa.addEventListener("input",up);
+  dd.addEventListener("change",function(){
+    /* la destination change : on efface la contribution laissée sur l ancienne,
+       sinon elle y resterait figée jusqu au prochain passage d un oscillateur */
+    lfoOff[L.tgt]=0; L.tgt=dd.value;
+  });
+  uu.addEventListener("change",function(){ L.src=+uu.value; });
+  var kk=$("kL"+n);
+  if(kk){ kk.addEventListener("change",function(){ L.div=+kk.value; }); kk.value=String(L.div); }
+  sr.value=String(Math.round(L.rate*100));
+  sa.value=String(Math.round(L.amt*100));
+  dd.value=L.tgt; uu.value=String(L.src);
+  up();
+}
+for(var li=0;li<LFO.length;li++) bindLFO(li);
+
+/* ================= préréglages ================= */
+var PRESET_KEY="encreEtSoie.presets.v1";
+var PRESET_MAP={
+  rate:  ["sRate","vRate",100],   vort:  ["sVort","vVort",100],
+  buoy:  ["sBuoy","vBuoy",100],   pers:  ["sPers","vPers",100],
+  fall:  ["sFall","vFall",100],   irid:  ["sIrid","vIrid",100],
+  warmth:["sColor","vColor",100], dilute:["sDilute","vDilute",10],
+  exp:   ["sExp","vExp",100],     react: ["sReact","vReact",100],
+  flash: ["sFlash","vFlash",100], shake: ["sShake","vShake",100],
+  kick:  ["sKick","vKick",100],   vsize: ["sVsize","vVsize",10],
+  echo:  ["sEcho","vEcho",100],   ezoom: ["sEzoom","vEzoom",100],
+  hcycle:["sHcycle","vHcycle",100], split:["sSplit","vSplit",100],
+  pix:   ["sPix","vPix",100],     inv:   ["sInv","vInv",100],
+  mturb: ["sMturb","vMturb",100], mvort: ["sMvort","vMvort",100],
+  mhue:  ["sMhue","vMhue",100],   mzoom: ["sMzoom","vMzoom",100],
+  mglitch:["sMglitch","vMglitch",100], bands:["sBands","vBands",10],
+  agg:   ["sAgg","vAgg",100],     gel:   ["sGel","vGel",100],
+  gshadow:["sGshadow","vGshadow",100], grays:["sGrays","vGrays",100],
+  glight:["sGlight","vGlight",100], bloom:["sBloom","vBloom",100],
+  vig:   ["sVig","vVig",100],     grain: ["sGrain","vGrain",100],
+  relief:["sRelief","vRelief",100], edge: ["sEdge","vEdge",100],
+  hue:   ["sHue","vHue",100],     palsat:["sPalsat","vPalsat",100],
+  phasedur:["sPhasedur","vPhasedur",10],
+  glitch:["sGlitch","vGlitch",100], rot:  ["sRot","vRot",100],
+  torn:  ["sTorn","vTorn",100],   smoke: ["sSmoke","vSmoke",100]
+};
+var presetCache=null; /* repli en mémoire : certains contextes (aperçu sandboxé, navigation privée) bloquent le stockage persistant */
+function loadPresets(){
+  try{
+    var v=JSON.parse(localStorage.getItem(PRESET_KEY)||"[]");
+    if(Array.isArray(v)){ presetCache=v; return v; }
+  }catch(e){}
+  if(!presetCache) presetCache=[];
+  return presetCache;
+}
+function savePresetsToDisk(list){
+  presetCache=list;
+  try{ localStorage.setItem(PRESET_KEY,JSON.stringify(list)); }catch(e){}
+}
+function currentLook(){
+  var o={};
+  for(var k in PRESET_MAP) o[k]=CFG[k];
+  o.lfo=LFO.map(function(L){ return {rate:L.rate,amt:L.amt,tgt:L.tgt,src:L.src,div:L.div}; });
+  o.phasebars=CFG.phasebars;
+  return o;
+}
+function applyLook(look){
+  if(look.phasebars!==undefined){ CFG.phasebars=+look.phasebars;
+    var pb=$("dPhasebars"); if(pb) pb.value=String(CFG.phasebars); }
+  if(look.lfo){
+    for(var i=0;i<LFO.length&&i<look.lfo.length;i++){
+      var s=look.lfo[i]; lfoOff[LFO[i].tgt]=0;
+      LFO[i].rate=+s.rate; LFO[i].amt=+s.amt; LFO[i].tgt=s.tgt; LFO[i].src=+s.src;
+      LFO[i].div=+(s.div||0);
+      bindLFO(i);
+    }
+  }
+  for(var k in PRESET_MAP){
+    if(look[k]===undefined) continue;
+    var m=PRESET_MAP[k], v=+look[k];
+    CFG[k]=v;
+    var el=$(m[0]); if(el) el.value=String(Math.round(v*m[2]));
+    var lab=$(m[1]); if(lab) lab.textContent=v.toFixed(2).replace(".",",");
+  }
+}
+function renderPresets(){
+  var list=loadPresets();
+  var host=$("presets"), empty=$("presetEmpty");
+  if(!host) return;
+  host.innerHTML="";
+  if(empty) empty.style.display=list.length?"none":"block";
+  list.forEach(function(p,i){
+    var chip=document.createElement("span");
+    chip.className="chip"; chip.tabIndex=0;
+    chip.title="Charger « "+p.name+" »";
+    var b=document.createElement("b"); b.textContent=p.name;
+    var del=document.createElement("s"); del.textContent="×"; del.title="Supprimer";
+    chip.appendChild(b); chip.appendChild(del);
+    chip.addEventListener("click",function(e){
+      if(e.target===del){
+        var l=loadPresets(); l.splice(i,1); savePresetsToDisk(l); renderPresets();
+        return;
+      }
+      applyLook(p.look);
+    });
+    host.appendChild(chip);
+  });
+}
+var bSavePreset=$("bSavePreset"), presetNameInp=$("presetName");
+if(bSavePreset&&presetNameInp){
+  function commitPreset(){
+    var name=(presetNameInp.value||"").trim().slice(0,24);
+    var list=loadPresets();
+    if(!name) name="Préréglage "+(list.length+1);
+    list=list.filter(function(p){ return p.name!==name; });
+    list.push({name:name,look:currentLook()});
+    if(list.length>14) list=list.slice(list.length-14);
+    savePresetsToDisk(list);
+    presetNameInp.value="";
+    renderPresets();
+  }
+  bSavePreset.addEventListener("click",commitPreset);
+  presetNameInp.addEventListener("keydown",function(e){
+    if(e.key==="Enter"){ e.preventDefault(); commitPreset(); }
+  });
+}
+renderPresets();
+
+/* ---- tempo : calage des phases et frappe manuelle ---- */
+(function(){
+  var pb=$("dPhasebars");
+  if(pb){ pb.value=String(CFG.phasebars);
+    pb.addEventListener("change",function(){ CFG.phasebars=+pb.value; }); }
+  var dq=$("dQual");
+  if(dq){ dq.value=String(preset);
+    dq.addEventListener("change",function(){ setQual(+dq.value); }); }
+  var bt=$("bTap");
+  if(bt) bt.addEventListener("click",function(){ tapTempo(); });
+})();
+
+function ptr(e){
+  var r=canvas.getBoundingClientRect();
+  if(r.width<=0||r.height<=0) return null;
+  return [(e.clientX-r.left)/r.width, 1-(e.clientY-r.top)/r.height];
+}
+canvas.addEventListener("pointermove",function(e){
+  var q=ptr(e); if(!q) return;
+  idleT=0;
+  MX=q[0]; MY=q[1];
+  if(dragging){
+    PVX+=(MX-lastX)*ASP*2.2;
+    PVY+=(MY-lastY)*2.2;
+    ptrOn=1;
+  }
+  lastX=MX; lastY=MY;
+});
+canvas.addEventListener("pointerdown",function(e){
+  var q=ptr(e); if(q){ MX=q[0]; MY=q[1]; lastX=MX; lastY=MY; }
+  dragging=true; ptrOn=1; idleT=0;
+  /* clic droit (ou Maj+clic) : on creuse du vide au lieu de deposer de lencre */
+  eraseMode=(e.button===2)||e.shiftKey;
+  ptrCol=INKS[(Math.random()*INKS.length)>>0];
+
+  canvas.classList.add("grab");
+  try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+});
+canvas.addEventListener("pointerup",function(){ dragging=false; canvas.classList.remove("grab"); });
+canvas.addEventListener("pointerleave",function(){ dragging=false; canvas.classList.remove("grab"); });
+canvas.addEventListener("wheel",function(e){
+  e.preventDefault(); idleT=0;
+  var d=e.deltaY;
+  if(e.deltaMode===1) d*=16;        /* lignes -> pixels */
+  else if(e.deltaMode===2) d*=400;  /* pages -> pixels */
+  zoomTarget=Math.max(1.0,Math.min(5.0,zoomTarget*Math.pow(1.0009,-d)));
+},{passive:false});
+canvas.addEventListener("contextmenu",function(e){ e.preventDefault(); });
+
+/* ---- dépôt d un fichier audio ---- */
+["dragenter","dragover"].forEach(function(t){
+  window.addEventListener(t,function(e){ e.preventDefault(); document.body.classList.add("dragging"); });
+});
+["dragleave","dragend"].forEach(function(t){
+  window.addEventListener(t,function(e){
+    if(e.relatedTarget) return;
+    document.body.classList.remove("dragging");
+  });
+});
+window.addEventListener("drop",function(e){
+  e.preventDefault();
+  document.body.classList.remove("dragging");
+  var f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(f&&/^audio\//.test(f.type||"")) loadTrack(f);
+});
+
+window.addEventListener("keydown",function(e){
+  if(e.target&&/input|textarea/i.test(e.target.tagName)) return;
+  var k=e.key;
+  if(k===" "){ e.preventDefault(); setRun(!running); }
+  else if(k==="g"||k==="G"){ spawnDrop(1); }
+  else if(k==="v"||k==="V"){ clearAll(); slots=[null,null,null]; }
+  else if(k==="n"||k==="N"){ phaseProg=Math.floor(phaseProg+1.0); }
+  else if(k==="m"||k==="M"){ $("fAudio").click(); }
+  else if(k==="s"||k==="S"){ $("bMouse").click(); }
+  else if(k==="q"||k==="Q"){ setQual((preset+1)%PRESETS.length); }
+  else if(k==="p"||k==="P"){ $("bPan").click(); }
+  else if(k==="h"||k==="H"){ document.body.classList.toggle("nohud"); }
+  else if(k==="f"||k==="F"){ $("bFull").click(); }
+});
+
+window.encre={
+  drop:spawnDrop,
+  clear:function(){ clearAll(); slots=[null,null,null]; },
+  phase:function(i){ phaseProg=(i%PHASES.length)+0.30; },
+  run:function(v){ setRun(v===undefined?!running:!!v); },
+  set:function(k,v){ CFG[k]=v; },
+  quality:setQual,
+  lissageVitesse:function(v){ velSmooth=!!v; },
+  audio:function(){ return {on:AU.on,bass:AU.bass,mid:AU.mid,high:AU.high,
+    level:AU.level,beat:AU.beat,kick:AU.kick,centroid:AU.centroid}; },
+  stats:function(){ return {fps:fps,w:SW,h:SH,fw:FW,fh:FH,jac:PRESETS[preset].jac,
+    preset:PRESETS[preset].n,phase:PHASES[CUR.i].n,zoom:CFG.zoom,zoomCible:zoomTarget,
+    shake:Math.hypot(shake[0],shake[1]),flash:flashEnv,
+    surge:CUR.surge,respiration:+surgeB.toFixed(3),teinte:+hueShift.toFixed(3),
+    brut:CUR.raw,portee:+vszDbg.toFixed(2),lissage:+vradDbg.toFixed(3),
+    zoomEff:+PV("zoom").toFixed(4),
+    tempo:{bpm:tempoOn?+(60/periode).toFixed(1):0, conf:+tempoConf.toFixed(3),
+           phase:+beatPhase.toFixed(3), temps:beatIdx, cale:(tempoOn&&tempoConf>0.12),
+           dureePhase:+phaseDurEff.toFixed(1)},
+    lfo:LFO.map(function(L){ return {dest:L.tgt,src:L.src,sortie:+(lfoOff[L.tgt]||0).toFixed(4)}; }),
+    drops:slots.filter(Boolean).length,audio:AU.on}; },
+  /* crochets de contrôle : avancer la boucle à la main et déclencher un
+     grave, pour vérifier les courbes sans dépendre du rafraîchissement */
+  kick:function(p){ onKick(p===undefined?0.8:p); },
+  step:function(n,d){
+    n=n||1; d=(d||1/60)*1000;
+    if(!stepNow) stepNow=last||1000;
+    stepNow=Math.max(stepNow,last);   /* ne pas remonter le temps face à la vraie boucle */
+    for(var i=0;i<n;i++){ stepNow+=d; loop(stepNow); }
+  }
+};
+var stepNow=0;
+
+/* ================= démarrage ================= */
+function bootStep(msg,frac){
+  bootStatus.textContent=msg; bootBar.style.width=(frac*100)+"%";
+  return new Promise(function(r){ setTimeout(r,16); });
+}
+try{
+  P.adv  =prog("sh-advect","advection");
+  P.mac  =prog("sh-mac","MacCormack");
+  P.force=prog("sh-force","forces");
+  P.splat=prog("sh-splat","injection");
+  P.curl =prog("sh-curl","rotationnel");
+  P.cblur=prog("sh-curlblur","lissage du rotationnel");
+  P.vort =prog("sh-vort","vorticité");
+  P.div  =prog("sh-div","divergence");
+  P.jac  =prog("sh-jacobi","pression");
+  P.grad =prog("sh-grad","projection");
+  P.dblur=prog("sh-dyeblur","dilution");
+  P.echo =prog("sh-echo","écho");
+  P.ren  =prog("sh-render","rendu");
+  P.brg  =prog("sh-bright","seuil");
+  P.down =prog("sh-down","réduction");
+  P.up   =prog("sh-up","élargissement");
+  P.comp =prog("sh-comp","composition");
+  P.copy =prog("sh-clear","copie");
+}catch(e){ fatal(String(e&&e.message?e.message:e)); return; }
+
+Promise.resolve()
+ .then(function(){ return bootStep("Allocation des grilles",0.4); })
+ .then(function(){ resize(); lerpPhase(); })
+ .then(function(){ return bootStep("Remplissage du bassin",0.8); })
+ .then(function(){ spawnDrop(1); return bootStep("Prêt",1); })
+ .then(function(){
+   setRun(true); setPhase(0);
+   bootEl.classList.add("gone");
+   setTimeout(function(){ bootEl.style.display="none"; },900);
+   requestAnimationFrame(loop);
+ })
+ .catch(function(e){ fatal(String(e&&e.message?e.message:e)); });
+})();
+</script>
+
+</body></html>

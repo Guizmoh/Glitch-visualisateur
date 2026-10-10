@@ -18,6 +18,12 @@ Ici, on ne fait que rassembler la dernière version de chacune.
 | [`courses/`](courses/) | Mes courses, liste de courses avec cases à cocher | `ccr-069c8afe-27gi2a` |
 | [`visualiseur-abstrait/`](visualiseur-abstrait/) | Visualiseur abstrait, 21 scènes (sphères qui dansent…) | dépôt `Guizmoh/Visualisateur-Glitch`, branche `main` |
 | [`studio-omnipotard/`](studio-omnipotard/) | Studio Omnipotard, version navigateur (construite par `python3 tools/build_web_studio.py`, avec l'en-tête HTML de la page) | `claude/omnipotard-intro-video-5bj8zu` |
+| [`encre-et-soie/`](encre-et-soie/) | Encre et Soie | page Claude « Encre et Soie », copiée telle quelle |
+| [`fumee-volumetrique/`](fumee-volumetrique/) | Fumée Volumétrique | page Claude « Fumée Volumétrique », copiée telle quelle |
+| [`flamecycle/`](flamecycle/) | Flamecycle | page Claude « Flamecycle », copiée telle quelle (téléchargement direct des clips ajouté) |
+| [`membrane-vivante/`](membrane-vivante/) | Membrane Vivante | page Claude « Membrane Vivante », copiée telle quelle |
+| [`odyssee-recursive/`](odyssee-recursive/) | Odyssée Récursive | page Claude « Odyssée Récursive », copiée telle quelle |
+| [`trois-directions/`](trois-directions/) | Trois directions | page Claude « Trois directions », copiée telle quelle (mise en page sombre ajoutée : la page n'en avait pas) |
 
 `index.html` à la racine est la page d'accueil qui pointe vers toutes les applications.
 

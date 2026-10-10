@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mes Courses</title>
+<meta name="description" content="Liste de courses habituelles avec cases à cocher.">
+<meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161a17" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Courses">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icone.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icone.svg">
+<style>
+  :root{
+    --bg:#f6f4ef;
+    --surface:#ffffff;
+    --surface-2:#efece5;
+    --border:#e2ddd2;
+    --text-0:#1d211e;
+    --text-1:#5d625d;
+    --text-2:#959a94;
+    --accent:#2f8a57;
+    --accent-soft:rgba(47,138,87,0.12);
+    --on-accent:#ffffff;
+    --danger:#c2453a;
+    --shadow:0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+    --radius:14px;
+    --sans:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#161a17;
+      --surface:#1f2420;
+      --surface-2:#272d28;
+      --border:#323a33;
+      --text-0:#eef1ec;
+      --text-1:#a8b0a8;
+      --text-2:#6d766e;
+      --accent:#4cbf7c;
+      --accent-soft:rgba(76,191,124,0.14);
+      --on-accent:#0d1a12;
+      --danger:#ef7064;
+      --shadow:none;
+    }
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:var(--bg);
+    color:var(--text-0);
+    font-family:var(--sans);
+    font-size:17px;
+    line-height:1.35;
+    min-height:100vh;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  }
+  button, input, select{ font:inherit; color:inherit; }
+  button{ cursor:pointer; }
+
+  .page{ max-width:640px; margin:0 auto; padding:0 16px; }
+
+  /* ---------- En-tête ---------- */
+  header{
+    position:sticky; top:0; z-index:10;
+    background:var(--bg);
+    padding-top:env(safe-area-inset-top);
+  }
+  .entete{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 0 10px;
+  }
+  .entete h1{ font-size:24px; margin:0; flex:1; letter-spacing:-0.01em; }
+  .bouton-icone{
+    width:42px; height:42px; border-radius:12px;
+    display:grid; place-items:center;
+    background:var(--surface); border:1px solid var(--border);
+  }
+  .bouton-icone svg{ width:20px; height:20px; }
+  .progression{ padding-bottom:12px; }
+  .progression-texte{
+    display:flex; justify-content:space-between;
+    font-size:14px; color:var(--text-1); margin-bottom:6px;
+  }
+  .barre{ height:8px; border-radius:99px; background:var(--surface-2); overflow:hidden; }
+  .barre > div{ height:100%; width:0; background:var(--accent); border-radius:99px; transition:width .25s; }
+
+  /* ---------- Ajout rapide ---------- */
+  .ajout{
+    display:flex; gap:8px; margin-bottom:14px;
+  }
+  .ajout input{
+    flex:1; min-width:0;
+    padding:12px 14px; border-radius:12px;
+    background:var(--surface); border:1px solid var(--border);
+    outline:none;
+  }
+  .ajout input:focus{ border-color:var(--accent); }
+  .ajout select{
+    max-width:34%;
+    padding:0 8px; border-radius:12px;
+    background:var(--surface); border:1px solid var(--border);
+  }
+  .bouton-plein{
+    border:0; border-radius:12px; padding:0 16px;
+    background:var(--accent); color:var(--on-accent); font-weight:600;
+  }
+
+  /* ---------- Liste ---------- */
+  .rayon{ margin-bottom:18px; }
+  .rayon h2{
+    font-size:13px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-1); margin:0 4px 6px; font-weight:600;
+    display:flex; justify-content:space-between;
+  }
+  .rayon h2 span{ color:var(--text-2); font-weight:500; }
+  .carte{
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .article{
+    display:flex; align-items:center;
+    border-top:1px solid var(--border);
+    min-height:54px;
+  }
+  .article:first-child{ border-top:0; }
+  .article label{
+    flex:1; display:flex; align-items:center; gap:14px;
+    padding:12px 4px 12px 14px; cursor:pointer; min-width:0;
+    user-select:none;
+  }
+  .article input[type=checkbox]{
+    appearance:none; -webkit-appearance:none; margin:0; flex:none;
+    width:26px; height:26px; border-radius:8px;
+    border:2px solid var(--text-2); background:transparent;
+    display:grid; place-items:center; transition:background .15s, border-color .15s;
+  }
+  .article input[type=checkbox]::after{
+    content:""; width:7px; height:13px; margin-top:-3px;
+    border:solid var(--on-accent); border-width:0 3px 3px 0;
+    transform:rotate(45deg) scale(0); transition:transform .15s;
+  }
+  .article input[type=checkbox]:checked{ background:var(--accent); border-color:var(--accent); }
+  .article input[type=checkbox]:checked::after{ transform:rotate(45deg) scale(1); }
+  .article .nom{ overflow:hidden; text-overflow:ellipsis; }
+  .article .quantite{
+    flex:none; font-size:14px; color:var(--text-1);
+    background:var(--surface-2); border-radius:99px; padding:2px 9px;
+  }
+  .article.coche .nom{ text-decoration:line-through; color:var(--text-2); }
+  .article.coche .quantite{ opacity:.5; }
+  .article .plus{
+    flex:none; width:46px; align-self:stretch;
+    border:0; background:transparent; color:var(--text-2);
+    display:grid; place-items:center;
+  }
+  .article .plus svg{ width:20px; height:20px; }
+
+  .section-repliable{
+    margin-top:8px;
+  }
+  .section-repliable summary{
+    list-style:none; cursor:pointer;
+    font-size:14px; color:var(--text-1); padding:10px 4px;
+  }
+  .section-repliable summary::-webkit-details-marker{ display:none; }
+  .section-repliable summary::before{ content:"▸ "; }
+  .section-repliable[open] summary::before{ content:"▾ "; }
+  .article.ignore .nom{ color:var(--text-2); }
+
+  .vide{
+    text-align:center; color:var(--text-1);
+    padding:40px 12px;
+  }
+  .vide p{ margin:0 0 16px; }
+  .vide .bouton-plein{ padding:12px 18px; }
+
+  /* ---------- Barre du bas ---------- */
+  .barre-bas{
+    position:fixed; left:0; right:0; bottom:0; z-index:10;
+    background:linear-gradient(to top, var(--bg) 70%, transparent);
+    padding:16px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+  .barre-bas .page{ display:flex; gap:10px; padding:0; }
+  .barre-bas button{
+    flex:1; padding:14px; border-radius:14px;
+    border:1px solid var(--border); background:var(--surface);
+    font-weight:600; box-shadow:var(--shadow);
+  }
+  .barre-bas .principal{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+
+  /* ---------- Feuille (menu du bas) ---------- */
+  .voile{
+    position:fixed; inset:0; z-index:20;
+    background:rgba(0,0,0,.35);
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .voile.ouvert{ display:flex; }
+  .feuille{
+    width:100%; max-width:640px;
+    background:var(--surface); border-radius:20px 20px 0 0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+    max-height:88vh; overflow:auto;
+  }
+  .feuille h3{ margin:0 0 14px; font-size:19px; }
+  .champ{ display:block; margin-bottom:12px; }
+  .champ span{ display:block; font-size:13px; color:var(--text-1); margin-bottom:5px; }
+  .champ input, .champ select, .champ textarea{
+    width:100%; padding:12px; border-radius:12px;
+    border:1px solid var(--border); background:var(--bg); outline:none;
+    font:inherit; color:inherit;
+  }
+  .champ textarea{ min-height:140px; font-size:14px; resize:vertical; }
+  .actions{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .actions button{
+    padding:13px; border-radius:12px; border:1px solid var(--border);
+    background:var(--surface-2); font-weight:600; text-align:center;
+  }
+  .actions .principal{ background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .actions .danger{ color:var(--danger); background:transparent; }
+  .actions .discret{ background:transparent; border-color:transparent; color:var(--text-1); }
+
+  .liste-rayons{ list-style:none; margin:0 0 12px; padding:0; }
+  .liste-rayons li{
+    display:flex; align-items:center; gap:6px;
+    padding:6px 0; border-bottom:1px solid var(--border);
+  }
+  .liste-rayons li span{ flex:1; }
+  .liste-rayons button{
+    width:38px; height:38px; border-radius:10px;
+    border:1px solid var(--border); background:var(--surface-2);
+  }
+  .liste-rayons button:disabled{ opacity:.3; }
+
+  .note{ font-size:13px; color:var(--text-1); margin:4px 0 12px; }
+
+  .toast{
+    position:fixed; left:50%; bottom:calc(96px + env(safe-area-inset-bottom)); z-index:30;
+    transform:translateX(-50%) translateY(20px); opacity:0;
+    background:var(--text-0); color:var(--bg);
+    padding:10px 16px; border-radius:99px; font-size:15px;
+    transition:opacity .2s, transform .2s; pointer-events:none;
+    display:flex; gap:12px; align-items:center;
+  }
+  .toast.visible{ opacity:1; transform:translateX(-50%) translateY(0); pointer-events:auto; }
+  .toast button{ border:0; background:transparent; color:var(--accent); font-weight:700; padding:0; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6C3.8 8.4 2 12 2 12s3.5 7 10 7c1.8 0 3.4-.5 4.7-1.2M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+</svg>
+
+<header>
+  <div class="page">
+    <div class="entete">
+      <h1>Mes courses</h1>
+      <button class="bouton-icone" id="btnMasquer" title="Masquer les articles cochés" aria-label="Masquer les articles cochés">
+        <svg><use href="#i-eye"></use></svg>
+      </button>
+      <button class="bouton-icone" id="btnMenu" title="Menu" aria-label="Menu">
+        <svg><use href="#i-menu"></use></svg>
+      </button>
+    </div>
+    <div class="progression">
+      <div class="progression-texte"><span id="txtProgression">0 / 0 dans le caddie</span><span id="txtReste"></span></div>
+      <div class="barre"><div id="barreProgression"></div></div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <form class="ajout" id="formAjout" autocomplete="off">
+    <input id="champAjout" placeholder="Nouvel article…" enterkeyhint="done" aria-label="Nom de l'article">
+    <select id="choixRayonAjout" aria-label="Rayon"></select>
+    <button class="bouton-plein" type="submit" aria-label="Ajouter"><svg width="20" height="20"><use href="#i-plus"></use></svg></button>
+  </form>
+
+  <div id="liste"></div>
+</main>
+
+<div class="barre-bas">
+  <div class="page">
+    <button id="btnNouvelle" class="principal">Nouvelle course</button>
+  </div>
+</div>
+
+<div class="voile" id="voile"><div class="feuille" id="feuille"></div></div>
+<div class="toast" id="toast"><span id="toastTexte"></span><button id="toastAnnuler">Annuler</button></div>
+
+<script>
+(() => {
+  "use strict";
+
+  const CLE = "mes-courses-v1";
+
+  const RAYONS_PAR_DEFAUT = [
+    "Fruits & légumes", "Boulangerie", "Crèmerie & frais", "Viande & poisson",
+    "Épicerie", "Surgelés", "Boissons", "Hygiène & beauté", "Maison & entretien", "Autre"
+  ];
+
+  const EXEMPLES = [
+    ["Bananes", "Fruits & légumes"], ["Pommes", "Fruits & légumes"], ["Tomates", "Fruits & légumes"],
+    ["Salade", "Fruits & légumes"], ["Oignons", "Fruits & légumes"],
+    ["Pain", "Boulangerie"],
+    ["Lait", "Crèmerie & frais"], ["Beurre", "Crèmerie & frais"], ["Yaourts", "Crèmerie & frais"],
+    ["Œufs", "Crèmerie & frais"], ["Fromage râpé", "Crèmerie & frais"], ["Jambon", "Crèmerie & frais"],
+    ["Poulet", "Viande & poisson"],
+    ["Pâtes", "Épicerie"], ["Riz", "Épicerie"], ["Café", "Épicerie"], ["Céréales", "Épicerie"],
+    ["Huile d'olive", "Épicerie"], ["Sauce tomate", "Épicerie"],
+    ["Eau", "Boissons"], ["Jus d'orange", "Boissons"],
+    ["Papier toilette", "Hygiène & beauté"], ["Dentifrice", "Hygiène & beauté"],
+    ["Liquide vaisselle", "Maison & entretien"], ["Sacs poubelle", "Maison & entretien"]
+  ];
+
+  // ---------- État ----------
+  // article : { id, nom, rayon, quantite, coche, ignore }
+  //   coche  : déjà mis dans le caddie
+  //   ignore : « pas besoin cette fois » (revient à la prochaine course)
+  let etat = charger();
+  let dernierEtat = null; // pour « Annuler »
+
+  function charger() {
+    try {
+      const brut = localStorage.getItem(CLE);
+      if (brut) {
+        const donnees = JSON.parse(brut);
+        if (Array.isArray(donnees.articles) && Array.isArray(donnees.rayons)) {
+          return { masquerCoches: false, ...donnees };
+        }
+      }
+    } catch (e) { /* stockage indisponible : on repart de zéro */ }
+    return { articles: [], rayons: [...RAYONS_PAR_DEFAUT], masquerCoches: false };
+  }
+
+  function sauver() {
+    try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch (e) {}
+  }
+
+  function memoriserPourAnnuler() {
+    dernierEtat = JSON.stringify(etat);
+  }
+
+  function nouvelId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  function normaliser(texte) {
+    return texte.trim().toLocaleLowerCase("fr").normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+
+  // ---------- Éléments ----------
+  const $ = (id) => document.getElementById(id);
+  const liste = $("liste");
+  const voile = $("voile");
+  const feuille = $("feuille");
+
+  function echapper(texte) {
+    return String(texte).replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+  }
+
+  function optionsRayons(selection) {
+    return etat.rayons.map((r) =>
+      `<option value="${echapper(r)}"${r === selection ? " selected" : ""}>${echapper(r)}</option>`
+    ).join("");
+  }
+
+  // ---------- Affichage ----------
+  function afficher() {
+    const choix = $("choixRayonAjout");
+    const rayonChoisi = choix.value || etat.rayons[0];
+    choix.innerHTML = optionsRayons(etat.rayons.includes(rayonChoisi) ? rayonChoisi : etat.rayons[0]);
+
+    const actifs = etat.articles.filter((a) => !a.ignore);
+    const nbCoches = actifs.filter((a) => a.coche).length;
+    const total = actifs.length;
+    $("txtProgression").textContent = `${nbCoches} / ${total} dans le caddie`;
+    $("txtReste").textContent = total && nbCoches === total ? "Tout est pris ✓" : total ? `${total - nbCoches} restant${total - nbCoches > 1 ? "s" : ""}` : "";
+    $("barreProgression").style.width = total ? `${(nbCoches / total) * 100}%` : "0";
+
+    const btnMasquer = $("btnMasquer");
+    btnMasquer.querySelector("use").setAttribute("href", etat.masquerCoches ? "#i-eye-off" : "#i-eye");
+    btnMasquer.title = etat.masquerCoches ? "Afficher les articles cochés" : "Masquer les articles cochés";
+    btnMasquer.setAttribute("aria-label", btnMasquer.title);
+
+    if (etat.articles.length === 0) {
+      liste.innerHTML = `
+        <div class="vide">
+          <p>Ta liste est vide.<br>Ajoute tes articles habituels au-dessus,<br>ils resteront là pour les prochaines courses.</p>
+          <button class="bouton-plein" id="btnExemples">Partir d'une liste d'exemple</button>
+        </div>`;
+      $("btnExemples").onclick = chargerExemples;
+      return;
+    }
+
+    let html = "";
+    // Rayons dans l'ordre choisi, puis rayons inconnus éventuels
+    const rayons = [...etat.rayons];
+    for (const a of etat.articles) if (!rayons.includes(a.rayon)) rayons.push(a.rayon);
+
+    for (const rayon of rayons) {
+      let articles = actifs.filter((a) => a.rayon === rayon);
+      if (!articles.length) continue;
+      const restants = articles.filter((a) => !a.coche).length;
+      if (etat.masquerCoches) articles = articles.filter((a) => !a.coche);
+      if (!articles.length) continue;
+      // Non cochés d'abord, puis cochés, chacun par ordre alphabétique
+      articles.sort((x, y) => (x.coche - y.coche) || x.nom.localeCompare(y.nom, "fr"));
+      html += `
+        <section class="rayon">
+          <h2>${echapper(rayon)}<span>${restants ? restants : "✓"}</span></h2>
+          <div class="carte">${articles.map(ligneArticle).join("")}</div>
+        </section>`;
+    }
+
+    if (etat.masquerCoches && nbCoches === total && total) {
+      html = `<div class="vide"><p>Tout est dans le caddie 🎉</p></div>` + html;
+    }
+
+    const ignores = etat.articles.filter((a) => a.ignore)
+      .sort((x, y) => x.nom.localeCompare(y.nom, "fr"));
+    if (ignores.length) {
+      html += `
+        <details class="section-repliable">
+          <summary>Pas besoin cette fois (${ignores.length})</summary>
+          <div class="carte">${ignores.map(ligneArticle).join("")}</div>
+        </details>`;
+    }
+
+    liste.innerHTML = html;
+  }
+
+  function ligneArticle(a) {
+    const classes = ["article", a.coche ? "coche" : "", a.ignore ? "ignore" : ""].join(" ");
+    const caseACocher = a.ignore
+      ? `<button class="bouton-plein" data-reprendre="${a.id}" style="padding:4px 10px;font-size:14px">Remettre</button>`
+      : `<input type="checkbox" data-id="${a.id}"${a.coche ? " checked" : ""}>`;
+    return `
+      <div class="${classes}">
+        <label>
+          ${caseACocher}
+          <span class="nom">${echapper(a.nom)}</span>
+          ${a.quantite ? `<span class="quantite">${echapper(a.quantite)}</span>` : ""}
+        </label>
+        <button class="plus" data-menu="${a.id}" aria-label="Options pour ${echapper(a.nom)}"><svg><use href="#i-dots"></use></svg></button>
+      </div>`;
+  }
+
+  // ---------- Actions sur la liste ----------
+  liste.addEventListener("change", (e) => {
+    const id = e.target.dataset.id;
+    if (!id) return;
+    const article = etat.articles.find((a) => a.id === id);
+    if (!article) return;
+    article.coche = e.target.checked;
+    if (article.coche && navigator.vibrate) navigator.vibrate(12);
+    sauver();
+    // Petit délai pour voir la case se cocher avant que l'article ne descende
+    setTimeout(afficher, 180);
+  });
+
+  liste.addEventListener("click", (e) => {
+    const boutonMenu = e.target.closest("[data-menu]");
+    if (boutonMenu) { ouvrirMenuArticle(boutonMenu.dataset.menu); return; }
+    const reprendre = e.target.closest("[data-reprendre]");
+    if (reprendre) {
+      e.preventDefault();
+      const article = etat.articles.find((a) => a.id === reprendre.dataset.reprendre);
+      if (article) { article.ignore = false; article.coche = false; sauver(); afficher(); }
+    }
+  });
+
+  $("formAjout").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const champ = $("champAjout");
+    const nom = champ.value.trim();
+    if (!nom) return;
+    const rayon = $("choixRayonAjout").value || "Autre";
+    const existant = etat.articles.find((a) => normaliser(a.nom) === normaliser(nom));
+    if (existant) {
+      // Déjà dans la liste habituelle : on le remet simplement « à prendre »
+      existant.coche = false;
+      existant.ignore = false;
+      montrerToast(`« ${existant.nom} » est déjà dans ta liste`);
+    } else {
+      etat.articles.push({ id: nouvelId(), nom, rayon, quantite: "", coche: false, ignore: false });
+    }
+    champ.value = "";
+    sauver();
+    afficher();
+    champ.focus();
+  });
+
+  $("btnMasquer").onclick = () => {
+    etat.masquerCoches = !etat.masquerCoches;
+    sauver();
+    afficher();
+  };
+
+  $("btnNouvelle").onclick = () => {
+    ouvrirFeuille(`
+      <h3>Nouvelle course ?</h3>
+      <p class="note">Toutes les cases sont décochées et les articles « pas besoin cette fois » reviennent dans la liste. Tes articles habituels sont conservés.</p>
+      <div class="actions">
+        <button class="principal" id="okNouvelle">Tout décocher</button>
+        <button class="discret" data-fermer>Annuler</button>
+      </div>`);
+    $("okNouvelle").onclick = () => {
+      memoriserPourAnnuler();
+      for (const a of etat.articles) { a.coche = false; a.ignore = false; }
+      sauver();
+      fermerFeuille();
+      afficher();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      montrerToast("Nouvelle course prête", true);
+    };
+  };
+
+  function chargerExemples() {
+    for (const [nom, rayon] of EXEMPLES) {
+      etat.articles.push({ id: nouvelId(), nom, rayon, quantite: "", coche: false, ignore: false });
+    }
+    sauver();
+    afficher();
+    montrerToast("Exemples ajoutés — supprime ce qui ne te sert pas");
+  }
+
+  // ---------- Menu d'un article ----------
+  function ouvrirMenuArticle(id) {
+    const article = etat.articles.find((a) => a.id === id);
+    if (!article) return;
+    ouvrirFeuille(`
+      <h3>Modifier l'article</h3>
+      <label class="champ"><span>Nom</span><input id="editNom" value="${echapper(article.nom)}"></label>
+      <label class="champ"><span>Quantité (facultatif)</span><input id="editQuantite" value="${echapper(article.quantite || "")}" placeholder="ex. 2, 1 kg, x6…"></label>
+      <label class="champ"><span>Rayon</span><select id="editRayon">${optionsRayons(article.rayon)}</select></label>
+      <div class="actions">
+        <button class="principal" id="okEdit">Enregistrer</button>
+        ${article.ignore ? "" : `<button id="okIgnorer">Pas besoin cette fois</button>`}
+        <button class="danger" id="okSupprimer">Supprimer de mes articles habituels</button>
+        <button class="discret" data-fermer>Fermer</button>
+      </div>`);
+
+    $("okEdit").onclick = () => {
+      const nom = $("editNom").value.trim();
+      if (!nom) { $("editNom").focus(); return; }
+      article.nom = nom;
+      article.quantite = $("editQuantite").value.trim();
+      article.rayon = $("editRayon").value;
+      sauver(); fermerFeuille(); afficher();
+    };
+    const ignorer = $("okIgnorer");
+    if (ignorer) ignorer.onclick = () => {
+      memoriserPourAnnuler();
+      article.ignore = true; article.coche = false;
+      sauver(); fermerFeuille(); afficher();
+      montrerToast(`« ${article.nom} » mis de côté`, true);
+    };
+    $("okSupprimer").onclick = () => {
+      memoriserPourAnnuler();
+      etat.articles = etat.articles.filter((a) => a.id !== id);
+      sauver(); fermerFeuille(); afficher();
+      montrerToast(`« ${article.nom} » supprimé`, true);
+    };
+  }
+
+  // ---------- Menu général ----------
+  $("btnMenu").onclick = () => {
+    ouvrirFeuille(`
+      <h3>Menu</h3>
+      <div class="actions">
+        <button id="mPartager">Partager ce qu'il reste à acheter</button>
+        <button id="mRayons">Ordre des rayons</button>
+        <button id="mSauvegarde">Sauvegarder / restaurer ma liste</button>
+        <button class="danger" id="mVider">Effacer toute la liste</button>
+        <button class="discret" data-fermer>Fermer</button>
+      </div>`);
+    $("mPartager").onclick = partager;
+    $("mRayons").onclick = ouvrirRayons;
+    $("mSauvegarde").onclick = ouvrirSauvegarde;
+    $("mVider").onclick = () => {
+      if (!confirm("Effacer tous tes articles habituels ?")) return;
+      memoriserPourAnnuler();
+      etat.articles = [];
+      sauver(); fermerFeuille(); afficher();
+      montrerToast("Liste effacée", true);
+    };
+  };
+
+  async function partager() {
+    const aAcheter = etat.articles.filter((a) => !a.coche && !a.ignore);
+    if (!aAcheter.length) { montrerToast("Rien à acheter !"); return; }
+    let texte = "🛒 Courses\n";
+    for (const rayon of etat.rayons) {
+      const dansRayon = aAcheter.filter((a) => a.rayon === rayon);
+      if (!dansRayon.length) continue;
+      texte += `\n${rayon}\n`;
+      for (const a of dansRayon) texte += `☐ ${a.nom}${a.quantite ? ` (${a.quantite})` : ""}\n`;
+    }
+    const autres = aAcheter.filter((a) => !etat.rayons.includes(a.rayon));
+    for (const a of autres) texte += `☐ ${a.nom}${a.quantite ? ` (${a.quantite})` : ""}\n`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Courses", text: texte });
+      } else {
+        await navigator.clipboard.writeText(texte);
+        montrerToast("Liste copiée");
+      }
+      fermerFeuille();
+    } catch (e) {
+      if (e && e.name !== "AbortError") montrerToast("Partage impossible");
+    }
+  }
+
+  function ouvrirRayons() {
+    const dessiner = () => {
+      ouvrirFeuille(`
+        <h3>Ordre des rayons</h3>
+        <p class="note">Range-les dans l'ordre où tu les traverses au magasin.</p>
+        <ul class="liste-rayons">
+          ${etat.rayons.map((r, i) => `
+            <li>
+              <span>${echapper(r)}</span>
+              <button data-haut="${i}" ${i === 0 ? "disabled" : ""} aria-label="Monter">↑</button>
+              <button data-bas="${i}" ${i === etat.rayons.length - 1 ? "disabled" : ""} aria-label="Descendre">↓</button>
+              <button data-suppr="${i}" aria-label="Supprimer le rayon">✕</button>
+            </li>`).join("")}
+        </ul>
+        <form class="ajout" id="formRayon">
+          <input id="nouveauRayon" placeholder="Nouveau rayon…">
+          <button class="bouton-plein" type="submit" aria-label="Ajouter le rayon"><svg width="20" height="20"><use href="#i-plus"></use></svg></button>
+        </form>
+        <div class="actions"><button class="principal" data-fermer>Terminé</button></div>`);
+
+      feuille.querySelector(".liste-rayons").onclick = (e) => {
+        const b = e.target.closest("button");
+        if (!b) return;
+        const r = etat.rayons;
+        if (b.dataset.haut) { const i = +b.dataset.haut; [r[i - 1], r[i]] = [r[i], r[i - 1]]; }
+        else if (b.dataset.bas) { const i = +b.dataset.bas; [r[i + 1], r[i]] = [r[i], r[i + 1]]; }
+        else if (b.dataset.suppr) {
+          const i = +b.dataset.suppr;
+          if (r.length <= 1) return;
+          const nom = r[i];
+          const nb = etat.articles.filter((a) => a.rayon === nom).length;
+          if (nb && !confirm(`${nb} article${nb > 1 ? "s" : ""} de « ${nom} » ira dans « Autre ». Continuer ?`)) return;
+          r.splice(i, 1);
+          if (nb && !r.includes("Autre")) r.push("Autre");
+          for (const a of etat.articles) if (a.rayon === nom) a.rayon = "Autre";
+        }
+        sauver(); afficher(); dessiner();
+      };
+      $("formRayon").onsubmit = (e) => {
+        e.preventDefault();
+        const nom = $("nouveauRayon").value.trim();
+        if (!nom || etat.rayons.some((r) => normaliser(r) === normaliser(nom))) return;
+        etat.rayons.push(nom);
+        sauver(); afficher(); dessiner();
+      };
+    };
+    dessiner();
+  }
+
+  function ouvrirSauvegarde() {
+    ouvrirFeuille(`
+      <h3>Sauvegarder / restaurer</h3>
+      <p class="note">Ta liste est enregistrée sur ce téléphone. Pour la garder en lieu sûr ou la passer sur un autre appareil, copie ce texte ; pour la restaurer, colle-le ici puis « Restaurer ».</p>
+      <label class="champ"><span>Données de la liste</span><textarea id="zoneSauvegarde" spellcheck="false">${echapper(JSON.stringify({ articles: etat.articles, rayons: etat.rayons }))}</textarea></label>
+      <div class="actions">
+        <button id="okCopier">Copier</button>
+        <button class="principal" id="okRestaurer">Restaurer depuis ce texte</button>
+        <button class="discret" data-fermer>Fermer</button>
+      </div>`);
+    $("okCopier").onclick = async () => {
+      try { await navigator.clipboard.writeText($("zoneSauvegarde").value); montrerToast("Copié"); }
+      catch (e) { $("zoneSauvegarde").select(); }
+    };
+    $("okRestaurer").onclick = () => {
+      try {
+        const d = JSON.parse($("zoneSauvegarde").value);
+        if (!Array.isArray(d.articles) || !Array.isArray(d.rayons)) throw new Error();
+        memoriserPourAnnuler();
+        etat.articles = d.articles.map((a) => ({
+          id: a.id || nouvelId(), nom: String(a.nom || "").trim() || "?", rayon: String(a.rayon || "Autre"),
+          quantite: String(a.quantite || ""), coche: !!a.coche, ignore: !!a.ignore
+        }));
+        etat.rayons = d.rayons.map(String);
+        sauver(); fermerFeuille(); afficher();
+        montrerToast("Liste restaurée", true);
+      } catch (e) {
+        montrerToast("Texte invalide");
+      }
+    };
+  }
+
+  // ---------- Feuille ----------
+  function ouvrirFeuille(html) {
+    feuille.innerHTML = html;
+    voile.classList.add("ouvert");
+  }
+  function fermerFeuille() {
+    voile.classList.remove("ouvert");
+  }
+  voile.addEventListener("click", (e) => {
+    if (e.target === voile || e.target.closest("[data-fermer]")) fermerFeuille();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") fermerFeuille(); });
+
+  // ---------- Toast + annuler ----------
+  let minuteurToast;
+  function montrerToast(texte, annulable = false) {
+    $("toastTexte").textContent = texte;
+    $("toastAnnuler").style.display = annulable && dernierEtat ? "" : "none";
+    $("toast").classList.add("visible");
+    clearTimeout(minuteurToast);
+    minuteurToast = setTimeout(() => $("toast").classList.remove("visible"), 4000);
+  }
+  $("toastAnnuler").onclick = () => {
+    if (!dernierEtat) return;
+    etat = JSON.parse(dernierEtat);
+    dernierEtat = null;
+    sauver();
+    afficher();
+    $("toast").classList.remove("visible");
+  };
+
+  // Synchronise si la liste est ouverte dans deux onglets
+  window.addEventListener("storage", (e) => {
+    if (e.key === CLE) { etat = charger(); afficher(); }
+  });
+
+  afficher();
+
+  // Fonctionne hors connexion (pratique au fond du magasin)
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>

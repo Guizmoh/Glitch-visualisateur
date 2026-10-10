@@ -15,6 +15,7 @@ Ici, on ne fait que rassembler la dernière version de chacune.
 | [`visualisateur/`](visualisateur/) | Glitch, visualisateur | `claude/visualisateur-rendu-yiwotw` |
 | [`moteur/`](moteur/) | La Légende de Night (jeu Zelda-like) | `claude/busy-bohr-bei1po` |
 | [`mariages/`](mariages/) | Carnet de mariages | `claude/friendly-planck-1tqdoy` |
+| [`courses/`](courses/) | Mes courses, liste de courses avec cases à cocher | `ccr-069c8afe-27gi2a` |
 | [`visualiseur-abstrait/`](visualiseur-abstrait/) | Visualiseur abstrait, 21 scènes (sphères qui dansent…) | dépôt `Guizmoh/Visualisateur-Glitch`, branche `main` |
 | [`studio-omnipotard/`](studio-omnipotard/) | Studio Omnipotard, version navigateur (construite par `python3 tools/build_web_studio.py`, avec l'en-tête HTML de la page) | `claude/omnipotard-intro-video-5bj8zu` |
 

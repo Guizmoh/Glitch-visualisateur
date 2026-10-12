@@ -45,8 +45,9 @@ peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
   lui (filtres, disto, écrase, décime, anneau, trémolo, wah), un LFO calé sur le tempo et une page
   MODULATION. Le master a son effet, une réverb, un écho et un limiteur.
 - **8 kits de batterie** synthétisés : acoustique, hip hop, techno, dub-reggae, lo-fi, Game Boy, SNES et
-  percussions. S'y ajoutent des **breaks** synthétisés à découper en 16 tranches, et **tes propres
-  samples** (4 emplacements).
+  percussions. S'y ajoutent **six breaks** originaux à découper en 16 tranches (SOLEIL, GRELOT, TENDU,
+  ABYSSE, MAMBO, GRENIER : chacun son groove, sa batterie et son disque), et **tes propres samples**
+  (4 emplacements).
 - **Un potard, une couleur.** KNOB 1 rouge, 2 jaune, 3 vert, 4 bleu, sur toutes les pages. La ligne du bas
   dit ce que fait chacun. HOME tenu ouvre l'aide de la page où tu es.
 - **Trois thèmes** (KAWA, GAME BOY, BONBON), l'**horloge MIDI** en sortie, et un indicateur CPU.
@@ -79,9 +80,12 @@ Le détail est dans [BUILDING.md](BUILDING.md) (en anglais) et dans le manuel.
 2. Branche le FM-1 sur une alimentation stable, avec un câble USB de données.
 3. Installe le firmware officiel **V15** de M-VAVE avec **M-UPGRADE**. Si KAWA se comporte mal, ouvre
    d'abord le secours USB (OCT− tenu en allumant).
-4. **Ne débranche rien pendant le transfert.** C'est l'étape la plus délicate, car le firmware officiel
+4. Avant que l'outil officiel n'écrive quoi que ce soit, KAWA vérifie que c'est bien le programme de mise
+   à jour de M-VAVE, et que la zone de démarrage du paquet est exactement celle de ton FM-1. Sinon, rien
+   n'est écrit et KAWA continue de tourner.
+5. **Ne débranche rien pendant le transfert.** C'est l'étape la plus délicate, car le firmware officiel
    réécrit aussi le bootloader. S'il s'arrête, rebranche et relance.
-5. `python3 tools/fm1_install.py --info` doit répondre `FM-1_015`.
+6. `python3 tools/fm1_install.py --info` doit répondre `FM-1_015`.
 
 ## Tes samples sur le FM-1
 

@@ -381,7 +381,10 @@ int main(int argc, char **argv)
                     mx = abs(kt_buf[i]) > mx ? abs(kt_buf[i]) : mx;
                 kt_measure(&m, kt_buf, KT_HIT);
                 if (mx > 32768) kt_bad("over full scale with the knobs at their ends", k, d);
-                if (m.dc > 0.05 && mx > 2000) kt_bad("DC with the knobs at their ends", k, d);
+                if (m.dc > 0.05 && mx > 2000) {
+                    snprintf(name, sizeof name, "DC with the knobs at their ends (set %u: %.1f %%)", e, m.dc * 100.0);
+                    kt_bad(name, k, d);
+                }
                 if (EXTREME[e].decay <= 0 && !stop) kt_bad("never stops with the knobs at their ends", k, d);
                 for (i = 0; i < KT_NF; i++)
                     if (m.f[i] != m.f[i]) kt_bad("NaN with the knobs at their ends", k, d);

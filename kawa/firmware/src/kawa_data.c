@@ -224,23 +224,26 @@ static const preset_t PRESETS[] = {
     {{"KIT SNES", "SNES KIT", "KIT SNES"}, E_KIT, {6, 0, 0, 0, 0, 15, 0, 0}, {0, 15, 15, 15}},
     {{"KIT PERCUS", "PERCUSSION KIT", "KIT PERCUSION"}, E_KIT, {7, 0, 0, 0, 0, 15, 0, 0}, {0, 15, 15, 15}},
     {{"KIT GABBER", "GABBER KIT", "KIT GABBER"}, E_KIT, {2, 2, 2, 12, 0, 13, 0, 0}, {0, 15, 15, 15}},
-    {{"AMENE", "AMENE", "AMENE"}, E_SAMPLE, {0, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
-    {{"PENSE", "PENSE", "PENSE"}, E_SAMPLE, {1, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
-    {{"FUNKY", "FUNKY", "FUNKY"}, E_SAMPLE, {2, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
-    {{"ECLAIR", "ECLAIR", "ECLAIR"}, E_SAMPLE, {3, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
-    {{"AMENE SALE", "AMENE DIRTY", "AMENE SUCIO"}, E_SAMPLE, {0, 0, 0, 1, 11, 10, 3, 12}, {0, 15, 15, 2}},
-    {{"AMENE COURT", "AMENE SHORT", "AMENE CORTO"}, E_SAMPLE, {0, 0, 0, 1, 3, 2, 0, 15}, {0, 15, 15, 1}},
+    {{"SOLEIL", "SOLEIL", "SOLEIL"}, E_SAMPLE, {0, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},      /* ride, live room */
+    {{"GRELOT", "GRELOT", "GRELOT"}, E_SAMPLE, {1, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},      /* 70s funk, 16th hats */
+    {{"TENDU", "TENDU", "TENDU"}, E_SAMPLE, {2, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},         /* dry, tight, claps */
+    {{"ABYSSE", "ABYSSE", "ABYSSE"}, E_SAMPLE, {3, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},      /* ragga jungle, sub */
+    {{"MAMBO", "MAMBO", "MAMBO"}, E_SAMPLE, {4, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},         /* congas, bongos, bell */
+    {{"GRENIER", "GRENIER", "GRENIER"}, E_SAMPLE, {5, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},   /* hip hop swing, dusty */
+    {{"ABYSSE SALE", "ABYSSE DIRTY", "ABYSSE SUCIO"}, E_SAMPLE, {3, 0, 0, 1, 11, 10, 3, 12}, {0, 15, 15, 2}},
+    {{"TENDU COURT", "TENDU SHORT", "TENDU CORTO"}, E_SAMPLE, {2, 0, 0, 1, 3, 2, 0, 15}, {0, 15, 15, 1}},
     {{"MON SAMPLE 1", "MY SAMPLE 1", "MI SAMPLE 1"}, E_SAMPLE, {(int8_t)(BRK_N + 0u), 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
     {{"MON SAMPLE 2", "MY SAMPLE 2", "MI SAMPLE 2"}, E_SAMPLE, {(int8_t)(BRK_N + 1u), 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
     {{"MON SAMPLE 3", "MY SAMPLE 3", "MI SAMPLE 3"}, E_SAMPLE, {(int8_t)(BRK_N + 2u), 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
     {{"MON SAMPLE 4", "MY SAMPLE 4", "MI SAMPLE 4"}, E_SAMPLE, {(int8_t)(BRK_N + 3u), 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
 };
 #define KIT_DEMO 6                              /* the demo's kit (its first knob): SNES */
+#define BRK_DEMO 3                              /* the demo's break: ABYSSE (the boss is breakcore) */
 #define NPRESET ((uint8_t)(sizeof(PRESETS) / sizeof(PRESETS[0])))
 /* each track's sound on a new project (an index in PRESETS) */
 static const uint8_t TRK_ENGINE0[NTRK] = {E_PULSE, E_FM, E_WAVE, E_NOISE, E_KIT, E_SAMPLE};   /* a new project: lead, */
 static const int8_t TRK_S0[NTRK] = {1, 0, 0, 0, 0, 0};   /* FM, bass, hats, kit, break (each its engine's sound with this */
-                                                          /* first knob: LEAD 25, TINE EP, NES BASS, HI-HAT, ACOUSTIC, AMENE) */
+                                                          /* first knob: LEAD 25, TINE EP, NES BASS, HI-HAT, ACOUSTIC, SOLEIL) */
 
 /* ---- notes */
 static const char *const NOTE_NAME[12] = {"C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"};

@@ -273,6 +273,7 @@ static void prj_demo(void)
     prj.scale = 1;
     sound_preset(T2, preset_named(E_FM, 11));   /* KALIMBA */
     sound_preset(T5, preset_named(E_KIT, KIT_DEMO));
+    sound_preset(T6, preset_named(E_SAMPLE, BRK_DEMO));
     prj.snd[T1].p[P_ECHO] = 3;
     prj.snd[T2].p[P_ECHO] = 7;
     prj.snd[T2].p[P_VERB] = 6;

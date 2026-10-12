@@ -58,11 +58,13 @@ def stft(x):
 
 
 def band_flux(mag, sr):
-    """onset strength per band: the rise of the log spectrum from one frame to the next"""
+    """onset strength per band: the rise of the (square-rooted) spectrum over two frames, less the
+    band's floor (hiss, crackle and room move a little all the time)"""
     f = np.fft.rfftfreq(FRAME, 1.0 / sr)
-    lm = np.log1p(mag * 200.0)
-    rise = np.maximum(lm - np.roll(lm, 1, axis=0), 0.0)
-    return np.array([rise[:, (f >= lo) & (f < hi)].sum(axis=1) for _, lo, hi in BANDS])
+    m = np.sqrt(mag)
+    rise = np.maximum(m - np.roll(m, 2, axis=0), 0.0)
+    fl = np.array([rise[:, (f >= lo) & (f < hi)].sum(axis=1) for _, lo, hi in BANDS])
+    return np.maximum(fl - np.median(fl, axis=1, keepdims=True), 0.0)
 
 
 def per_step(env, step):

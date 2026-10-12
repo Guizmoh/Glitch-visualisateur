@@ -127,31 +127,32 @@ KICK = dict(f=56.0, bend=1.5, bend_t=0.025, dec=0.2, box_f=110.0, box=0.3, box_d
 
 
 def kick(v, art, p, r):
-    t = tt(p["dur"])
+    t = tt(max(p["dur"], 6.0 * p["dec"]))
     n = len(t)
     f = p["f"] * (1.0 + 0.008 * r.standard_normal())
     k = 1.0 + p["bend"] * (0.5 + 0.5 * v) * np.exp(-t / p["bend_t"])
     body = osc(f * k, t) * decay(t, p["dec"] * (0.8 + 0.2 * v), 0.0003)
     box = unit(osc(p["box_f"] * (1.0 + 0.06 * np.exp(-t / 0.01)), t) * decay(t, p["box_d"], 0.0005))
-    click = unit(cnoise(n, r, bp(p["click_f"], 0.8)) * decay(t, 0.0011, 0.0001))
+    click = unit(cnoise(n, r, bp(p["click_f"], 0.6)) * decay(t, 0.0025, 0.0001))
     thud = unit(cnoise(n, r, lp(260, 2)) * decay(t, 0.014, 0.0008))
     x = body + p["box"] * box + p["click"] * (0.3 + 0.7 * v) * click + p["thud"] * thud
     return unit(np.tanh(p["drive"] * x))
 
 
-SNARE = dict(f=200.0, ring=0.8, tone_d=0.06, wire=1.0, wire_d=0.12, wire_lo=1800.0, wire_hi=9000.0,
-             wire_pk=4500.0, crack=0.4, snap_f=2500.0, rim_f=900.0, drive=1.5, dur=0.5, buzz=0.04)
+SNARE = dict(f=200.0, ring=0.8, tone_d=0.06, head=0.8, head_f=1400.0, head_d=0.03, wire=1.0, wire_d=0.12,
+             wire_lo=900.0, wire_hi=9000.0, wire_pk=4500.0, crack=0.4, snap_f=2500.0, rim_f=900.0, drive=1.5,
+             dur=0.5, buzz=0.04)
 
 
 def wires(n, t, v, p, r):
     """the snare wires: a band of noise, darker and shorter when soft, that rattles as it dies"""
-    w = cnoise(n, r, hp(p["wire_lo"], 2), lp(p["wire_hi"] * (0.5 + 0.5 * v), 2), bell(p["wire_pk"], 5, 0.7))
+    w = cnoise(n, r, hp(p["wire_lo"], 1), lp(p["wire_hi"] * (0.5 + 0.5 * v), 2), bell(p["wire_pk"], 4, 1.0))
     rattle = 1.0 + 0.35 * unit(colour(r.standard_normal(n), lp(90, 1)))
     return unit(w * rattle * decay(t, p["wire_d"] * (0.6 + 0.4 * v), 0.0012))
 
 
 def snare(v, art, p, r):
-    t = tt(p["dur"])
+    t = tt(max(p["dur"], 5.0 * p["wire_d"], 6.0 * p["tone_d"]))
     n = len(t)
     f0 = p["f"] * (1.0 + 0.01 * r.standard_normal())
     bend = 1.0 + 0.08 * v * np.exp(-t / 0.006)
@@ -159,8 +160,10 @@ def snare(v, art, p, r):
     for q, a in zip((1.0, 1.59, 2.14, 2.30, 2.65, 2.92, 3.16), (1.0, 0.6, 0.45, 0.35, 0.3, 0.2, 0.15)):
         shell += a * r.uniform(0.6, 1.2) * osc(f0 * q * bend, t, r.uniform(0, 6.28)) * np.exp(-t / (p["tone_d"] / q ** 0.6))
     shell = unit(shell * (1.0 - np.exp(-t / 0.0004)))
+    head = unit(cnoise(n, r, bp(p["head_f"], 0.8)) * decay(t, p["head_d"] * (0.7 + 0.3 * v), 0.0004))
     crack = unit(cnoise(n, r, hp(1200, 1), bell(p["snap_f"], 8, 0.6)) * decay(t, 0.003, 0.0002))
-    x = (p["ring"] * (0.45 + 0.55 * v) * shell + p["wire"] * wires(n, t, v, p, r) + p["crack"] * v * crack)
+    x = (p["ring"] * (0.45 + 0.55 * v) * shell + p["head"] * head + p["wire"] * wires(n, t, v, p, r) +
+         p["crack"] * v * crack)
     if art == "k":                              # a rimshot: the rim rings, the crack is louder
         rim = osc(p["rim_f"], t) * decay(t, 0.025, 0.0002) + 0.6 * osc(p["rim_f"] * 2.31, t) * decay(t, 0.012, 0.0002)
         x = x + 0.45 * unit(rim) + 0.5 * p["crack"] * crack
@@ -190,9 +193,9 @@ def hats(v, art, p, r):
     return unit(x)
 
 
-RIDE = dict(lo=350.0, hi=11000.0, np=48, tilt=0.35, dec=1.1, ddec=0.5, bell_f=740.0, bell=0.35, wash=0.3,
-            wash_d=0.4, wash_hp=3500.0, tick=0.5, att=0.0003, dur=1.6, seed=1)
-CRASH = dict(RIDE, lo=300.0, hi=13000.0, np=64, tilt=0.2, dec=1.5, ddec=0.3, bell=0.0, wash=1.0, wash_d=0.9,
+RIDE = dict(lo=500.0, hi=14000.0, np=80, tilt=-0.25, dec=1.1, ddec=0.35, bell_f=740.0, bell=0.35, wash=0.45,
+            wash_d=0.4, wash_hp=3000.0, tick=0.5, att=0.0003, dur=1.6, seed=1)
+CRASH = dict(RIDE, lo=400.0, hi=15000.0, np=96, tilt=-0.3, dec=1.5, ddec=0.3, bell=0.0, wash=1.0, wash_d=0.9,
              wash_hp=2500.0, tick=0.3, att=0.002, dur=2.2, seed=2)
 
 
@@ -206,7 +209,7 @@ def cymbal_modes(p):
 
 
 def cymbal(v, art, p, r):
-    t = tt(p["dur"])
+    t = tt(max(p["dur"], 3.0 * p["dec"]))
     n = len(t)
     f, a, d = p["modes"]
     w = a * r.uniform(0.5, 1.5, len(f)) * (f / 1000.0) ** (0.3 * (v - 0.6))   # harder: brighter
@@ -262,19 +265,19 @@ def shaker(v, art, p, r):
     return unit(colour(beads, hp(p["hp"], 2), bell(p["pk"], 6, 0.7), lp(p["lp"], 2)) * env)
 
 
-CONGA = dict(f=205.0, dec=0.22, bend=0.05, slap=1.0, low=0.72, dur=0.6)
+CONGA = dict(f=205.0, dec=0.22, bend=0.05, slap=1.0, low=0.72)
 
 
 def skin(v, art, p, r):
     """a hand drum (conga, tumba, bongo) or a tom: a head's modes, the hand on it"""
-    t = tt(p["dur"])
-    n = len(t)
-    f0 = p["f"] * (1.0 + 0.01 * r.standard_normal()) * (p["low"] if art == "h" else 1.0)
     slap = art == "s"
     d = p["dec"] * {"s": 0.35, "b": 0.3, "t": 0.18}.get(art, 1.0)
+    t = tt(5.0 * d + 0.05)
+    n = len(t)
+    f0 = p["f"] * (1.0 + 0.01 * r.standard_normal()) * (p["low"] if art == "h" else 1.0)
     bend = 1.0 + p["bend"] * (1.6 if slap else 1.0) * v * np.exp(-t / 0.02)
     tone = np.zeros(n)
-    for q, a in zip((1.0, 1.50, 1.98, 2.44, 2.92), (1.0, 0.5, 0.32, 0.2, 0.12)):
+    for q, a in zip((1.0, 1.50, 1.98, 2.44, 2.92, 3.40, 4.1), (1.0, 0.7, 0.5, 0.35, 0.25, 0.18, 0.1)):
         if art == "b" and q > 1.0:
             break
         tone += a * osc(f0 * q * bend, t, r.uniform(0, 6.28)) * np.exp(-t / (d / q ** 0.5))
@@ -285,7 +288,7 @@ def skin(v, art, p, r):
     elif art == "b":                            # the heel: a low thump
         x = colour(tone, lp(f0 * 1.5, 2)) + 0.3 * unit(cnoise(n, r, lp(400, 2)) * decay(t, 0.01, 0.0005))
     else:
-        x = tone + 0.3 * unit(cnoise(n, r, bp(1500, 0.7)) * decay(t, 0.0025, 0.0003))
+        x = tone + 0.5 * unit(cnoise(n, r, bp(2000, 0.7)) * decay(t, 0.004, 0.0003))
     return unit(np.tanh(1.2 * unit(x)))
 
 
@@ -294,9 +297,9 @@ COWBELL = dict(f=560.0, dec=0.3, body=2200.0)
 
 def cowbell(v, art, p, r):
     damp = art == "d"                           # the hand on the bell
-    t = tt(0.15 if damp else 0.6)
-    n = len(t)
     dd = p["dec"] * (0.15 if damp else 1.0)
+    t = tt(5.0 * dd + 0.03)
+    n = len(t)
     x = sum(a * osc(p["f"] * q, t, r.uniform(0, 6.28)) * np.exp(-t / (dd / q ** 0.4))
             for q, a in ((1.0, 1.0), (1.504, 0.9), (2.15, 0.35), (2.69, 0.3), (3.42, 0.15), (4.11, 0.1)))
     x = colour(unit(x * (1.0 - np.exp(-t / 0.0003))), bell(p["body"], 4, 1.0))
@@ -317,7 +320,7 @@ def clap(v, art, p, r):
     return unit(cnoise(len(t), r, bp(p["f"], p["q"]), hp(500, 2)) * env)
 
 
-RIM = dict(f=480.0, dec=0.03, wood=1800.0)
+RIM = dict(f=600.0, dec=0.03, wood=2000.0)
 
 
 def rim(v, art, p, r):
@@ -326,9 +329,9 @@ def rim(v, art, p, r):
     n = len(t)
     f0 = p["f"] * (2.2 if art == "k" else 1.0)
     x = sum(a * osc(f0 * q, t, r.uniform(0, 6.28)) * np.exp(-t / (p["dec"] / q ** 0.5))
-            for q, a in ((1.0, 1.0), (2.37, 0.6), (3.93, 0.35)))
+            for q, a in ((1.0, 1.0), (2.37, 0.7), (3.93, 0.5), (5.6, 0.3)))
     x = unit(x * (1.0 - np.exp(-t / 0.0002)))
-    return unit(x + 0.8 * unit(cnoise(n, r, bp(p["wood"], 1.5)) * decay(t, 0.004, 0.0002)))
+    return unit(x + 1.0 * unit(cnoise(n, r, bp(p["wood"], 1.2)) * decay(t, 0.006, 0.0002)))
 
 
 SUB = dict(f=44.0, bend=1.4, bend_t=0.04, dec=0.5, dur=1.0, drive=1.8)
@@ -350,11 +353,12 @@ SOUND = {"K": kick, "S": snare, "H": hats, "R": cymbal, "Y": cymbal, "T": tamb, 
 DEFAULT = {"K": KICK, "S": SNARE, "H": HATS, "R": RIDE, "Y": CRASH, "T": TAMB, "Z": SHAKER, "C": CONGA,
            "U": dict(CONGA, f=150.0, dec=0.3), "B": dict(CONGA, f=420.0, dec=0.12, bend=0.04),
            "M": dict(CONGA, f=120.0, dec=0.35, bend=0.12, low=0.7), "W": COWBELL, "P": CLAP, "J": RIM, "X": SUB}
-LEVEL = {"K": 0, "S": 0, "H": -9, "R": -8, "Y": -7, "T": -9, "Z": -13, "C": -4, "U": -4, "B": -6, "M": -3,
-         "W": -10, "P": -5, "J": -9, "X": -2}   # dB
+LEVEL = {"K": 0, "S": 0, "H": -6, "R": -6, "Y": -5, "T": -8, "Z": -10, "C": -4, "U": -4, "B": -6, "M": -3,
+         "W": -9, "P": -4, "J": -8, "X": -5}    # dB
 SEND = {"K": 0.4, "S": 1.0, "H": 0.5, "R": 0.6, "Y": 0.8, "X": 0.0}                    # to the room (else 0.8)
 TAG = {"K": 1, "X": 1, "S": 2, "P": 2, "H": 4, "R": 4, "Y": 4}                       # else 8: percussion
 CHOKE = ("H", "X")                              # a hat closes the open one; a boom cuts the one before
+DIRECT = ("X",)                                 # not through the bus compressor (it would pump)
 
 
 # ---- the breaks. A lane: 16 steps, '.' or a velocity 1-9, then an articulation letter, then ':' a roll
@@ -362,8 +366,8 @@ CHOKE = ("H", "X")                              # a hat closes the open one; a b
 # triplet shuffle). push: ms early (-) or late (+) per instrument. loose: ms of human spread.
 BREAKS = [
     dict(name="SOLEIL", seed=101, swing=0.06, loose=2.5, push={"R": -2.0, "S": 2.0},
-         # bright and open: a ride rolling in 8ths and 16ths, a crash on the one, a ringing snare
-         # with ghost notes all round, the kick dancing round beat 3
+         # bright and open: a ride rolling in 8ths and 16ths, a crash on the one, a ringing high snare
+         # (rimshots on 2 and 4) with ghost notes all round, the kick dancing round beat 3, a live room
          lanes={"K": "9 . . . . . . . 7 . 9 . . . . 4",
                 "S": ". . 2 . 9k . 3 . . . 3 2 9k . . 5",
                 "R": "7b . 5 . 6 . 5 4 7b . 5 . 6 . 5 4",
@@ -372,77 +376,75 @@ BREAKS = [
          kit={"K": dict(f=57.0, bend=1.8, dec=0.2, box=0.3, box_f=105.0, click=0.6, click_f=3500.0, thud=0.2),
               "S": dict(f=235.0, ring=0.9, tone_d=0.07, wire=0.95, wire_d=0.15, wire_hi=11000.0, crack=0.55,
                         snap_f=3000.0, buzz=0.05),
-              "R": dict(lo=380.0, hi=12000.0, np=52, dec=1.3, bell_f=760.0, bell=0.4, wash=0.25, tick=0.6, seed=7),
-              "Y": dict(seed=8),
-              "H": dict(hp=6500.0, lvl=-14)},
-         room=dict(rt=0.7, pre=6.0, er=0.5, er_ms=25.0, damp=5000.0, hf=0.6, build=10.0, lo=150.0, hi=12000.0,
-                   wet=0.3, send={"K": 0.3, "S": 1.0, "R": 0.7, "Y": 0.8}),
-         desk=dict(eq=(hp(35, 2), bell(3500, 3, 1.0), shelf(9000, 3)), thr=-14.0, ratio=3.5, att=0.002, rel=0.09),
+              "R": dict(bell_f=760.0, bell=0.4, tick=0.6, seed=7, lvl=-4),
+              "Y": dict(seed=8, lvl=-3),
+              "H": dict(hp=6500.0, lvl=-12)},
+         room=dict(rt=0.8, pre=6.0, er=0.5, er_ms=25.0, damp=7000.0, hf=0.7, build=10.0, lo=150.0, hi=12000.0,
+                   wet=0.32, send={"K": 0.3, "S": 1.0, "R": 0.7, "Y": 0.8}),
+         desk=dict(eq=(hp(35, 2), bell(2500, 2, 1.0), shelf(6000, 6)), thr=-12.0, ratio=3.0, att=0.002, rel=0.12),
          tape=dict(drive=1.4, bias=0.05, wow=0.0008, flutter=0.0004, hiss=-62.0, bump=80.0, hf=16000.0),
-         crest=10.5,
-         disc=dict(hp=30.0, lp=12500.0, crackle=6.0, tick=-44.0, pops=0, surface=-66.0),
-         sampler=dict(rate=0, bits=0)),
+         disc=dict(hp=30.0, lp=15000.0, crackle=6.0, tick=-44.0, pops=0, surface=-66.0),
+         sampler=dict(rate=0, bits=0), crest=10.5),
     dict(name="GRELOT", seed=202, swing=0.0, loose=1.5, push={"H": -3.0, "T": 3.0, "S": 1.0},
-         # straight and busy: two hands of 16th hats opening into 1 and 3, a tambourine on the backbeat
-         # and shaking the offbeats, kicks off the beat, few ghosts
-         lanes={"K": "9 . . 6 . . . . 8 . . . . . 7 .",
-                "S": ". . . . 9 . . 2 . . . . 9 . 2 4",
-                "H": "8 2 5 3 7 2 5 6o 8 2 5 3 7 3 5 6o",
-                "T": ". . 4 . 8h . 4 . . . 4 . 8h . 4 3"},
+         # straight and busy: two hands of loud 16th hats opening into 1 and 3, a tambourine on the
+         # backbeat and shaking the offbeats, kicks off the beat, few ghosts; a honky, thin, saturated
+         # 70s funk record
+         lanes={"K": "9 . . 7 . . 8 . . 6 . . . . 8 .",
+                "S": ". . . . 9 . . 2 . 3 . . 9 . . 2",
+                "H": "4 2 8 2 4 2 8 2 4 2 8 2 4 2 8o 2",
+                "T": "6 . 3 . 6h . 3 . 6 . 3 . 6h . 3 ."},
          kit={"K": dict(f=62.0, bend=1.2, dec=0.16, box=0.35, box_f=120.0, click=0.4, thud=0.4),
               "S": dict(f=210.0, ring=0.7, tone_d=0.05, wire=1.1, wire_d=0.16, crack=0.4, buzz=0.06),
-              "H": dict(tune=1.15, metal=0.55, hp=7500.0, pk=9500.0, closed=0.03, open=0.3, lvl=-8),
-              "T": dict(skin=0.0, lvl=-9)},
+              "H": dict(tune=1.15, metal=0.55, hp=7000.0, pk=8500.0, closed=0.03, open=0.3, lvl=-4),
+              "T": dict(skin=0.0, lvl=-6)},
          room=dict(rt=0.35, pre=3.0, er=0.6, er_ms=12.0, damp=4500.0, hf=0.5, build=6.0, lo=120.0, hi=10000.0,
-                   wet=0.18, send={}),
-         desk=dict(eq=(hp(50, 2), bell(1100, 2.5, 1.2), lp(13000, 1)), thr=-12.0, ratio=3.0, att=0.004, rel=0.12),
-         tape=dict(drive=1.9, bias=0.08, wow=0.0012, flutter=0.0007, hiss=-54.0, bump=90.0, hf=12000.0),
-         crest=10.0,
-         disc=dict(hp=40.0, lp=9500.0, crackle=14.0, tick=-38.0, pops=1, surface=-58.0),
-         sampler=dict(rate=0, bits=0)),
+                   wet=0.2, send={}),
+         desk=dict(eq=(hp(120, 2), bell(1200, 6, 0.8), lp(8000, 1)), thr=-12.0, ratio=3.0, att=0.004, rel=0.12),
+         tape=dict(drive=2.4, bias=0.08, wow=0.0012, flutter=0.0007, hiss=-54.0, bump=110.0, hf=11000.0),
+         disc=dict(hp=60.0, lp=6500.0, crackle=14.0, tick=-38.0, pops=1, surface=-58.0),
+         sampler=dict(rate=0, bits=0), crest=10.0),
     dict(name="TENDU", seed=303, swing=0.03, loose=1.0, push={"H": -2.0, "P": 5.0},
-         # dry and tight: a dead room, a muffled kick, a high tight snare doubled by claps, a lot of
-         # ghost notes between the kicks, tight 8th hats
+         # dry and tight: a dead room, a short muffled kick, a high tight snare doubled by claps, a lot
+         # of ghost notes between the kicks, tight 8th hats; clean and full, crisp at the top
          lanes={"K": "9 . 4 . . . 7 . 8 . . 7 . . . .",
                 "S": ". 2 . 3 9 . 2 3 . 3 . . 9 2 . 3",
                 "P": ". . . . 7 . . . . . . . 7 . . .",
                 "H": "7 . 4 . 7 . 4 3 7 . 4 . 7 . 5h ."},
          kit={"K": dict(f=64.0, bend=1.0, bend_t=0.015, dec=0.11, box=0.45, box_f=140.0, box_d=0.03, click=0.5,
                         click_f=2500.0, thud=0.6, drive=2.0),
-              "S": dict(f=265.0, ring=0.6, tone_d=0.035, wire=1.0, wire_d=0.07, wire_lo=2200.0, crack=0.65,
+              "S": dict(f=265.0, ring=0.6, tone_d=0.035, wire=1.0, wire_d=0.07, wire_lo=1500.0, crack=0.65,
                         snap_f=3500.0, drive=1.8, buzz=0.02),
-              "P": dict(f=1400.0, dec=0.06, lvl=-6),
-              "H": dict(tune=1.3, metal=0.4, hp=8000.0, closed=0.022, half=0.09, tip=0.6, lvl=-9)},
+              "P": dict(f=1400.0, dec=0.06, lvl=-5),
+              "H": dict(tune=1.3, metal=0.4, hp=8000.0, closed=0.022, half=0.09, tip=0.6, lvl=-6)},
          room=dict(rt=0.15, pre=1.5, er=0.8, er_ms=6.0, damp=3000.0, hf=0.4, build=3.0, lo=200.0, hi=9000.0,
-                   wet=0.08, send={}),
-         desk=dict(eq=(hp(45, 2), bell(300, -3, 1.0), bell(5000, 2, 1.0)), thr=-16.0, ratio=5.0, att=0.001, rel=0.05),
-         tape=dict(drive=1.2, bias=0.02, wow=0.0, flutter=0.0002, hiss=-66.0, bump=70.0, hf=16000.0),
-         crest=11.5,
-         disc=dict(hp=30.0, lp=14000.0, crackle=2.0, tick=-50.0, pops=0, surface=-70.0),
-         sampler=dict(rate=0, bits=0)),
+                   wet=0.07, send={}),
+         desk=dict(eq=(hp(40, 2), bell(75, 3, 0.7), bell(400, -4, 1.0), shelf(8000, 4)), thr=-16.0, ratio=5.0,
+                   att=0.001, rel=0.05),
+         tape=dict(drive=1.1, bias=0.02, wow=0.0, flutter=0.0002, hiss=-68.0, bump=70.0, hf=18000.0),
+         disc=dict(hp=30.0, lp=15000.0, crackle=1.0, tick=-52.0, pops=0, surface=-72.0),
+         sampler=dict(rate=0, bits=0), crest=11.5),
     dict(name="ABYSSE", seed=404, swing=0.08, loose=2.0, push={"Z": -2.0, "S": 2.0, "J": 1.0},
          # ragga jungle: a two-step kick with a deep sub boom under it, a crisp rimshot snare in a long
          # plate, rolls into the one, 16th shaker, rim ticks, taken at a low sampler rate
          lanes={"K": "9 . . . . . . 5 . . 9 . . . . .",
                 "X": "9 . . . . . . . . . 8 . . . . .",
-                "S": ". . . . 9k . . 3 . 2 . . 9k . 6: 7:",
+                "S": ". . . . 9k . . 3 . 2 . . 9k . 8: 8:",
                 "H": ". . 6 . . . 6 . . . 6 . . . 6 .",
                 "Z": "3 2 5 2 3 2 5 2 3 2 5 2 3 2 5 3",
                 "J": ". . . 5k . . . . . . . 5k . . . ."},
          kit={"K": dict(f=70.0, bend=1.5, dec=0.12, click=0.7, click_f=4000.0, thud=0.3),
-              "X": dict(f=43.0, bend=1.5, bend_t=0.035, dec=0.55, dur=1.1, drive=1.6, lvl=-1),
+              "X": dict(f=43.0, bend=1.5, bend_t=0.035, dec=0.55, dur=1.1, drive=1.6, lvl=-10),
               "S": dict(f=250.0, ring=0.8, tone_d=0.05, wire=0.9, wire_d=0.11, crack=0.75, snap_f=4200.0, buzz=0.03),
-              "H": dict(tune=1.2, metal=0.5, hp=8500.0, closed=0.028, lvl=-10),
-              "Z": dict(lvl=-14),
-              "J": dict(lvl=-9)},
+              "H": dict(tune=1.2, metal=0.5, hp=8500.0, closed=0.028, lvl=-6),
+              "Z": dict(lvl=-9),
+              "J": dict(lvl=-7)},
          room=dict(rt=1.3, pre=15.0, er=0.15, er_ms=20.0, damp=6000.0, hf=0.5, build=20.0, lo=300.0, hi=11000.0,
                    wet=0.4, send={"K": 0.05, "S": 1.3, "H": 0.2, "Z": 0.2, "J": 0.6}),
          desk=dict(eq=(hp(25, 2), shelf(70, 4, high=False), bell(7000, 2, 1.0)), thr=-12.0, ratio=4.0, att=0.003,
                    rel=0.1),
          tape=dict(drive=2.2, bias=0.04, wow=0.0, flutter=0.0002, hiss=-60.0, bump=60.0, hf=16000.0),
-         crest=10.0,
          disc=dict(hp=20.0, lp=11500.0, crackle=3.0, tick=-48.0, pops=0, surface=-66.0),
-         sampler=dict(rate=15000, bits=12)),
+         sampler=dict(rate=15000, bits=12), crest=10.0),
     dict(name="MAMBO", seed=505, swing=0.12, loose=3.5, push={"C": 3.0, "U": 3.0, "B": -2.0, "W": -1.0, "S": 4.0},
          # latin: congas in a tumbao (heel, toe, slap, open tones, the low drum at the end), bongos on the
          # offbeat 16ths, a bell, a round soft kick, a high snare, all in a big warm room
@@ -453,40 +455,38 @@ BREAKS = [
                 "C": "3b . 3t . 7s . 7 6 3b . 3t . 7s . . .",
                 "U": ". . . . . . . . . . . . . . 8 7",
                 "B": ". 4 . 6 . 4 . 7h . 4 . 6 . 4 . 7h"},
-         kit={"K": dict(f=52.0, bend=1.2, dec=0.25, box=0.2, click=0.25, thud=0.5),
+         kit={"K": dict(f=52.0, bend=1.2, dec=0.25, box=0.2, click=0.25, thud=0.5, lvl=-2),
               "S": dict(f=300.0, ring=1.0, tone_d=0.09, wire=0.55, wire_d=0.09, crack=0.4, rim_f=1100.0, buzz=0.03),
-              "H": dict(tune=0.9, metal=0.7, hp=5500.0, lvl=-14),
-              "W": dict(f=590.0, dec=0.25, lvl=-11),
-              "C": dict(f=200.0, dec=0.22),
-              "U": dict(f=150.0, dec=0.3),
-              "B": dict(f=420.0, low=0.72, dec=0.12)},
-         room=dict(rt=1.6, pre=22.0, er=0.35, er_ms=40.0, damp=4000.0, hf=0.45, build=25.0, lo=120.0, hi=9000.0,
-                   wet=0.45, send={"K": 0.3, "S": 1.0, "C": 1.0, "U": 1.0, "B": 1.0, "W": 0.8, "H": 0.6}),
-         desk=dict(eq=(hp(40, 2), bell(250, 2, 1.0), lp(9000, 1)), thr=-14.0, ratio=3.0, att=0.006, rel=0.15),
+              "H": dict(tune=0.9, metal=0.7, hp=5500.0, lvl=-10),
+              "W": dict(f=590.0, dec=0.25, lvl=-7),
+              "C": dict(f=200.0, dec=0.22, lvl=-6),
+              "U": dict(f=150.0, dec=0.3, lvl=-7),
+              "B": dict(f=420.0, low=0.72, dec=0.12, lvl=-6)},
+         room=dict(rt=1.6, pre=22.0, er=0.35, er_ms=40.0, damp=4000.0, hf=0.45, build=25.0, lo=150.0, hi=9000.0,
+                   wet=0.45, send={"K": 0.2, "S": 1.0, "C": 1.0, "U": 0.8, "B": 1.0, "W": 0.8, "H": 0.6}),
+         desk=dict(eq=(hp(40, 2), bell(2500, 3, 1.0), lp(11000, 1)), thr=-14.0, ratio=3.0, att=0.006, rel=0.15),
          tape=dict(drive=1.8, bias=0.07, wow=0.0025, flutter=0.0008, hiss=-52.0, bump=90.0, hf=11000.0),
-         crest=11.0,
-         disc=dict(hp=45.0, lp=8000.0, crackle=18.0, tick=-36.0, pops=1, surface=-56.0),
-         sampler=dict(rate=0, bits=0)),
+         disc=dict(hp=45.0, lp=8500.0, crackle=18.0, tick=-36.0, pops=1, surface=-56.0),
+         sampler=dict(rate=0, bits=0), crest=11.0),
     dict(name="GRENIER", seed=606, swing=0.30, loose=5.0, push={"S": 12.0, "K": 3.0, "H": 5.0, "J": 9.0},
          # a slow, heavy swing (a hip-hop break, played here at 160: a double-time feel): a boxy kick, a
          # fat late snare, dark sloshy hats, cross-stick ghosts, a squashed small room, worn tape, a
-         # dusty record and a 12 kHz 10-bit sampler
+         # dusty record and a 13 kHz 10-bit sampler
          lanes={"K": "9 . . . . . . 6 8 . . 5 . . . .",
                 "S": ". . . . 9 . . . . 3 . . 9 . . 2",
-                "H": "6 . 4 3 6 . 4 3 6 . 4 3 6 . 5h 3",
+                "H": "7 . 5 4 7 . 5 4 7 . 5 4 7 . 6h 4",
                 "J": ". . . . . . 3 . . . . . . . 4 ."},
          kit={"K": dict(f=60.0, bend=0.9, dec=0.24, box=0.55, box_f=95.0, box_d=0.07, click=0.2, thud=0.6, drive=2.5),
               "S": dict(f=180.0, ring=1.0, tone_d=0.1, wire=0.85, wire_d=0.22, wire_hi=6500.0, crack=0.3, drive=2.0,
                         buzz=0.06),
-              "H": dict(tune=0.8, metal=0.7, hp=4500.0, pk=7000.0, lp=10000.0, closed=0.05, half=0.2, lvl=-9),
-              "J": dict(f=450.0, lvl=-10)},
+              "H": dict(tune=0.8, metal=0.7, hp=3500.0, pk=6000.0, lp=9000.0, closed=0.05, half=0.2, lvl=-5),
+              "J": dict(f=450.0, lvl=-8)},
          room=dict(rt=0.35, pre=3.0, er=0.9, er_ms=10.0, damp=2500.0, hf=0.35, build=4.0, lo=100.0, hi=7000.0,
                    wet=0.35, send={"K": 0.6, "S": 1.0, "H": 0.7, "J": 0.8}),
-         desk=dict(eq=(hp(70, 2), bell(900, 4, 0.8), lp(6500, 2)), thr=-20.0, ratio=6.0, att=0.005, rel=0.2),
+         desk=dict(eq=(hp(70, 2), bell(900, 4, 0.8), lp(8000, 2)), thr=-20.0, ratio=6.0, att=0.005, rel=0.2),
          tape=dict(drive=2.8, bias=0.12, wow=0.004, flutter=0.0015, hiss=-46.0, bump=100.0, hf=9000.0),
-         crest=9.0,
-         disc=dict(hp=60.0, lp=5500.0, crackle=45.0, tick=-30.0, pops=2, surface=-50.0),
-         sampler=dict(rate=12000, bits=10)),
+         disc=dict(hp=60.0, lp=7000.0, crackle=45.0, tick=-30.0, pops=2, surface=-50.0),
+         sampler=dict(rate=13000, bits=10), crest=9.0),
 ]
 
 
@@ -588,7 +588,7 @@ def softlim(z, k=0.55):
 
 
 def cut(x, crest):
-    """the cut to disc: a limiter, pushed until the peak is crest dB over the RMS"""
+    """the master: a limiter, pushed until the peak is crest dB over the RMS"""
     def cr(g):
         y = softlim(g * x / np.max(np.abs(x)))
         return 20 * np.log10(np.max(np.abs(y)) / rms(y)), y
@@ -645,11 +645,13 @@ def render(b):
         if k in kit:
             kit[k]["modes"] = cymbal_modes(kit[k])
     ev, tags = events_of(b, r)
-    dry, send = np.zeros(BAR2), np.zeros(BAR2)
+    dry, send, direct = np.zeros(BAR2), np.zeros(BAR2), np.zeros(BAR2)
     room = b["room"]
     for i, (pos, inst, v, art) in enumerate(ev):
         p = kit[inst]
         x = SOUND[inst](v, art, p, r) * v ** 1.7 * 10 ** (p["lvl"] / 20.0)
+        f = min(len(x) // 4, int(0.02 * FS))
+        x[len(x) - f:] *= np.linspace(1.0, 0.0, f)              # no click where the hit is cut
         if inst in CHOKE:                       # until the next one of its group
             nxt = [e[0] for e in ev[i + 1:] + ev[:i] if e[1] == inst]
             if nxt:
@@ -659,7 +661,7 @@ def render(b):
                     x = x.copy()
                     x[c:c + fade] *= np.linspace(1.0, 0.0, fade)
                     x[c + fade:] = 0.0
-        place(dry, x, pos)
+        place(direct if inst in DIRECT else dry, x, pos)
         place(send, x * room["send"].get(inst, SEND.get(inst, 0.8)), pos)
         if inst in "KMX":                       # the snare wires buzz with the kick
             s = kit["S"]
@@ -667,13 +669,12 @@ def render(b):
             z = wires(len(t), t, 0.4, s, r) * s["buzz"] * v ** 1.7 * 10 ** (s["lvl"] / 20.0)
             place(dry, z, pos + 0.002 * FS)
             place(send, z, pos + 0.002 * FS)
-    x = dry + circ_conv(send, room_ir(room, r)) * room["wet"]
-    d = b["desk"]
-    x = compress(unit(eq(unit(x), *d["eq"])), d["thr"], d["ratio"], d["att"], d["rel"])
+    x = eq(dry + circ_conv(send, room_ir(room, r)) * room["wet"], *b["desk"]["eq"])
+    d, g = b["desk"], 1.0 / np.max(np.abs(x))
+    x = compress(x * g, d["thr"], d["ratio"], d["att"], d["rel"]) + eq(direct, *d["eq"]) * g
     x = tape(unit(x), b["tape"], r)
-    x = disc(cut(x, b["crest"]), b["disc"], r)
-    x = sampler(down(x), b["sampler"])
-    x = eq(x, hp(25, 3), rate=SR)
+    x = sampler(down(disc(x, b["disc"], r)), b["sampler"])
+    x = cut(eq(x, hp(25, 3), rate=SR), b["crest"])
     x -= x.mean()
     return x * (0.9 / np.max(np.abs(x))), tags  # -0.9 dBFS
 

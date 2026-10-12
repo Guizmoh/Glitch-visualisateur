@@ -198,6 +198,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
         <li>Branche le FM-1 sur une alimentation stable, avec un câble USB de données, et ferme les autres logiciels MIDI.</li>
         <li>Si KAWA se comporte mal, tiens <kbd>OCT−</kbd> en allumant : l'écran affiche « KAWA USB RESCUE ».</li>
         <li>Lance <strong>M-UPGRADE</strong> de M-VAVE avec le firmware officiel <strong>V15</strong> (identité <code>FM-1_015</code>, SHA-256 <code>db1642b2…7edb8a</code>).</li>
+        <li>Avant que l'outil officiel n'écrive quoi que ce soit, KAWA vérifie deux choses : que c'est bien le programme de mise à jour de M-VAVE, et que la zone de démarrage du paquet officiel est exactement celle déjà présente dans ton FM-1 (l'outil officiel la réécrit, il ne peut donc y remettre que les mêmes octets). Si l'une des deux ne colle pas, rien n'est écrit et KAWA continue de tourner.</li>
         <li>Ne débranche rien pendant le transfert. S'il s'arrête au milieu, rebranche et relance-le.</li>
         <li>Vérifie le résultat : <code>python3 tools/fm1_install.py --info</code> doit répondre <code>FM-1_015</code>.</li>
       </ol>

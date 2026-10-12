@@ -10,7 +10,8 @@
  *      (taken from isd_config.ini in the device's own flash head), so a
  *      package for another key is refused before anything is erased;
  *   2b. reads the whole flash.bin once and checks it against the CRC16 of its
- *      UFW entry (the vendor tools' check), keeping each app sector's CRC16:
+ *      UFW entry (the vendor tools' check), keeping two CRC16s of each app
+ *      sector (two polynomials, 32 bits in all):
  *      a damaged or truncated package is refused before anything is erased
  *      (a check that does not add up, a byte damaged on the way, is run
  *      again: three in all);
@@ -114,9 +115,22 @@ static void ldr_records_drop(void)
     }
 }
 
+/* a second CRC16, another polynomial (CRC-16/ARC: 0x8005, reflected): with ota_crc16 (0x1021), a sector's check
+ * is 32 bits; a byte changed on the way passes both only by chance, about once in 4 billion */
+static uint32_t ldr_crc16a(const uint8_t *p, uint32_t n, uint32_t c)
+{
+    uint32_t i;
+    while (n--) {
+        c ^= *p++;
+        for (i = 0; i < 8u; i++)
+            c = c & 1u ? (c >> 1) ^ 0xA001u : c >> 1;
+    }
+    return c;
+}
+
 /* 2b. flash.bin [0, fl_size) from the host, before any erase: its CRC16 must be the UFW entry's (want); sc gets
- * the CRC16 of each app sector as it came in */
-static int ldr_check(uint32_t fl_off, uint32_t fl_size, uint32_t want, uint16_t *sc, uint8_t *b)
+ * the two CRC16s of each app sector as it came in (ota_crc16 low, ldr_crc16a high) */
+static int ldr_check(uint32_t fl_off, uint32_t fl_size, uint32_t want, uint32_t *sc, uint8_t *b)
 {
     uint32_t i, n, crc = 0;
     for (i = 0; i < fl_size; i += n) {
@@ -125,8 +139,8 @@ static int ldr_check(uint32_t fl_off, uint32_t fl_size, uint32_t want, uint16_t 
             return -7;
         crc = ota_crc16(b, n, crc);
         if (i >= LDR_APP_LO && i < LDR_APP_HI) {     /* (512-byte reads from 0: never across a sector) */
-            uint32_t k = (i - LDR_APP_LO) >> 12;
-            sc[k] = (uint16_t)ota_crc16(b, n, (i & 0xFFFu) ? sc[k] : 0u);
+            uint32_t k = (i - LDR_APP_LO) >> 12, c0 = (i & 0xFFFu) ? sc[k] : 0u;
+            sc[k] = ota_crc16(b, n, c0 & 0xFFFFu) | ldr_crc16a(b, n, c0 >> 16) << 16;
         }
     }
     return crc == want ? 0 : LDR_EBADPKG;
@@ -135,7 +149,7 @@ static int ldr_check(uint32_t fl_off, uint32_t fl_size, uint32_t want, uint16_t 
 static int ldr_session(void)
 {
     static uint8_t hdr[0x400], sec[0x1000], cur[0x1000];
-    static uint16_t sc[LDR_NSEC];
+    static uint32_t sc[LDR_NSEC];
     uint32_t i, k, fl_off, fl_size, ota_off, ota_len, key, s, want, done = 0;
     int rc;
     /* 1. UFW header + entry list (ota.c), flash.bin's CRC16 */
@@ -167,7 +181,7 @@ static int ldr_session(void)
             for (k = 0; k < 0x1000u; k += 512u)
                 if (ota_read(fl_off + s + k, sec + k, 512))
                     return -7;
-            if (ota_crc16(sec, 0x1000u, 0) == sc[(s - LDR_APP_LO) >> 12])
+            if ((ota_crc16(sec, 0x1000u, 0) | ldr_crc16a(sec, 0x1000u, 0) << 16) == sc[(s - LDR_APP_LO) >> 12])
                 break;
             if (i == 2u)
                 return LDR_ESECTOR;

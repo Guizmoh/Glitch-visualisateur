@@ -42,7 +42,7 @@ embedded in the page, so `emulateur/index.html` stands alone.
 
 ```sh
 ./build.sh                  # -> build/kawa.fwsc, identity FM-1_950
-./build.sh --release 0.1    # -> build/kawa-0.1.fwsc, identity FM-1_951, version "0.1" on the screen
+./build.sh --release 0.2    # -> build/kawa-0.2.fwsc, identity FM-1_952, version "0.2" on the screen
 ```
 
 `JIELI_TOOLCHAIN` and `AC79_SDK` override the default locations. The build fails on what would brick or
@@ -57,25 +57,43 @@ FPU, so the code uses integers only and no 64-bit division. See Dinghy's `docs/R
 
 The update loader (`firmware/loader/`, Felucca's) reads the package's whole `flash.bin` once and checks it
 against the package's CRC16 before it erases anything, so a damaged or cut package leaves the old firmware
-as it is. Then it writes the app area `0x4000..0x93000` only, sector by sector; a sector that comes in
-different from the checked pass is read again, never written. Until the host says "success" the update
+as it is. On that pass it keeps two CRC16s of every app sector (two polynomials: 32 bits). Then it writes
+the app area `0x4000..0x93000` only, sector by sector; a sector that comes in different from the checked
+pass is read again, never written, and every written sector is read back and compared. Until the host says "success" the update
 record stays: after a power cut or a lost cable the FM-1 starts in the loader again and the host can resume.
 On an unknown flash chip it writes nothing and the old firmware starts again. After `./build.sh`,
 `tests/run_loader_tests.sh` runs both steps of an update on a computer against the package (it needs
 `AC79_SDK` too).
+
+## Safety: rescue, and back to the official firmware
+
+- **Rescue.** Hold OCT- while switching on, or let KAWA fail to start twice within 30 s: the screen shows
+  `KAWA USB RESCUE`. Audio, projects and the editor stay off; only USB and the same checked updater run, so
+  a package can be installed from there (`tools/fm1_install.py`, or M-UPGRADE for the official firmware).
+- **A cut install.** The update record stays until the host says "success": switched on again, the FM-1
+  starts in the loader (`ota-FM-1_900`) and `tools/fm1_install.py` finishes the write.
+- **Back to the official firmware.** M-UPGRADE with the official V15 package (identity `FM-1_015`, SHA-256
+  `db1642b2b6fa5c2cccb11ffd13878068bb28601678d3644049f99dc40e7edb8a`). KAWA hands over to the official
+  updater only if it is M-VAVE's own loader (its CRCs are known, `firmware/src/ota.c`) and only if the
+  package's flash head `0..0x4000` is byte for byte the one already on this FM-1: the official loader
+  rewrites the head, so it can only write back the same bytes. If either check fails, nothing is written
+  and KAWA keeps running. This step is the riskiest one (the official loader is not ours): a stable power
+  supply, a data cable, and no unplugging while it runs. The KAWA projects and samples are not kept.
+- **Not proven.** The chip's mask-ROM USB mode (WL80UBOOT, the FM-1 Transporter) is documented by
+  [fm-1-re](https://github.com/al-255/fm-1-re) but not tested here; KAWA never relies on it.
 
 ## Generated files
 
 | File | Made by | |
 | --- | --- | --- |
 | `firmware/gen/kawa_art.h` | `tools/gen_art.py` | icons 8 x 8 and the mascot 16 x 16, drawn as text |
-| `firmware/gen/kawa_breaks.h` | `tools/gen_breaks.py` | four breaks, synthesised, 22050 Hz, 8-bit mu-law (needs numpy; `--wav DIR` to listen) |
+| `firmware/gen/kawa_breaks.h` | `tools/gen_breaks.py` | six breaks, synthesised, 22050 Hz, 8-bit mu-law (needs numpy; `--wav DIR` to listen; `tests/breaks_check.py` checks them) |
 | `firmware/gen/kawa_tables.h` | `tools/gen_tables.py` | fixed-point tables: pitch, envelopes, filters, the 4-bit waves |
 | `firmware/gen/felucca_font.h` | Dinghy | Terminus 8 x 16 (SIL OFL 1.1) |
 
 ## Memory and flash
 
-The 0.1 build uses an image of about 234 KB of the 568 KB available, 20 KB of the 96 KB of RAM and 292 KB
+The 0.2 build uses an image of about 359 KB of the 568 KB available, 43 KB of the 96 KB of RAM and 292 KB
 of the 336 KB pool (the effects' capture, the echo, the project and the screen bands). Projects are kept in
 four 36 KB slots from `0x97000` (slot 0 is the autosave) and the user samples in four 37 KB slots from
 `0xBB000` up to `0xE0000`: the store is `0x97000..0xE0000`, the part of the flash an update never erases.

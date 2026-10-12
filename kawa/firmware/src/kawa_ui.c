@@ -341,7 +341,7 @@ static void hint(uint32_t k, const char *name, const char *label, const char *va
     if (name && name[0]) {
         while (name[i] && i < 14u) { d[i] = name[i]; i++; }
         d[i] = 0;
-        if (val && val[0]) { str_cat(d, " "); str_cat(d, val); d[23] = 0; }
+        if (val && val[0]) { str_cat(d, "\n"); str_cat(d, val); d[23] = 0; }   /* (two lines on the page) */
     }
     if (!g_vis(224, 16)) return;
     if (k == 3u) hint_beta();
@@ -1514,8 +1514,13 @@ static void set_page(uint32_t p)
         grid_page = 0;
     if (p != PG_MIX && cur_trk >= NTRK)
         cur_trk = NTRK - 1u;
-    if (p == PG_HELP)
+    if (p == PG_HELP) {                         /* the knobs of the page asked about (one line each) */
+        uint32_t q, c;
         memcpy(help_lab, knob_lab, sizeof help_lab);
+        for (q = 0; q < 4u; q++)
+            for (c = 0; c < 24u; c++)
+                if (help_lab[q][c] == '\n') help_lab[q][c] = ' ';
+    }
     if (p == PG_SONG) {
         int f = song_find(ui_pat);
         if (song_cur >= prj.song_len || prj.song[song_cur].pat != ui_pat) song_cur = (uint8_t)(f < 0 ? 0 : f);

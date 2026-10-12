@@ -164,8 +164,11 @@ typedef struct {
     int32_t lp, dc;
     uint32_t lfo_ph, lfo_rnd;
     int32_t lfo;                                /* the LFO now, -32767..32767 x depth / 15 */
+    int32_t volq;                               /* the note's volume, Q16 (VSL slides it) */
+    int8_t vslide, npan;                        /* VSL: volume a row; PAN: this note's pan */
     fxs_t fx;
 } trk_t;
+static uint32_t vsl_k = 272u;                   /* a VSL unit per chunk: 65536 x CHUNK / the row's frames (seq_tempo) */
 static trk_t tk[NTRK];
 
 /* ---- FM: one track (fm_trk), two voices (the new note and the last one's release). The patch is the
@@ -268,6 +271,8 @@ static void smp_on(uint32_t t, uint32_t note, uint32_t fx, int32_t fxv)
     }
     if (s1 > len - 2u)
         s1 = len - 2u;
+    if (fx == FX_OFS && s1 > s0)                /* OFS: further in */
+        s0 += (uint32_t)clampi(fxv, 0, 15) * ((s1 - s0) >> 4);
     v->d = d;
     v->lo = s0 << 16;
     v->hi = s1 << 16;
@@ -339,6 +344,13 @@ static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
     }
     trig_ms[t] = fm1_ms;
     v->vol = (uint8_t)vol;
+    v->volq = (int32_t)vol << 16;
+    v->vslide = (int8_t)(fx == FX_VSL ? sv : 0);
+    v->npan = (int8_t)(fx == FX_PAN ? sv : 0);
+    if (p[P_MLFRT]) {                           /* LFO KEY: the LFO starts again with each note */
+        v->lfo_ph = 0;
+        v->lfo_rnd = xr(&rnd_isr);
+    }
     v->bend = 0;
     v->arp_n = 0;
     v->shape = (uint8_t)p[P_SHAPE];
@@ -498,6 +510,14 @@ static void track_chunk(uint32_t t, int32_t *out)
         pit += (v->lfo * p[P_LFOA] * 4) >> 15;
     if (dest == LFD_FILT)
         fxa = clampi(fxa + ((v->lfo * 8) >> 15), 0, 15);
+    if (p[P_MENVA] || p[P_MVELA])               /* MODULATION: the envelope and the velocity open the effect */
+        fxa = clampi(fxa + ((v->env * p[P_MENVA]) >> 16) + ((v->vol * p[P_MVELA]) >> 4), 0, 15);
+    if (p[P_MENVP])                             /* ... and bend the pitch */
+        pit += (v->env * p[P_MENVP]) >> 8;
+    if (v->vslide) {                            /* VSL: the volume slides over the row */
+        v->volq = clampi(v->volq + v->vslide * (int32_t)vsl_k, 0, 15 << 16);
+        v->vol = (uint8_t)(v->volq >> 16);
+    }
     if (e <= E_NOISE && active) {
         uint32_t inc, inc2 = 0, duty = 0x80000000u, ph = v->ph, ph2 = v->ph2;
         int32_t m = crush_mask(v->crush), lp = v->lp, det = p[P_DETUNE];
@@ -612,7 +632,7 @@ static void track_chunk(uint32_t t, int32_t *out)
         return;
     /* the envelope and the note's volume, ramped over the chunk */
     gain = (int32_t)(((uint32_t)v->env * (uint32_t)v->env) >> 17);
-    tgt = (int32_t)(((int64_t)gain * (v->vol * 18)) >> 8);       /* vol 15 -> ~1.05 x gain */
+    tgt = (int32_t)(((int64_t)gain * ((v->volq * 18) >> 16)) >> 8);   /* vol 15 -> ~1.05 x gain */
     if (dest == LFD_VOL)
         tgt = (int32_t)(((int64_t)tgt * (32767 - ((32767 - v->lfo) >> 1) * 1)) >> 15);
     if (lv_mute >> t & 1u)

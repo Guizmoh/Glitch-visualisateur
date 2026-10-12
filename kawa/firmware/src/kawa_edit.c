@@ -110,6 +110,15 @@ static uint32_t preset_first(uint32_t e)        /* the first factory sound of an
     return 0;
 }
 
+static uint32_t preset_named(uint32_t e, int32_t s0)   /* a factory sound by its engine and its first knob */
+{
+    uint32_t k;
+    for (k = 0; k < NPRESET; k++)
+        if (PRESETS[k].engine == e && PRESETS[k].s[0] == s0)
+            return k;
+    return preset_first(e);
+}
+
 /* ---- the scale */
 static int in_scale(uint32_t note)
 {
@@ -205,7 +214,7 @@ static void prj_new(void)
         pat_clear(&prj.pat[i]);
     for (i = 0; i < NTRK; i++) {
         sound_mix_default(i);
-        sound_preset(i, TRK_PRESET0[i]);
+        sound_preset(i, preset_named(TRK_ENGINE0[i], TRK_S0[i]));
     }
     name_new(prj.name);
     brushes_reset();
@@ -250,14 +259,6 @@ static void fx_at(uint32_t p, uint32_t r, uint32_t t, uint32_t fx, int32_t v)
     prj.pat[p].c[r][t].fxv = (uint8_t)(int8_t)v;
 }
 
-static uint32_t preset_named(uint32_t e, int32_t s0)   /* a factory sound by its engine and its first knob */
-{
-    uint32_t k;
-    for (k = 0; k < NPRESET; k++)
-        if (PRESETS[k].engine == e && PRESETS[k].s[0] == s0)
-            return k;
-    return preset_first(e);
-}
 
 /* the demo, "KAWA QUEST": an overworld in C (bouncy), a dungeon in A minor (an ostinato in the dark),
  * the boss (breakcore on the break), the victory. Seven patterns of two bars, the song plays most twice.
@@ -365,10 +366,13 @@ static void prj_demo(void)
     brushes_reset();
 }
 
-/* ---- undo: the last edits of patterns (SAVE held puts the last one back) */
+/* ---- undo and redo: the last edits of patterns (SAVE held: OCT- undo, OCT+ redo; SAVE held alone: undo) */
 #define NUNDO 6u
-static pat_t undo_pat[NUNDO];
-static uint8_t undo_idx[NUNDO], undo_n, undo_top;
+typedef struct {
+    pat_t pat[NUNDO];
+    uint8_t idx[NUNDO], n, top;
+} hist_t;
+static hist_t undo_h, redo_h;
 static uint32_t undo_pat_last = 0xFFu, undo_ms_last;
 static uint8_t dirty;                           /* changed since the last save */
 static uint32_t dirty_ms;
@@ -377,36 +381,45 @@ static void touched(void)
     dirty = 1;
     dirty_ms = fm1_ms;
 }
+static void hist_push(hist_t *h, uint32_t p)
+{
+    h->pat[h->top] = prj.pat[p];
+    h->idx[h->top] = (uint8_t)p;
+    h->top = (uint8_t)((h->top + 1u) % NUNDO);
+    if (h->n < NUNDO)
+        h->n++;
+}
+static int hist_pop(hist_t *h, hist_t *other)   /* put the last state back, keep the present in other */
+{
+    uint32_t p;
+    if (!h->n)
+        return -1;
+    h->top = (uint8_t)((h->top + NUNDO - 1u) % NUNDO);
+    h->n--;
+    p = h->idx[h->top];
+    hist_push(other, p);
+    prj.pat[p] = h->pat[h->top];
+    undo_pat_last = 0xFFu;
+    touched();
+    return (int)p;
+}
 static void undo_push_merge(uint32_t p, int merge)   /* before an edit of pattern p; merge: knob turns and notes */
 {                                                       /* typed within 1.5 s of the last edit are one step */
+    redo_h.n = 0;                               /* a new edit: what was undone stays undone */
     if (merge && p == undo_pat_last && fm1_ms - undo_ms_last < 1500u) {
         undo_ms_last = fm1_ms;
         touched();
         return;
     }
-    undo_pat[undo_top] = prj.pat[p];
-    undo_idx[undo_top] = (uint8_t)p;
-    undo_top = (uint8_t)((undo_top + 1u) % NUNDO);
-    if (undo_n < NUNDO)
-        undo_n++;
+    hist_push(&undo_h, p);
     undo_pat_last = merge ? p : 0xFFu;
     undo_ms_last = fm1_ms;
     touched();
 }
 static void undo_push(uint32_t p) { undo_push_merge(p, 0); }   /* a step of its own */
-static int undo_pop(void)                       /* the pattern put back, or -1 */
-{
-    uint32_t p;
-    if (!undo_n)
-        return -1;
-    undo_top = (uint8_t)((undo_top + NUNDO - 1u) % NUNDO);
-    undo_n--;
-    p = undo_idx[undo_top];
-    prj.pat[p] = undo_pat[undo_top];
-    undo_pat_last = 0xFFu;
-    touched();
-    return (int)p;
-}
+static int undo_pop(void) { return hist_pop(&undo_h, &redo_h); }   /* the pattern put back, or -1 */
+static int redo_pop(void) { return hist_pop(&redo_h, &undo_h); }
+static void hist_clear(void) { undo_h.n = redo_h.n = 0; }
 
 /* ---- the song list */
 static int pat_empty(const pat_t *p)
@@ -883,7 +896,7 @@ static int prj_load(uint32_t k)
         return -1;
     prj_sanitize();
     dirty = 0;
-    undo_n = 0;
+    hist_clear();
     brushes_reset();
     return 0;
 }

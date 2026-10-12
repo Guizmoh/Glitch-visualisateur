@@ -27,7 +27,7 @@ typedef struct {
     uint8_t pat, rep;                           /* a song entry: the pattern, played rep times (1..16) */
 } song_t;
 #define PRJ_MAGIC 0x4157414Bu                   /* "KAWA" */
-#define PRJ_VERSION 3u
+#define PRJ_VERSION 4u
 typedef struct {
     uint32_t magic, version;
     char name[16];

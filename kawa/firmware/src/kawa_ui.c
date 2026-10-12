@@ -27,7 +27,8 @@ static uint8_t page = PG_BOOT, page_back = PG_TRACK, help_pg = PG_TRACK;
 static uint8_t cur_row, cur_trk, ui_pat, rec, snd_page, grid_page, fx_bank, fx_sticky, mg_scope, follow = 1, fm_op = 1;
 static uint8_t rec_held, rec_turned;
 static int8_t oct_ofs;
-static uint8_t mg_inten = 8, mg_seed = 1, song_cur, proj_slot = 1, proj_act, proj_arm;
+static uint8_t mg_inten = 8, mg_seed = 1, song_cur;
+static uint8_t arp_held, arp_turned;
 static uint8_t brush_vol[NTRK] = {12, 12, 12, 12, 12, 12}, brush_fx[NTRK], brush_fxv[NTRK];
 static uint32_t fx_down_ms, home_down_ms, save_down_ms, boot_ms, last_input_ms;
 static uint8_t home_held, save_held, save_did;
@@ -640,8 +641,8 @@ static void draw_fx_curve(int32_t x0, int32_t y0, int32_t w, int32_t h, const in
 }
 
 /* the SOUND page's pages: the FM track has its operators too */
-static uint32_t sp_n(uint32_t t) { return ENG(t) == E_FM ? 6u : 4u; }
-static uint32_t sp_at(uint32_t t, uint32_t i) { return ENG(t) == E_FM ? SP_LIST_FM[i % 6u] : SP_LIST[i % 4u]; }
+static uint32_t sp_n(uint32_t t) { return ENG(t) == E_FM ? 7u : 5u; }
+static uint32_t sp_at(uint32_t t, uint32_t i) { return ENG(t) == E_FM ? SP_LIST_FM[i % 7u] : SP_LIST[i % 5u]; }
 
 static void op_text(uint32_t k, int32_t v, char *s)   /* an operator knob's value */
 {
@@ -718,7 +719,18 @@ static void draw_sound(void)
     }
     if (g_vis(40, 102)) {
         g_rect(0, 40, 240, 102, C_BG);
-        {                                       /* the page's name, and where it is among them: EDIT goes round */
+        if (sp == SP_SON1) {                    /* the engines: SELECT picks one (FM: one track only) */
+            static const char *const E3[LANG_N][E_N] = {{"CAR", "OND", "BRU", "FM", "KIT", "SMP"},
+                                                         {"PUL", "WAV", "NOI", "FM", "KIT", "SMP"},
+                                                         {"PUL", "OND", "RUI", "FM", "KIT", "SMP"}};
+            for (i = 0; i < E_N; i++) {
+                int32_t x = 4 + (int32_t)i * 39;
+                int on = i == e, off = i == E_FM && !fm_free(t);
+                g_rrect(x, 41, 37, 14, on ? col : C_BG2);
+                g_icon(x + 3, 44, ENGINE_ICON[i], on ? C_INK : off ? C_RULE : col, 1);
+                g_text(x + 13, 41, E3[lang][i], on ? C_INK : off ? C_RULE : C_TXT, T_CROP | (on ? T_BOLD : 0));
+            }
+        } else {                                /* the page's name, and where it is among them: EDIT goes round */
             uint32_t n = sp_n(t);
             int32_t w = g_text_w(SP_NAMES[lang][sp]) + 10;
             g_rrect(4, 41, w, 14, col);
@@ -766,6 +778,21 @@ static void draw_sound(void)
             }
             g_text(14, 60, pd_value(&PDESC[e][P_LFOD], p[P_LFOD]), C_GOLD, T_CROP | T_BOLD);
             if (p[P_LFOD]) g_rect(16 + 200 + 4, 98 - (tk[t].lfo * (6 + dpt * 2)) / 32767 - 2, 5, 5, C_WHITE);
+        } else if (sp == SP_MOD) {             /* what moves what: the envelope and the velocity */
+            static const char *const ML[LANG_N][3] = {{"ENVELOPPE > EFFET A", "VELOCITE > EFFET A", "ENVELOPPE > HAUTEUR"},
+                                                       {"ENVELOPE > EFFECT A", "VELOCITY > EFFECT A", "ENVELOPE > PITCH"},
+                                                       {"ENVOLVENTE > EFECTO A", "VELOCIDAD > EFECTO A", "ENVOLVENTE > ALTURA"}};
+            static const uint8_t MK[3] = {P_MENVA, P_MVELA, P_MENVP};
+            for (i = 0; i < 3u; i++) {
+                int32_t y = 60 + (int32_t)i * 26, v = p[MK[i]], hi = i == 2u ? 12 : 15, w = v * 100 / hi;
+                g_text(12, y, ML[lang][i], KNOB_COL[i], T_CROP);
+                g_rect(20, y + 15, 200, 4, C_BG);
+                g_rect(120, y + 13, 1, 8, C_RULE);
+                if (w > 0) g_rect(120, y + 15, w, 4, KNOB_COL[i]);
+                else if (w < 0) g_rect(120 + w, y + 15, -w, 4, KNOB_COL[i]);
+            }
+            if (p[P_FXT] == FXT_OFF && (p[P_MENVA] || p[P_MVELA]))
+                g_text(12, 130, TR("(CHOISIS UN EFFET: EDIT)", "(PICK AN EFFECT: EDIT)", "(ELIGE UN EFECTO: EDIT)"), C_REC, T_CROP);
         } else if (e <= E_NOISE) {
             draw_wave(12, 60, 120, 76, e, (uint32_t)p[P_SHAPE], col);
             draw_wave(13, 60, 120, 76, e, (uint32_t)p[P_SHAPE], col);
@@ -1175,39 +1202,127 @@ static void draw_song(void)
     }
 }
 
-/* ---- PROJECTS */
-static const char *const PROJ_ACTS[LANG_N][4] = {{"SAUVER", "CHARGER", "NOUVEAU", "DEMO"},
-                                                 {"SAVE", "LOAD", "NEW", "DEMO"}, {"GUARDAR", "CARGAR", "NUEVO", "DEMO"}};
-#define PROJ_ACT PROJ_ACTS[lang]
+/* ---- PROJECTS: a menu. SELECT moves, OCT+ OK, OCT- back. The song is kept in a slot (1..3): SAVE writes
+ * it there again, SAVE AS picks a slot and a name; slot 0 is the autosave */
+enum { PM_NEW, PM_SAVE, PM_SAVEAS, PM_LOAD, PM_RENAME, PM_DEMO, PM_N };
+static const char *const PM_NAMES[LANG_N][PM_N] = {
+    {"NOUVEAU MORCEAU", "SAUVER", "SAUVER SOUS...", "CHARGER...", "RENOMMER...", "DEMO"},
+    {"NEW SONG", "SAVE", "SAVE AS...", "LOAD...", "RENAME...", "DEMO"},
+    {"NUEVA CANCION", "GUARDAR", "GUARDAR COMO...", "CARGAR...", "RENOMBRAR...", "DEMO"}};
+static const uint8_t PM_ICON[PM_N] = {ICO_NOTE, ICO_DOWN, ICO_COPY, ICO_UP, ICO_SHAPE, ICO_PLAY};
+enum { PMS_MENU, PMS_SLOT, PMS_NAME, PMS_ASK };
+static uint8_t pm_sel = PM_SAVE, pm_state, pm_act, pm_slot = 1, proj_cur = 0xFF, nm_pos;
+static char nm_buf[16];
+static const char NM_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-!?";
+
+static void pm_name_turn(uint32_t knob, int32_t d)   /* the name: K1 a letter, K2 a random name, K3 cleared */
+{
+    uint32_t i, n = sizeof NM_CHARS - 1u, c = 0;
+    if (knob == 0u) {
+        for (i = 0; i < n; i++) if (NM_CHARS[i] == nm_buf[nm_pos]) { c = i; break; }
+        c = (uint32_t)(((int32_t)c + d % (int32_t)n + (int32_t)n) % (int32_t)n);
+        for (i = 0; i < nm_pos; i++) if (!nm_buf[i]) nm_buf[i] = ' ';
+        nm_buf[nm_pos] = NM_CHARS[c];
+    } else if (knob == 1u)
+        name_new(nm_buf);
+    else if (knob == 2u)
+        memset(nm_buf, 0, sizeof nm_buf);
+    nm_buf[15] = 0;
+}
+
+static void slots_scan(void)
+{
+    uint32_t k;
+    for (k = 0; k < NSLOT; k++)
+        names_ok[k] = (uint8_t)slot_valid(k, slot_name[k]);
+}
+
 static void draw_proj(void)
 {
     uint32_t k;
-    char s[24];
+    char s[32];
+    uint16_t pc = PAGE_COL[PG_PROJ];
     if (g_vis(20, 204)) g_rect(0, 20, 240, 204, C_BG);
-    g_text(8, 26, TR("EN COURS:", "CURRENT:", "ACTUAL:"), C_FAINT, T_CROP);
-    g_text(84, 26, prj.name, C_GOLD, T_CROP | T_BOLD);
-    for (k = 0; k < NSLOT; k++) {
-        int32_t y = 48 + (int32_t)k * 34;
-        if (!g_vis(y, 30)) continue;
-        g_rrect(6, y, 228, 30, k == proj_slot ? g_mix(C_BG2, PAGE_COL[PG_PROJ], 80) : C_BG2);
-        if (k == proj_slot) g_frame(6, y, 228, 30, C_GOLD);
+    if (g_vis(20, 22)) {                        /* the song: its name, saved or not, its slot */
+        g_text(6, 24, prj.name, C_GOLD, T_CROP | T_BOLD);
         s[0] = 0;
-        if (k == 0u) str_cat(s, "AUTO");
-        else fmt_u(s, k, 0);
-        g_text(14, y + 9, s, C_MID, T_CROP | T_BOLD);
-        g_text(62, y + 9, names_ok[k] ? slot_name[k] : TR("- VIDE -", "- EMPTY -", "- VACIO -"), names_ok[k] ? C_TXT : C_FAINT, T_CROP);
+        if (proj_cur < NSLOT) { s[0] = '['; fmt_u(s + 1, proj_cur, 0); str_cat(s, "]"); }
+        else str_cat(s, "[-]");
+        if (dirty) str_cat(s, " *");
+        g_text(236 - g_text_w(s), 24, s, dirty ? C_REC : C_MID, T_CROP | T_BOLD);
+        g_rect(4, 40, 232, 1, C_RULE);
     }
-    if (g_vis(190, 30)) {
-        g_rrect(6, 190, 228, 28, proj_arm ? C_GOLD : C_BG2);
-        s[0] = 0;
-        str_cat(str_cat(s, PROJ_ACT[proj_act]), proj_arm ? " ? OCT+" : "  (OCT+)");
-        g_text_c(120, 197, s, proj_arm ? C_INK : C_TXT, T_CROP | T_BOLD);
+    if (pm_state == PMS_MENU) {
+        for (k = 0; k < PM_N; k++) {
+            int32_t y = 46 + (int32_t)k * 25;
+            int on = k == pm_sel;
+            if (!g_vis(y, 23)) continue;
+            g_rrect(6, y, 228, 22, on ? pc : C_BG2);
+            g_icon(14, y + 7, PM_ICON[k], on ? C_INK : pc, 1);
+            g_text(28, y + 4, PM_NAMES[lang][k], on ? C_INK : C_TXT, T_CROP | T_BOLD);
+            if (k == PM_SAVE) {
+                s[0] = 0;
+                if (proj_cur >= 1u && proj_cur < NSLOT) { str_cat(s, "> "); fmt_u(s + 2, proj_cur, 0); }
+                else str_cat(s, "> ?");
+                g_text(226 - g_text_w(s), y + 4, s, on ? C_INK : C_FAINT, T_CROP);
+            }
+        }
+    } else if (pm_state == PMS_SLOT) {
+        g_text(8, 46, pm_act == PM_LOAD ? TR("CHARGER DE :", "LOAD FROM:", "CARGAR DE:") : TR("SAUVER DANS :", "SAVE INTO:", "GUARDAR EN:"),
+               C_MID, T_CROP);
+        for (k = 0; k < NSLOT; k++) {
+            int32_t y = 62 + (int32_t)k * 34;
+            int on = k == pm_slot, off = pm_act != PM_LOAD && k == 0u;
+            if (!g_vis(y, 30)) continue;
+            g_rrect(6, y, 228, 30, on ? g_mix(C_BG2, pc, 120) : C_BG2);
+            if (on) g_frame(6, y, 228, 30, C_WHITE);
+            s[0] = 0;
+            if (k == 0u) str_cat(s, "AUTO");
+            else fmt_u(s, k, 0);
+            g_text(14, y + 9, s, off ? C_RULE : C_MID, T_CROP | T_BOLD);
+            g_text(62, y + 9, names_ok[k] ? slot_name[k] : TR("- VIDE -", "- EMPTY -", "- VACIO -"),
+                   off ? C_RULE : names_ok[k] ? C_TXT : C_FAINT, T_CROP);
+        }
+    } else if (pm_state == PMS_NAME) {
+        g_text(8, 50, TR("LE NOM :", "THE NAME:", "EL NOMBRE:"), C_MID, T_CROP);
+        for (k = 0; k < 15u; k++) {             /* one box a letter, the cursor's lit */
+            int32_t x = 8 + (int32_t)k * 15, y = 74;
+            char c[2] = {nm_buf[k] ? nm_buf[k] : ' ', 0};
+            int on = k == nm_pos;
+            if (!g_vis(y, 26)) continue;
+            g_rrect(x, y, 14, 24, on ? KNOB_COL[0] : C_BG2);
+            g_text(x + 3, y + 5, c, on ? C_INK : C_WHITE, T_CROP | T_BOLD);
+        }
+        g_text(8, 112, TR("SELECT: LA PLACE", "SELECT: THE PLACE", "SELECT: EL SITIO"), C_FAINT, T_CROP);
+        g_text(8, 126, TR("K1: LA LETTRE", "K1: THE LETTER", "K1: LA LETRA"), KNOB_COL[0], T_CROP);
+        g_text(8, 140, TR("K2: UN NOM AU HASARD", "K2: A RANDOM NAME", "K2: UN NOMBRE AL AZAR"), KNOB_COL[1], T_CROP);
+        g_text(8, 154, TR("K3: TOUT EFFACER", "K3: CLEAR IT", "K3: BORRARLO"), KNOB_COL[2], T_CROP);
+    } else if (g_vis(70, 100)) {                /* PMS_ASK */
+        g_rrect(14, 76, 212, 96, C_GOLD);
+        g_rrect(16, 78, 208, 92, C_BG2);
+        g_text_c(120, 88, pm_act == PM_SAVEAS ? TR("CET EMPLACEMENT EST PRIS", "THIS SLOT IS TAKEN", "ESTA RANURA ESTA USADA")
+                                              : TR("LE MORCEAU N'EST PAS SAUVE", "THE SONG IS NOT SAVED", "LA CANCION NO ESTA GUARDADA"),
+                 C_GOLD, T_CROP | T_BOLD);
+        g_text_c(120, 108, pm_act == PM_SAVEAS ? TR("L'ECRASER ?", "WRITE OVER IT?", "SOBREESCRIBIR?")
+                                               : TR("CONTINUER QUAND MEME ?", "GO ON ANYWAY?", "SEGUIR DE TODOS MODOS?"),
+                 C_TXT, T_CROP);
+        g_text_c(120, 140, TR("OCT+ OUI     OCT- NON", "OCT+ YES     OCT- NO", "OCT+ SI     OCT- NO"), C_WHITE, T_CROP | T_BOLD);
     }
-    {
-        char a[4];
-        fmt_u(a, proj_slot, 0);
-        hint(0, TR("EMPLACEMENT", "SLOT", "RANURA"), "SLOT", proj_slot ? a : "A");
-        hint(1, TR("ACTION", "ACTION", "ACCION"), "", PROJ_ACT[proj_act]);
+    if (g_vis(200, 22)) {
+        g_rect(0, 200, 240, 22, C_BG);
+        g_rrect(6, 202, 110, 18, C_GO);
+        g_text_c(61, 204, TR("OCT+ : OK", "OCT+ : OK", "OCT+ : OK"), C_INK, T_CROP | T_BOLD);
+        g_rrect(124, 202, 110, 18, C_BG2);
+        g_text_c(179, 204, TR("OCT- : RETOUR", "OCT- : BACK", "OCT- : VOLVER"), C_TXT, T_CROP | T_BOLD);
+    }
+    if (pm_state == PMS_NAME) {
+        hint(0, TR("LETTRE", "LETTER", "LETRA"), "", "A-Z");
+        hint(1, TR("HASARD", "RANDOM", "AZAR"), "", "?");
+        hint(2, TR("EFFACER", "CLEAR", "BORRAR"), "", "X");
+        hint_none(3);
+    } else {
+        hint(0, pm_state == PMS_SLOT ? TR("EMPLACEMENT", "SLOT", "RANURA") : TR("CHOIX", "CHOICE", "ELECCION"), "", "");
+        hint_none(1);
         hint_none(2);
         hint_none(3);
     }
@@ -1257,37 +1372,37 @@ static void draw_opt(void)
 /* ---- HELP (HOME held): what the knobs, the encoders and the keys do on the page it was held on */
 typedef struct { const char *e[3], *l[2]; } help_t;
 static const help_t HELP[LANG_N][PG_HELP] = {
-    {{{"LIGNE", "PISTE", "MOTIF"}, {"TOUCHES: JOUER, REC: ECRIRE", "REC TENU + SELECT: LE SAUT"}},
+    {{{"LIGNE", "PISTE", "MOTIF"}, {"REC+SEL: SAUT  ARP+SEL: LIGNE", "SAVE+OCT- ANNULE, OCT+ REFAIT"}},
      {{"PAS 1-16/17-32", "PISTE", "MOTIF"}, {"BLANCHES: PAS OUI/NON", "NOIRES: LA PISTE"}},
      {{"MOTEUR / OPERATEUR", "PISTE", "SON"}, {"EDIT: PAGE SUIVANTE", "FM: UNE SEULE PISTE"}},
      {{"-", "PISTE", "SON"}, {"ENV ENCORE: LE MIX", "TOUCHES: ECOUTER"}},
-     {{"-", "PISTE / MASTER", "MOTIF"}, {"NOIRES: MUETS", "APRES LA 8: LE MASTER"}},
+     {{"-", "PISTE / MASTER", "MOTIF"}, {"NOIRES: MUET  ARP+NOIRE: SOLO", "APRES LA 6: LE MASTER"}},
      {{"-", "PISTE", "MOTIF"}, {"BLANCHE: UN OUTIL", "SAVE TENU: ANNULER"}},
      {{"-", "PISTE", "MOTIF"}, {"UNE TOUCHE: LA TONIQUE", "VERROU: NOTES DE LA GAMME"}},
      {{"ENTREE", "-", "SON MOTIF"}, {"BLANCHE: MOTIF  K3: X FOIS", "OCT+ AJOUTE  OCT- ENLEVE"}},
-     {{"EMPLACEMENT", "-", "-"}, {"OCT+: FAIRE (DEUX FOIS)", "SAVE ENCORE: RETOUR"}},
+     {{"CHOIX", "-", "-"}, {"OCT+: OK   OCT-: RETOUR", "SAVE PUIS OCT+: SAUVER VITE"}},
      {{"-", "-", "-"}, {"THEME ET LANGUE, GARDES", "GLO: RETOUR A LA CHAINE"}},
      {{"-", "PISTE", "MOTIF"}, {"FX TENU + BLANCHES", "OCT: BANQUE  NOIRES: MUETS"}}},
-    {{{"ROW", "TRACK", "PATTERN"}, {"KEYS: PLAY, REC: WRITE", "REC HELD + SELECT: THE JUMP"}},
+    {{{"ROW", "TRACK", "PATTERN"}, {"REC+SEL: STEP  ARP+SEL: ROW", "SAVE+OCT- UNDO, OCT+ REDO"}},
      {{"STEPS 1-16/17-32", "TRACK", "PATTERN"}, {"WHITE KEYS: STEPS ON/OFF", "BLACK KEYS: THE TRACK"}},
      {{"ENGINE / OPERATOR", "TRACK", "SOUND"}, {"EDIT: NEXT PAGE", "FM: ONE TRACK ONLY"}},
      {{"-", "TRACK", "SOUND"}, {"ENV AGAIN: THE MIX", "KEYS: LISTEN"}},
-     {{"-", "TRACK / MASTER", "PATTERN"}, {"BLACK KEYS: MUTES", "PAST TRACK 8: MASTER"}},
+     {{"-", "TRACK / MASTER", "PATTERN"}, {"BLACK: MUTE  ARP+BLACK: SOLO", "PAST TRACK 6: MASTER"}},
      {{"-", "TRACK", "PATTERN"}, {"WHITE KEY: A TOOL", "SAVE HELD: UNDO"}},
      {{"-", "TRACK", "PATTERN"}, {"A KEY: THE ROOT", "LOCK: NOTES OF THE SCALE"}},
      {{"ENTRY", "-", "ITS PATTERN"}, {"WHITE KEY: PATTERN K3: TIMES", "OCT+ ADD  OCT- DELETE"}},
-     {{"SLOT", "-", "-"}, {"OCT+: DO IT (TWICE)", "SAVE AGAIN: BACK"}},
+     {{"CHOICE", "-", "-"}, {"OCT+: OK   OCT-: BACK", "SAVE THEN OCT+: QUICK SAVE"}},
      {{"-", "-", "-"}, {"THEME AND LANGUAGE, KEPT", "GLO: BACK TO THE SONG"}},
      {{"-", "TRACK", "PATTERN"}, {"HOLD FX + WHITE KEYS", "OCT: BANK  BLACK: MUTES"}}},
-    {{{"FILA", "PISTA", "PATRON"}, {"TECLAS: TOCAR, REC: GRABAR", "REC + SELECT: EL SALTO"}},
+    {{{"FILA", "PISTA", "PATRON"}, {"REC+SEL: SALTO  ARP+SEL: FILA", "SAVE+OCT- DESHACE OCT+ REHACE"}},
      {{"PASOS 1-16/17-32", "PISTA", "PATRON"}, {"BLANCAS: PASOS SI/NO", "NEGRAS: LA PISTA"}},
      {{"MOTOR / OPERADOR", "PISTA", "SONIDO"}, {"EDIT: PAGINA SIGUIENTE", "FM: UNA SOLA PISTA"}},
      {{"-", "PISTA", "SONIDO"}, {"ENV OTRA VEZ: LA MEZCLA", "TECLAS: ESCUCHAR"}},
-     {{"-", "PISTA / MASTER", "PATRON"}, {"NEGRAS: SILENCIOS", "TRAS LA 8: EL MASTER"}},
+     {{"-", "PISTA / MASTER", "PATRON"}, {"NEGRAS: MUTE  ARP+NEGRA: SOLO", "TRAS LA 6: EL MASTER"}},
      {{"-", "PISTA", "PATRON"}, {"BLANCA: UNA HERRAMIENTA", "SAVE PULSADO: DESHACER"}},
      {{"-", "PISTA", "PATRON"}, {"UNA TECLA: LA TONICA", "FIJA: NOTAS DE LA ESCALA"}},
      {{"ENTRADA", "-", "SU PATRON"}, {"BLANCA: PATRON  K3: VECES", "OCT+ ANADE  OCT- QUITA"}},
-     {{"RANURA", "-", "-"}, {"OCT+: HACERLO (DOS VECES)", "SAVE OTRA VEZ: VOLVER"}},
+     {{"ELECCION", "-", "-"}, {"OCT+: OK   OCT-: VOLVER", "SAVE Y OCT+: GUARDAR RAPIDO"}},
      {{"-", "-", "-"}, {"TEMA E IDIOMA, GUARDADOS", "GLO: VOLVER A LA CANCION"}},
      {{"-", "PISTA", "PATRON"}, {"FX PULSADO + BLANCAS", "OCT: BANCO  NEGRAS: MUTE"}}}};
 static void draw_help(void)
@@ -1392,10 +1507,8 @@ static void set_page(uint32_t p)
         rec_live = 0;
     }
     if (p == PG_PROJ) {
-        uint32_t k;
-        for (k = 0; k < NSLOT; k++)
-            names_ok[k] = (uint8_t)slot_valid(k, slot_name[k]);
-        proj_arm = 0;
+        slots_scan();
+        pm_state = PMS_MENU;
     }
     if (p == PG_GRID && grid_page * 16u >= plen())
         grid_page = 0;
@@ -1486,6 +1599,31 @@ static void key_down(uint32_t k)
     } else {                                    /* step entry at the cursor */
         write_cell(ui_pat, cur_row, t, note, vol, fx, fxv, 1);
         cur_row = (uint8_t)((cur_row + prj.step) % plen());
+    }
+}
+
+static void rows_shift(int32_t d, int all)      /* rows pushed down from the cursor (d > 0) or pulled up into it */
+{
+    uint32_t len = plen(), t0 = all ? 0u : trk(), t1 = all ? NTRK : trk() + 1u, t, r;
+    pat_t *pt = P();
+    undo_push_merge(ui_pat, 1);
+    while (d) {
+        int s = d > 0 ? 1 : -1;
+        d -= s;
+        for (t = t0; t < t1; t++) {
+            if (s > 0) {
+                for (r = len - 1u; r > cur_row; r--) pt->c[r][t] = pt->c[r - 1u][t];
+                memset(&pt->c[cur_row][t], 0, sizeof(cell_t));
+            } else {
+                for (r = cur_row; r + 1u < len; r++) pt->c[r][t] = pt->c[r + 1u][t];
+                memset(&pt->c[len - 1u][t], 0, sizeof(cell_t));
+            }
+        }
+        if (all) {
+            if (s > 0) { for (r = len - 1u; r > cur_row; r--) pt->live[r] = pt->live[r - 1u]; pt->live[cur_row] = 0; }
+            else { for (r = cur_row; r + 1u < len; r++) pt->live[r] = pt->live[r + 1u]; pt->live[len - 1u] = 0; }
+        }
+        toast(s > 0 ? TR("LIGNE INSEREE", "ROW IN", "FILA INSERTADA") : TR("LIGNE OTEE", "ROW OUT", "FILA QUITADA"));
     }
 }
 
@@ -1613,9 +1751,9 @@ static void knob(uint32_t i, int32_t d)
         touched();
         break;
     case PG_PROJ:
-        if (i == 0u) proj_slot = (uint8_t)clampi(proj_slot + d, 0, NSLOT - 1);
-        else if (i == 1u) proj_act = (uint8_t)clampi(proj_act + d, 0, 3);
-        proj_arm = 0;
+        if (pm_state == PMS_NAME) pm_name_turn(i, d);
+        else if (i == 0u && pm_state == PMS_MENU) pm_sel = (uint8_t)clampi(pm_sel + d, 0, PM_N - 1);
+        else if (i == 0u && pm_state == PMS_SLOT) pm_slot = (uint8_t)clampi(pm_slot + d, pm_act == PM_LOAD ? 0 : 1, NSLOT - 1);
         break;
     case PG_OPT:
         if (i == 0u) { theme_set((uint32_t)clampi(theme + d, 0, NTHEME - 1)); set_changed(); }
@@ -1637,25 +1775,83 @@ static void pat_select(int32_t d)
     if (sq_play && !prj.mode) sq_next = ui_pat == sq_pat ? 0xFF : ui_pat;   /* at the end of the one playing */
 }
 
-static void proj_do(void)
+static void song_fresh(const char *msg)       /* after a new song, a load, the demo: the screen from the top */
 {
-    uint32_t k;
-    if (!proj_arm) { proj_arm = 1; return; }
-    proj_arm = 0;
+    hist_clear();
+    ui_pat = 0;
+    cur_row = 0;
+    song_cur = 0;
+    pm_state = PMS_MENU;
+    toast(msg);
+    set_page(PG_TRACK);
+}
+static void pm_do(uint32_t act)                 /* the action, its questions answered */
+{
     if (sq_play) sq_req = 2;
-    switch (proj_act) {
-    case 0:
-        if (proj_slot == 0u) { toast("SLOT AUTO"); break; }
-        toast(prj_save(proj_slot) ? TR("ERREUR", "ERROR", "ERROR") : TR("SAUVE !", "SAVED !", "GUARDADO !"));
+    switch (act) {
+    case PM_NEW: prj_new(); proj_cur = 0xFF; song_fresh(prj.name); break;
+    case PM_DEMO: prj_demo(); proj_cur = 0xFF; song_fresh("DEMO !"); break;
+    case PM_LOAD:
+        if (prj_load(pm_slot)) { toast(TR("RIEN ICI", "NOTHING HERE", "NADA AQUI")); pm_state = PMS_SLOT; break; }
+        proj_cur = pm_slot ? pm_slot : 0xFF;
+        song_fresh(TR("CHARGE !", "LOADED !", "CARGADO !"));
         break;
-    case 1:
-        if (prj_load(proj_slot)) toast(TR("RIEN ICI", "NOTHING HERE", "NADA AQUI"));
-        else { toast(TR("CHARGE !", "LOADED !", "CARGADO !")); ui_pat = 0; cur_row = 0; song_cur = 0; set_page(PG_TRACK); }
+    case PM_SAVE: case PM_SAVEAS:
+        if (act == PM_SAVEAS) { memcpy(prj.name, nm_buf, 16); prj.name[15] = 0; }
+        if (prj_save(pm_slot)) { toast(TR("ERREUR !", "ERROR !", "ERROR !")); break; }
+        proj_cur = pm_slot;
+        pm_state = PMS_MENU;
+        toast(TR("SAUVE !", "SAVED !", "GUARDADO !"));
         break;
-    case 2: prj_new(); undo_n = 0; ui_pat = 0; cur_row = 0; song_cur = 0; toast(prj.name); set_page(PG_TRACK); break;
-    case 3: prj_demo(); undo_n = 0; ui_pat = 0; cur_row = 0; song_cur = 0; toast("DEMO !"); set_page(PG_TRACK); break;
+    case PM_RENAME:
+        memcpy(prj.name, nm_buf, 16);
+        prj.name[15] = 0;
+        touched();
+        pm_state = PMS_MENU;
+        break;
     }
-    for (k = 0; k < NSLOT; k++) names_ok[k] = (uint8_t)slot_valid(k, slot_name[k]);
+    slots_scan();
+}
+static void pm_ok(void)                         /* OCT+ on the PROJECTS page */
+{
+    switch (pm_state) {
+    case PMS_MENU:
+        pm_act = pm_sel;
+        if (pm_sel == PM_SAVE && proj_cur >= 1u && proj_cur < NSLOT) { pm_slot = proj_cur; pm_do(PM_SAVE); break; }
+        if (pm_sel == PM_SAVE) pm_act = PM_SAVEAS;
+        if (pm_act == PM_SAVEAS || pm_act == PM_LOAD) {
+            uint32_t k;
+            pm_state = PMS_SLOT;
+            pm_slot = proj_cur >= 1u && proj_cur < NSLOT ? proj_cur : 1u;
+            if (pm_act == PM_SAVEAS && names_ok[pm_slot])   /* save as: the first empty slot, if there is one */
+                for (k = 1; k < NSLOT; k++) if (!names_ok[k]) { pm_slot = (uint8_t)k; break; }
+        } else if (pm_act == PM_RENAME) {
+            memcpy(nm_buf, prj.name, 16);
+            nm_pos = 0;
+            pm_state = PMS_NAME;
+        } else if (dirty)
+            pm_state = PMS_ASK;
+        else
+            pm_do(pm_act);
+        break;
+    case PMS_SLOT:
+        if (pm_act == PM_LOAD) { if (dirty) pm_state = PMS_ASK; else pm_do(PM_LOAD); }
+        else if (pm_slot) { memcpy(nm_buf, prj.name, 16); nm_pos = 0; pm_state = PMS_NAME; }
+        break;
+    case PMS_NAME:
+        if (pm_act == PM_SAVEAS && names_ok[pm_slot] && pm_slot != proj_cur) pm_state = PMS_ASK;
+        else pm_do(pm_act);
+        break;
+    case PMS_ASK:
+        pm_do(pm_act);
+        break;
+    }
+}
+static void pm_back(void)                       /* OCT- on the PROJECTS page */
+{
+    if (pm_state == PMS_MENU) set_page(page_back == PG_PROJ ? PG_TRACK : page_back);
+    else if (pm_state == PMS_NAME && pm_act == PM_SAVEAS) pm_state = PMS_SLOT;
+    else pm_state = PMS_MENU;
 }
 
 static void page_button(uint32_t p)             /* a page's button: open it, or go round its pages */
@@ -1696,9 +1892,10 @@ static void button_down(uint32_t b)
     case BTN_GLO: page_button(PG_SONG); break;      /* SONG, again OPTIONS */
     case BTN_SAVE: save_down_ms = fm1_ms; save_held = 1; save_did = 0; break;
     case BTN_ARP:
+        arp_held = 1;
+        arp_turned = 0;
         if (page == PG_TRACK) {
-            write_cell(ui_pat, cur_row, trk(), 0, 0, 0, 0, 0);
-            if (rec) cur_row = (uint8_t)((cur_row + prj.step) % plen());
+            /* on its release (held + SELECT: rows in or out of the track, + ALGORITHM: of the pattern) */
         } else if (page == PG_FX) {
             undo_push(ui_pat);
             memset(P()->live, 0, sizeof P()->live);
@@ -1714,8 +1911,15 @@ static void button_down(uint32_t b)
     case BTN_OCT_DOWN:
     case BTN_OCT_UP: {
         int32_t d = b == BTN_OCT_UP ? 1 : -1;
-        if (page == PG_FX) { fx_bank = d > 0; lfx_keys = 0; }
-        else if (page == PG_PROJ) { if (d > 0) proj_do(); else { proj_arm = 0; set_page(PG_TRACK); } }
+        if (save_held) {                        /* SAVE held: OCT- undo, OCT+ redo */
+            int p = d < 0 ? undo_pop() : redo_pop();
+            save_did = 1;
+            if (p >= 0) { ui_pat = (uint8_t)p; if (cur_row >= plen()) cur_row = 0; }
+            toast(p < 0 ? (d < 0 ? TR("RIEN A ANNULER", "NOTHING TO UNDO", "NADA QUE DESHACER")
+                                 : TR("RIEN A REFAIRE", "NOTHING TO REDO", "NADA QUE REHACER"))
+                        : (d < 0 ? TR("ANNULE", "UNDONE", "DESHECHO") : TR("REFAIT", "REDONE", "REHECHO")));
+        } else if (page == PG_FX) { fx_bank = d > 0; lfx_keys = 0; }
+        else if (page == PG_PROJ) { if (d > 0) pm_ok(); else pm_back(); }
         else if (page == PG_SONG) {
             if (d > 0) {                        /* a copy of the entry after it (or the pattern on screen) */
                 uint32_t at = song_cur < prj.song_len ? song_cur + 1u : prj.song_len;
@@ -1751,10 +1955,21 @@ static void button_up(uint32_t b)
         break;
     case BTN_SAVE:
         save_held = 0;
-        if (!save_did) {
-            if (page == PG_PROJ) set_page(page_back);
-            else { page_back = page == PG_HELP ? help_pg : page; set_page(PG_PROJ); }
+        if (!save_did && fm1_ms - save_down_ms > 450u) {   /* held, nothing else: one undo */
+            int p = undo_pop();
+            if (p >= 0) { ui_pat = (uint8_t)p; if (cur_row >= plen()) cur_row = 0; }
+            toast(p < 0 ? TR("RIEN A ANNULER", "NOTHING TO UNDO", "NADA QUE DESHACER") : TR("ANNULE", "UNDONE", "DESHECHO"));
+        } else if (!save_did) {                 /* a tap: the PROJECTS menu (again: back) */
+            if (page == PG_PROJ) set_page(page_back == PG_PROJ ? PG_TRACK : page_back);
+            else { page_back = page == PG_HELP ? help_pg : page; set_page(PG_PROJ); pm_sel = PM_SAVE; }
         }
+        break;
+    case BTN_ARP:
+        if (arp_held && !arp_turned && page == PG_TRACK) {   /* a tap on TRACKS: the cell is cleared */
+            write_cell(ui_pat, cur_row, trk(), 0, 0, 0, 0, 0);
+            if (rec) cur_row = (uint8_t)((cur_row + prj.step) % plen());
+        }
+        arp_held = 0;
         break;
     case BTN_REC:
         rec_held = 0;
@@ -1823,7 +2038,14 @@ static void keys_input(void)
                 cur_trk = (uint8_t)bl;
             break;
         case PG_MIX:
-            if (bl >= 0) { if (dn && bl < (int32_t)NTRK) { prj.mute ^= (uint8_t)(1u << bl); touched(); } }
+            if (bl >= 0) {
+                if (dn && bl < (int32_t)NTRK) {     /* a black key mutes its track; ARP held + it: solo */
+                    uint8_t solo = (uint8_t)(((1u << NTRK) - 1u) & ~(1u << bl));
+                    if (arp_held) { arp_turned = 1; prj.mute = prj.mute == solo ? 0 : solo; }
+                    else prj.mute ^= (uint8_t)(1u << bl);
+                    touched();
+                }
+            }
             else if (cur_trk < NTRK) { if (dn) key_down(k); else key_up(k); }
             break;
         case PG_SONG:
@@ -1835,7 +2057,7 @@ static void keys_input(void)
             }
             break;
         case PG_PROJ:
-            if (dn && w >= 0 && w < (int32_t)NSLOT) { proj_slot = (uint8_t)w; proj_arm = 0; }
+            if (dn && w >= 0 && w < (int32_t)NSLOT && pm_state == PMS_SLOT && (w > 0 || pm_act == PM_LOAD)) pm_slot = (uint8_t)w;
             break;
         case PG_OPT: case PG_HELP:
             break;
@@ -1861,12 +2083,7 @@ static void ui_input(void)
         if (rel >> i & 1u) button_up(i);
     }
     if (home_held && page != PG_HELP && fm1_ms - home_down_ms > 450u) set_page(PG_HELP);
-    if (save_held && !save_did && fm1_ms - save_down_ms > 600u) {   /* SAVE held: undo */
-        int p = undo_pop();
-        save_did = 1;
-        toast(p < 0 ? TR("RIEN A ANNULER", "NOTHING TO UNDO", "NADA QUE DESHACER") : TR("ANNULE", "UNDONE", "DESHECHO"));
-        if (p >= 0) ui_pat = (uint8_t)p;
-    }
+
     if ((d = fm1_enc_take(ENC_SELECT)) != 0 && rec_held) {   /* REC held + SELECT: the rows a note jumps */
         char s[16];
         last_input_ms = fm1_ms;
@@ -1878,6 +2095,12 @@ static void ui_input(void)
         toast(s);
         d = 0;
     }
+    if (d != 0 && arp_held && page == PG_TRACK) {   /* ARP held + SELECT: a row in (+) or out (-) of the track */
+        last_input_ms = fm1_ms;
+        arp_turned = 1;
+        rows_shift(d, 0);
+        d = 0;
+    }
     if (d != 0) {
         last_input_ms = fm1_ms;
         switch (page) {
@@ -1886,7 +2109,11 @@ static void ui_input(void)
             song_cur = (uint8_t)clampi(song_cur + d, 0, prj.song_len < NSONG ? prj.song_len : NSONG - 1);
             if (song_cur < prj.song_len) { ui_pat = prj.song[song_cur].pat; follow = 0; }
             break;
-        case PG_PROJ: proj_slot = (uint8_t)clampi(proj_slot + d, 0, NSLOT - 1); proj_arm = 0; break;
+        case PG_PROJ:
+            if (pm_state == PMS_MENU) pm_sel = (uint8_t)clampi(pm_sel + d, 0, PM_N - 1);
+            else if (pm_state == PMS_SLOT) pm_slot = (uint8_t)clampi(pm_slot + d, pm_act == PM_LOAD ? 0 : 1, NSLOT - 1);
+            else if (pm_state == PMS_NAME) nm_pos = (uint8_t)clampi(nm_pos + d, 0, 14);
+            break;
         case PG_SOUND: {                        /* the engine: the first sound of the next (previous) one */
             uint32_t t = trk(), sp = sp_at(t, snd_page), e;
             int32_t ne = (int32_t)ENG(t) + (d > 0 ? 1 : -1);
@@ -1911,7 +2138,13 @@ static void ui_input(void)
         default: break;
         }
     }
-    if ((d = fm1_enc_take(ENC_ALGORITHM)) != 0) {
+    if ((d = fm1_enc_take(ENC_ALGORITHM)) != 0 && arp_held && page == PG_TRACK) {   /* ARP + ALGO: of the pattern */
+        last_input_ms = fm1_ms;
+        arp_turned = 1;
+        rows_shift(d, 1);
+        d = 0;
+    }
+    if (d != 0) {
         last_input_ms = fm1_ms;
         cur_trk = (uint8_t)clampi(cur_trk + d, 0, page == PG_MIX ? NTRK : NTRK - 1);
         if (snd_page >= sp_n(trk())) snd_page = 0;

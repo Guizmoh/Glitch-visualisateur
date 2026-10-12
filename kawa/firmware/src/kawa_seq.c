@@ -35,6 +35,7 @@ static void seq_tempo(void)                     /* row lengths from the tempo an
     s_inc_even = 0xFFFFFFFFu / s_len_even;
     s_inc_odd = 0xFFFFFFFFu / s_len_odd;
     g_rowlen = base;
+    vsl_k = (65536u * CHUNK) / base;
     for (k = 0; k < 8u; k++)
         lfo_inc[k] = (0xFFFFFFFFu / (HALF_ROWS[k] * (base >> 1) + 1u)) * CHUNK;
     for (k = 0; k < 3u; k++)
@@ -61,6 +62,9 @@ static void seq_row_start(void)
         st[t].pending = 0;
         st[t].roll_n = 0;
         st[t].cut = 0;
+        tk[t].vslide = 0;                       /* VSL lasts its row */
+        if (c->fx == FX_VSL && c->note == NOTE_NONE)
+            tk[t].vslide = (int8_t)c->fxv;      /* (an empty cell: the note playing slides) */
         if (c->fx == FX_CUT)
             st[t].cut = (uint8_t)((c->fxv * 256u) / 24u);
         if (c->note == NOTE_NONE) {
@@ -272,6 +276,7 @@ static void app_audio(int32_t *out, uint32_t n)
             uint32_t pk = peak[t];
             if (p[P_LFOD] == LFD_PAN)
                 pan += (tk[t].lfo * 7) >> 15;
+            pan += tk[t].npan;                  /* PAN: this note's */
             pan = clampi(pan, -7, 7) + 7;
             gl = PAN_G[pan][0];
             gr = PAN_G[pan][1];

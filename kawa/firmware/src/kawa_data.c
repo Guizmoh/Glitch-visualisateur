@@ -60,9 +60,9 @@ static const uint16_t PAGE_COL[PG_N] = {RGB(169, 139, 255), RGB(255, 96, 146), R
                                         RGB(169, 139, 255)};
 
 /* ---- the 24 parameters of a track: SOUND 1, SOUND 2 (the engine's), ENVELOPE, MIX, EFFECT, LFO */
-#define NPARAM 24u
+#define NPARAM 28u
 enum { P_S0, P_S1, P_S2, P_S3, P_S4, P_S5, P_S6, P_S7, P_ATT, P_DEC, P_SUS, P_REL, P_VOL, P_PAN, P_ECHO, P_VERB,
-       P_FXT, P_FXA, P_FXB, P_FXM, P_LFOD, P_LFOR, P_LFOA, P_LFOW };
+       P_FXT, P_FXA, P_FXB, P_FXM, P_LFOD, P_LFOR, P_LFOA, P_LFOW, P_MENVA, P_MVELA, P_MENVP, P_MLFRT };
 /* SOUND for PULSE / WAVE / NOISE */
 enum { P_SHAPE = 0, P_SWEEP, P_VIB, P_TON, P_CRUSH, P_DETUNE, P_ARPV, P_GLIDE };
 /* FM */
@@ -132,38 +132,40 @@ static const char *const L_LFOW[] = {"SINUS", "TRIANGLE", "CARRE", "SCIE", "HASA
               {PDN("B", "B", "B"), 0, 15, K_NUM, 0}, {PDN("DOSAGE", "MIX", "MEZCLA"), 0, 15, K_NUM, 0}
 #define PD_LFO {PDN("CIBLE", "TARGET", "DESTINO"), 0, LFD_N - 1, K_LIST, L_LFOD}, {PDN("VITESSE", "RATE", "VELOC"), 0, 10, K_LIST, L_LFOR}, \
                {PDN("PROFOND", "DEPTH", "PROFUND"), 0, 15, K_NUM, 0}, {PDN("ONDE", "WAVE", "ONDA"), 0, 4, K_LIST, L_LFOW}
+#define PD_MOD {PDN("ENV>EFF", "ENV>FX", "ENV>EFE"), -15, 15, K_SIGN, 0}, {PDN("VEL>EFF", "VEL>FX", "VEL>EFE"), 0, 15, K_NUM, 0}, \
+               {PDN("ENV>HAUT", "ENV>PIT", "ENV>ALT"), -12, 12, K_SIGN, 0}, {PDN("LFO NOTE", "LFO KEY", "LFO NOTA"), 0, 1, K_LIST, L_ONOFF}
 #define PD_TONAL_REST {PDN("BALAYE", "SWEEP", "BARRIDO"), -15, 15, K_SIGN, 0}, {PDN("VIBRATO", "VIBRATO", "VIBRATO"), 0, 15, K_NUM, 0}, \
                       {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0}, {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0}, \
                       {PDN("DESACC", "DETUNE", "DESAFIN"), 0, 15, K_NUM, 0}, {PDN("ARP VIT", "ARP SPD", "ARP VEL"), 1, 8, K_NUM, 0}, \
                       {PDN("GLISSE", "GLIDE", "GLISA"), 0, 15, K_NUM, 0}
 #define PD_SHAPE PDN("FORME", "SHAPE", "FORMA")
 static const pdesc_t PDESC[E_N][NPARAM] = {
-    {{PD_SHAPE, 0, 4, K_LIST, L_DUTY}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO},
-    {{PD_SHAPE, 0, 7, K_LIST, L_WAVE}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO},
-    {{PD_SHAPE, 0, 1, K_LIST, L_NOISE}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO},
+    {{PD_SHAPE, 0, 4, K_LIST, L_DUTY}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO, PD_MOD},
+    {{PD_SHAPE, 0, 7, K_LIST, L_WAVE}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO, PD_MOD},
+    {{PD_SHAPE, 0, 1, K_LIST, L_NOISE}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO, PD_MOD},
     {{PDN("SON FM", "PATCH", "SONIDO"), 0, FM_NPATCH - 1, K_NAMES, &FM_PATCH_NAME[0][0]},
      {PDN("ALGO", "ALGO", "ALGO"), 0, 32, K_LIST, L_ALG}, {PDN("RATIO", "RATIO", "RATIO"), -8, 8, K_SIGN, 0},
      {PDN("RETOUR", "FEEDBK", "RETORNO"), -7, 7, K_SIGN, 0}, {PDN("BRILLE", "BRIGHT", "BRILLO"), -15, 15, K_SIGN, 0},
      {PDN("MOD ENV", "MOD ENV", "MOD ENV"), -8, 8, K_SIGN, 0}, {PDN("DESACC", "DETUNE", "DESAFIN"), 0, 15, K_NUM, 0},
-     {PDN("VIBRATO", "VIBRATO", "VIBRATO"), 0, 15, K_NUM, 0}, PD_ENV, PD_MIX, PD_FX, PD_LFO},
+     {PDN("VIBRATO", "VIBRATO", "VIBRATO"), 0, 15, K_NUM, 0}, PD_ENV, PD_MIX, PD_FX, PD_LFO, PD_MOD},
     {{PDN("KIT", "KIT", "KIT"), 0, NKIT - 1, K_LIST, L_KITS}, {PDN("ACCORD", "TUNE", "AFINA"), -12, 12, K_SIGN, 0},
      {PDN("DECLIN", "DECAY", "CAIDA"), -8, 8, K_SIGN, 0}, {PDN("SATURE", "DRIVE", "SATURA"), 0, 15, K_NUM, 0},
      {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0}, {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0}, PD_NONE, PD_NONE,
-     PD_ENV, PD_MIX, PD_FX, PD_LFO},
+     PD_ENV, PD_MIX, PD_FX, PD_LFO, PD_MOD},
     {{PDN("SOURCE", "SOURCE", "FUENTE"), 0, (int8_t)(BRK_N + NUSR - 1u), K_SRC, 0}, {PDN("MODE", "MODE", "MODO"), 0, 1, K_LIST, L_SMODE},
      {PDN("ACCORD", "TUNE", "AFINA"), -12, 12, K_SIGN, 0}, {PDN("CALE", "FIT", "AJUSTE"), 0, 1, K_LIST, L_ONOFF},
      {PDN("DUREE", "LENGTH", "LARGO"), 0, 11, K_LIST, L_DUR}, {PDN("SATURE", "DRIVE", "SATURA"), 0, 15, K_NUM, 0},
      {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0}, {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0},
-     PD_ENV, PD_MIX, PD_FX, PD_LFO},
+     PD_ENV, PD_MIX, PD_FX, PD_LFO, PD_MOD},
 };
 /* the pages of the SOUND page (EDIT again: the next one); the FM track has two more: its operators */
-enum { SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO, SP_N };
-static const uint8_t SP_FIRST[SP_N] = {P_S0, P_S4, 0, 0, P_FXT, P_LFOD};
-static const char *const SP_NAMES[LANG_N][SP_N] = {{"SON", "SON 2", "OPERATEUR", "ENV OPERAT", "EFFET", "LFO"},
-                                                   {"SOUND", "SOUND 2", "OPERATOR", "OP ENVELOPE", "EFFECT", "LFO"},
-                                                   {"SONIDO", "SONIDO 2", "OPERADOR", "ENV OPERAD", "EFECTO", "LFO"}};
-static const uint8_t SP_LIST_FM[6] = {SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO};
-static const uint8_t SP_LIST[4] = {SP_SON1, SP_SON2, SP_FX, SP_LFO};
+enum { SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO, SP_MOD, SP_N };
+static const uint8_t SP_FIRST[SP_N] = {P_S0, P_S4, 0, 0, P_FXT, P_LFOD, P_MENVA};
+static const char *const SP_NAMES[LANG_N][SP_N] = {{"SON", "SON 2", "OPERATEUR", "ENV OPERAT", "EFFET", "LFO", "MODULATION"},
+                                                   {"SOUND", "SOUND 2", "OPERATOR", "OP ENVELOPE", "EFFECT", "LFO", "MODULATION"},
+                                                   {"SONIDO", "SONIDO 2", "OPERADOR", "ENV OPERAD", "EFECTO", "LFO", "MODULACION"}};
+static const uint8_t SP_LIST_FM[7] = {SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO, SP_MOD};
+static const uint8_t SP_LIST[5] = {SP_SON1, SP_SON2, SP_FX, SP_LFO, SP_MOD};
 /* an FM operator's knobs (OPERATOR, OP ENV): what they change in the patch is in kawa_edit.c (op_get, op_set) */
 enum { OPK_LEVEL, OPK_RATIO, OPK_FINE, OPK_DET, OPK_ATT, OPK_DEC, OPK_SUS, OPK_REL, OPK_N };
 static const char *const OPK_NAMES[LANG_N][OPK_N] = {
@@ -236,7 +238,9 @@ static const preset_t PRESETS[] = {
 #define KIT_DEMO 6                              /* the demo's kit (its first knob): SNES */
 #define NPRESET ((uint8_t)(sizeof(PRESETS) / sizeof(PRESETS[0])))
 /* each track's sound on a new project (an index in PRESETS) */
-static const uint8_t TRK_PRESET0[NTRK] = {0, 22, 9, 16, 34, 38};   /* lead, FM, bass, hats, kit, break */
+static const uint8_t TRK_ENGINE0[NTRK] = {E_PULSE, E_FM, E_WAVE, E_NOISE, E_KIT, E_SAMPLE};   /* a new project: lead, */
+static const int8_t TRK_S0[NTRK] = {1, 0, 0, 0, 0, 0};   /* FM, bass, hats, kit, break (each its engine's sound with this */
+                                                          /* first knob: LEAD 25, TINE EP, NES BASS, HI-HAT, ACOUSTIC, AMENE) */
 
 /* ---- notes */
 static const char *const NOTE_NAME[12] = {"C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"};
@@ -258,7 +262,7 @@ static void keys_init(void)
 
 /* ---- the cell tricks (FX column): a type and a value */
 enum { FX_NONE, FX_ARP, FX_GLIDE, FX_VIB, FX_ROLL, FX_BEND, FX_CHANCE, FX_DELAY, FX_CUT, FX_REV, FX_PITCH, FX_SHAPE,
-       FX_CRUSH, FX_N };
+       FX_CRUSH, FX_VSL, FX_PAN, FX_OFS, FX_N };
 typedef struct {
     const char *tag[LANG_N];                    /* three letters */
     uint8_t icon;
@@ -278,6 +282,9 @@ static const fxdesc_t FXD[FX_N] = {
     {{"HAU", "PIT", "ALT"}, ICO_SHARP, -12, 12, 12},        /* pitch (hauteur, altura) */
     {{"FOR", "SHP", "FOR"}, ICO_SHAPE, 0, 7, 0},            /* shape (forme, forma) */
     {{"ECR", "CRU", "TRI"}, ICO_CRUSH, 1, 7, 4},            /* crush (ecrase, tritura) */
+    {{"VOL", "VSL", "VOL"}, ICO_VOL, -15, 15, -4},          /* volume slide over the row (an empty cell: the note playing) */
+    {{"PAN", "PAN", "PAN"}, ICO_MIRROR, -7, 7, -5},         /* this note's pan */
+    {{"DEP", "OFS", "INI"}, ICO_RIGHT, 0, 15, 8},           /* SAMPLE: start further in (n / 16 of the slice; depart, inicio) */
 };
 static const uint8_t ROLL_N[9] = {2, 3, 4, 6, 8, 12, 16, 24, 32};
 typedef struct {

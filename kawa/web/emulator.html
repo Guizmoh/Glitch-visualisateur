@@ -1,0 +1,587 @@
+<title>KAWA Pocket Tracker</title>
+<meta name="description" content="KAWA, Pocket Tracker by Omnipotard: a tracker firmware for the M-VAVE FM-1, running in the browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: the FM-1 lies on a dark desk; its panel is laid out as the real one (left knobs, screen,
+   right knobs and buttons, the keybed below) and restacks on a phone, the screen first. One dark look. */
+:root {
+  --desk: #15111d;
+  --desk-2: #1d1828;
+  --body: #34313b;
+  --body-hi: #45414e;
+  --bezel: #09080c;
+  --label: #b4adc4;
+  --ink: #f1ecfb;
+  --muted: #8d86a0;
+  --pink: #ff5fb4;
+  --amber: #ffb03a;
+  --cyan: #3ed8ff;
+  --led-off: #2a2731;
+  --display: "Silkscreen", "Courier New", monospace;
+  --text: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { background: var(--desk); color: var(--ink); }
+body { font-family: var(--text); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 20px 40px; }
+.wrap { max-width: 1040px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 18px; }
+h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 6vw, 46px); letter-spacing: 0.04em; margin: 0; line-height: 1; color: var(--ink); }
+h1 span { color: var(--pink); }
+.langs { display: flex; gap: 4px; background: var(--desk-2); border-radius: 10px; padding: 3px; }
+.langs button { appearance: none; border: 0; background: none; color: var(--muted); font-family: var(--mono); font-weight: 600; font-size: 13px; letter-spacing: 0.08em; padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+.langs button[aria-pressed="true"] { background: var(--pink); color: #1a1026; }
+.langs button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.tag { font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* ---- the device */
+.device {
+  position: relative;
+  background: linear-gradient(170deg, var(--body-hi), var(--body) 38%, #2b2831);
+  border-radius: 26px;
+  padding: 26px 26px 22px;
+  box-shadow: 0 30px 60px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.08), inset 0 -2px 0 rgba(0,0,0,.35);
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 330px;
+  grid-template-areas: "left screen right" "keys keys keys";
+  gap: 22px 26px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.zone-left { grid-area: left; display: flex; flex-direction: column; gap: 16px; }
+.zone-screen { grid-area: screen; display: flex; justify-content: center; align-items: flex-start; }
+.zone-right { grid-area: right; display: flex; flex-direction: column; gap: 16px; }
+.zone-keys { grid-area: keys; }
+.knobs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px 10px; }
+.knobs.row { grid-template-columns: repeat(4, 1fr); }
+.knob { display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: ns-resize; touch-action: none; }
+.knob .lbl { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; color: var(--label); text-transform: uppercase; }
+.knob .fn { font-family: var(--mono); font-size: 10px; color: var(--amber); letter-spacing: 0.05em; min-height: 1.2em; }
+.cap {
+  --a: 0deg;
+  width: 54px; height: 54px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, #5b5765 0 44%, transparent 45%),
+    repeating-conic-gradient(from 0deg, #23212a 0 6deg, #3c3944 6deg 12deg);
+  box-shadow: 0 6px 10px rgba(0,0,0,.55), inset 0 2px 2px rgba(255,255,255,.12);
+  position: relative;
+  transform: rotate(var(--a));
+  transition: transform .06s linear;
+}
+.cap::after { content: ""; position: absolute; left: 50%; top: 7px; width: 3px; height: 13px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); }
+.knob:focus-visible .cap, .btn:focus-visible, .key:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.knob:focus-visible { outline: none; }
+
+.btns { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px 8px; }
+.oct { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.btn {
+  appearance: none; border: 0; cursor: pointer; color: var(--label);
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; background: none;
+  font: inherit;
+}
+.btn .face {
+  width: 100%; height: 30px; border-radius: 9px;
+  background: linear-gradient(180deg, #2a2730, #1f1d24);
+  box-shadow: 0 3px 0 #121016, inset 0 1px 0 rgba(255,255,255,.07);
+  display: grid; place-items: center;
+  font-family: var(--mono); font-weight: 600; font-size: 11px; letter-spacing: 0.06em; color: var(--label);
+  transition: transform .04s, box-shadow .04s, background .12s, color .12s;
+}
+.btn .fn { font-family: var(--mono); font-size: 9.5px; color: var(--amber); letter-spacing: 0.04em; }
+.btn.on .face { box-shadow: 0 3px 0 #121016, 0 0 14px -2px var(--glow, var(--pink)), inset 0 0 0 1px var(--glow, var(--pink)); color: var(--ink); }
+.btn.dim .face { color: #d6d0e3; box-shadow: 0 3px 0 #121016, inset 0 0 0 1px rgba(255,95,180,.28); }
+.btn.down .face { transform: translateY(2px); box-shadow: 0 1px 0 #121016; }
+.btn[data-id="12"] { --glow: #60ff96; }
+.btn[data-id="13"] { --glow: #ff4060; }
+
+.bezel {
+  background: var(--bezel); border-radius: 18px; padding: 16px;
+  box-shadow: inset 0 0 0 2px #000, 0 1px 0 rgba(255,255,255,.08);
+  width: min(100%, 392px);
+  position: relative;
+}
+.glass { position: relative; aspect-ratio: 1; width: 100%; border-radius: 6px; overflow: hidden; background: #120c24; }
+.glass canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.glass::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.07), transparent 40%), repeating-linear-gradient(0deg, rgba(0,0,0,.08) 0 1px, transparent 1px 3px); }
+.power {
+  position: absolute; inset: 16px; border-radius: 6px; display: grid; place-items: center; align-content: center; gap: 14px;
+  background: radial-gradient(circle at 50% 38%, #2b1d52, #120c24 70%); text-align: center; padding: 18px;
+}
+.power p { margin: 0; color: var(--label); font-size: 14px; max-width: 26ch; }
+.power button {
+  font-family: var(--display); font-size: 17px; letter-spacing: 0.06em; color: #1a1026; background: var(--pink);
+  border: 0; border-radius: 12px; padding: 12px 20px; cursor: pointer; box-shadow: 0 4px 0 #a33274;
+}
+.power button:active { transform: translateY(2px); box-shadow: 0 2px 0 #a33274; }
+.power .err { color: var(--amber); font-size: 13px; }
+
+/* the keybed: 16 white keys, 11 black, F3 to G5 */
+.keybed { position: relative; height: 150px; background: #24212a; border-radius: 16px; padding: 10px; box-shadow: inset 0 2px 6px rgba(0,0,0,.6); }
+.keys { position: relative; height: 100%; }
+.key { position: absolute; bottom: 0; border-radius: 10px; cursor: pointer; touch-action: none; display: flex; justify-content: center; }
+.key.w { top: 52px; background: linear-gradient(180deg, #3d3945, #302d36); box-shadow: 0 3px 0 #17151b, inset 0 1px 0 rgba(255,255,255,.06); }
+.key.b { top: 0; height: 64px; background: linear-gradient(180deg, #34313a, #29262e); box-shadow: 0 3px 0 #141217, inset 0 1px 0 rgba(255,255,255,.05); z-index: 2; }
+.key::before { content: ""; position: absolute; top: 12px; width: 4px; height: 34%; border-radius: 3px; background: var(--led-off); transition: background .08s, box-shadow .08s; }
+.key.w::before { top: 18px; }
+.key.dim::before { background: #7a3c63; }
+.key.on::before { background: var(--pink); box-shadow: 0 0 10px var(--pink); }
+.key.down { filter: brightness(1.25); transform: translateY(2px); }
+.key .kn { position: absolute; bottom: 6px; font-family: var(--mono); font-size: 9px; color: var(--muted); }
+
+/* ---- the guide */
+.guide { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+.guide section { background: var(--desk-2); border-radius: 16px; padding: 18px 20px; min-width: 0; }
+.guide h2 { font-family: var(--display); font-size: 16px; letter-spacing: 0.05em; margin: 0 0 10px; color: var(--pink); font-weight: 400; }
+.guide section:nth-child(2) h2 { color: var(--amber); }
+.guide section:nth-child(3) h2 { color: var(--cyan); }
+.guide p, .guide li { color: #d9d3e6; font-size: 14.5px; }
+.guide ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.guide p { margin: 0 0 8px; }
+kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-radius: 5px; padding: 1px 6px; color: var(--ink); white-space: nowrap; }
+.foot { color: var(--muted); font-size: 13.5px; max-width: 80ch; }
+.foot a { color: var(--cyan); }
+
+@media (max-width: 940px) {
+  .device { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "screen screen" "right right" "left left" "keys keys"; padding: 18px; }
+  .zone-left { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: end; gap: 14px; }
+  .zone-left .knobs { grid-template-columns: repeat(4, 1fr); }
+  .guide { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  .device { padding: 14px; border-radius: 20px; gap: 16px; }
+  .cap { width: 44px; height: 44px; }
+  .btns { gap: 8px 5px; }
+  .btn .face { font-size: 10px; height: 28px; }
+  .btn .fn { font-size: 8.5px; }
+  .zone-left { grid-template-columns: minmax(0, 1fr); }
+  .keybed { height: 128px; padding: 6px; }
+  .key.w { top: 44px; }
+  .key.b { height: 54px; }
+  .key .kn { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .cap, .btn .face, .key::before { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>KA<span>WA</span></h1>
+    <div class="tag" data-t="tag"></div>
+    <div class="langs" role="group" aria-label="Language">
+      <button type="button" data-lang="en">EN</button><button type="button" data-lang="fr">FR</button><button type="button" data-lang="es">ES</button>
+    </div>
+  </header>
+
+  <div class="device" id="device">
+    <div class="zone-left">
+      <div class="knobs" id="knobs-left"></div>
+      <div class="oct" id="oct"></div>
+    </div>
+    <div class="zone-screen">
+      <div class="bezel">
+        <div class="glass"><canvas id="screen" width="240" height="240" aria-label="Écran du FM-1"></canvas></div>
+        <div class="power" id="power">
+          <p data-t="power"></p>
+          <button id="power-btn" type="button" data-t="powerBtn"></button>
+          <div class="err" id="power-err" hidden></div>
+        </div>
+      </div>
+    </div>
+    <div class="zone-right">
+      <div class="knobs row" id="knobs-right"></div>
+      <div class="btns" id="btns"></div>
+    </div>
+    <div class="zone-keys"><div class="keybed"><div class="keys" id="keys"></div></div></div>
+  </div>
+
+  <div class="guide">
+    <section><h2 data-t="g1"></h2><ul data-t="g1l"></ul></section>
+    <section><h2 data-t="g2"></h2><ul data-t="g2l"></ul></section>
+    <section><h2 data-t="g3"></h2><ul data-t="g3l"></ul></section>
+  </div>
+  <p class="foot" data-t="foot"></p>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const WASM_B64 = "__KAWA_WASM__";
+  const BTN = {OCTD: 0, OCTU: 1, FX: 2, SCL: 3, ENV: 4, LFO: 5, EDIT: 6, GLO: 7, HOME: 8, SAVE: 9, ARP: 10, SEQ: 11, PLAY: 12, REC: 13};
+  const ENC = {SELECT: 0, ALGORITHM: 1, K1: 2, K2: 3, K3: 4, K4: 5, PRESETS: 6};
+
+  /* ---- the engine, the same in the worklet and on the main thread */
+  const ENGINE_SRC = `
+  class KawaEngine {
+    constructor(bytes, rate) {
+      this.ex = new WebAssembly.Instance(new WebAssembly.Module(bytes), {}).exports;
+      this.ex.kawa_init();
+      this.buf = null; this.pos = 512; this.ratio = 44100 / rate; this.frac = 0;
+      this.pl = 0; this.pr = 0; this.cl = 0; this.cr = 0;
+    }
+    msg(d) {
+      const x = this.ex;
+      if (d.t === "keys") x.kawa_keys(d.mask >>> 0);
+      else if (d.t === "btn") x.kawa_button(d.id, d.down ? 1 : 0);
+      else if (d.t === "turn") x.kawa_turn(d.enc, d.steps | 0);
+      else if (d.t === "master") x.kawa_master(d.v | 0);
+      else if (d.t === "midi") x.kawa_midi(d.st, d.d1, d.d2);
+      else if (d.t === "lang") x.kawa_lang(d.v | 0);
+    }
+    frame() {
+      if (this.pos >= 512) {
+        const p = this.ex.kawa_audio();
+        this.buf = new Float32Array(this.ex.memory.buffer, p, 512);
+        this.pos = 0;
+        this.ex.kawa_step();
+      }
+      this.cl = this.buf[this.pos]; this.cr = this.buf[this.pos + 1]; this.pos += 2;
+    }
+    fill(L, R) {
+      const n = L.length;
+      if (this.ratio === 1) {
+        for (let i = 0; i < n; i++) { this.frame(); L[i] = this.cl; R[i] = this.cr; }
+        return;
+      }
+      for (let i = 0; i < n; i++) {
+        this.frac += this.ratio;
+        while (this.frac >= 1) { this.pl = this.cl; this.pr = this.cr; this.frame(); this.frac -= 1; }
+        L[i] = this.pl + (this.cl - this.pl) * this.frac;
+        R[i] = this.pr + (this.cr - this.pr) * this.frac;
+      }
+    }
+    screen() { return new Uint16Array(this.ex.memory.buffer, this.ex.kawa_screen(), 57600); }
+    gen() { return this.ex.kawa_screen_gen(); }
+    leds() { return new Uint8Array(this.ex.memory.buffer, this.ex.kawa_leds(), 41); }
+  }`;
+  const WORKLET_SRC = ENGINE_SRC + `
+  class KawaProc extends AudioWorkletProcessor {
+    constructor(o) {
+      super();
+      this.e = new KawaEngine(o.processorOptions.bytes, sampleRate);
+      this.t = 0; this.last = 0; this.g = -1;
+      this.port.onmessage = (ev) => this.e.msg(ev.data);
+    }
+    process(inputs, outputs) {
+      const out = outputs[0];
+      this.e.fill(out[0], out[1] || out[0]);
+      this.t += out[0].length;
+      if (this.t - this.last >= sampleRate / 30) {
+        this.last = this.t;
+        const g = this.e.gen();
+        if (g !== this.g) { this.g = g; const fb = this.e.screen().slice(); this.port.postMessage({t: "screen", fb}, [fb.buffer]); }
+        this.port.postMessage({t: "leds", leds: this.e.leds().slice()});
+      }
+      return true;
+    }
+  }
+  registerProcessor("kawa", KawaProc);`;
+
+  const $ = (id) => document.getElementById(id);
+  /* ---- the page in three languages (the FM-1's screen follows: kawa_lang) */
+  const I18N = {
+    en: {
+      tag: "Pocket Tracker by Omnipotard · firmware for the M-VAVE FM-1",
+      power: "The firmware runs here as it is, compiled to WebAssembly. Turn the sound on and power up.",
+      powerBtn: "POWER ON",
+      err: "Sound could not start in this browser. Try a recent Chrome, Edge or Firefox.",
+      "k.master": "VOLUME", "k.select": "ROW", "k.presets": "PATTERN / SOUND", "k.algo": "TRACK", "k.none": "",
+      "b.oct": "OCTAVE", "b.fx": "EFFECTS", "b.scl": "SCALE", "b.env": "MIX", "b.lfo": "MAGIC", "b.edit": "SOUND", "b.glo": "SONG",
+      "b.home": "TRACKS", "b.save": "PROJECTS", "b.arp": "CLEAR", "b.seq": "GRID", "b.play": "PLAY", "b.rec": "REC",
+      g1: "The basics",
+      g1l: "<li><b>PLAY</b> starts the demo. <b>ALGORITHM</b> picks the track, <b>SELECT</b> the row, <b>PRESETS</b> the pattern.</li>" +
+           "<li><b>KNOB 1 to 4</b> set the cell's note, volume, trick and its value: the bottom line of the screen says which.</li>" +
+           "<li><b>REC</b>, then the keys: notes are written on the cursor's row, or on the beat while it plays.</li>" +
+           "<li><b>SEQ</b> opens the grid: the 16 white keys are the 16 steps, as on a Pocket Operator.</li>",
+      g2: "Effects and magic",
+      g2l: "<li>Hold <b>FX</b> and play the white keys: loops, stutters, scratches, reverse, tape stop… A short tap keeps the page open.</li>" +
+           "<li><b>OCT+</b> switches to the second bank: crush, filters, gate, freeze, distortion. The black keys mute tracks.</li>" +
+           "<li><b>LFO</b> opens the magic: CHOPPER slices the break, BEAT and MELODY write in the scale. Hold <b>SAVE</b> to undo.</li>" +
+           "<li>Hold <b>HOME</b> for the map of the buttons. The screen's language is on the PROJECTS page (<b>KNOB 3</b>).</li>",
+      g3: "On the keyboard",
+      g3l: "<li>Notes: the rows <kbd>Z X C V…</kbd> and <kbd>Q W E R…</kbd> (key positions: QWERTY and AZERTY alike).</li>" +
+           "<li><kbd>Space</kbd> PLAY · <kbd>Enter</kbd> REC · <kbd>Shift</kbd> held FX · <kbd>Backspace</kbd> clears.</li>" +
+           "<li><kbd>↑</kbd><kbd>↓</kbd> row · <kbd>←</kbd><kbd>→</kbd> track · <kbd>PgUp</kbd><kbd>PgDn</kbd> pattern · <kbd>Esc</kbd> HOME.</li>" +
+           "<li>Use the mouse wheel on a knob, or drag it up and down.</li>",
+      foot: "KAWA is free software (GPL-3.0), built on Dinghy, Felucca and SLOOP, the open platform of the FM-1 community. The breaks are entirely synthesised. The firmware installs on the FM-1 over USB (Python or web installer), at your own risk: keep the official V15 firmware at hand to go back."
+    },
+    fr: {
+      tag: "Pocket Tracker by Omnipotard · firmware pour M-VAVE FM-1",
+      power: "Le firmware tourne ici tel quel, compilé en WebAssembly. Mets le son et allume.",
+      powerBtn: "ALLUMER",
+      err: "Le son n'a pas pu démarrer dans ce navigateur. Essaie un Chrome, Edge ou Firefox récent.",
+      "k.master": "VOLUME", "k.select": "LIGNE", "k.presets": "MOTIF / SON", "k.algo": "PISTE", "k.none": "",
+      "b.oct": "OCTAVE", "b.fx": "EFFETS", "b.scl": "GAMME", "b.env": "MIX", "b.lfo": "MAGIE", "b.edit": "SON", "b.glo": "CHAINE",
+      "b.home": "PISTES", "b.save": "PROJETS", "b.arp": "EFFACE", "b.seq": "GRILLE", "b.play": "JOUE", "b.rec": "ENREG",
+      g1: "Les bases",
+      g1l: "<li><b>PLAY</b> lance la démo. <b>ALGORITHM</b> choisit la piste, <b>SELECT</b> la ligne, <b>PRESETS</b> le motif.</li>" +
+           "<li><b>KNOB 1 à 4</b> changent la note, le volume, l'astuce et sa valeur de la case : la ligne du bas de l'écran dit lesquels.</li>" +
+           "<li><b>REC</b> puis les touches : les notes s'écrivent à la ligne du curseur, ou sur le temps pendant la lecture.</li>" +
+           "<li><b>SEQ</b> ouvre la grille : les 16 touches blanches sont les 16 pas, comme sur un Pocket Operator.</li>",
+      g2: "Effets et magie",
+      g2l: "<li>Garde <b>FX</b> enfoncé et joue les touches blanches : boucles, bégaiements, scratch, envers, stop K7… Un appui court garde la page ouverte.</li>" +
+           "<li><b>OCT+</b> passe à la deuxième banque : crush, filtres, hache, gel, disto. Les touches noires coupent les pistes.</li>" +
+           "<li><b>LFO</b> ouvre la magie : HACHOIR découpe le break, BEAT et MELODIE écrivent dans la gamme. <b>SAVE</b> tenu annule.</li>" +
+           "<li>Tiens <b>HOME</b> pour voir la carte des boutons. La langue de l'écran se règle page PROJETS (<b>KNOB 3</b>).</li>",
+      g3: "Au clavier",
+      g3l: "<li>Notes : rangées <kbd>W X C V…</kbd> et <kbd>A Z E R…</kbd> (positions des touches, AZERTY ou QWERTY).</li>" +
+           "<li><kbd>Espace</kbd> PLAY · <kbd>Entrée</kbd> REC · <kbd>Maj</kbd> tenu FX · <kbd>Retour</kbd> efface.</li>" +
+           "<li><kbd>↑</kbd><kbd>↓</kbd> ligne · <kbd>←</kbd><kbd>→</kbd> piste · <kbd>PgUp</kbd><kbd>PgDn</kbd> motif · <kbd>Échap</kbd> HOME.</li>" +
+           "<li>Molette sur un potard pour le tourner, ou glisse vers le haut et le bas.</li>",
+      foot: "KAWA est un logiciel libre (GPL-3.0), construit sur Dinghy, Felucca et SLOOP, la plateforme ouverte de la communauté FM-1. Les breaks sont entièrement synthétisés. Le firmware s'installe sur le FM-1 par USB (installeur Python ou web), à tes risques : garde le firmware officiel V15 sous la main pour revenir en arrière."
+    },
+    es: {
+      tag: "Pocket Tracker by Omnipotard · firmware para el M-VAVE FM-1",
+      power: "El firmware funciona aquí tal cual, compilado a WebAssembly. Sube el sonido y enciende.",
+      powerBtn: "ENCENDER",
+      err: "El sonido no pudo arrancar en este navegador. Prueba un Chrome, Edge o Firefox reciente.",
+      "k.master": "VOLUMEN", "k.select": "FILA", "k.presets": "PATRÓN / SONIDO", "k.algo": "PISTA", "k.none": "",
+      "b.oct": "OCTAVA", "b.fx": "EFECTOS", "b.scl": "ESCALA", "b.env": "MEZCLA", "b.lfo": "MAGIA", "b.edit": "SONIDO", "b.glo": "CANCIÓN",
+      "b.home": "PISTAS", "b.save": "PROYECTOS", "b.arp": "BORRAR", "b.seq": "REJILLA", "b.play": "TOCAR", "b.rec": "GRABAR",
+      g1: "Lo básico",
+      g1l: "<li><b>PLAY</b> arranca la demo. <b>ALGORITHM</b> elige la pista, <b>SELECT</b> la fila, <b>PRESETS</b> el patrón.</li>" +
+           "<li><b>KNOB 1 a 4</b> cambian la nota, el volumen, el truco y su valor en la celda: la línea de abajo de la pantalla dice cuáles.</li>" +
+           "<li><b>REC</b> y luego las teclas: las notas se escriben en la fila del cursor, o a tiempo mientras suena.</li>" +
+           "<li><b>SEQ</b> abre la rejilla: las 16 teclas blancas son los 16 pasos, como en un Pocket Operator.</li>",
+      g2: "Efectos y magia",
+      g2l: "<li>Mantén <b>FX</b> y toca las teclas blancas: bucles, tartamudeos, scratch, al revés, parada de cinta… Un toque corto deja la página abierta.</li>" +
+           "<li><b>OCT+</b> pasa al segundo banco: crush, filtros, gate, congelar, distorsión. Las teclas negras silencian pistas.</li>" +
+           "<li><b>LFO</b> abre la magia: PICADOR trocea el break, RITMO y MELODÍA escriben en la escala. Mantén <b>SAVE</b> para deshacer.</li>" +
+           "<li>Mantén <b>HOME</b> para ver el mapa de los botones. El idioma de la pantalla está en la página PROYECTOS (<b>KNOB 3</b>).</li>",
+      g3: "Con el teclado",
+      g3l: "<li>Notas: las filas <kbd>Z X C V…</kbd> y <kbd>Q W E R…</kbd> (posiciones de las teclas, QWERTY o AZERTY).</li>" +
+           "<li><kbd>Espacio</kbd> PLAY · <kbd>Intro</kbd> REC · <kbd>Mayús</kbd> mantenido FX · <kbd>Retroceso</kbd> borra.</li>" +
+           "<li><kbd>↑</kbd><kbd>↓</kbd> fila · <kbd>←</kbd><kbd>→</kbd> pista · <kbd>RePág</kbd><kbd>AvPág</kbd> patrón · <kbd>Esc</kbd> HOME.</li>" +
+           "<li>Usa la rueda del ratón sobre un potenciómetro, o arrástralo arriba y abajo.</li>",
+      foot: "KAWA es software libre (GPL-3.0), construido sobre Dinghy, Felucca y SLOOP, la plataforma abierta de la comunidad FM-1. Los breaks están totalmente sintetizados. El firmware se instala en el FM-1 por USB (instalador Python o web), bajo tu propio riesgo: ten a mano el firmware oficial V15 para volver atrás."
+    }
+  };
+  const LANG_ID = {fr: 0, en: 1, es: 2};
+  let lang = "en";
+  const T = (k) => (I18N[lang] && k in I18N[lang]) ? I18N[lang][k] : (I18N.en[k] || "");
+  function applyLang(l) {
+    if (!I18N[l]) l = "en";
+    lang = l;
+    document.documentElement.lang = l;
+    document.querySelectorAll("[data-t]").forEach((el) => { el.innerHTML = T(el.dataset.t); });
+    document.querySelectorAll(".langs button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === l ? "true" : "false"));
+    try { localStorage.setItem("kawa-lang", l); } catch (e) {}
+    send({t: "lang", v: LANG_ID[l]});
+  }
+  function firstLang() {
+    const h = (location.hash || "").slice(1).toLowerCase();
+    if (I18N[h]) return h;
+    try { const s = localStorage.getItem("kawa-lang"); if (I18N[s]) return s; } catch (e) {}
+    const n = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").slice(0, 2).toLowerCase();
+    return I18N[n] ? n : (window.KAWA_LANG || "en");
+  }
+
+  const canvas = $("screen"), ctx2d = canvas.getContext("2d"), img = ctx2d.createImageData(240, 240);
+  let send = () => {};
+  let audio = null;
+
+  function drawScreen(fb) {
+    const d = img.data;
+    for (let i = 0, j = 0; i < 57600; i++, j += 4) {
+      const c = fb[i];
+      d[j] = ((c >> 11) & 31) * 255 / 31; d[j + 1] = ((c >> 5) & 63) * 255 / 63; d[j + 2] = (c & 31) * 255 / 31; d[j + 3] = 255;
+    }
+    ctx2d.putImageData(img, 0, 0);
+  }
+
+  /* ---- the panel */
+  const btnEls = [], keyEls = [];
+  function makeKnob(parent, label, fn, enc) {
+    const k = document.createElement("div");
+    k.className = "knob"; k.tabIndex = 0; k.setAttribute("role", "slider"); k.setAttribute("aria-label", label);
+    k.innerHTML = `<span class="lbl">${label}</span><div class="cap"></div><span class="fn" data-t="${fn}"></span>`;
+    parent.appendChild(k);
+    const cap = k.querySelector(".cap");
+    let angle = enc === "MASTER" ? 60 : 0, master = 0.72;
+    const turn = (steps) => {
+      if (!steps) return;
+      if (enc === "MASTER") {
+        master = Math.min(1, Math.max(0, master + steps * 0.04));
+        angle = -135 + master * 270;
+        send({t: "master", v: Math.round(master * master * 6000)});
+      } else {
+        angle += steps * 18;
+        send({t: "turn", enc: ENC[enc], steps});
+      }
+      cap.style.setProperty("--a", angle + "deg");
+    };
+    if (enc === "MASTER") cap.style.setProperty("--a", (-135 + master * 270) + "deg");
+    k.addEventListener("wheel", (e) => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, {passive: false});
+    let dragY = null, acc = 0;
+    k.addEventListener("pointerdown", (e) => { dragY = e.clientY; acc = 0; k.setPointerCapture(e.pointerId); });
+    k.addEventListener("pointermove", (e) => {
+      if (dragY === null) return;
+      acc += dragY - e.clientY; dragY = e.clientY;
+      while (acc >= 10) { turn(1); acc -= 10; }
+      while (acc <= -10) { turn(-1); acc += 10; }
+    });
+    const end = () => { dragY = null; };
+    k.addEventListener("pointerup", end); k.addEventListener("pointercancel", end);
+    k.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp" || e.key === "ArrowRight") { turn(1); e.preventDefault(); e.stopPropagation(); }
+      if (e.key === "ArrowDown" || e.key === "ArrowLeft") { turn(-1); e.preventDefault(); e.stopPropagation(); }
+    });
+  }
+  function makeBtn(parent, label, fn, id) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "btn"; b.dataset.id = id;
+    b.innerHTML = `<span class="face">${label}</span><span class="fn" data-t="${fn}"></span>`;
+    parent.appendChild(b);
+    btnEls[id] = b;
+    let held = false;
+    const down = (e) => { if (e) e.preventDefault(); if (held) return; held = true; b.classList.add("down"); send({t: "btn", id, down: 1}); };
+    const up = () => { if (!held) return; held = false; b.classList.remove("down"); send({t: "btn", id, down: 0}); };
+    b.addEventListener("pointerdown", (e) => { b.setPointerCapture(e.pointerId); down(e); });
+    b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up); b.addEventListener("lostpointercapture", up);
+    b.addEventListener("keydown", (e) => { if ((e.key === " " || e.key === "Enter") && !e.repeat) { e.stopPropagation(); e.preventDefault(); down(); } });
+    b.addEventListener("keyup", (e) => { if (e.key === " " || e.key === "Enter") { e.stopPropagation(); up(); } });
+  }
+
+  [["MASTER", "k.master", "MASTER"], ["SELECT", "k.select", "SELECT"], ["PRESETS", "k.presets", "PRESETS"], ["ALGORITHM", "k.algo", "ALGORITHM"]]
+    .forEach(([l, f, e]) => makeKnob($("knobs-left"), l, f, e));
+  [["KNOB 1", "k.none", "K1"], ["KNOB 2", "k.none", "K2"], ["KNOB 3", "k.none", "K3"], ["KNOB 4", "k.none", "K4"]].forEach(([l, f, e]) => makeKnob($("knobs-right"), l, f, e));
+  makeBtn($("oct"), "OCT-", "b.oct", BTN.OCTD);
+  makeBtn($("oct"), "OCT+", "b.oct", BTN.OCTU);
+  [["FX", "b.fx", BTN.FX], ["SCL", "b.scl", BTN.SCL], ["ENV", "b.env", BTN.ENV], ["LFO", "b.lfo", BTN.LFO], ["EDIT", "b.edit", BTN.EDIT], ["GLO", "b.glo", BTN.GLO],
+   ["HOME", "b.home", BTN.HOME], ["SAVE", "b.save", BTN.SAVE], ["ARP", "b.arp", BTN.ARP], ["SEQ", "b.seq", BTN.SEQ], ["PLAY", "b.play", BTN.PLAY], ["REC", "b.rec", BTN.REC]]
+    .forEach(([l, f, id]) => makeBtn($("btns"), l, f, id));
+
+  /* keys: F3 .. G5 */
+  const NAMES = ["F", "F#", "G", "G#", "A", "A#", "B", "C", "C#", "D", "D#", "E"];
+  let keyMask = 0;
+  const setKey = (k, on) => {
+    const m = on ? (keyMask | (1 << k)) : (keyMask & ~(1 << k));
+    if (m === keyMask) return;
+    keyMask = m;
+    keyEls[k].classList.toggle("down", on);
+    send({t: "keys", mask: keyMask});
+  };
+  (function layoutKeys() {
+    const wrap = $("keys"), whites = [];
+    for (let k = 0; k < 27; k++) {
+      const name = NAMES[k % 12], black = name.length > 1;
+      const el = document.createElement("div");
+      el.className = "key " + (black ? "b" : "w");
+      el.setAttribute("aria-label", name + (3 + Math.floor((k + 5) / 12)));
+      if (!black) { whites.push(k); el.innerHTML = name === "C" ? `<span class="kn">C${3 + Math.floor((k + 5) / 12)}</span>` : ""; }
+      wrap.appendChild(el);
+      keyEls[k] = el;
+      el.addEventListener("pointerdown", (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); setKey(k, true); });
+      const up = () => setKey(k, false);
+      el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up); el.addEventListener("lostpointercapture", up);
+    }
+    const W = 100 / 16;
+    let w = 0;
+    for (let k = 0; k < 27; k++) {
+      const el = keyEls[k];
+      if (el.classList.contains("w")) { el.style.left = `calc(${w * W}% + 2px)`; el.style.width = `calc(${W}% - 4px)`; w++; }
+      else { el.style.left = `calc(${w * W - W * 0.32}% + 1px)`; el.style.width = `calc(${W * 0.64}% - 2px)`; }
+    }
+  })();
+
+  /* the computer keyboard (by position: AZERTY and QWERTY alike) */
+  const LOW = ["KeyZ", "KeyS", "KeyX", "KeyD", "KeyC", "KeyF", "KeyV", "KeyB", "KeyH", "KeyN", "KeyJ", "KeyM", "Comma", "KeyL", "Period", "Semicolon", "Slash"];
+  const HIGH = ["KeyQ", "Digit2", "KeyW", "Digit3", "KeyE", "Digit4", "KeyR", "KeyT", "Digit6", "KeyY", "Digit7", "KeyU", "KeyI", "Digit9", "KeyO"];
+  const CODE_KEY = {};
+  LOW.forEach((c, i) => CODE_KEY[c] = i);
+  HIGH.forEach((c, i) => CODE_KEY[c] = 12 + i);
+  const CODE_BTN = {Space: BTN.PLAY, Enter: BTN.REC, ShiftLeft: BTN.FX, ShiftRight: BTN.FX, Backspace: BTN.ARP, Delete: BTN.ARP, Escape: BTN.HOME, Minus: BTN.OCTD, Equal: BTN.OCTU};
+  const CODE_ENC = {ArrowUp: [ENC.SELECT, -1], ArrowDown: [ENC.SELECT, 1], ArrowLeft: [ENC.ALGORITHM, -1], ArrowRight: [ENC.ALGORITHM, 1], PageUp: [ENC.PRESETS, 1], PageDown: [ENC.PRESETS, -1]};
+  const typing = (e) => e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA");
+  window.addEventListener("keydown", (e) => {
+    if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.code in CODE_KEY) { e.preventDefault(); if (!e.repeat) setKey(CODE_KEY[e.code], true); return; }
+    if (e.code in CODE_BTN) { e.preventDefault(); if (!e.repeat) { const id = CODE_BTN[e.code]; btnEls[id].classList.add("down"); send({t: "btn", id, down: 1}); } return; }
+    if (e.code in CODE_ENC) { e.preventDefault(); const [enc, s] = CODE_ENC[e.code]; send({t: "turn", enc, steps: s}); }
+  });
+  window.addEventListener("keyup", (e) => {
+    if (e.code in CODE_KEY) { setKey(CODE_KEY[e.code], false); return; }
+    if (e.code in CODE_BTN) { const id = CODE_BTN[e.code]; btnEls[id].classList.remove("down"); send({t: "btn", id, down: 0}); }
+  });
+  window.addEventListener("blur", () => { for (let k = 0; k < 27; k++) setKey(k, false); });
+
+  document.querySelectorAll(".langs button").forEach((b) => b.addEventListener("click", () => applyLang(b.dataset.lang)));
+  applyLang(firstLang());
+
+  function showLeds(leds) {
+    for (let i = 0; i < 14; i++) {
+      const b = btnEls[i]; if (!b) continue;
+      b.classList.toggle("on", leds[i] === 2); b.classList.toggle("dim", leds[i] === 1);
+    }
+    for (let k = 0; k < 27; k++) {
+      const v = leds[14 + k];
+      keyEls[k].classList.toggle("on", v === 2); keyEls[k].classList.toggle("dim", v === 1);
+    }
+  }
+
+  /* ---- power on */
+  function bytes() {
+    const bin = atob(WASM_B64), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    return u;
+  }
+  async function powerOn() {
+    const btn = $("power-btn"), err = $("power-err");
+    btn.disabled = true;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      audio = new AC({sampleRate: 44100, latencyHint: "interactive"});
+      const wasm = bytes();
+      let ok = false;
+      if (audio.audioWorklet && window.AudioWorkletNode) {
+        try {
+          const url = URL.createObjectURL(new Blob([WORKLET_SRC], {type: "application/javascript"}));
+          await audio.audioWorklet.addModule(url);
+          const node = new AudioWorkletNode(audio, "kawa", {numberOfInputs: 0, outputChannelCount: [2], processorOptions: {bytes: wasm}});
+          node.port.onmessage = (ev) => { const d = ev.data; if (d.t === "screen") drawScreen(d.fb); else if (d.t === "leds") showLeds(d.leds); };
+          node.connect(audio.destination);
+          send = (m) => node.port.postMessage(m);
+          ok = true;
+        } catch (e) { console.warn("worklet:", e); }
+      }
+      if (!ok) {                                   /* older browsers: the engine on the page itself */
+        const Engine = new Function(ENGINE_SRC + "; return KawaEngine;")();
+        const eng = new Engine(wasm, audio.sampleRate);
+        const sp = audio.createScriptProcessor(1024, 0, 2);
+        sp.onaudioprocess = (ev) => eng.fill(ev.outputBuffer.getChannelData(0), ev.outputBuffer.getChannelData(1));
+        sp.connect(audio.destination);
+        send = (m) => eng.msg(m);
+        let g = -1;
+        const loop = () => { const ng = eng.gen(); if (ng !== g) { g = ng; drawScreen(eng.screen()); } showLeds(eng.leds()); requestAnimationFrame(loop); };
+        requestAnimationFrame(loop);
+      }
+      send({t: "master", v: Math.round(0.72 * 0.72 * 6000)});
+      send({t: "lang", v: LANG_ID[lang]});
+      $("power").hidden = true;
+      audio.resume().catch(() => {});
+      if (navigator.requestMIDIAccess) {          /* a MIDI keyboard plays the track under the cursor */
+        navigator.requestMIDIAccess().then((m) => {
+          const hook = (i) => { i.onmidimessage = (ev) => { const [st, d1, d2] = ev.data; if (st >= 0x80 && st < 0xA0) send({t: "midi", st, d1, d2: d2 || 0}); }; };
+          m.inputs.forEach(hook);
+          m.onstatechange = (ev) => { if (ev.port.type === "input") hook(ev.port); };
+        }).catch(() => {});
+      }
+    } catch (e) {
+      btn.disabled = false;
+      err.hidden = false;
+      err.textContent = T("err");
+      console.error(e);
+    }
+  }
+  $("power-btn").addEventListener("click", powerOn);
+
+  /* a still of the boot screen before power-on */
+  (function still() {
+    ctx2d.fillStyle = "#120c24"; ctx2d.fillRect(0, 0, 240, 240);
+  })();
+})();
+</script>

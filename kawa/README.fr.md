@@ -3,154 +3,116 @@
 [English](README.md) · **Français** · [Español](README.es.md)
 
 KAWA est un firmware tracker pour le **M-VAVE FM-1**, pensé pour la chiptune, le breakcore et le
-breakbeat. Il a six pistes : deux carrés, une onde 4 bits, un bruit, un kit de batterie et un break découpé
-en 16 tranches. Par-dessus viennent 32 effets live façon Pocket Operator, et des outils « magiques » qui
-écrivent des beats, des mélodies et des découpes de break à ta place. L'écran parle français, anglais ou
-espagnol.
-
-![KAWA sur le FM-1 : les pistes, les effets live, le break, la grille](docs/screens/fr/tracks.png)
-
-> **État : 0.1, bêta.** Il compile, passe les vérifications de la plateforme et tourne dans le simulateur
-> et l'émulateur web. Il n'a pas encore été essayé sur un vrai FM-1. Installer un firmware non officiel se
-> fait à tes risques. Lis [Installer](#installer) et [Revenir en arrière](#revenir-en-arrière) avant de
-> commencer.
-
-## L'essayer dans le navigateur
-
-Le code C du firmware est compilé en WebAssembly, avec le panneau du FM-1 dessiné autour :
-[`emulateur/index.html`](emulateur/index.html). Ouvre-le dans Chrome, Edge ou Firefox, appuie sur
-**ALLUMER**, puis sur **PLAY**. La page et l'écran passent d'une langue à l'autre (EN / FR / ES) en haut à
-droite. Tu peux utiliser la souris, le tactile ou le clavier de l'ordinateur. Un clavier MIDI USB marche
-aussi (Web MIDI).
-
-![L'émulateur](docs/emulator.png)
-
-## L'idée
-
-- **Un vrai tracker, sans l'austérité.** Six pistes colorées côte à côte, et celle du curseur affichée en
-  large. Les notes s'écrivent `C-4`, les percussions par leur nom (`KIK`, `CAI`…) et les tranches du break
-  par leur numéro (`S05`). Chaque case a une **astuce**, montrée par une icône : arpège, roulé, glissé…
-- **La ligne du bas dit toujours ce que font les quatre potards** de la page où tu es.
-- **Des idées de Pocket Operator partout.** Les 16 touches blanches sont les 16 pas (page GRILLE), les 16
-  effets live (FX tenu) et les 16 outils magiques (LFO).
-- **Fait pour les breaks.** Le break est découpé en 16 tranches sur les 16 touches blanches. Les touches
-  noires jouent la même tranche à l'envers. Le HACHOIR réécrit un motif de découpes, en gardant un kick sur
-  les temps forts et des caisses sur 2 et 4.
-- **Pas de fausse note, sauf si tu en veux.** Quand la gamme est verrouillée, les touches et le potard 1
-  restent dans la gamme.
-- **Une mascotte** vit dans le coin. Elle saute sur le temps et réagit aux effets : elle se retourne sur
-  ENVERS, s'écrase sur ÉCRASE et s'endort sur STOP K7.
-
-## Le panneau
-
-| Bouton | Page | Ce qu'il fait |
-| --- | --- | --- |
-| **HOME** | PISTES | le tracker. Tenu : la carte des boutons |
-| **SEQ** | GRILLE | les 16 pas de la piste sur les touches blanches ; les touches noires 1 à 6 choisissent la piste |
-| **EDIT** | SON | le son de la piste : PRESETS choisit un son d'usine, les potards règlent ses paramètres, EDIT à nouveau montre la page suivante |
-| **ENV** | MIX | volume, panoramique, écho et tonalité par piste ; les touches noires coupent les pistes |
-| **LFO** | MAGIE | 16 outils sur les touches blanches (plus bas) |
-| **SCL** | GAMME | la tonique (appuie sur une touche), la gamme, le verrou, le pas du curseur après une note |
-| **GLO** | CHAINE | tempo, swing, longueur du motif, boucle ou chaîne ; la liste des motifs (les touches blanches ajoutent les motifs 1 à 16) |
-| **SAVE** | PROJETS | 4 emplacements et la sauvegarde auto ; le potard 3 règle la **langue**. Tenu : **annuler** |
-| **FX** | EFFETS | tiens-le et joue les touches blanches ; un appui court garde la page ouverte. OCT-/OCT+ changent de banque |
-| **ARP** | — | efface la case sous le curseur |
-| **PLAY / REC** | — | lecture et arrêt ; enregistrement (pas à pas au curseur, ou en direct sur le temps) |
-
-Potards : **SELECT** passe d'une ligne à l'autre, **ALGORITHM** choisit la piste, **PRESETS** choisit le
-motif (ou le son, ou l'entrée de la chaîne). **KNOB 1 à 4** font ce que dit la ligne du bas. Sur PISTES,
-ce sont la note, le volume, l'astuce et sa valeur de la case. **MASTER** règle le volume.
-
-## Les six pistes
-
-| Piste | Son |
-| --- | --- |
-| CARRÉ 1, CARRÉ 2 | carrés sans repliement à 12,5, 25, 50 ou 75 %, ou PWM ; ADSR, balayage de hauteur, vibrato, écrasement |
-| ONDE | tables d'onde de 32 pas sur 4 bits, façon Game Boy : triangle, scie, sinus, doux, basse GB, orgue, voix, FM |
-| BRUIT | un LFSR 15 bits façon NES, en mode LONG ou MÉTAL, accordé par la note |
-| KIT | 16 percussions synthétisées : kick, kick gabber, caisse claire, clap, charleys, toms, cymbale, ride, cloche, rim, zap, 808, kick chip, caisse chip |
-| CASSE | quatre breaks (façon amen, think, funky, jungle) synthétisés de zéro, 16 tranches ; peut suivre le tempo |
-
-Chaque piste a son volume, son panoramique, un départ d'écho et un filtre de tonalité. L'écho est calé sur
-le tempo (3/16).
-
-## Les astuces (la colonne FX d'une case)
-
-ARPÈGE (14 accords, vitesse chiptune) · GLISSÉ · VIBRATO · ROULÉ (x2 à x32 dans une ligne) · BEND ·
-CHANCE · RETARD (en 1/24 de ligne) · COUPE · ENVERS (une tranche de break à l'envers) · HAUTEUR (±12) ·
-FORME · ÉCRASE.
-
-## Effets live (FX tenu)
-
-| Touche | Banque POCHE | Banque CASSE |
-| --- | --- | --- |
-| 1-4 | BOUCLE 1/16, 1/12, 1/32, 1/64 | ÉCRASE 4 bits, DÉCIME, FILTRE BAS, FILTRE HAUT |
-| 5-8 | UNISSON, UNISSON BAS, OCTAVE +1, OCTAVE −1 | STOP K7, PLONGÉE, HACHE 1/16, HACHE 1/32 |
-| 9-12 | BÉGAIE x4, BÉGAIE x3, SCRATCH, SCRATCH VITE | GEL, ANNEAU, ÉCHO, DISTO |
-| 13-16 | 6/8 TRIOLET, RELANCE 1 TEMPS, ENVERS, ROULEAU ACCÉLÉRÉ | WOBBLE, VINYLE, SANS MÉLO, SANS BEAT |
-
-Les boucles se calent sur le temps : le premier passage est le son en direct, puis il se répète. Tiens
-plusieurs touches à la fois pour empiler les effets. Avec REC allumé et la musique qui tourne, les effets
-que tu joues sont **enregistrés** dans la piste LIVE du motif (la fine bande à droite du tracker). ARP, sur
-la page EFFETS, efface cette piste.
-
-![Effets live](docs/screens/fr/effects.png)
-
-## La magie (LFO)
-
-HACHOIR · BEAT · MÉLODIE · BASSE · ARPÈGES · EUCLIDE · VARIER · ROULÉS · NUANCES · DOUBLER · DÉCALER ·
-MIROIR · TRANSPO · COPIER · COLLER · EFFACER. Le potard 1 règle la force, le potard 2 le dé, et le potard 3
-choisit entre la piste et le motif entier. Sur le motif entier, chaque piste reçoit ce qui lui va : une
-basse sur ONDE, un beat sur les percussions, une mélodie sur les carrés. Chaque outil peut être annulé (SAVE
-tenu).
-
-![Magie](docs/screens/fr/magic.png)
-
-## D'autres écrans
+breakbeat. Il a six pistes, chacune avec son moteur : carré, onde 4 bits, bruit, FM à 6 opérateurs, kit
+de batterie ou sample. Tu écris des motifs, tu les enchaînes en morceau, et tu joues 32 effets en direct
+façon Pocket Operator. Des outils « magiques » écrivent des beats, des mélodies et des découpes de break à
+ta place. L'écran parle français, anglais ou espagnol.
 
 | | | |
 | --- | --- | --- |
-| ![Grille](docs/screens/fr/grid.png) | ![Son : le break](docs/screens/fr/sound-break.png) | ![Son : un carré](docs/screens/fr/sound-pulse.png) |
-| ![Mix](docs/screens/fr/mix.png) | ![Gamme](docs/screens/fr/scale.png) | ![Chaîne](docs/screens/fr/song.png) |
-| ![Deuxième banque d'effets](docs/screens/fr/effects-2.png) | ![Aide](docs/screens/fr/help.png) | ![Accueil](docs/screens/fr/boot.png) |
+| ![Les pistes](docs/manual/img/fr/02-tracks.png) | ![La FM et ses opérateurs](docs/manual/img/fr/53-fm-operator.png) | ![Les effets live](docs/manual/img/fr/60-fx.png) |
+| ![La chaîne : chaque motif joué N fois](docs/manual/img/fr/34-song-play.png) | ![L'enveloppe](docs/manual/img/fr/50-envelope.png) | ![Le menu des projets](docs/manual/img/fr/10-projects-menu.png) |
+
+> **État : 0.2, bêta.** KAWA compile pour le FM-1 et passe toutes les vérifications de sa plateforme :
+> taille, mémoire, accès au matériel, chemin d'installation testé avec des coupures de courant simulées.
+> Il tourne dans le simulateur et dans l'émulateur web. Il n'a **pas encore été essayé sur un vrai FM-1**.
+> Installer un firmware non officiel se fait à tes risques : lis [Installer](#installer) et
+> [Revenir au firmware officiel](#revenir-au-firmware-officiel) avant de commencer.
+
+**Le manuel**, avec des tutoriels illustrés (un nouveau morceau, écrire un motif, enchaîner les motifs,
+sauvegarder) : [docs/manual/index.html](docs/manual/index.html) ([EN](docs/manual/en.html),
+[ES](docs/manual/es.html)).
+
+## L'essayer dans le navigateur
+
+Le firmware lui-même, compilé en WebAssembly, tourne dans [`emulateur/index.html`](emulateur/index.html),
+avec le panneau du FM-1 autour. Appuie sur **ALLUMER**, puis sur **PLAY** : la démo « KAWA QUEST » joue. Tu
+peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
+
+## Ce qu'il y a dedans
+
+- **Un vrai tracker.** 32 motifs de 1 à 32 lignes, 15 effets de case (arpège, glissé, vibrato, roulé,
+  bend, chance, retard, coupe, envers, hauteur, forme, écrase, glissé de volume, pano, départ dans le
+  sample), un saut de lignes réglable (REC tenu + SELECT), l'insertion et la suppression de lignes, le
+  solo, annuler et refaire (SAVE tenu + OCT− / OCT+).
+- **Une chaîne qui fait un morceau.** Chaque case de la chaîne joue un motif de 1 à 16 fois ; l'outil
+  CLONER fait une variation en une touche et l'ajoute à la chaîne.
+- **Un vrai menu de projets.** Nouveau morceau, sauver, sauver sous (emplacement et nom), charger,
+  renommer, démo. Il y a quatre emplacements, dont un de sauvegarde automatique.
+- **Six moteurs au choix par piste.** Ils se choisissent avec SELECT sur la page SON. La piste FM (une
+  seule, pour garder de la marge au FM-1) règle ses 6 opérateurs un par un.
+- **Du sound design.** Chaque son a une ADSR dessinée dans les couleurs des potards, un effet rien qu'à
+  lui (filtres, disto, écrase, décime, anneau, trémolo, wah), un LFO calé sur le tempo et une page
+  MODULATION. Le master a son effet, une réverb, un écho et un limiteur.
+- **8 kits de batterie** synthétisés : acoustique, hip hop, techno, dub-reggae, lo-fi, Game Boy, SNES et
+  percussions. S'y ajoutent des **breaks** synthétisés à découper en 16 tranches, et **tes propres
+  samples** (4 emplacements).
+- **Un potard, une couleur.** KNOB 1 rouge, 2 jaune, 3 vert, 4 bleu, sur toutes les pages. La ligne du bas
+  dit ce que fait chacun. HOME tenu ouvre l'aide de la page où tu es.
+- **Trois thèmes** (KAWA, GAME BOY, BONBON), l'**horloge MIDI** en sortie, et un indicateur CPU.
+- **Un chien** à casque qui t'accueille au démarrage et vit dans le coin de l'écran.
 
 ## Installer
 
-Il te faut le paquet `release/kawa-0.1.fwsc` (ou ta propre compilation), un câble USB de données, et
-Python 3 avec `pip3 install mido python-rtmidi`.
+Il te faut le paquet `release/kawa-0.2.fwsc` (ou ta propre compilation), un câble USB de données, et Python
+3 avec `pip3 install mido python-rtmidi`.
 
 ```sh
 python3 tools/fm1_install.py --info                 # ce que tourne le FM-1 branché
-python3 tools/fm1_install.py release/kawa-0.1.fwsc  # demande avant d'écrire, puis redémarre sur KAWA
+python3 tools/fm1_install.py release/kawa-0.2.fwsc  # demande avant d'écrire, puis redémarre sur KAWA
 ```
 
-KAWA garde le chemin de mise à jour de sa plateforme : les installeurs de la communauté FM-1 (et celui de
-M-VAVE) peuvent toujours le joindre.
+Ce qui protège ton FM-1 :
 
-## Revenir en arrière
+- Le paquet est vérifié en entier avant d'effacer quoi que ce soit. Un paquet abîmé est refusé, et
+  l'ancien firmware reste.
+- Le bootloader de la puce n'est jamais écrit.
+- Une installation coupée reprend au rallumage.
+- Tiens **OCT−** en allumant pour le secours USB. Si KAWA plante deux fois au démarrage, le FM-1 y va
+  tout seul.
 
-- **Vers le firmware officiel :** télécharge le FM-1 V15 sur le site de M-VAVE et installe-le avec
-  M-UPGRADE. Un autre installeur de la communauté marche aussi, par exemple l'option « retour au firmware
-  officiel » des installeurs web de Felucca ou de FoMni.
-- **Si KAWA ne démarre pas :** tiens **OCT−** en allumant. Ça ouvre le secours USB, sans son, avec seulement
-  la mise à jour. Si KAWA plante deux fois au démarrage, le FM-1 y va tout seul.
-- **Si même ça ne répond plus :** la ROM de démarrage de la puce répond encore en USB (`WL80UBOOT`).
-  [FM-1 Transporter](https://github.com/kurogedelic/FM-1-transporter) peut réécrire le firmware officiel.
+Le détail est dans [BUILDING.md](BUILDING.md) (en anglais) et dans le manuel.
+
+## Revenir au firmware officiel
+
+1. Les projets KAWA seront perdus : le firmware officiel ne sait pas les lire.
+2. Branche le FM-1 sur une alimentation stable, avec un câble USB de données.
+3. Installe le firmware officiel **V15** de M-VAVE avec **M-UPGRADE**. Si KAWA se comporte mal, ouvre
+   d'abord le secours USB (OCT− tenu en allumant).
+4. **Ne débranche rien pendant le transfert.** C'est l'étape la plus délicate, car le firmware officiel
+   réécrit aussi le bootloader. S'il s'arrête, rebranche et relance.
+5. `python3 tools/fm1_install.py --info` doit répondre `FM-1_015`.
+
+## Tes samples sur le FM-1
+
+```sh
+python3 tools/kawa_samples.py put 1 mon-son.wav     # dans MON 1 (KAWA à l'arrêt)
+python3 tools/kawa_samples.py list
+```
+
+Le son est mis en mono, en 22 kHz et normalisé, jusqu'à 1,66 s par emplacement. Sur une piste SAMPLE,
+choisis SOURCE = MON 1 à 4.
 
 ## Le compiler
 
-- `tests/run_host.sh [script]` fait tourner KAWA sur ton ordinateur : écrans en PNG, son en WAV. Pas
-  besoin de FM-1 ni de compilateur spécial pour ça.
+- `tests/run_host.sh [script]` fait tourner KAWA sur ton ordinateur : écrans en PNG, son en WAV.
 - `web/make_emulator.sh` construit l'émulateur web. Il faut clang avec la cible wasm32, et wasm-ld.
 - `./build.sh` construit le paquet FM-1. Il faut le compilateur JieLi (`tools/get_toolchain.sh`) et trois
-  fichiers du SDK JieLi AC79 (Apache-2.0). Voir [BUILDING.md](BUILDING.md) (en anglais).
-- `./build.sh --release 0.1` produit `build/kawa-0.1.fwsc` (identité `FM-1_951`).
+  fichiers du SDK JieLi AC79. Voir [BUILDING.md](BUILDING.md).
+- `tests/run_loader_tests.sh` teste le chemin d'installation : paquets abîmés, coupures de courant, puce
+  inconnue.
+
+## Soutenir KAWA
+
+KAWA est gratuit et libre. Si tu aimes ce que je fais, pense à me soutenir ! Chaque petit geste compte
+énormément. **[Paye-moi une bière sur Ko-fi](https://ko-fi.com/omnipotard)**.
 
 ## Crédits et licence
 
 KAWA par Omnipotard. GPL-3.0-only : tu peux l'utiliser, le modifier et le partager, et qui reçoit un
 firmware construit à partir de lui reçoit aussi son code source. Il repose sur
 [Dinghy](https://github.com/zvenson/dinghy) (zvenson), [Felucca](https://github.com/hugelton/Felucca)
-(Leo Kuroshita, Hügelton Instruments) et [SLOOP](https://github.com/isod89/sloop-fm1) (isod89). Les
-détails sont dans [LICENSING.md](LICENSING.md). « M-VAVE » et « FM-1 » appartiennent à leurs propriétaires ;
-KAWA n'est ni fait ni approuvé par eux.
+(Leo Kuroshita, Hügelton Instruments) et [SLOOP](https://github.com/isod89/sloop-fm1) (isod89). Le moteur
+FM est msfa (Dexed, Apache-2.0), dans le portage de Felucca. Les détails sont dans
+[LICENSING.md](LICENSING.md). « M-VAVE » et « FM-1 » appartiennent à leurs propriétaires ; KAWA n'est ni fait
+ni approuvé par eux.

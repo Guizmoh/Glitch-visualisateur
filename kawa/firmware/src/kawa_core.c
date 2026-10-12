@@ -135,15 +135,20 @@ static uint32_t xr(uint32_t *s)
 }
 static uint32_t rnd(uint32_t n) { return n ? (xr(&rnd_main) >> 8) % n : 0u; }
 
-/* ---- user samples: four slots in flash (or the emulator's memory), 8-bit mu-law, 22050 or 11025 Hz */
-#define NUSR 4u
-#define USR_SIZE 0x9400u                        /* 37 KiB a slot: 37 KiB of sound, ~1.7 s at 22 kHz, ~3.4 s at 11 kHz */
-#define USR_HDR 32u
+/* ---- user samples: four slots in flash (9 sectors each from USR_AT, kawa_edit.c), 8-bit mu-law, 22050 or
+ * 11025 Hz. A slot: its header in the first 256 bytes (written last, after its CRC is checked), the sound from
+ * USR_DATA. The audio interrupt reads them where they are (memory-mapped flash, as Felucca's samples) */
+#define USR_SIZE 0x9000u                        /* 36 KiB a slot */
+#define USR_DATA 0x100u
+#define USR_CAP (USR_SIZE - USR_DATA)           /* 36608 B of sound: 1.66 s at 22 kHz, 3.3 s at 11 kHz */
 #define USR_MAGIC 0x504D534Bu                   /* "KSMP" */
 typedef struct {
     uint32_t magic, len, rate;                  /* len in samples; rate 22050 or 11025 */
     char name[12];
-    uint32_t crc, rsv[2];
+    uint32_t crc, rsv[2];                       /* crc: CRC-32 (zlib's) of the len bytes of sound */
 } usr_hdr_t;
 static usr_hdr_t usr_hdr[NUSR];                 /* main: read at boot and after an import */
-static const uint8_t *usr_data[NUSR];           /* main: where each slot's sound is (0: empty) */
+static const uint8_t *volatile usr_data[NUSR];  /* main: where each slot's sound is (0: empty) */
+static volatile uint8_t smp_kill;               /* main -> ISR: stop every sample voice (a slot is rewritten) */
+static volatile uint8_t audio_hold;             /* main: the audio interrupt renders nothing (flash is written) */
+static volatile uint32_t audio_blocks;          /* ISR: counts the blocks (the main loop waits on it) */

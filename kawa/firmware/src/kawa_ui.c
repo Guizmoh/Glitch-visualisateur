@@ -80,12 +80,17 @@ static cell_t *CUR(void) { return &P()->c[cur_row][trk()]; }
 static uint32_t ENG(uint32_t t) { return prj.snd[t].engine; }
 
 /* ---- text */
+static const char *drum_code(uint32_t t, uint32_t d, int wide)   /* a drum of the track's kit, as the tracker shows it */
+{
+    uint32_t k = (uint32_t)clampi(prj.snd[t].p[P_KIT], 0, NKIT - 1);
+    return wide ? KIT_CODE3[k][d & 15u] : KIT_CODE2[k][d & 15u];
+}
 static void note_text(uint32_t t, uint32_t note, char *s, int wide)
 {
     uint32_t nm = note_mode(t);
     if (note == NOTE_NONE) { str_cat(s, wide ? " . " : " ."); return; }
     if (note == NOTE_OFF) { str_cat(s, wide ? "OFF" : "--"); return; }
-    if (nm == NM_DRUM) { str_cat(s, wide ? DRUM3[cell_idx(note) & 15u] : DRUM2[cell_idx(note) & 15u]); return; }
+    if (nm == NM_DRUM) { str_cat(s, drum_code(t, cell_idx(note), wide)); return; }
     if (nm == NM_SLICE) { char *p = s; while (*p) p++; if (wide) *p++ = 'S'; fmt_u(p, cell_idx(note) + 1u, 2); return; }
     if (wide) {
         s = str_cat(s, NOTE_NAME[note % 12u]);
@@ -134,10 +139,10 @@ static void src_text(int32_t v, char *s)        /* a SAMPLE's source: a break, o
     const char *n;
     s[0] = 0;
     if (v < (int32_t)BRK_N) { str_cat(s, BRK_NAME[v < 0 ? 0 : v]); return; }
-    n = usr_name((uint32_t)v - 4u);
+    n = usr_name((uint32_t)v - BRK_N);
     if (n) { str_cat(s, n); return; }
     str_cat(s, TR("MON ", "MY ", "MI "));
-    fmt_u(s + str_len(s), (uint32_t)v - 3u, 0);
+    fmt_u(s + str_len(s), (uint32_t)v - BRK_N + 1u, 0);
     str_cat(s, " -");
 }
 static const uint16_t ENV_MS[16] = {0, 2, 5, 10, 20, 35, 50, 80, 120, 180, 250, 350, 500, 800, 1200, 2000};
@@ -774,10 +779,10 @@ static void draw_sound(void)
                 int lit = (drum[t][0].on && drum[t][0].drum == i && drum[t][0].t < 4000u) ||
                           (drum[t][1].on && drum[t][1].drum == i && drum[t][1].t < 4000u);
                 g_rrect(x, y, 26, 36, lit ? col : g_mix(C_BG2, col, 50));
-                g_text_c(x + 13, y + 12, DRUM2[i], lit ? C_INK : C_TXT, T_CROP | T_BOLD);
+                g_text_c(x + 13, y + 12, drum_code(t, i, 0), lit ? C_INK : C_TXT, T_CROP | T_BOLD);
             }
         } else {
-            uint32_t src = (uint32_t)clampi(p[P_SRC], 0, 7), x, playing = 99, sl;
+            uint32_t src = (uint32_t)clampi(p[P_SRC], 0, BRK_N + NUSR - 1), x, playing = 99, sl;
             const smpv_t *v = smp[t][0].on ? &smp[t][0] : smp[t][1].on ? &smp[t][1] : 0;
             const uint8_t *d;
             uint32_t len = 1, rate;
@@ -2000,6 +2005,8 @@ static void ui_leds(void)
 }
 
 /* ================================================================ the main loop */
+static void usr_boot(void);
+static void kw_poll(void);
 static void app_init(void)
 {
     uint32_t i;
@@ -2017,6 +2024,7 @@ static void app_init(void)
         theme_set(0);
         set.lang = lang;
     }
+    usr_boot();                                 /* the user's samples (kawa_sysex.c) */
     if (prj_load(0))
         prj_demo();                             /* nothing saved: the demo, ready to play */
     boot_ms = fm1_ms;
@@ -2027,6 +2035,7 @@ static void app_init(void)
 static void app_step(void)
 {
     ui_input();
+    kw_poll();
     if (sq_play && follow && page != PG_SONG && page != PG_PROJ && page != PG_OPT && ui_pat != sq_pat) {
         ui_pat = sq_pat;                        /* playing: the screen follows (until the pattern is changed by hand) */
         if (cur_row >= plen()) cur_row = 0;
@@ -2062,7 +2071,7 @@ static void app_main(void)
 #if defined(KAWA_WASM)
 /* the emulator reads what the knobs do on this page (their labels under the knobs), the page, and
  * puts the user's samples in (drag and drop: the page decodes, resamples and mu-law encodes them) */
-static uint8_t w_smp_stage[USR_SIZE];
+static uint8_t w_smp_stage[USR_CAP];
 static char w_smp_name[16];
 WASM_EXPORT("kawa_page") uint32_t kawa_page(void) { return page; }
 WASM_EXPORT("kawa_knob_label") const char *kawa_knob_label(uint32_t i) { return i < 4u ? knob_lab[i] : ""; }
@@ -2070,7 +2079,7 @@ WASM_EXPORT("kawa_track") uint32_t kawa_track(void) { return cur_trk; }
 WASM_EXPORT("kawa_theme") uint32_t kawa_theme(void) { return theme; }
 WASM_EXPORT("kawa_sample_buf") uint8_t *kawa_sample_buf(void) { return w_smp_stage; }
 WASM_EXPORT("kawa_sample_name") char *kawa_sample_name(void) { return w_smp_name; }
-WASM_EXPORT("kawa_sample_size") uint32_t kawa_sample_size(void) { return USR_SIZE - 4u; }
+WASM_EXPORT("kawa_sample_size") uint32_t kawa_sample_size(void) { return USR_CAP; }
 WASM_EXPORT("kawa_sample_commit") void kawa_sample_commit(uint32_t slot, uint32_t len, uint32_t rate)
 {
     usr_put(slot, w_smp_stage, len, rate, w_smp_name);

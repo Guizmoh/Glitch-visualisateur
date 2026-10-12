@@ -212,6 +212,14 @@ static void app_audio(int32_t *out, uint32_t n)
 {
     uint32_t c, i, t, t0 = fm1_ticks(), on, mpk = 0;
     uint16_t peak[NTRK] = {0};
+    audio_blocks++;
+    if (smp_kill) {                             /* a user slot is about to be rewritten: no voice reads it */
+        for (t = 0; t < NTRK; t++)
+            smp[t][0].on = smp[t][1].on = 0;
+        smp_kill = 0;
+    }
+    if (audio_hold)                             /* the flash is being written (kawa_sysex.c): silence */
+        return;
     while (evq_r != evq_w) {                    /* the keys */
         const ev_t *e = &evq[evq_r % EVQ];
         if (e->type == EV_ON)

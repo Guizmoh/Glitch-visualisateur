@@ -36,6 +36,18 @@ APP_XIP = 0x02000120                # app.bin offset 0 in the XIP map; the SPL j
 APP_SLOT = fm1pkg_make.APP_SLOT
 LOADER_LOAD = 0x01C0A800
 LOADER_NAME = b"usb_hid_ota.bin"    # the file name the SPL looks for
+LOADER_RAM = 0x14000                # loader.ld: the RAM the SPL loads the loader into (also ota.c's own-loader check)
+# The most of an ota.bin the stock FM-1 firmware stages and reads back intact: 19456 B (fm-1-re
+# docs/io/11-ota-protocol.md, docs/ota-loader-shrinking.md). A first install from the stock firmware goes
+# through it. Checked on the whole ota.bin (its dlen is 32 B less). Not padded to 512 B: Felucca's is not either
+# (the 512 B rule was seen only when forcing a replacement of the stock loader).
+OTA_STOCK_MAX = 0x4C00
+# The flash map (KAWA, on Felucca's): head [0, 0x4000) never written by an update; the app area up to 0x93000
+# (all the loader writes); KAWA's store 0x97000..0xE0000 (4 project slots of 0x9000, 4 user samples of 0x9400
+# from 0xBB000; the loader never erases there); the update staging 0xE0000..0xE5000 (ota.c); settings 0xFC000.
+FL_HEAD = (0, 0x4000)
+FL_STAGING = (0xE0000, 0xE5000)
+FL_SETTINGS = (0xFC000, 0xFD000)
 DOCKER_IMAGE = os.environ.get("JIELI_DOCKER_IMAGE", "debian:bookworm-slim")
 CFLAGS = ["-Os", "-ffunction-sections", "-fno-builtin", "-Wall", "-Wno-unused-function"]
 LINE = re.compile(r"^\s*([0-9a-f]+):\s+((?:[0-9a-f]{2} )+)\s*\t(.*)$")
@@ -47,7 +59,13 @@ SDK_SHA256 = {
     "cfg/eq_cfg_hw.bin": "41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d",
 }
 
-PRODUCT = "FM-1_950"                # KAWA: 95N (Dinghy is 99N; OUR_LOADER in the installers wants FM-1_9NN)
+# Package identity (the .fwsc marker, the handshake answer). The installers want FM-1_9NN; all of these are KAWA's:
+#   no --release   FM-1_950 (firmware/src/kawa.c's default too, for a build outside build.py)
+#   --release X.Y  FM-1_9(5+X)Y: 0.Y -> 95Y (0.2 -> FM-1_952), 1.Y -> 96Y (1.0 -> FM-1_960): majors 0 and 1
+#                  never share one. X.Y.Z and X.Y-suffix keep X.Y's (the full version is in the text).
+# Taken by others: Felucca 900 and 9XY for its X.Y (v1.5.1: 915), Dinghy 99N. A major 2 (97N) is refused:
+# it needs a new scheme first.
+PRODUCT = "FM-1_950"
 VERSION = None                      # APP_VER for release builds
 
 
@@ -123,8 +141,9 @@ def build_loader():
     LDR.mkdir(parents=True, exist_ok=True)
     src = FW / "loader"
     flags = [*CFLAGS, "-Ifirmware/hal", "-Ifirmware/src"]
-    tc_all(("cc", "-c", src / "crt0_ldr.S", "-o", LDR / "crt0_ldr.o"),
-           ("cc", *flags, "-c", src / "loader.c", "-o", LDR / "loader.o"))
+    *_, dm = tc_all(("cc", "-c", src / "crt0_ldr.S", "-o", LDR / "crt0_ldr.o"),
+                    ("cc", *flags, "-c", src / "loader.c", "-o", LDR / "loader.o"),
+                    ("cc", *flags, "-E", "-dM", src / "loader.c"))
     elf = LDR / "loader.elf"
     tc("pi32v2/bin/ld", "--gc-sections", "-e", "_start", "-T", src / "loader.ld",
        LDR / "crt0_ldr.o", LDR / "loader.o", "-o", elf)
@@ -138,14 +157,14 @@ def build_loader():
         if len(p) > 4 and p[1].startswith(".") and int(p[3], 16) >= 0x02000000 and int(p[2], 16):
             raise SystemExit(f"loader: section {p[1]} at {p[3]} is outside RAM")
     image = (LDR / "loader.bin").read_bytes()
-    if not image or len(image) > 0x14000:
+    if not image or len(image) > LOADER_RAM:
         raise SystemExit("loader: image empty or too big")
     ota = ldr_wrap(image)
     (LDR / "ota.bin").write_bytes(ota)
     bss = [int(ln.split()[0], 16) for ln in syms.splitlines() if ln.rstrip().endswith("_bss_end")]
     print(f"loader: image {len(image)} B at {LOADER_LOAD:#x}" + (f", bss end {bss[0]:#x}" if bss else ""))
     print(f"loader: ota.bin {len(ota)} B")
-    return ota
+    return ota, image, dm
 
 
 # ---- app
@@ -155,8 +174,9 @@ def build_app():
     cmds = [("cc", "-c", FW / "crt0.S", "-o", OUT / "crt0.o"),
             ("cc", "-c", FW / "hal" / "fm1_vec.S", "-o", OUT / "fm1_vec.o"),
             ("cc", "-c", FW / "hal" / "fm1_isr.S", "-o", OUT / "fm1_isr.o"),
-            ("cc", *flags, "-c", FW / "src" / "kawa.c", "-o", OUT / "kawa.o")]
-    tc_all(*cmds)
+            ("cc", *flags, "-c", FW / "src" / "kawa.c", "-o", OUT / "kawa.o"),
+            ("cc", *flags, "-E", "-dM", FW / "src" / "kawa.c")]
+    dm = tc_all(*cmds)[-1]
     elf = OUT / "kawa.elf"
     tc("pi32v2/bin/ld", "--gc-sections", "-e", "_start", "-T", FW / "app.ld", OUT / "crt0.o", OUT / "fm1_vec.o",
        OUT / "fm1_isr.o", OUT / "kawa.o", "-o", elf)
@@ -186,7 +206,7 @@ def build_app():
             img += blob
     img += b"\xff" * (-len(img) % 4)
     (OUT / "kawa.bin").write_bytes(img)
-    return bytes(img), syms, dis, rt
+    return bytes(img), syms, dis, rt, dm
 
 
 def check(img, syms, dis, rt):
@@ -220,6 +240,97 @@ def check(img, syms, dis, rt):
     notes.append(f"image {len(img)} B of {APP_SLOT}; RAM .data+.bss {ram} B of 98304; pool {pool} B of 344064")
     if ram > 96 * 1024:
         errors.append(f"RAM .data+.bss {ram} B > 96 KiB")
+    return errors, notes
+
+
+def cdefs(dm):
+    """a cc -E -dM listing -> {macro name: body}"""
+    return {m[0]: m[1].strip() for m in re.findall(r"^#define (\w+)(?:\([^)]*\))?(?: (.*))?$", dm, re.M)}
+
+
+def cval(defs, expr, depth=0):
+    """an integer macro of a -dM listing: literals, macro names and + only"""
+    v = 0
+    for t in expr.replace("(", " ").replace(")", " ").split("+"):
+        t = t.strip()
+        if re.fullmatch(r"(?:0x[0-9a-fA-F]+|[1-9][0-9]*|0)[uUlL]*", t):
+            v += int(t.rstrip("uUlL"), 0)
+        elif t in defs and depth < 8:
+            v += cval(defs, defs[t], depth + 1)
+        else:
+            raise SystemExit(f"build: cannot read {expr!r} as a flash offset")
+    return v
+
+
+def windows(defs):
+    """FL_RANGE_OK's [lo, hi) windows: where the RAM flash driver may erase / program"""
+    body = defs.get("FL_RANGE_OK", "")
+    w = re.findall(r"FL_IN\(\s*off\s*,\s*n\s*,\s*([^,()]+?)\s*,\s*([^,()]+?)\s*\)", body)
+    if not w or len(w) != body.count("FL_IN("):
+        raise SystemExit(f"build: FL_RANGE_OK {body!r} is not a list of FL_IN windows")
+    return [(cval(defs, lo), cval(defs, hi)) for lo, hi in w]
+
+
+def app_area_end(flash):
+    """where the app area fm1pkg_make wrote ends in flash: the app_area_head block, then the cfg directory"""
+    def size(off):                  # size field of the JLFS entry at app area offset off (SFC, 32-byte blocks)
+        a = off & ~31
+        b = bytearray(flash[0x4000 + a:0x4000 + a + 64])
+        fm1pkg_make.sfc(b, 0, len(b), -a, fm1pkg_make.KEY)
+        e = bytes(b[off - a:off - a + 32])
+        if struct.unpack_from("<H", e)[0] != fm1pkg_make.crc16(e[2:]):
+            raise SystemExit(f"build: no JLFS entry at app area offset {off:#x}")
+        return struct.unpack_from("<I", e, 8)[0]
+    blk = size(0)
+    return 0x4000 + blk + size(blk)
+
+
+def flash_check(img, flash, ota, image, dm_app, dm_ldr):
+    """the flash map the app, the loader and the package must agree on"""
+    errors, notes = [], []
+    app, ldr = cdefs(dm_app), cdefs(dm_ldr)
+
+    def h(r):
+        return f"{r[0]:#x}..{r[1]:#x}"
+
+    def meets(a, b):
+        return a[0] < b[1] and b[0] < a[1]
+    app_hi, keep = cval(ldr, "LDR_APP_HI"), (cval(ldr, "LDR_DATA_LO"), cval(ldr, "LDR_DATA_HI"))
+    # the app: all of it in the area the loader writes
+    end, app_end = app_area_end(flash), 0x4000 + 0x120 + len(img)
+    if len(flash) != app_hi or app_end > app_hi or end > app_hi:
+        errors.append(f"app.bin ends at {app_end:#x}, the app area at {end:#x} in flash (flash.bin {len(flash):#x} B): "
+                      f"the loader writes up to {app_hi:#x} only")
+    else:
+        notes.append(f"app.bin ends at {app_end:#x}, the app area at {end:#x} in flash (the loader writes to {app_hi:#x})")
+    # the store: clear of the app, the staging, the settings, and where the loader never erases
+    store = (cval(app, "STORE_LO"), cval(app, "STORE_HI"))
+    why = [w for w, bad in (("empty or not in 4 KiB sectors", store[0] >= store[1] or (store[0] | store[1]) & 0xFFF),
+                            (f"meets the update staging {h(FL_STAGING)}", meets(store, FL_STAGING)),
+                            (f"meets the settings {h(FL_SETTINGS)}", meets(store, FL_SETTINGS)),
+                            (f"meets the app area (to {app_hi:#x})", store[0] < app_hi),
+                            (f"is not inside {h(keep)}, where the loader never erases", not keep[0] <= store[0] <= store[1] <= keep[1]))
+           if bad]
+    if why:
+        errors.append(f"store {h(store)} " + ", ".join(why))
+    else:
+        notes.append(f"store {h(store)}: clear of the staging {h(FL_STAGING)} and the settings {h(FL_SETTINGS)}, "
+                     "the loader leaves it alone")
+    # where the app and the loader may erase / program
+    aw, lw = windows(app), windows(ldr)
+    bad = [f"app {h(w)}" for w in aw if w[0] < app_hi]
+    bad += [f"loader {h(w)}" for w in lw if meets(w, FL_HEAD) or meets(w, store) or meets(w, FL_SETTINGS)]
+    if bad:
+        errors.append(f"flash windows {', '.join(bad)}: the head, the app, the store or the settings in reach")
+    else:
+        notes.append(f"flash windows: app {', '.join(h(w) for w in aw)}; loader {', '.join(h(w) for w in lw)}")
+    # the loader: it fits its RAM and the stock firmware's staging
+    if len(image) > LOADER_RAM or len(ota) > OTA_STOCK_MAX:
+        errors.append(f"loader image {len(image)} B (RAM {LOADER_RAM}), ota.bin {len(ota)} B: above the stock "
+                      f"firmware's staging limit of {OTA_STOCK_MAX} B")
+    else:
+        notes.append(f"loader image {len(image)} B of {LOADER_RAM}, ota.bin {len(ota)} B of {OTA_STOCK_MAX} "
+                     "(the stock firmware's staging limit)")
     return errors, notes
 
 
@@ -270,7 +381,8 @@ def mmio_check():
 def main():
     global PRODUCT, VERSION
     ap = argparse.ArgumentParser()
-    ap.add_argument("--release", metavar="X.Y", help="release build: identity FM-1_9XY, version string X.Y")
+    ap.add_argument("--release", metavar="X.Y", help="release build: identity FM-1_95Y (0.Y) / FM-1_96Y (1.Y), "
+                    "version string X.Y")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()
     name = "kawa.fwsc"
@@ -278,17 +390,26 @@ def main():
         m = re.fullmatch(r"(\d)\.(\d)(\.\d)?(-[A-Za-z0-9]+)?", a.release)
         if not m:
             raise SystemExit(f"--release {a.release}: use X.Y, X.Y.Z or X.Y-suffix, one digit each")
-        PRODUCT = "FM-1_95" + m[2]
+        if int(m[1]) > 1:
+            raise SystemExit(f"--release {a.release}: KAWA's identities cover majors 0 (FM-1_95Y) and 1 (FM-1_96Y); "
+                             "a major 2 needs a new scheme first (tools/build.py, PRODUCT)")
+        PRODUCT = f"FM-1_9{5 + int(m[1])}{m[2]}"
         VERSION = m[1] + "." + m[2] + (m[3] or "")
         name = f"kawa-{a.release}.fwsc"
     fm1pkg_make.SDK = a.sdk
-    for rel, sha in SDK_SHA256.items():          # fail early without the SDK
+    for rel, sha in SDK_SHA256.items():          # fail early without the SDK, or with another one
         if hashlib.sha256(fm1pkg_make.sdk_file(rel)).hexdigest() != sha:
-            print(f"warning: SDK {rel} differs from AC79NN_SDK_V1.2.1; the package will not match the reference")
+            raise SystemExit(f"build: SDK file {rel} is not the one of AC79NN_SDK_V1.2.1_2023-12-13 (SHA-256 "
+                             f"{sha[:16]}...): the package would carry an untested SPL / config. Check out that tag "
+                             "in AC79_SDK (BUILDING.md)")
     OUT.mkdir(parents=True, exist_ok=True)
-    ota = build_loader()
-    img, syms, dis, rt = build_app()
+    ota, image, dm_ldr = build_loader()
+    img, syms, dis, rt, dm_app = build_app()
+    flash = fm1pkg_make.flash_image(img, fm1pkg_make.KEY)
     errors, notes = check(img, syms, dis, rt)
+    fe, fn = flash_check(img, flash, ota, image, dm_app, dm_ldr)
+    errors += fe
+    notes += fn
     hal_err = mmio_check()
     errors += hal_err
     if not hal_err:
@@ -299,7 +420,7 @@ def main():
         print("  FAIL ", e)
     if errors:
         raise SystemExit("build: checks failed")
-    pkg = fm1pkg_make.ufw(fm1pkg_make.flash_image(img, fm1pkg_make.KEY), ota, PRODUCT)
+    pkg = fm1pkg_make.ufw(flash, ota, PRODUCT)
     (OUT / name).write_bytes(pkg)
     print(f"app      {OUT / 'kawa.bin'}  {len(img)} B")
     print(f"loader   {LDR / 'ota.bin'}  {len(ota)} B")

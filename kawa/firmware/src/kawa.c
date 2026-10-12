@@ -18,13 +18,24 @@
  *   kawa_edit.c   editing, magic tools, undo, the flash store
  *   kawa_gfx.c    drawing in bands
  *   kawa_ui.c     the pages, the panel, app_main
+ *   kawa_sysex.c  the user's samples over USB-MIDI (SysEx)
  * Rules of the chip (docs/RULES.md): integers only, no 64-bit division, the audio interrupt short. */
 #define APP_NAME "KAWA"
+#ifndef FELUCCA_ID
+#define FELUCCA_ID "FM-1_950"                   /* KAWA's identity, also outside build.py (it passes FM-1_95N / 96N) */
+#endif
+#if !defined(DINGHY_HOST) && !defined(KAWA_WASM)  /* (the host builds keep the store in memory) */
+#ifndef STORE_LO
+#define STORE_LO 0x00097000u                    /* the store: 4 project slots of 0x9000, then 4 user samples of */
+#define STORE_HI 0x000E0000u                    /* 0x9000 from 0xBB000 (to 0xDF000), below the update staging (0xE0000) */
+#endif
+#endif
 #include "platform.c"
 #include "kawa_tables.h"
 #include "kawa_breaks.h"
 #include "kawa_art.h"
 #include "kawa_fm.h"
+#include "kawa_kits.h"
 #include "kawa_data.c"
 #include "kawa_core.c"
 #include "kawa_snd.c"
@@ -33,3 +44,4 @@
 #include "kawa_edit.c"
 #include "kawa_gfx.c"
 #include "kawa_ui.c"
+#include "kawa_sysex.c"

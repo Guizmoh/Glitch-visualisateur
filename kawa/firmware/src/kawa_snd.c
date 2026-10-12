@@ -213,128 +213,7 @@ static void fm_build(uint32_t t)                /* main loop: the FM track's pat
     fm_gen++;
 }
 
-/* ---- KIT: 16 drums, two voices a track */
-typedef struct {
-    uint8_t wave, note, drop, ptau, atau, tone, noise, ntau, nhp, drive, flags;
-} drumdef_t;
-enum { DR_CLAP = 1, DR_METAL = 2, DR_BELL = 4, DR_CHIPN = 8 };
-enum { W_SINE, W_TRI, W_SQUARE };
-static const drumdef_t DRUMS[NDRUM] = {
-    /* wave, note, drop, ptau, atau, tone, noise, ntau, nhp, drive, flags   (taus: DECAY_K index, 7.6 ln(ms)) */
-    {W_SINE, 31, 26, 26, 40, 15, 3, 8, 12, 2, 0},           /* KICK */
-    {W_SINE, 33, 30, 24, 45, 15, 2, 8, 12, 12, 0},          /* GABBER */
-    {W_SINE, 54, 7, 20, 30, 9, 13, 37, 9, 3, 0},            /* SNARE */
-    {W_SINE, 60, 0, 10, 10, 0, 15, 35, 8, 2, DR_CLAP},      /* CLAP */
-    {W_SINE, 60, 0, 10, 10, 0, 12, 21, 14, 0, 0},           /* CLOSED HAT */
-    {W_SINE, 60, 0, 10, 10, 0, 12, 41, 14, 0, 0},           /* OPEN HAT */
-    {W_SINE, 43, 5, 30, 39, 15, 2, 12, 10, 1, 0},           /* LOW TOM */
-    {W_SINE, 50, 5, 30, 37, 15, 2, 12, 10, 1, 0},           /* HIGH TOM */
-    {W_SINE, 60, 0, 10, 10, 0, 9, 52, 13, 0, DR_METAL},     /* CYMBAL */
-    {W_SINE, 60, 0, 10, 10, 0, 5, 48, 13, 0, DR_METAL},     /* RIDE */
-    {W_SQUARE, 76, 0, 10, 32, 11, 0, 10, 10, 0, DR_BELL},   /* COWBELL */
-    {W_SINE, 88, 0, 10, 17, 13, 5, 8, 11, 2, 0},            /* RIM */
-    {W_SQUARE, 36, 48, 22, 32, 12, 0, 10, 10, 1, 0},        /* ZAP */
-    {W_SINE, 31, 5, 30, 52, 15, 0, 10, 10, 1, 0},           /* 808 BOOM */
-    {W_TRI, 36, 36, 22, 33, 15, 0, 10, 10, 0, 0},           /* CHIP KICK */
-    {W_TRI, 60, 12, 15, 20, 9, 13, 30, 8, 0, DR_CHIPN},     /* CHIP SNARE */
-};
-typedef struct {
-    uint8_t on, drum, crush;
-    uint32_t ph, ph2, rnd, mph[6], t;
-    int32_t note, pe, pek, ae, aek, ne, nek, hp, hpk, drive;
-} drum_t;
-static drum_t drum[NTRK][2];
-static uint8_t drum_next[NTRK];
-
-static void drum_on(uint32_t t, uint32_t d, uint32_t fx, int32_t fxv)
-{
-    drum_t *v = &drum[t][drum_next[t]];
-    const drumdef_t *k = &DRUMS[d & 15u];
-    const int8_t *p = prj.snd[t].p;
-    int32_t dec = p[P_DECAY] * 2;
-    drum_next[t] ^= 1u;
-    if (drum[t][drum_next[t]].on && drum[t][drum_next[t]].drum == (d & 15u))
-        drum[t][drum_next[t]].aek = drum[t][drum_next[t]].nek = 40000;   /* the same drum again: the old one chokes */
-    v->drum = (uint8_t)(d & 15u);
-    v->note = (k->note + p[P_TUNE] + (fx == FX_PITCH ? fxv : 0)) * 256;
-    v->pe = k->drop * 256;
-    v->pek = DECAY_K[clampi(k->ptau, 0, 63)];
-    v->ae = k->tone ? 65535 : 0;
-    v->aek = DECAY_K[clampi(k->atau + dec, 0, 63)];
-    v->ne = k->noise ? 65535 : 0;
-    v->nek = DECAY_K[clampi(k->ntau + dec, 0, 63)];
-    v->hpk = TON_A[k->nhp];
-    v->drive = 1 + k->drive + p[P_DRIVE];
-    v->crush = (uint8_t)(fx == FX_CRUSH ? fxv : p[P_KCRUSH]);
-    v->ph = v->ph2 = 0;
-    v->t = 0;
-    if (!v->rnd)
-        v->rnd = 0xACE1u + d + t * 77u;
-    v->on = 1;
-}
-
-static void drum_chunk(drum_t *v, int32_t *out)
-{
-    const drumdef_t *k = &DRUMS[v->drum];
-    uint32_t i, inc, inc2 = 0;
-    int32_t ta = (int32_t)((uint32_t)(v->ae >> 1) * (uint32_t)(k->tone * 2185) >> 15);   /* Q15 */
-    int32_t na = (int32_t)((uint32_t)(v->ne >> 1) * (uint32_t)(k->noise * 2185) >> 15);
-    int32_t m = crush_mask(v->crush);
-    static const uint32_t METAL_INC[6] = {39994000u, 72000000u, 59300000u, 101800000u, 105200000u, 155800000u};
-    if (!v->on)
-        return;
-    inc = pitch_inc(v->note + v->pe);
-    if (k->flags & DR_BELL)
-        inc2 = (uint32_t)(((uint64_t)inc * 96000u) >> 16);
-    for (i = 0; i < CHUNK; i++) {
-        int32_t s = 0, n;
-        if (ta) {
-            int32_t o;
-            if (k->wave == W_SINE)
-                o = sine(v->ph);
-            else if (k->wave == W_TRI)
-                o = (int32_t)((v->ph >> 28) < 8u ? (v->ph >> 28) : 15u - (v->ph >> 28)) * 9362 - 32767;
-            else
-                o = (v->ph < 0x80000000u ? 20000 : -20000);
-            if (inc2)
-                o = (o + (v->ph2 < 0x80000000u ? 20000 : -20000)) >> 1;
-            s += (o * ta) >> 15;
-            v->ph += inc;
-            v->ph2 += inc2;
-        }
-        if (na) {
-            if (k->flags & DR_METAL) {          /* six detuned squares, as the 808 cymbal */
-                uint32_t j;
-                n = 0;
-                for (j = 0; j < 6u; j++) {
-                    v->mph[j] += METAL_INC[j];
-                    n += v->mph[j] < 0x80000000u ? 5000 : -5000;
-                }
-            } else if (k->flags & DR_CHIPN) {
-                uint32_t l = v->rnd & 0x7FFFu, b = (l ^ (l >> 1)) & 1u;
-                if ((v->t & 3u) == 0u)
-                    v->rnd = (l >> 1) | (b << 14) | 1u;
-                n = (v->rnd & 1u) ? 24000 : -24000;
-            } else
-                n = (int32_t)(xr(&v->rnd) >> 16) - 32768;
-            v->hp += ((n - v->hp) * v->hpk) >> 15;
-            n -= v->hp;
-            if (k->flags & DR_CLAP) {           /* three hands, then the room */
-                uint32_t tt = v->t;
-                if (tt < 1400u && (tt % 440u) > 300u)
-                    n = 0;
-            }
-            s += (n * na) >> 15;
-        }
-        out[i] += sat(s * v->drive) & m;
-        v->t++;
-    }
-    v->pe = (int32_t)(((int64_t)v->pe * v->pek) >> 16);
-    v->ae = (int32_t)(((int64_t)v->ae * v->aek) >> 16);
-    v->ne = (int32_t)(((int64_t)v->ne * v->nek) >> 16);
-    if (v->ae < 40 && v->ne < 40)
-        v->on = 0;
-}
+#include "kawa_drums.c"
 
 /* ---- SAMPLE: a break or a user sample, two voices so that a new note fades the last one out */
 typedef struct {
@@ -354,7 +233,7 @@ static int smp_source(uint32_t src, const uint8_t **d, uint32_t *len, uint32_t *
         *rate = BRK_SR;
         return 1;
     }
-    src -= 4u;
+    src -= BRK_N;
     if (src < NUSR && usr_data[src] && usr_hdr[src].len > 64u) {
         *d = usr_data[src];
         *len = usr_hdr[src].len;
@@ -373,7 +252,7 @@ static void smp_on(uint32_t t, uint32_t note, uint32_t fx, int32_t fxv)
     const uint8_t *d;
     uint32_t len, rate, s0, s1, ratio, q = DUR_Q[clampi(p[P_LEN], 0, 11)];
     int32_t semis = p[P_STUNE] + ((lv_mask >> t & 1u) ? lv_transpose : 0) + (fx == FX_PITCH ? fxv : 0);
-    if (!smp_source((uint32_t)clampi(p[P_SRC], 0, 7), &d, &len, &rate))
+    if (!smp_source((uint32_t)clampi(p[P_SRC], 0, BRK_N + NUSR - 1), &d, &len, &rate))
         return;
     if (o->on)
         o->gtgt = 0, o->gstep = -(32767 / 96);  /* ~2 ms */
@@ -529,7 +408,8 @@ static void voice_off(uint32_t t)
 static void voice_cut(uint32_t t)                /* CUT: the note stops now, whatever plays it */
 {
     voice_off(t);
-    drum[t][0].aek = drum[t][1].aek = drum[t][0].nek = drum[t][1].nek = 50000;
+    drum_choke(&drum[t][0]);
+    drum_choke(&drum[t][1]);
     smp[t][0].gtgt = smp[t][1].gtgt = 0;
     smp[t][0].gstep = smp[t][1].gstep = -(32767 / 120);
 }

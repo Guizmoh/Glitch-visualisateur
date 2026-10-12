@@ -18,7 +18,7 @@
 #define FM1_TICKS_PER_US 24u
 #define RING_PUBLISH() ((void)0)
 #define STORE_LO 0x00097000u
-#define STORE_HI 0x000D7000u
+#define STORE_HI 0x000E0000u
 #include "libc.c"
 
 static volatile uint32_t fm1_ms;

@@ -7,7 +7,8 @@
  *   tests/run_host.sh [script]           (-> build/host/kawa.wav and the screens as PNG)
  *
  * Script lines: "T keys MASK" (bit k = key k, 0 = F3), "T press ID" / "T release ID" / "T btn ID" (a tap),
- * "T enc ID STEPS", "T lang L" (0 FR, 1 EN, 2 ES), "T shot NAME", "T end". T in milliseconds. */
+ * "T enc ID STEPS", "T lang L" (0 FR, 1 EN, 2 ES), "T shot NAME", "T sysex F0..F7" (a frame in hex; the
+ * replies are printed), "T end". T in milliseconds. */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,7 +25,7 @@
 #define FM1_TICKS_PER_US 24u
 #define RING_PUBLISH() ((void)0)
 #define STORE_LO 0x00097000u
-#define STORE_HI 0x000D7000u
+#define STORE_HI 0x000E0000u
 
 static volatile uint32_t fm1_ms;
 static struct { uint32_t notes, buttons; } fm1_in;
@@ -69,9 +70,10 @@ static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { (void)st; (void)d
 static void app_audio(int32_t *out, uint32_t n);
 static void app_main(void);
 static void set_lang(uint32_t l);
+static int app_sysex(const uint8_t *p, uint32_t n);
 
-typedef struct { uint32_t t; char what[12]; int32_t a, b; char name[32]; } host_ev_t;
-static host_ev_t ev[4096];
+typedef struct { uint32_t t; char what[12]; int32_t a, b; char name[32]; char *hex; } host_ev_t;
+static host_ev_t ev[8192];
 static uint32_t ev_n, ev_i, end_ms = 4000;
 static const char *host_out = "build/host/kawa";
 static int16_t *wav;
@@ -79,15 +81,20 @@ static uint32_t wav_n;
 
 static void read_script(const char *path)
 {
-    char line[256];
+    char line[2048];
     FILE *f = fopen(path, "r");
     if (!f) { perror(path); exit(1); }
-    while (fgets(line, sizeof line, f) && ev_n < 4096u) {
+    while (fgets(line, sizeof line, f) && ev_n < 8192u) {
         host_ev_t e;
         memset(&e, 0, sizeof e);
         if (line[0] == '#' || sscanf(line, "%u %11s", &e.t, e.what) != 2) continue;
         if (!strcmp(e.what, "end")) { end_ms = e.t; continue; }
         if (!strcmp(e.what, "shot")) sscanf(line, "%*u %*s %31s", e.name);
+        else if (!strcmp(e.what, "sysex")) {
+            char *q = strstr(line, "sysex") + 5;
+            while (*q == ' ') q++;
+            e.hex = strdup(q);
+        }
         else if (!strcmp(e.what, "keys")) sscanf(line, "%*u %*s %i", &e.a);
         else sscanf(line, "%*u %*s %d %d", &e.a, &e.b);
         ev[ev_n++] = e;
@@ -142,6 +149,19 @@ static void platform_poll(void)                 /* one call = one millisecond */
         else if (!strcmp(e->what, "enc")) host_enc[e->a] += e->b;
         else if (!strcmp(e->what, "lang")) set_lang((uint32_t)e->a);
         else if (!strcmp(e->what, "shot")) write_ppm(e->name);
+        else if (!strcmp(e->what, "sysex")) {  /* a SysEx frame from the computer, F0 .. F7 in hex */
+            uint8_t f[700];
+            uint32_t n = 0;
+            const char *q = e->hex;
+            while (*q && n < sizeof f) {
+                unsigned v;
+                if (sscanf(q, "%2x", &v) != 1) break;
+                f[n++] = (uint8_t)v;
+                q += 2;
+            }
+            if (n >= 2u && f[0] == 0xF0 && f[n - 1u] == 0xF7 && !app_sysex(f + 1, n - 2u))
+                printf("%6u ms  sysex: not KAWA's\n", fm1_ms);
+        }
     }
     owed += FS;
     while (owed >= 1000u * HALF_FRAMES) {

@@ -465,7 +465,7 @@ static uint8_t mg_clone_to = 0xFF;              /* CLONE: the new pattern (the s
 
 static void mg_chop(pat_t *p, uint32_t t, uint32_t inten)
 {
-    uint32_t r, len = p->len, src = (uint32_t)clampi(prj.snd[t].p[P_SRC], 0, 7), brk = src < BRK_N ? src : 99u;
+    uint32_t r, len = p->len, src = (uint32_t)clampi(prj.snd[t].p[P_SRC], 0, BRK_N + NUSR - 1), brk = src < BRK_N ? src : 99u;
     if (note_mode(t) == NM_SLICE) {
         for (r = 0; r < len; r++) {
             uint32_t s = r % 16u, k, pick = s;
@@ -892,19 +892,18 @@ static int prj_load(uint32_t k)
  * mono, 22050 or 11025 Hz, 8-bit mu-law as the breaks). On the FM-1 the slots stay empty until the
  * transfer over USB comes (their place in flash is kept: USR_AT) */
 #if defined(DINGHY_HOST) || defined(KAWA_WASM)
-static uint8_t usr_mem[NUSR][USR_SIZE];
+static uint8_t usr_mem[NUSR][USR_CAP];
 static void usr_put(uint32_t k, const uint8_t *d, uint32_t len, uint32_t rate, const char *name)
 {
     uint32_t i;
     if (k >= NUSR)
         return;
-    if (len > USR_SIZE - 4u)
-        len = USR_SIZE - 4u;
+    if (len > USR_CAP)
+        len = USR_CAP;
     usr_data[k] = 0;                            /* (the voices stop reading it while it changes) */
     for (i = 0; i < len; i++)
         usr_mem[k][i] = d[i];
-    for (i = 0; i < 4u; i++)
-        usr_mem[k][len + i] = 128u;             /* silence after the end (the interpolation reads one more) */
+
     usr_hdr[k].magic = USR_MAGIC;
     usr_hdr[k].len = len;
     usr_hdr[k].rate = rate == 11025u ? 11025u : 22050u;

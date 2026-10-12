@@ -10,6 +10,7 @@ static int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : 
 static const char *const LANG_CODE[LANG_N] = {"FR", "EN", "ES"};
 
 /* ---- engines: each of the eight tracks plays one, picked with its sound (SOUND, PRESETS) */
+#define NUSR 4u                                /* the user's sample slots (kawa_core.c) */
 #define NTRK 6u                                /* six tracks: the FM-1's audio interrupt keeps a wide margin */
 enum { E_PULSE, E_WAVE, E_NOISE, E_FM, E_KIT, E_SAMPLE, E_N };
 static const char *const ENGINE_NAMES[LANG_N][E_N] = {{"CARRE", "ONDE", "BRUIT", "FM", "KIT", "SAMPLE"},
@@ -67,7 +68,7 @@ enum { P_SHAPE = 0, P_SWEEP, P_VIB, P_TON, P_CRUSH, P_DETUNE, P_ARPV, P_GLIDE };
 /* FM */
 enum { P_FMPAT = 0, P_FMALG, P_FMRAT, P_FMFB, P_FMBRI, P_FMMEG, P_FMDET, P_FMVIB };
 /* KIT */
-enum { P_TUNE = 0, P_DECAY, P_DRIVE, P_KCRUSH, P_KTON };
+enum { P_KIT = 0, P_TUNE, P_DECAY, P_DRIVE, P_KCRUSH, P_KTON };
 /* SAMPLE */
 enum { P_SRC = 0, P_SMODE, P_STUNE, P_FIT, P_LEN, P_SDRIVE, P_SCRUSH, P_STON };
 enum { K_NUM, K_SIGN, K_LIST, K_NAMES, K_PAN, K_MS, K_SRC };   /* K_LIST: n values x 3 languages, flat */
@@ -145,10 +146,11 @@ static const pdesc_t PDESC[E_N][NPARAM] = {
      {PDN("RETOUR", "FEEDBK", "RETORNO"), -7, 7, K_SIGN, 0}, {PDN("BRILLE", "BRIGHT", "BRILLO"), -15, 15, K_SIGN, 0},
      {PDN("MOD ENV", "MOD ENV", "MOD ENV"), -8, 8, K_SIGN, 0}, {PDN("DESACC", "DETUNE", "DESAFIN"), 0, 15, K_NUM, 0},
      {PDN("VIBRATO", "VIBRATO", "VIBRATO"), 0, 15, K_NUM, 0}, PD_ENV, PD_MIX, PD_FX, PD_LFO},
-    {{PDN("ACCORD", "TUNE", "AFINA"), -12, 12, K_SIGN, 0}, {PDN("DECLIN", "DECAY", "CAIDA"), -8, 8, K_SIGN, 0},
-     {PDN("SATURE", "DRIVE", "SATURA"), 0, 15, K_NUM, 0}, {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0},
-     {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0}, PD_NONE, PD_NONE, PD_NONE, PD_ENV, PD_MIX, PD_FX, PD_LFO},
-    {{PDN("SOURCE", "SOURCE", "FUENTE"), 0, 7, K_SRC, 0}, {PDN("MODE", "MODE", "MODO"), 0, 1, K_LIST, L_SMODE},
+    {{PDN("KIT", "KIT", "KIT"), 0, NKIT - 1, K_LIST, L_KITS}, {PDN("ACCORD", "TUNE", "AFINA"), -12, 12, K_SIGN, 0},
+     {PDN("DECLIN", "DECAY", "CAIDA"), -8, 8, K_SIGN, 0}, {PDN("SATURE", "DRIVE", "SATURA"), 0, 15, K_NUM, 0},
+     {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0}, {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0}, PD_NONE, PD_NONE,
+     PD_ENV, PD_MIX, PD_FX, PD_LFO},
+    {{PDN("SOURCE", "SOURCE", "FUENTE"), 0, (int8_t)(BRK_N + NUSR - 1u), K_SRC, 0}, {PDN("MODE", "MODE", "MODO"), 0, 1, K_LIST, L_SMODE},
      {PDN("ACCORD", "TUNE", "AFINA"), -12, 12, K_SIGN, 0}, {PDN("CALE", "FIT", "AJUSTE"), 0, 1, K_LIST, L_ONOFF},
      {PDN("DUREE", "LENGTH", "LARGO"), 0, 11, K_LIST, L_DUR}, {PDN("SATURE", "DRIVE", "SATURA"), 0, 15, K_NUM, 0},
      {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0}, {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0},
@@ -211,36 +213,30 @@ static const preset_t PRESETS[] = {
     {{"BASSE ACIDE", "ACID BASS", "BAJO ACIDO"}, E_FM, {9, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 2}},
     {{"HOOVER", "HOOVER", "HOOVER"}, E_FM, {10, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 6}},
     {{"KALIMBA", "KALIMBA", "KALIMBA"}, E_FM, {11, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 6}},
-    {{"CLASSIQUE", "CLASSIC", "CLASICO"}, E_KIT, {0, 0, 2, 0, 15, 0, 0, 0}, {0, 15, 15, 15}},
-    {{"GABBER", "GABBER", "GABBER"}, E_KIT, {0, 2, 12, 0, 13, 0, 0, 0}, {0, 15, 15, 15}},
-    {{"LOFI", "LOFI", "LOFI"}, E_KIT, {0, 0, 4, 4, 10, 0, 0, 0}, {0, 15, 15, 15}},
-    {{"MINUS", "MINUS", "MINUS"}, E_KIT, {-3, -3, 6, 0, 12, 0, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT ACOUSTIQUE", "ACOUSTIC KIT", "KIT ACUSTICO"}, E_KIT, {0, 0, 0, 1, 0, 13, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT HIP HOP", "HIP HOP KIT", "KIT HIP HOP"}, E_KIT, {1, 0, 0, 3, 0, 12, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT TECHNO", "TECHNO KIT", "KIT TECHNO"}, E_KIT, {2, 0, 0, 2, 0, 15, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT DUB REGGAE", "DUB REGGAE KIT", "KIT DUB REGGAE"}, E_KIT, {3, 0, 0, 1, 0, 11, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT LO-FI", "LO-FI KIT", "KIT LO-FI"}, E_KIT, {4, 0, 0, 4, 2, 9, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT GAME BOY", "GAME BOY KIT", "KIT GAME BOY"}, E_KIT, {5, 0, 0, 0, 0, 15, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT SNES", "SNES KIT", "KIT SNES"}, E_KIT, {6, 0, 0, 1, 0, 14, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT PERCUS", "PERCUSSION KIT", "KIT PERCUSION"}, E_KIT, {7, 0, 0, 0, 0, 14, 0, 0}, {0, 15, 15, 15}},
+    {{"KIT GABBER", "GABBER KIT", "KIT GABBER"}, E_KIT, {2, 2, 2, 12, 0, 13, 0, 0}, {0, 15, 15, 15}},
     {{"AMENE", "AMENE", "AMENE"}, E_SAMPLE, {0, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
     {{"PENSE", "PENSE", "PENSE"}, E_SAMPLE, {1, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
     {{"FUNKY", "FUNKY", "FUNKY"}, E_SAMPLE, {2, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
     {{"ECLAIR", "ECLAIR", "ECLAIR"}, E_SAMPLE, {3, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
     {{"AMENE SALE", "AMENE DIRTY", "AMENE SUCIO"}, E_SAMPLE, {0, 0, 0, 1, 11, 10, 3, 12}, {0, 15, 15, 2}},
     {{"AMENE COURT", "AMENE SHORT", "AMENE CORTO"}, E_SAMPLE, {0, 0, 0, 1, 3, 2, 0, 15}, {0, 15, 15, 1}},
-    {{"MON SAMPLE 1", "MY SAMPLE 1", "MI SAMPLE 1"}, E_SAMPLE, {4, 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
-    {{"MON SAMPLE 2", "MY SAMPLE 2", "MI SAMPLE 2"}, E_SAMPLE, {5, 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
-    {{"MON SAMPLE 3", "MY SAMPLE 3", "MI SAMPLE 3"}, E_SAMPLE, {6, 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
-    {{"MON SAMPLE 4", "MY SAMPLE 4", "MI SAMPLE 4"}, E_SAMPLE, {7, 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
+    {{"MON SAMPLE 1", "MY SAMPLE 1", "MI SAMPLE 1"}, E_SAMPLE, {(int8_t)(BRK_N + 0u), 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
+    {{"MON SAMPLE 2", "MY SAMPLE 2", "MI SAMPLE 2"}, E_SAMPLE, {(int8_t)(BRK_N + 1u), 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
+    {{"MON SAMPLE 3", "MY SAMPLE 3", "MI SAMPLE 3"}, E_SAMPLE, {(int8_t)(BRK_N + 2u), 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
+    {{"MON SAMPLE 4", "MY SAMPLE 4", "MI SAMPLE 4"}, E_SAMPLE, {(int8_t)(BRK_N + 3u), 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
 };
-#define KIT_DEMO 0                              /* the demo's kit (its first knob) */
+#define KIT_DEMO 6                              /* the demo's kit (its first knob): SNES */
 #define NPRESET ((uint8_t)(sizeof(PRESETS) / sizeof(PRESETS[0])))
 /* each track's sound on a new project (an index in PRESETS) */
 static const uint8_t TRK_PRESET0[NTRK] = {0, 22, 9, 16, 34, 38};   /* lead, FM, bass, hats, kit, break */
-
-/* ---- the KIT's sixteen drums (the white keys) */
-#define NDRUM 16u
-static const char *const DRUM3S[2][NDRUM] = {     /* French; English and Spanish (the usual codes) */
-    {"KIK", "GAB", "CAI", "CLP", "CHF", "CHO", "TMB", "TMH", "CYM", "RID", "CLO", "RIM", "ZAP", "808", "KCH", "CCH"},
-    {"KIK", "GAB", "SNR", "CLP", "CHH", "OHH", "LTM", "HTM", "CYM", "RID", "BEL", "RIM", "ZAP", "808", "CKK", "CSN"}};
-static const char *const DRUM2S[2][NDRUM] = {
-    {"KI", "GA", "CA", "CP", "HH", "OH", "TB", "TH", "CY", "RI", "CO", "RM", "ZP", "80", "KC", "CC"},
-    {"KI", "GA", "SN", "CP", "HH", "OH", "LT", "HT", "CY", "RI", "BL", "RM", "ZP", "80", "CK", "CS"}};
-#define DRUM3 DRUM3S[lang != LANG_FR]
-#define DRUM2 DRUM2S[lang != LANG_FR]
 
 /* ---- notes */
 static const char *const NOTE_NAME[12] = {"C-", "C#", "D-", "D#", "E-", "F-", "F#", "G-", "G#", "A-", "A#", "B-"};

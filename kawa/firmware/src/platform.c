@@ -44,7 +44,7 @@ enum { ENC_SELECT = 0, ENC_ALGORITHM = 1, ENC_KNOB1 = 2, ENC_KNOB2 = 3, ENC_KNOB
 #define APP_NAME "DINGHY"
 #endif
 #ifndef FELUCCA_ID
-#define FELUCCA_ID "FM-1_990"                   /* package identity: 99N = Dinghy build N (tools/build.py) */
+#define FELUCCA_ID "FM-1_950"                   /* package identity: KAWA's 95N / 96N (tools/build.py; Dinghy is 99N) */
 #endif
 #ifndef APP_VER
 #define APP_VER "0.0"
@@ -70,13 +70,19 @@ static volatile uint32_t fm1_ms;                /* milliseconds since power-on (
 
 /* ---- flash: read anywhere; erase / program only the update's staging area and the settings sector */
 #define SETTINGS_AT 0x000FC000u                 /* one 4 KiB sector of Felucca's globals area */
-#ifndef STORE_LO                                /* the app's own store (KAWA: the project slots) */
+#ifndef STORE_LO                                /* the app's own store (KAWA: 4 project slots, then 4 user samples) */
 #define STORE_LO 0x00097000u
-#define STORE_HI 0x000D7000u
+#define STORE_HI 0x000E0000u
 #endif
 #define FL_RANGE_OK(off, n) (FL_IN(off, n, FL_OTA_LO, FL_OTA_HI) || FL_IN(off, n, SETTINGS_AT, SETTINGS_AT + 0x1000u) || \
                              FL_IN(off, n, STORE_LO, STORE_HI))
 #include "fm1_flash.h"
+/* the store stays in [0x97000, 0xE0000), the part the update loader leaves alone: clear of the app, the update
+ * staging (0xE0000..0xE5000) and the settings */
+#if STORE_LO >= STORE_HI || STORE_LO < FL_DATA_LO || STORE_HI > FL_DATA_HI || FL_DATA_HI > FL_OTA_LO || \
+    FL_DATA_HI > SETTINGS_AT || ((STORE_LO | STORE_HI) & 0xFFFu)
+#error "STORE_LO..STORE_HI must be 4 KiB sectors inside [0x97000, 0xE0000)"
+#endif
 static uint8_t flash_ok;
 static int st_read(uint32_t off, void *dst, uint32_t n)
 {
@@ -230,6 +236,7 @@ static int32_t abuf[2u * HALF_WORDS] __attribute__((aligned(4)));
 static volatile int32_t master_q12 = 2048;
 static void app_audio(int32_t *out, uint32_t n);
 static void app_main(void);
+static int app_sysex(const uint8_t *p, uint32_t n);   /* a SysEx frame for the app (1: taken) */
 
 void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) */
 {
@@ -265,6 +272,12 @@ static void platform_poll(void)
     int32_t a;
     fm1_wdt_feed();
     usb_retry(fm1_ms);
+    {                                           /* the app's own SysEx first (KAWA: the user's samples), */
+        const uint8_t *f;                       /* then the updater's */
+        uint32_t fn;
+        if (ota_frame_get(&f, &fn) && app_sysex(f, fn))
+            ota_frame_done();
+    }
     ota_service();
     if (usb.ota_req) {
         usb.ota_req = 0;

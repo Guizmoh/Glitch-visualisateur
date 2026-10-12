@@ -48,7 +48,7 @@ static char knob_lab[4][24];                    /* what each knob does on this p
 static char help_lab[4][24];
 #define MASTER NTRK                             /* MIX: the strip after the tracks */
 
-static struct { uint8_t lang, theme; int8_t oct; uint8_t pad; } set;   /* kept in the settings sector */
+static struct { uint8_t lang, theme; int8_t oct; uint8_t clock; } set;   /* kept in the settings sector */
 static uint8_t set_dirty;
 static uint32_t set_ms;
 static void set_changed(void)
@@ -1365,7 +1365,7 @@ static void draw_opt(void)
     }
     hint(0, TR("THEME", "THEME", "TEMA"), "", THEMES[theme].name);
     hint(1, TR("LANGUE", "LANGUAGE", "IDIOMA"), "", LANG_CODE[lang]);
-    hint_none(2);
+    hint(2, TR("HORLOGE MIDI", "MIDI CLOCK", "RELOJ MIDI"), "CLK", set.clock ? TR("OUI", "ON", "SI") : TR("NON", "OFF", "NO"));
     hint_none(3);
 }
 
@@ -1758,6 +1758,7 @@ static void knob(uint32_t i, int32_t d)
     case PG_OPT:
         if (i == 0u) { theme_set((uint32_t)clampi(theme + d, 0, NTHEME - 1)); set_changed(); }
         else if (i == 1u) set_lang((uint32_t)clampi(lang + d, 0, LANG_N - 1));
+        else if (i == 2u) { set.clock = (uint8_t)clampi(set.clock + d, 0, 1); set_changed(); }
         break;
     case PG_FX:
         if (i == 0u) { fx_bank = (uint8_t)clampi(fx_bank + d, 0, 1); lfx_keys = 0; }
@@ -2235,6 +2236,27 @@ static void ui_leds(void)
         break;
     }
     leds_flush();
+}
+
+/* ---- the MIDI clock out (OPTIONS, KNOB 3): start, 24 ticks a beat, stop, over USB. Sent from platform_poll,
+ * called often (between the screen's bands too), so the ticks keep close to the sound */
+static uint32_t clk_sent;
+static void app_poll(void)
+{
+    if (clk_start) {
+        clk_start = 0;
+        clk_sent = clk_ticks;
+        if (set.clock) midi_send(0xFA, 0, 0);   /* (the first tick follows the start) */
+        if (clk_sent) clk_sent--;
+    }
+    while (clk_sent != clk_ticks) {
+        clk_sent++;
+        if (set.clock) midi_send(0xF8, 0, 0);
+    }
+    if (clk_stop) {
+        clk_stop = 0;
+        if (set.clock) midi_send(0xFC, 0, 0);
+    }
 }
 
 /* ================================================================ the main loop */

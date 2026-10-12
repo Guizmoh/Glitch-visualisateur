@@ -11,7 +11,7 @@
 static uint32_t s_phase, s_inc_even = 1117000u, s_inc_odd = 1117000u, s_len_even = 3845u, s_len_odd = 3845u;
 static uint8_t s_pat, s_row, s_pos, s_rep, s_again_row;
 static uint16_t s_bpm;
-static uint8_t s_swing, s_trip, s_again;
+static uint8_t s_swing, s_trip, s_again, s_tick6;
 static struct {
     uint8_t note, vol, fx, fxv, pending, roll_n, roll_k, cut;
     uint16_t delay16;
@@ -116,6 +116,8 @@ static void seq_start(void)
     sq_row = 0;
     sq_songpos = s_pos;
     sq_rep = 0;
+    s_tick6 = 0;
+    clk_start = 1;
     sq_play = 1;
     seq_row_start();
     sq_rowtick++;
@@ -158,6 +160,7 @@ static void seq_next_row(void)
     }
     seq_row_start();
     sq_rowtick++;
+    s_tick6 = 0;
 }
 
 static void seq_chunk(void)
@@ -168,6 +171,10 @@ static void seq_chunk(void)
         seq_next_row();
     sq_frac = s_phase;
     f16 = s_phase >> 16;
+    while (s_tick6 < ((f16 * 6u) >> 16) + 1u) {  /* the MIDI clock: 6 ticks a row (24 a beat) */
+        s_tick6++;
+        clk_ticks++;
+    }
     for (t = 0; t < NTRK; t++) {                /* inside the row: late notes, rolls, cuts */
         if (st[t].pending && f16 >= st[t].delay16) {
             st[t].pending = 0;
@@ -241,6 +248,7 @@ static void app_audio(int32_t *out, uint32_t n)
     } else if (sq_req == 2u) {
         sq_req = 0;
         sq_play = 0;
+        clk_stop = 1;
         voices_silence();
         s_again = 0;
     }

@@ -237,6 +237,7 @@ static volatile int32_t master_q12 = 2048;
 static void app_audio(int32_t *out, uint32_t n);
 static void app_main(void);
 static int app_sysex(const uint8_t *p, uint32_t n);   /* a SysEx frame for the app (1: taken) */
+static void app_poll(void);                      /* the app's own duties, as often as the poll (KAWA: the MIDI clock) */
 
 void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) */
 {
@@ -279,6 +280,7 @@ static void platform_poll(void)
             ota_frame_done();
     }
     ota_service();
+    app_poll();
     if (usb.ota_req) {
         usb.ota_req = 0;
         if (flash_ok)

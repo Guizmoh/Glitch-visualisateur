@@ -72,7 +72,8 @@ static uint8_t w_settings[260];
 static int settings_load(void *p, uint32_t n) { if (!w_settings[0] || n > 256u) return -1; memcpy(p, w_settings + 4, n); return 0; }
 static int settings_save(const void *p, uint32_t n) { w_settings[0] = 1; memcpy(w_settings + 4, p, n); return 0; }
 static void set_lang(uint32_t l);
-static void platform_poll(void) {}
+static void app_poll(void);
+static void platform_poll(void) { app_poll(); }
 
 static void app_audio(int32_t *out, uint32_t n);
 static void app_init(void);

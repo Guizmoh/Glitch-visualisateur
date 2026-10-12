@@ -79,6 +79,8 @@ static volatile uint8_t sq_next = 0xFF;         /* main: the pattern to go to at
 static volatile uint8_t sq_songpos, sq_rep;     /* ISR: the song position playing, and its repeat so far */
 static volatile uint8_t sq_start_pat, sq_start_pos;   /* main: where a start begins */
 static volatile uint32_t sq_rowtick;            /* ISR: counts rows played (the screen follows it) */
+static volatile uint32_t clk_ticks;             /* ISR: MIDI clock ticks due (24 a beat, as played, swing too) */
+static volatile uint8_t clk_start, clk_stop;    /* ISR: the transport started / stopped (MIDI start / stop) */
 static volatile uint32_t sq_frac;               /* ISR: the phase in the row, 0..2^32 */
 static volatile uint32_t trig_ms[NTRK];         /* ISR: when each track last played a note (the cells flash) */
 static volatile uint16_t level[NTRK + 1];       /* ISR: peak per track and the master, the last block (MIX) */

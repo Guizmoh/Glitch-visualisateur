@@ -65,7 +65,14 @@ static uint8_t host_settings[260];
 static int settings_load(void *p, uint32_t n) { if (!host_settings[0] || n > 256u) return -1; memcpy(p, host_settings + 4, n); return 0; }
 static int settings_save(const void *p, uint32_t n) { host_settings[0] = 1; memcpy(host_settings + 4, p, n); return 0; }
 static int midi_get(uint8_t *st, uint8_t *d1, uint8_t *d2) { (void)st; (void)d1; (void)d2; return 0; }
-static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { (void)st; (void)d1; (void)d2; }
+static uint32_t host_midi_out[3];               /* MIDI out: counts of clock ticks, starts, stops (tests) */
+static void midi_send(uint32_t st, uint32_t d1, uint32_t d2)
+{
+    (void)d1; (void)d2;
+    if (st == 0xF8) host_midi_out[0]++;
+    else if (st == 0xFA) { host_midi_out[1]++; printf("%6u ms  midi start\n", fm1_ms); }
+    else if (st == 0xFC) { host_midi_out[2]++; printf("%6u ms  midi stop, %u clock ticks\n", fm1_ms, host_midi_out[0]); }
+}
 
 static void app_audio(int32_t *out, uint32_t n);
 static void app_main(void);
@@ -135,11 +142,13 @@ static void write_wav(void)
     printf("sound  -> %s (%u frames)\n", name, wav_n);
 }
 
+static void app_poll(void);
 static void platform_poll(void)                 /* one call = one millisecond */
 {
     static uint32_t owed;
     static int32_t blk[2u * HALF_FRAMES];
     fm1_ms++;
+    app_poll();
     while (ev_i < ev_n && ev[ev_i].t <= fm1_ms) {
         host_ev_t *e = &ev[ev_i++];
         if (!strcmp(e->what, "keys")) { host_note_edges |= (uint32_t)e->a & ~fm1_in.notes; fm1_in.notes = (uint32_t)e->a; }

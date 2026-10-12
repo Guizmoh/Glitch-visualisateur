@@ -179,22 +179,26 @@ static void g_icon(int32_t x, int32_t y, uint32_t id, uint16_t c, uint32_t scale
             }
 }
 
-/* the mascot: pal = outline, body, white; flip bit 0 mirrors, bit 1 upside down */
-static void g_sprite(int32_t x, int32_t y, uint32_t id, const uint16_t *pal, uint32_t scale, uint32_t flip)
+/* the dog: w x h pixels at 4 bits (the low nibble is the left pixel), ink 0 clear, pal[ink] for the
+ * others; flip mirrors it */
+static void g_dog(int32_t x, int32_t y, const uint8_t *img, uint32_t w, uint32_t h, const uint16_t *pal,
+                  uint32_t scale, uint32_t flip)
 {
     uint32_t r, k;
-    if (!g_vis(y, (int32_t)(16u * scale)))
+    if (!g_vis(y, (int32_t)(h * scale)))
         return;
-    for (r = 0; r < 16u; r++) {
-        uint32_t row = SPRITES[id % SPR_N][flip & 2u ? 15u - r : r];
-        for (k = 0; k < 16u; k++) {
-            uint32_t ink = row >> (2u * (flip & 1u ? 15u - k : k)) & 3u;
+    for (r = 0; r < h; r++) {
+        int32_t yy = y + (int32_t)(r * scale);
+        if (!g_vis(yy, (int32_t)scale))
+            continue;
+        for (k = 0; k < w; k++) {
+            uint32_t sk = flip ? w - 1u - k : k, b = img[(r * w + sk) >> 1], ink = sk & 1u ? b >> 4 : b & 15u;
             if (!ink)
                 continue;
             if (scale == 1u)
-                g_px(x + (int32_t)k, y + (int32_t)r, pal[ink - 1u]);
+                g_px(x + (int32_t)k, yy, pal[ink]);
             else
-                g_rect(x + (int32_t)(k * scale), y + (int32_t)(r * scale), (int32_t)scale, (int32_t)scale, pal[ink - 1u]);
+                g_rect(x + (int32_t)(k * scale), yy, (int32_t)scale, (int32_t)scale, pal[ink]);
         }
     }
 }

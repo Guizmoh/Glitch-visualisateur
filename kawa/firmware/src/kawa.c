@@ -24,6 +24,7 @@
 #include "kawa_tables.h"
 #include "kawa_breaks.h"
 #include "kawa_art.h"
+#include "kawa_fm.h"
 #include "kawa_data.c"
 #include "kawa_core.c"
 #include "kawa_snd.c"

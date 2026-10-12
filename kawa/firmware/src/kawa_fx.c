@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* KAWA: the live effects (as a Pocket Operator's: hold, and it happens; let go, and it stops) and the
- * master: the echo, the filter, the clip. Runs in the audio interrupt.
+ * master: the echo, the reverb, the master's effect, the clip. Runs in the audio interrupt.
  *
- * The buffer effects (loops, stutters, scratches, reverse, tape stop, dive, freeze, the roll) read a
- * capture of the last 0.74 s of the master. They lock to the beat: a loop starts on the last 1/16
- * (1/12, 1/32, 1/64) and the first pass is the live sound, then it repeats. Only one plays at a time:
- * the last one pressed. The others stack: crush, decimate, filters, gates, ring, echo, distortion,
- * wobble, vinyl; octave, unison, 6/8, mutes are applied by the voices and the sequencer. */
+ * The live effects play on a bus: the whole mix (TARGET: MASTER) or one track (TARGET: a track; the
+ * others go on untouched). The buffer effects (loops, stutters, scratches, reverse, tape stop, dive,
+ * freeze, the roll) read a capture of the last 0.74 s of that bus. They lock to the beat: a loop starts
+ * on the last 1/16 (1/12, 1/32, 1/64) and the first pass is the live sound, then it repeats. Only one
+ * plays at a time: the last one pressed. The others stack: crush, decimate, filters, gates, ring, echo,
+ * distortion, wobble, vinyl; octave, unison, 6/8, mutes are applied by the voices and the sequencer. */
 
 #define CAPN 32768u                             /* capture: frames (0.74 s), L | R << 16 */
 #define CAPM (CAPN - 1u)
@@ -28,11 +29,12 @@ static struct {
     int32_t mix, mix_to;                        /* 0 live .. 32767 effect */
 } bf;
 static uint32_t lfx_prev;
-static uint8_t lpf_note = 127, hpf_note = 0;    /* the sweeps, MIDI note of the cutoff */
+static uint8_t lpf_note = 127, hpf_note = 0;    /* the sweeps, MIDI note of the cutoff (the FX page draws them) */
 static int32_t svf_lp[2], svf_bp[2];
 static uint32_t lfo_ph, ring_ph;
-static int32_t hold_l, hold_r, gate_g;
+static int32_t hold_l, hold_r, gate_g = 32767;
 static uint32_t hold_n;
+static uint8_t lv_target;                       /* the bus the live effects play on now: 0 the mix, 1..8 a track */
 
 static uint32_t cap_rd(uint32_t a) { return cap[a & CAPM]; }
 static int32_t cap_l(uint32_t w) { return (int16_t)(w & 0xFFFFu); }
@@ -84,11 +86,23 @@ static void bf_engage(uint32_t id)
 /* once per block: which effects sound, what the voices must know */
 static void fx_block(uint32_t on)
 {
-    uint32_t newb = on & ~lfx_prev & BF_MASK;
+    uint32_t newb = on & ~lfx_prev & BF_MASK, t;
+    uint8_t mel = 0, beat = 0;
+    if (lfx_target != lv_target) {              /* another bus: what it held is not this one's */
+        lv_target = lfx_target <= NTRK ? lfx_target : 0u;
+        bf.act = 0;
+        bf.mix = bf.mix_to = 0;
+        svf_lp[0] = svf_lp[1] = svf_bp[0] = svf_bp[1] = 0;
+    }
     lfx_on = on;
+    lv_mask = (uint8_t)(lv_target ? 1u << (lv_target - 1u) : 0xFFu);
     lv_transpose = (on >> LF_OCTUP & 1u ? 12 : 0) - (on >> LF_OCTDN & 1u ? 12 : 0);
     lv_uni = on >> LF_UNILO & 1u ? 2u : on >> LF_UNI & 1u ? 1u : 0u;
-    lv_mute = (uint8_t)(prj.mute | live_mute | (on >> LF_NOMEL & 1u ? 0x0Fu : 0u) | (on >> LF_NOBEAT & 1u ? 0x30u : 0u));
+    for (t = 0; t < NTRK; t++) {
+        if (IS_TONAL(t)) mel |= (uint8_t)(1u << t);
+        else beat |= (uint8_t)(1u << t);
+    }
+    lv_mute = (uint8_t)(prj.mute | live_mute | (on >> LF_NOMEL & 1u ? mel : 0u) | (on >> LF_NOBEAT & 1u ? beat : 0u));
     if (newb) {                                 /* a new buffer effect: the lowest new one takes over */
         uint32_t id = 0;
         while (!(newb >> id & 1u))
@@ -202,15 +216,11 @@ static void bf_read(int32_t *l, int32_t *r)
     }
 }
 
-/* the master for CHUNK frames: L, R in; echo in (the track sends) */
-static void fx_chunk(int32_t *L, int32_t *R, int32_t *E)
+/* the live bus for CHUNK frames, in place; E: the echo's input (ECHO adds the bus to it) */
+static void fx_live(int32_t *L, int32_t *R, int32_t *E)
 {
-    uint32_t i, on = lfx_on, edly = g_rowlen * 3u;
-    int32_t fb = on >> LF_ECHO & 1u ? 22000 : 13000, q = 13000, f = 0, mode = 0;
-    if (edly >= ECHON - 16u)
-        edly = g_rowlen * 2u;
-    if (edly >= ECHON - 16u)
-        edly = ECHON - 16u;
+    uint32_t i, on = lfx_on;
+    int32_t q = 13000, f = 0, mode = 0;
     /* the filter: the LPF sweep wins, then the HPF, then wobble, then vinyl's top cut */
     if (on >> LF_LPF & 1u) { if (lpf_note > 34u) lpf_note--; }
     else if (lpf_note < 127u) lpf_note = (uint8_t)(lpf_note + 4u > 127u ? 127u : lpf_note + 4u);
@@ -222,7 +232,7 @@ static void fx_chunk(int32_t *L, int32_t *R, int32_t *E)
     else if (on >> LF_WOB & 1u) { mode = 1; f = SVF_F[64 + (sine(lfo_ph) * 28 >> 15)]; q = 7000; }
     else if (on >> LF_VINYL & 1u) { mode = 1; f = SVF_F[98]; q = 20000; }
     for (i = 0; i < CHUNK; i++) {
-        int32_t l = L[i], r = R[i], e;
+        int32_t l = L[i], r = R[i];
         if (!(bf.act && bf.frozen))
             cap[afr & CAPM] = (uint32_t)(uint16_t)clampi(l, -32767, 32767) | (uint32_t)clampi(r, -32767, 32767) << 16;
         if (bf.act) {
@@ -243,7 +253,7 @@ static void fx_chunk(int32_t *L, int32_t *R, int32_t *E)
         }
         if (on >> LF_CRUSH & 1u) { l &= ~0x7FF; r &= ~0x7FF; }
         if (on >> LF_DECIM & 1u) {
-            if (hold_n++ % 6u == 0u) { hold_l = l; hold_r = r; }
+            if (++hold_n >= 6u) { hold_n = 0; hold_l = l; hold_r = r; }
             l = hold_l; r = hold_r;
         }
         if (mode) {                             /* Chamberlin state variable filter, stereo */
@@ -286,22 +296,138 @@ static void fx_chunk(int32_t *L, int32_t *R, int32_t *E)
             l += (int32_t)(x >> 24) - 128;
             r += (int32_t)(x >> 24) - 128;
         }
-        /* echo: 3/16 (dotted 8th), darker each repeat */
-        e = echo_buf[(echo_w - edly) & (ECHON - 1u)];
-        echo_lp += ((e - echo_lp) * 12000) >> 15;
-        {
-            int32_t in = E[i] + (on >> LF_ECHO & 1u ? (l + r) >> 1 : 0) + ((echo_lp * fb) >> 15);
-            echo_buf[echo_w & (ECHON - 1u)] = (int16_t)clampi(in, -32767, 32767);
-        }
-        echo_w++;
-        l += echo_lp;
-        r += echo_lp;
-        L[i] = sat(l);
-        R[i] = sat(r);
+        if (on >> LF_ECHO & 1u)
+            E[i] += (l + r) >> 1;
+        L[i] = l;
+        R[i] = r;
         if ((afr & 7u) == 0u) {
-            scope[scope_w % 240u] = (int16_t)L[i];
-            scope_w++;
+            scope[scope_w] = (int16_t)clampi((l + r) >> 1, -32767, 32767);
+            if (++scope_w >= 240u) scope_w = 0;
         }
         afr++;
+    }
+}
+
+/* ---- the reverb: four combs and two all-pass filters a side (Freeverb's), 14 KiB */
+#define RV_C0 1116u
+#define RV_C1 1188u
+#define RV_C2 1277u
+#define RV_C3 1356u
+#define RV_AL0 556u
+#define RV_AL1 441u
+#define RV_AR0 579u
+#define RV_AR1 464u
+static int16_t rv_buf[RV_C0 + RV_C1 + RV_C2 + RV_C3 + RV_AL0 + RV_AL1 + RV_AR0 + RV_AR1];
+static const uint16_t RV_LEN[8] = {RV_C0, RV_C1, RV_C2, RV_C3, RV_AL0, RV_AL1, RV_AR0, RV_AR1};
+static uint16_t rv_pos[8];
+static int32_t rv_lp[4];
+static int32_t rv_room = 28000, rv_damp = 9000;  /* feedback 0.85, damping 0.27 (Q15) */
+
+static int16_t *rv_line(uint32_t k)
+{
+    uint32_t o = 0, j;
+    for (j = 0; j < k; j++)
+        o += RV_LEN[j];
+    return rv_buf + o;
+}
+static int16_t *rv_lines[8];
+static void rv_init(void)
+{
+    uint32_t k;
+    for (k = 0; k < 8u; k++)
+        rv_lines[k] = rv_line(k);
+}
+
+static int32_t rv_allpass(uint32_t k, int32_t x)
+{
+    int16_t *b = rv_lines[k];
+    uint32_t p = rv_pos[k];
+    int32_t d = b[p], y = d - x;
+    b[p] = (int16_t)clampi(x + (d >> 1), -32767, 32767);
+    if (++p >= RV_LEN[k]) p = 0;
+    rv_pos[k] = (uint16_t)p;
+    return y;
+}
+
+static void reverb_chunk(const int32_t *in, int32_t *L, int32_t *R)
+{
+    uint32_t i, k;
+    if (!rv_lines[0])
+        rv_init();
+    for (i = 0; i < CHUNK; i++) {
+        int32_t x = in[i] >> 2, s = 0, l, r;
+        for (k = 0; k < 4u; k++) {
+            int16_t *b = rv_lines[k];
+            uint32_t p = rv_pos[k];
+            int32_t d = b[p];
+            rv_lp[k] += ((d - rv_lp[k]) * (32767 - rv_damp)) >> 15;
+            b[p] = (int16_t)clampi(x + ((rv_lp[k] * rv_room) >> 15), -32767, 32767);
+            if (++p >= RV_LEN[k]) p = 0;
+            rv_pos[k] = (uint16_t)p;
+            s += d;
+        }
+        s >>= 1;
+        l = rv_allpass(5, rv_allpass(4, s));
+        r = rv_allpass(7, rv_allpass(6, s));
+        L[i] += l;
+        R[i] += r;
+    }
+}
+
+/* ---- the limiter: the chunk's peak sets the gain (one division a chunk), down at once and ramped over the
+ * chunk, back up in ~50 ms: six tracks at full volume stay under the clip instead of crackling */
+#define LIM_T 26000
+static int32_t lim_g = 32767;
+static void limiter(int32_t *L, int32_t *R)
+{
+    uint32_t i;
+    int32_t pk = 0, tgt = 32767, g = lim_g, dg;
+    for (i = 0; i < CHUNK; i++) {
+        int32_t a = L[i] < 0 ? -L[i] : L[i], b = R[i] < 0 ? -R[i] : R[i];
+        if (a > pk) pk = a;
+        if (b > pk) pk = b;
+    }
+    if (pk > LIM_T)
+        tgt = (int32_t)(((uint32_t)LIM_T << 15) / (uint32_t)pk);
+    if (tgt < g) g = tgt;                       /* attack: this chunk already */
+    else g += (tgt - g) >> 7;                   /* release */
+    dg = (g - lim_g) / (int32_t)CHUNK;
+    for (i = 0; i < CHUNK; i++) {
+        int32_t gi = lim_g + dg * (int32_t)(i + 1u);
+        if (gi > g && tgt < lim_g) gi = g;      /* (never above what the peak allows) */
+        L[i] = (int32_t)(((int64_t)L[i] * (tgt < lim_g ? g : gi)) >> 15);
+        R[i] = (int32_t)(((int64_t)R[i] * (tgt < lim_g ? g : gi)) >> 15);
+    }
+    lim_g = g;
+}
+
+/* ---- the master for CHUNK frames: L, R in (the tracks and the live bus); E, V: the echo's and the
+ * reverb's sends. The echo is 3/16 (a dotted 8th), darker each repeat; then the master's effect */
+static fxs_t mfx_l, mfx_r;
+static void fx_master(int32_t *L, int32_t *R, const int32_t *E, const int32_t *V)
+{
+    uint32_t i, edly = g_rowlen * 3u;
+    int32_t fb = lfx_on >> LF_ECHO & 1u ? 22000 : 13000;
+    if (edly >= ECHON - 16u)
+        edly = g_rowlen * 2u;
+    if (edly >= ECHON - 16u)
+        edly = ECHON - 16u;
+    for (i = 0; i < CHUNK && cpu_shed < 2u; i++) {
+        int32_t e = echo_buf[(echo_w - edly) & (ECHON - 1u)], in;
+        echo_lp += ((e - echo_lp) * 12000) >> 15;
+        in = E[i] + ((echo_lp * fb) >> 15);
+        echo_buf[echo_w & (ECHON - 1u)] = (int16_t)clampi(in, -32767, 32767);
+        echo_w++;
+        L[i] += echo_lp;
+        R[i] += echo_lp;
+    }
+    if (cpu_shed < 1u)                          /* (the load governor: kawa_seq.c) */
+        reverb_chunk(V, L, R);
+    fx_insert(&mfx_l, prj.mfx[0], prj.mfx[1], prj.mfx[2], prj.mfx[3], L, CHUNK);
+    fx_insert(&mfx_r, prj.mfx[0], prj.mfx[1], prj.mfx[2], prj.mfx[3], R, CHUNK);
+    limiter(L, R);
+    for (i = 0; i < CHUNK; i++) {
+        L[i] = sat(L[i]);
+        R[i] = sat(R[i]);
     }
 }

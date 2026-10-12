@@ -2,25 +2,28 @@
 /* KAWA: the sequencer and the audio interrupt's entry (app_audio).
  *
  * Rows are 16ths. A row's phase is a 32-bit counter that wraps once per row (swing: even rows longer).
- * In a row, per track: RETARD starts the note later, ROULE plays it again 2..32 times, COUPE stops it,
+ * In a row, per track: DELAY starts the note later, ROLL plays it again 2..32 times, CUT stops it,
  * CHANCE may skip it. The LIVE lane of the pattern adds its effect on its rows, as if its key were held.
  * Loop mode plays the pattern on the screen (a new one starts at the end of the one playing); song mode
- * plays the song's list. */
+ * plays the song's list, each entry its number of times. Then the mix: each track panned, its echo and
+ * reverb sends; the live effects' track (or the whole mix) through the live bus; the master. */
 
 static uint32_t s_phase, s_inc_even = 1117000u, s_inc_odd = 1117000u, s_len_even = 3845u, s_len_odd = 3845u;
-static uint8_t s_pat, s_row, s_pos, s_again_row;
+static uint8_t s_pat, s_row, s_pos, s_rep, s_again_row;
 static uint16_t s_bpm;
 static uint8_t s_swing, s_trip, s_again;
 static struct {
-    uint8_t note, vol, fx, fxv, pending, roll_n, roll_k, cut, suppress;
+    uint8_t note, vol, fx, fxv, pending, roll_n, roll_k, cut;
     uint16_t delay16;
 } st[NTRK];
-static uint8_t last_note[NTRK];                 /* the note each track played last (ROULE on an empty cell) */
+static uint8_t last_note[NTRK];                 /* the note each track played last (ROLL on an empty cell) */
 static volatile uint8_t sq_suppress[NTRK];      /* main: the note of the next row is already sounding (live take) */
 
-static void seq_tempo(void)                     /* row lengths from the tempo and the swing */
+static void seq_tempo(void)                     /* row lengths from the tempo and the swing; the LFO's rates */
 {
-    uint32_t base, sw;
+    static const uint8_t HALF_ROWS[8] = {128, 64, 32, 16, 8, 4, 2, 1};   /* 4 bars .. 1/32 */
+    static const uint32_t FREE[3] = {467000u, 3116000u, 12465000u};      /* 0.3, 2, 8 Hz, per chunk */
+    uint32_t base, sw, k;
     s_bpm = prj.bpm < 40u ? 40u : prj.bpm > 300u ? 300u : prj.bpm;
     s_swing = prj.swing;
     sw = s_swing < 50u ? 50u : s_swing > 75u ? 75u : s_swing;
@@ -32,6 +35,10 @@ static void seq_tempo(void)                     /* row lengths from the tempo an
     s_inc_even = 0xFFFFFFFFu / s_len_even;
     s_inc_odd = 0xFFFFFFFFu / s_len_odd;
     g_rowlen = base;
+    for (k = 0; k < 8u; k++)
+        lfo_inc[k] = (0xFFFFFFFFu / (HALF_ROWS[k] * (base >> 1) + 1u)) * CHUNK;
+    for (k = 0; k < 3u; k++)
+        lfo_inc[8u + k] = FREE[k];
 }
 
 static void seq_play_cell(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv)
@@ -85,14 +92,17 @@ static void seq_row_start(void)
     }
 }
 
+static uint32_t song_rep(uint32_t pos) { return prj.song[pos].rep ? prj.song[pos].rep : 1u; }
+
 static void seq_start(void)
 {
     s_pat = sq_start_pat < NPAT ? sq_start_pat : 0u;
     s_pos = sq_start_pos;
+    s_rep = 0;
     if (prj.mode && prj.song_len) {
         if (s_pos >= prj.song_len)
             s_pos = 0;
-        s_pat = prj.song[s_pos] < NPAT ? prj.song[s_pos] : 0u;
+        s_pat = prj.song[s_pos].pat < NPAT ? prj.song[s_pos].pat : 0u;
     }
     s_row = 0;
     s_phase = 0;
@@ -101,6 +111,7 @@ static void seq_start(void)
     sq_pat = s_pat;
     sq_row = 0;
     sq_songpos = s_pos;
+    sq_rep = 0;
     sq_play = 1;
     seq_row_start();
     sq_rowtick++;
@@ -112,19 +123,25 @@ static void seq_next_row(void)
     if (!len || len > NROW)
         len = 16u;
     s_row++;
-    if (s_again && (s_row & 3u) == 0u)          /* RELANCE: the same beat again */
+    if (s_again && (s_row & 3u) == 0u)          /* RETRIG: the same beat again */
         s_row = s_again_row;
     if (s_row >= len) {                         /* the end of the pattern */
         s_row = 0;
         if (prj.mode && prj.song_len) {
-            if (++s_pos >= prj.song_len)
-                s_pos = 0;
-            s_pat = prj.song[s_pos] < NPAT ? prj.song[s_pos] : 0u;
+            if (s_pos >= prj.song_len)
+                s_pos = 0, s_rep = 0;
+            else if (++s_rep >= song_rep(s_pos)) {   /* played its times: the next entry */
+                s_rep = 0;
+                if (++s_pos >= prj.song_len)
+                    s_pos = 0;
+            }
+            s_pat = prj.song[s_pos].pat < NPAT ? prj.song[s_pos].pat : 0u;
         } else if (sq_next < NPAT) {
             s_pat = sq_next;
             sq_next = 0xFF;
         }
         sq_songpos = s_pos;
+        sq_rep = s_rep;
     }
     sq_pat = s_pat;
     sq_row = s_row;
@@ -158,30 +175,49 @@ static void seq_chunk(void)
         }
         if (st[t].cut && (f16 >> 8) >= st[t].cut) {
             st[t].cut = 0;
-            if (t < 4u)
-                voice_off(t);
-            else if (t == T_CASSE) {
-                brkv[0].gtgt = brkv[1].gtgt = 0;
-                brkv[0].gstep = brkv[1].gstep = -(32767 / 120);
-            } else
-                drum[0].aek = drum[1].aek = drum[0].nek = drum[1].nek = 50000;
+            voice_cut(t);
         }
     }
     cur_len = s_row & 1u ? s_len_odd : s_len_even;
     g_beatpos = (s_row & 3u) * g_rowlen + ((f16 * cur_len) >> 16);
 }
 
+/* ---- the load governor (after Felucca's audio.c shed_check): two blocks in a row over 70 % of the 5.8 ms
+ * and the work drops a step: 1 the reverb and the FM release voice, 2 the tracks' own effects and the echo,
+ * 3 the second voice of the kits and samples. Two seconds under 45 % and it comes back a step. The sound
+ * thins out instead of crackling, and the watchdog never sees a block that does not end */
+#define BLOCK_US (HALF_FRAMES * 1000000u / FS)
+static uint8_t shed_hist;
+static uint32_t calm_n;
+static void governor(uint32_t us)
+{
+    uint32_t pct = us * 100u / BLOCK_US;
+    cpu_pct = (uint8_t)(pct > 255u ? 255u : pct);
+    if (cpu_pct > cpu_max) cpu_max = cpu_pct;
+    shed_hist = (uint8_t)(shed_hist << 1 | (pct > 70u));
+    if ((shed_hist & 3u) == 3u && cpu_shed < 3u) {
+        cpu_shed++;
+        shed_hist = 0;
+        calm_n = 0;
+        if (cpu_shed == 1u) fmn[fm_cur ^ 1u].live = 0;   /* the FM voice releasing goes now */
+    }
+    if (pct < 45u) {
+        if (++calm_n > 344u && cpu_shed) { cpu_shed--; calm_n = 0; }   /* 344 blocks: 2 s */
+    } else
+        calm_n = 0;
+}
+
 /* ---- the audio interrupt: 256 frames, stereo, Q15, out is zero */
 static void app_audio(int32_t *out, uint32_t n)
 {
-    uint32_t c, i, t, t0 = fm1_ticks(), on;
+    uint32_t c, i, t, t0 = fm1_ticks(), on, mpk = 0;
     uint16_t peak[NTRK] = {0};
     while (evq_r != evq_w) {                    /* the keys */
         const ev_t *e = &evq[evq_r % EVQ];
         if (e->type == EV_ON)
             seq_play_cell(e->trk, e->note, e->vol, e->fx, e->fxv);
         else if (e->type == EV_OFF) {
-            if (e->trk < 4u && tone[e->trk].note == e->note)
+            if (e->trk < NTRK && tk[e->trk].note == e->note && note_mode(e->trk) == NM_NOTE)
                 voice_off(e->trk);
         } else if (e->type == EV_ALLOFF)
             voices_silence();
@@ -210,46 +246,58 @@ static void app_audio(int32_t *out, uint32_t n)
         s_again = 0;
     fx_block(on);
     for (c = 0; c < n; c += CHUNK) {
-        int32_t L[CHUNK], R[CHUNK], E[CHUNK], mono[CHUNK];
+        int32_t L[CHUNK], R[CHUNK], BL[CHUNK], BR[CHUNK], E[CHUNK], V[CHUNK], mono[CHUNK];
+        if (c && fm1_ticks() - t0 > BLOCK_US * FM1_TICKS_PER_US * 9u / 10u) {
+            audio_late++;                       /* past 90 % of the block: the rest stays silent (never a block */
+            break;                              /* that does not end: the watchdog) */
+        }
         if (sq_play)
             seq_chunk();
         else
             g_beatpos = (g_beatpos + CHUNK) % (g_rowlen * 4u);
         for (i = 0; i < CHUNK; i++)
-            L[i] = R[i] = E[i] = 0;
+            L[i] = R[i] = BL[i] = BR[i] = E[i] = V[i] = 0;
         for (t = 0; t < NTRK; t++) {
             const int8_t *p = prj.snd[t].p;
-            int32_t gl = PAN_G[clampi(p[P_PAN], -7, 7) + 7][0], gr = PAN_G[clampi(p[P_PAN], -7, 7) + 7][1];
-            int32_t send = clampi(p[P_ECHO], 0, 15) * 1300;
+            int32_t pan = p[P_PAN], gl, gr, es = clampi(p[P_ECHO], 0, 15) * 1300, vs = clampi(p[P_VERB], 0, 15) * 1700;
+            int32_t *dl = lv_target == t + 1u || !lv_target ? BL : L, *dr = lv_target == t + 1u || !lv_target ? BR : R;
             uint32_t pk = peak[t];
+            if (p[P_LFOD] == LFD_PAN)
+                pan += (tk[t].lfo * 7) >> 15;
+            pan = clampi(pan, -7, 7) + 7;
+            gl = PAN_G[pan][0];
+            gr = PAN_G[pan][1];
             for (i = 0; i < CHUNK; i++)
                 mono[i] = 0;
-            if (t < 4u)
-                tone_chunk(t, mono);
-            else if (t == T_KIT) {
-                drum_chunk(&drum[0], mono);
-                drum_chunk(&drum[1], mono);
-            } else {
-                brk_chunk(&brkv[0], mono);
-                brk_chunk(&brkv[1], mono);
-            }
+            track_chunk(t, mono);
             for (i = 0; i < CHUNK; i++) {
                 int32_t m = mono[i], a = m < 0 ? -m : m;
                 if ((uint32_t)a > pk)
                     pk = (uint32_t)a;
-                L[i] += (m * gl) >> 12;
-                R[i] += (m * gr) >> 12;
-                E[i] += (m * send) >> 15;
+                dl[i] += (m * gl * 5) >> 16;    /* x 0.707 at the centre, x 5/8: six tracks keep headroom */
+                dr[i] += (m * gr * 5) >> 16;
+                E[i] += (m * es) >> 15;
+                V[i] += (m * vs) >> 15;
             }
             peak[t] = (uint16_t)(pk > 65535u ? 65535u : pk);
         }
-        fx_chunk(L, R, E);
+        fx_live(BL, BR, E);
         for (i = 0; i < CHUNK; i++) {
+            L[i] += BL[i];
+            R[i] += BR[i];
+        }
+        fx_master(L, R, E, V);
+        for (i = 0; i < CHUNK; i++) {
+            int32_t a = L[i] < 0 ? -L[i] : L[i];
+            if ((uint32_t)a > mpk)
+                mpk = (uint32_t)a;
             out[2u * (c + i)] += L[i];
             out[2u * (c + i) + 1u] += R[i];
         }
     }
     for (t = 0; t < NTRK; t++)
         level[t] = peak[t];
+    level[NTRK] = (uint16_t)(mpk > 65535u ? 65535u : mpk);
     audio_us = (fm1_ticks() - t0) / FM1_TICKS_PER_US;
+    governor(audio_us);
 }

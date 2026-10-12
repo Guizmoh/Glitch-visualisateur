@@ -1,46 +1,76 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* KAWA: names, parameter descriptions, factory sounds, chords, scales, the live effects and the magic
- * tools. Text on the screen is upper case without accents (the font is ASCII), in three languages:
- * French, English, Spanish (PROJETS / PROJECTS / PROYECTO, KNOB 3). Tables hold [3] names in that order. */
+/* KAWA: names, parameter descriptions, factory sounds, themes, chords, scales, the live effects and the
+ * magic tools. Text on the screen is upper case without accents (the font is ASCII), in three languages:
+ * French, English, Spanish (OPTIONS, KNOB 2). Tables hold [3] names in that order. */
 
 enum { LANG_FR, LANG_EN, LANG_ES, LANG_N };
-static uint8_t lang = LANG_EN;                  /* the screen's language (kept in the settings sector) */
+static uint8_t lang = LANG_EN;                  /* the screen's language (the settings sector) */
 #define TR(fr, en, es) (lang == LANG_EN ? (en) : lang == LANG_ES ? (es) : (fr))
 static int32_t clampi(int32_t v, int32_t lo, int32_t hi) { return v < lo ? lo : v > hi ? hi : v; }
-static const char *const LANG_NAME[LANG_N] = {"FRANCAIS", "ENGLISH", "ESPANOL"};
+static const char *const LANG_CODE[LANG_N] = {"FR", "EN", "ES"};
 
-/* ---- the six tracks */
-#define NTRK 6u
-enum { T_PU1, T_PU2, T_ONDE, T_BRUIT, T_KIT, T_CASSE };
-enum { E_PULSE, E_WAVE, E_NOISE, E_KIT, E_BREAK, E_N };
-static const uint8_t TRK_ENGINE[NTRK] = {E_PULSE, E_PULSE, E_WAVE, E_NOISE, E_KIT, E_BREAK};
-static const char *const TRK_NAMES[LANG_N][NTRK] = {{"CARRE 1", "CARRE 2", "ONDE", "BRUIT", "KIT", "CASSE"},
-                                                    {"PULSE 1", "PULSE 2", "WAVE", "NOISE", "KIT", "BREAK"},
-                                                    {"PULSO 1", "PULSO 2", "ONDA", "RUIDO", "KIT", "BREAK"}};
-#define TRK_NAME TRK_NAMES[lang]
-static const uint8_t ENGINE_ICON[E_N] = {ICO_PULSE, ICO_WAVE, ICO_NOISE, ICO_KIT, ICO_BREAK};
-#define IS_TONAL(t) (TRK_ENGINE[t] <= E_NOISE)
+/* ---- engines: each of the eight tracks plays one, picked with its sound (SOUND, PRESETS) */
+#define NTRK 6u                                /* six tracks: the FM-1's audio interrupt keeps a wide margin */
+enum { E_PULSE, E_WAVE, E_NOISE, E_FM, E_KIT, E_SAMPLE, E_N };
+static const char *const ENGINE_NAMES[LANG_N][E_N] = {{"CARRE", "ONDE", "BRUIT", "FM", "KIT", "SAMPLE"},
+                                                      {"PULSE", "WAVE", "NOISE", "FM", "KIT", "SAMPLE"},
+                                                      {"PULSO", "ONDA", "RUIDO", "FM", "KIT", "SAMPLE"}};
+#define ENGINE_NAME ENGINE_NAMES[lang]
+static const uint8_t ENGINE_ICON[E_N] = {ICO_PULSE, ICO_WAVE, ICO_NOISE, ICO_FM, ICO_KIT, ICO_SAMPLE};
 
-/* ---- colours (RGB565) */
-#define C_BG RGB(18, 12, 36)
-#define C_BG2 RGB(24, 17, 46)
-#define C_BEAT RGB(36, 26, 68)
-#define C_RULE RGB(52, 40, 92)
-#define C_FAINT RGB(96, 84, 148)
-#define C_MID RGB(160, 150, 210)
-#define C_TXT RGB(232, 228, 255)
-#define C_GOLD RGB(255, 222, 110)
-#define C_REC RGB(255, 64, 96)
-#define C_GO RGB(96, 255, 150)
-static const uint16_t TRK_COL[NTRK] = {RGB(255, 95, 180), RGB(255, 176, 58), RGB(62, 216, 255),
-                                       RGB(232, 240, 96), RGB(98, 242, 154), RGB(169, 139, 255)};
+/* ---- themes (OPTIONS, KNOB 1): the screen's colours. KAWA is the look of 0.1 */
+typedef struct {
+    const char *name;
+    uint16_t bg, bg2, beat, rule, faint, mid, txt, gold, rec, go, ink;   /* ink: text on a lit tile */
+    uint16_t trk[NTRK];
+} theme_t;
+static const theme_t THEMES[3] = {
+    {"KAWA", RGB(18, 12, 36), RGB(26, 18, 50), RGB(38, 28, 72), RGB(56, 44, 98), RGB(118, 106, 170), RGB(176, 166, 224),
+     RGB(240, 236, 255), RGB(255, 222, 110), RGB(255, 64, 96), RGB(96, 255, 150), RGB(18, 12, 36),
+     {RGB(255, 95, 180), RGB(255, 176, 58), RGB(62, 216, 255), RGB(232, 240, 96), RGB(98, 242, 154), RGB(169, 139, 255)}},
+    {"GAME BOY", RGB(15, 56, 15), RGB(24, 70, 24), RGB(40, 92, 36), RGB(56, 108, 48), RGB(110, 150, 70), RGB(160, 196, 60),
+     RGB(214, 236, 150), RGB(236, 250, 170), RGB(250, 120, 90), RGB(200, 248, 120), RGB(15, 56, 15),
+     {RGB(200, 240, 110), RGB(170, 220, 90), RGB(220, 248, 150), RGB(150, 200, 70), RGB(230, 250, 170), RGB(180, 230, 100)}},
+    {"BONBON", RGB(255, 244, 250), RGB(250, 230, 244), RGB(240, 210, 234), RGB(222, 190, 218), RGB(150, 120, 160),
+     RGB(100, 72, 112), RGB(50, 28, 62), RGB(200, 106, 10), RGB(226, 30, 84), RGB(20, 150, 80), RGB(255, 255, 255),
+     {RGB(230, 50, 140), RGB(226, 120, 10), RGB(10, 140, 200), RGB(120, 150, 10), RGB(20, 160, 100), RGB(130, 70, 220)}},
+};
+#define NTHEME 3u
+static uint8_t theme;
+static uint16_t C_BG, C_BG2, C_BEAT, C_RULE, C_FAINT, C_MID, C_TXT, C_GOLD, C_REC, C_GO, C_INK;
+static uint16_t TRK_COL[NTRK];
+static void theme_set(uint32_t k)
+{
+    const theme_t *t = &THEMES[k % NTHEME];
+    uint32_t i;
+    theme = (uint8_t)(k % NTHEME);
+    C_BG = t->bg; C_BG2 = t->bg2; C_BEAT = t->beat; C_RULE = t->rule; C_FAINT = t->faint; C_MID = t->mid;
+    C_TXT = t->txt; C_GOLD = t->gold; C_REC = t->rec; C_GO = t->go; C_INK = t->ink;
+    for (i = 0; i < NTRK; i++)
+        TRK_COL[i] = t->trk[i];
+}
+/* one knob, one colour: KNOB 1..4 everywhere (the cards, the bottom line, the emulator's rings) */
+static const uint16_t KNOB_COL[4] = {RGB(255, 92, 92), RGB(255, 204, 64), RGB(92, 226, 116), RGB(84, 164, 255)};
+/* one page, one colour (the page's pill, the emulator's buttons) */
+enum { PG_TRACK, PG_GRID, PG_SOUND, PG_ENV, PG_MIX, PG_MAGIC, PG_SCALE, PG_SONG, PG_PROJ, PG_OPT, PG_FX, PG_HELP, PG_BOOT, PG_N };
+static const uint16_t PAGE_COL[PG_N] = {RGB(169, 139, 255), RGB(255, 96, 146), RGB(62, 216, 255), RGB(98, 242, 154),
+                                        RGB(255, 160, 60), RGB(255, 210, 90), RGB(200, 240, 90), RGB(255, 160, 60),
+                                        RGB(100, 150, 255), RGB(255, 160, 60), RGB(255, 120, 200), RGB(169, 139, 255),
+                                        RGB(169, 139, 255)};
 
-/* ---- sound parameters: 12 per track, 3 pages of 4 (the four knobs); page 3 is the same for all */
-#define NPARAM 12u
-enum { P_SHAPE, P_ATT, P_DEC, P_SUS, P_REL, P_SWEEP, P_VIB, P_CRUSH, P_VOL, P_PAN, P_ECHO, P_TON };
-enum { P_TUNE = 0, P_DECAY = 1, P_DRIVE = 2, P_KCRUSH = 3 };                       /* KIT */
-enum { P_BRK = 0, P_BTUNE = 1, P_LEN = 2, P_FIT = 3, P_BATT = 4, P_BREL = 5, P_BDRIVE = 6, P_BCRUSH = 7 };  /* CASSE */
-enum { K_NUM, K_SIGN, K_LIST, K_NAMES, K_PAN };  /* K_LIST: n values x 3 languages; K_NAMES: names, not translated */
+/* ---- the 24 parameters of a track: SOUND 1, SOUND 2 (the engine's), ENVELOPE, MIX, EFFECT, LFO */
+#define NPARAM 24u
+enum { P_S0, P_S1, P_S2, P_S3, P_S4, P_S5, P_S6, P_S7, P_ATT, P_DEC, P_SUS, P_REL, P_VOL, P_PAN, P_ECHO, P_VERB,
+       P_FXT, P_FXA, P_FXB, P_FXM, P_LFOD, P_LFOR, P_LFOA, P_LFOW };
+/* SOUND for PULSE / WAVE / NOISE */
+enum { P_SHAPE = 0, P_SWEEP, P_VIB, P_TON, P_CRUSH, P_DETUNE, P_ARPV, P_GLIDE };
+/* FM */
+enum { P_FMPAT = 0, P_FMALG, P_FMRAT, P_FMFB, P_FMBRI, P_FMMEG, P_FMDET, P_FMVIB };
+/* KIT */
+enum { P_TUNE = 0, P_DECAY, P_DRIVE, P_KCRUSH, P_KTON };
+/* SAMPLE */
+enum { P_SRC = 0, P_SMODE, P_STUNE, P_FIT, P_LEN, P_SDRIVE, P_SCRUSH, P_STON };
+enum { K_NUM, K_SIGN, K_LIST, K_NAMES, K_PAN, K_MS, K_SRC };   /* K_LIST: n values x 3 languages, flat */
 typedef struct {
     const char *name[LANG_N];
     int8_t lo, hi;
@@ -58,84 +88,148 @@ static const char *const L_DUR[] = {"1/4", "1/2", "3/4", "1", "1.5", "2", "3", "
                                     "1/4", "1/2", "3/4", "1", "1.5", "2", "3", "4", "6", "8", "12", "TODO"};
 static const uint8_t DUR_Q[12] = {1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 0};   /* quarter slices, 0 = to the end */
 static const char *const L_ONOFF[] = {"NON", "OUI", "NO", "YES", "NO", "SI"};
-#define PD_ENV {{"ATTAQUE", "ATTACK", "ATAQUE"}, 0, 15, K_NUM, 0}, {{"DECLIN", "DECAY", "CAIDA"}, 0, 15, K_NUM, 0}, \
-               {{"TENUE", "SUSTAIN", "SOSTEN"}, 0, 15, K_NUM, 0}
-#define PD_MOVE {{"RELACHE", "RELEASE", "SUELTA"}, 0, 15, K_NUM, 0}, {{"BALAYE", "SWEEP", "BARRIDO"}, -15, 15, K_SIGN, 0}, \
-                {{"VIBRATO", "VIBRATO", "VIBRATO"}, 0, 15, K_NUM, 0}, {{"ECRASE", "CRUSH", "TRITURA"}, 0, 7, K_NUM, 0}
-#define PD_MIX {{"VOLUME", "VOLUME", "VOLUMEN"}, 0, 15, K_NUM, 0}, {{"PANO", "PAN", "PANEO"}, -7, 7, K_PAN, 0}, \
-               {{"ECHO", "ECHO", "ECO"}, 0, 15, K_NUM, 0}, {{"TON", "TONE", "TONO"}, 0, 15, K_NUM, 0}
-#define PD_SHAPE {"FORME", "SHAPE", "FORMA"}
-#define PD_NONE {{0, 0, 0}, 0, 0, 0, 0}
-static const pdesc_t PDESC[E_N][NPARAM] = {
-    {{PD_SHAPE, 0, 4, K_LIST, L_DUTY}, PD_ENV, PD_MOVE, PD_MIX},
-    {{PD_SHAPE, 0, 7, K_LIST, L_WAVE}, PD_ENV, PD_MOVE, PD_MIX},
-    {{PD_SHAPE, 0, 1, K_LIST, L_NOISE}, PD_ENV, PD_MOVE, PD_MIX},
-    {{{"ACCORD", "TUNE", "AFINA"}, -12, 12, K_SIGN, 0}, {{"DECLIN", "DECAY", "CAIDA"}, -8, 8, K_SIGN, 0},
-     {{"SATURE", "DRIVE", "SATURA"}, 0, 15, K_NUM, 0}, {{"ECRASE", "CRUSH", "TRITURA"}, 0, 7, K_NUM, 0},
-     PD_NONE, PD_NONE, PD_NONE, PD_NONE, PD_MIX},
-    {{{"BREAK", "BREAK", "BREAK"}, 0, BRK_N - 1, K_NAMES, BRK_NAME}, {{"ACCORD", "TUNE", "AFINA"}, -12, 12, K_SIGN, 0},
-     {{"DUREE", "LENGTH", "LARGO"}, 0, 11, K_LIST, L_DUR}, {{"CALE", "FIT", "AJUSTE"}, 0, 1, K_LIST, L_ONOFF},
-     {{"ATTAQUE", "ATTACK", "ATAQUE"}, 0, 15, K_NUM, 0}, {{"RELACHE", "RELEASE", "SUELTA"}, 0, 15, K_NUM, 0},
-     {{"SATURE", "DRIVE", "SATURA"}, 0, 15, K_NUM, 0}, {{"ECRASE", "CRUSH", "TRITURA"}, 0, 7, K_NUM, 0}, PD_MIX},
-};
-static const char *pd_value(const pdesc_t *d, int32_t v)   /* a list's value in the language */
-{
-    v = clampi(v, d->lo, d->hi);
-    if (d->kind == K_NAMES) return d->list[v];
-    return d->list[(uint32_t)lang * (uint32_t)(d->hi - d->lo + 1) + (uint32_t)(v - d->lo)];
-}
+static const char *const L_SMODE[] = {"TRANCHE", "NOTES", "SLICES", "NOTES", "CORTES", "NOTAS"};
+static const char *const L_ALG[] = {"SON", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+                                    "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32",
+                                    "SOUND", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+                                    "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32",
+                                    "SONIDO", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+                                    "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32"};
+/* the effect of a track or of the master (EFFECT; MIX on MASTER) */
+enum { FXT_OFF, FXT_LPF, FXT_HPF, FXT_BPF, FXT_DIST, FXT_CRUSH, FXT_DECIM, FXT_RING, FXT_TREM, FXT_WAH, FXT_N };
+static const char *const L_FXT[] = {"AUCUN", "FILT BAS", "FILT HAU", "PASS BND", "DISTO", "ECRASE", "DECIME", "ANNEAU", "TREMOLO", "WAH",
+                                    "NONE", "LOWPASS", "HIPASS", "BANDPASS", "DRIVE", "CRUSH", "LO-FI", "RING", "TREMOLO", "WAH",
+                                    "NADA", "FILT BAJ", "FILT ALT", "PASA BND", "DISTOR", "TRITURA", "DIEZMA", "ANILLO", "TREMOLO", "WAH"};
+static const uint8_t FXT_ICON[FXT_N] = {ICO_ERASE, ICO_LPF, ICO_HPF, ICO_BPF, ICO_DIST, ICO_CRUSH, ICO_PIXEL, ICO_RING, ICO_TREM, ICO_WOB};
+/* what the effect's A and B do, per type */
+static const char *const FXA_NAMES[LANG_N][FXT_N] = {
+    {"A", "COUPURE", "COUPURE", "CENTRE", "GAIN", "BITS", "TAUX", "FREQ", "VITESSE", "VITESSE"},
+    {"A", "CUTOFF", "CUTOFF", "CENTER", "GAIN", "BITS", "RATE", "FREQ", "RATE", "RATE"},
+    {"A", "CORTE", "CORTE", "CENTRO", "GANANC", "BITS", "TASA", "FREC", "VELOC", "VELOC"}};
+static const char *const FXB_NAMES[LANG_N][FXT_N] = {
+    {"B", "RESO", "RESO", "RESO", "TON", "-", "-", "-", "PROFOND", "PROFOND"},
+    {"B", "RESO", "RESO", "RESO", "TONE", "-", "-", "-", "DEPTH", "DEPTH"},
+    {"B", "RESO", "RESO", "RESO", "TONO", "-", "-", "-", "PROFUND", "PROFUND"}};
+/* the LFO */
+enum { LFD_OFF, LFD_PITCH, LFD_VOL, LFD_FILT, LFD_PAN, LFD_SHAPE, LFD_N };
+static const char *const L_LFOD[] = {"AUCUN", "HAUTEUR", "VOLUME", "EFFET A", "PANO", "FORME",
+                                     "NONE", "PITCH", "VOLUME", "EFFECT A", "PAN", "SHAPE",
+                                     "NADA", "ALTURA", "VOLUMEN", "EFECTO A", "PANEO", "FORMA"};
+static const char *const L_LFOR[] = {"4 MES", "2 MES", "1 MES", "1/2", "1/4", "1/8", "1/16", "1/32", "LENT", "MOYEN", "VITE",
+                                     "4 BARS", "2 BARS", "1 BAR", "1/2", "1/4", "1/8", "1/16", "1/32", "SLOW", "MEDIUM", "FAST",
+                                     "4 COMP", "2 COMP", "1 COMP", "1/2", "1/4", "1/8", "1/16", "1/32", "LENTO", "MEDIO", "RAPIDO"};
+static const char *const L_LFOW[] = {"SINUS", "TRIANGLE", "CARRE", "SCIE", "HASARD", "SINE", "TRIANGLE", "SQUARE", "SAW", "RANDOM",
+                                     "SENO", "TRIANG", "CUADRADA", "SIERRA", "AZAR"};
 
-/* ---- factory sounds: a name and the 12 parameters */
+#define PDN(fr, en, es) {fr, en, es}
+#define PD_NONE {{0, 0, 0}, 0, 0, 0, 0}
+#define PD_ENV {PDN("ATTAQUE", "ATTACK", "ATAQUE"), 0, 15, K_MS, 0}, {PDN("DECLIN", "DECAY", "CAIDA"), 0, 15, K_MS, 0}, \
+               {PDN("TENUE", "SUSTAIN", "SOSTEN"), 0, 15, K_NUM, 0}, {PDN("RELACHE", "RELEASE", "SUELTA"), 0, 15, K_MS, 0}
+#define PD_MIX {PDN("VOLUME", "VOLUME", "VOLUMEN"), 0, 15, K_NUM, 0}, {PDN("PANO", "PAN", "PANEO"), -7, 7, K_PAN, 0}, \
+               {PDN("ECHO", "ECHO", "ECO"), 0, 15, K_NUM, 0}, {PDN("REVERB", "REVERB", "REVERB"), 0, 15, K_NUM, 0}
+#define PD_FX {PDN("EFFET", "EFFECT", "EFECTO"), 0, FXT_N - 1, K_LIST, L_FXT}, {PDN("A", "A", "A"), 0, 15, K_NUM, 0}, \
+              {PDN("B", "B", "B"), 0, 15, K_NUM, 0}, {PDN("DOSAGE", "MIX", "MEZCLA"), 0, 15, K_NUM, 0}
+#define PD_LFO {PDN("CIBLE", "TARGET", "DESTINO"), 0, LFD_N - 1, K_LIST, L_LFOD}, {PDN("VITESSE", "RATE", "VELOC"), 0, 10, K_LIST, L_LFOR}, \
+               {PDN("PROFOND", "DEPTH", "PROFUND"), 0, 15, K_NUM, 0}, {PDN("ONDE", "WAVE", "ONDA"), 0, 4, K_LIST, L_LFOW}
+#define PD_TONAL_REST {PDN("BALAYE", "SWEEP", "BARRIDO"), -15, 15, K_SIGN, 0}, {PDN("VIBRATO", "VIBRATO", "VIBRATO"), 0, 15, K_NUM, 0}, \
+                      {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0}, {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0}, \
+                      {PDN("DESACC", "DETUNE", "DESAFIN"), 0, 15, K_NUM, 0}, {PDN("ARP VIT", "ARP SPD", "ARP VEL"), 1, 8, K_NUM, 0}, \
+                      {PDN("GLISSE", "GLIDE", "GLISA"), 0, 15, K_NUM, 0}
+#define PD_SHAPE PDN("FORME", "SHAPE", "FORMA")
+static const pdesc_t PDESC[E_N][NPARAM] = {
+    {{PD_SHAPE, 0, 4, K_LIST, L_DUTY}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO},
+    {{PD_SHAPE, 0, 7, K_LIST, L_WAVE}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO},
+    {{PD_SHAPE, 0, 1, K_LIST, L_NOISE}, PD_TONAL_REST, PD_ENV, PD_MIX, PD_FX, PD_LFO},
+    {{PDN("SON FM", "PATCH", "SONIDO"), 0, FM_NPATCH - 1, K_NAMES, &FM_PATCH_NAME[0][0]},
+     {PDN("ALGO", "ALGO", "ALGO"), 0, 32, K_LIST, L_ALG}, {PDN("RATIO", "RATIO", "RATIO"), -8, 8, K_SIGN, 0},
+     {PDN("RETOUR", "FEEDBK", "RETORNO"), -7, 7, K_SIGN, 0}, {PDN("BRILLE", "BRIGHT", "BRILLO"), -15, 15, K_SIGN, 0},
+     {PDN("MOD ENV", "MOD ENV", "MOD ENV"), -8, 8, K_SIGN, 0}, {PDN("DESACC", "DETUNE", "DESAFIN"), 0, 15, K_NUM, 0},
+     {PDN("VIBRATO", "VIBRATO", "VIBRATO"), 0, 15, K_NUM, 0}, PD_ENV, PD_MIX, PD_FX, PD_LFO},
+    {{PDN("ACCORD", "TUNE", "AFINA"), -12, 12, K_SIGN, 0}, {PDN("DECLIN", "DECAY", "CAIDA"), -8, 8, K_SIGN, 0},
+     {PDN("SATURE", "DRIVE", "SATURA"), 0, 15, K_NUM, 0}, {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0},
+     {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0}, PD_NONE, PD_NONE, PD_NONE, PD_ENV, PD_MIX, PD_FX, PD_LFO},
+    {{PDN("SOURCE", "SOURCE", "FUENTE"), 0, 7, K_SRC, 0}, {PDN("MODE", "MODE", "MODO"), 0, 1, K_LIST, L_SMODE},
+     {PDN("ACCORD", "TUNE", "AFINA"), -12, 12, K_SIGN, 0}, {PDN("CALE", "FIT", "AJUSTE"), 0, 1, K_LIST, L_ONOFF},
+     {PDN("DUREE", "LENGTH", "LARGO"), 0, 11, K_LIST, L_DUR}, {PDN("SATURE", "DRIVE", "SATURA"), 0, 15, K_NUM, 0},
+     {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0}, {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0},
+     PD_ENV, PD_MIX, PD_FX, PD_LFO},
+};
+/* the pages of the SOUND page (EDIT again: the next one); the FM track has two more: its operators */
+enum { SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO, SP_N };
+static const uint8_t SP_FIRST[SP_N] = {P_S0, P_S4, 0, 0, P_FXT, P_LFOD};
+static const char *const SP_NAMES[LANG_N][SP_N] = {{"SON", "SON 2", "OPERATEUR", "ENV OPERAT", "EFFET", "LFO"},
+                                                   {"SOUND", "SOUND 2", "OPERATOR", "OP ENVELOPE", "EFFECT", "LFO"},
+                                                   {"SONIDO", "SONIDO 2", "OPERADOR", "ENV OPERAD", "EFECTO", "LFO"}};
+static const uint8_t SP_LIST_FM[6] = {SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO};
+static const uint8_t SP_LIST[4] = {SP_SON1, SP_SON2, SP_FX, SP_LFO};
+/* an FM operator's knobs (OPERATOR, OP ENV): what they change in the patch is in kawa_edit.c (op_get, op_set) */
+enum { OPK_LEVEL, OPK_RATIO, OPK_FINE, OPK_DET, OPK_ATT, OPK_DEC, OPK_SUS, OPK_REL, OPK_N };
+static const char *const OPK_NAMES[LANG_N][OPK_N] = {
+    {"NIVEAU", "RATIO", "FIN", "DESACC", "ATTAQUE", "DECLIN", "TENUE", "RELACHE"},
+    {"LEVEL", "RATIO", "FINE", "DETUNE", "ATTACK", "DECAY", "SUSTAIN", "RELEASE"},
+    {"NIVEL", "RATIO", "FINO", "DESAFIN", "ATAQUE", "CAIDA", "SOSTEN", "SUELTA"}};
+static const int8_t OPK_LO[OPK_N] = {0, 0, 0, -7, 0, 0, 0, 0}, OPK_HI[OPK_N] = {99, 31, 99, 7, 99, 99, 99, 99};
+
+/* ---- factory sounds: a name, SOUND 1-2 and the envelope (the mix, the effect and the LFO stay) */
 typedef struct {
     const char *name[LANG_N];
-    int8_t p[NPARAM];
+    uint8_t engine;
+    int8_t s[8], env[4];
 } preset_t;
-static const preset_t PRE_PULSE[] = {
-    {{"LEAD 25", "LEAD 25", "LEAD 25"}, {1, 0, 6, 10, 5, 0, 3, 0, 12, 0, 3, 15}},
-    {{"BIP 12", "BEEP 12", "BIP 12"}, {0, 0, 4, 0, 3, 0, 0, 0, 12, 0, 4, 15}},
-    {{"CARRE 50", "SQUARE 50", "CUADRADA 50"}, {2, 0, 8, 12, 5, 0, 0, 0, 11, 0, 0, 13}},
-    {{"PLUCK", "PLUCK", "PLUCK"}, {1, 0, 5, 0, 4, 0, 0, 0, 13, 0, 4, 12}},
-    {{"LASER", "LASER", "LASER"}, {0, 0, 7, 0, 4, 12, 0, 0, 11, 0, 4, 15}},
-    {{"PWM PAD", "PWM PAD", "PWM PAD"}, {4, 7, 9, 11, 9, 0, 2, 0, 10, 0, 6, 11}},
-    {{"BASSE", "BASS", "BAJO"}, {2, 0, 7, 9, 3, 0, 0, 0, 13, 0, 0, 9}},
-    {{"SALE", "DIRTY", "SUCIO"}, {1, 0, 6, 10, 4, 0, 0, 5, 12, 0, 2, 15}},
+static const preset_t PRESETS[] = {
+    {{"LEAD 25", "LEAD 25", "LEAD 25"}, E_PULSE, {1, 0, 3, 15, 0, 0, 3, 0}, {0, 6, 10, 5}},
+    {{"BIP 12", "BEEP 12", "BIP 12"}, E_PULSE, {0, 0, 0, 15, 0, 0, 3, 0}, {0, 4, 0, 3}},
+    {{"CARRE 50", "SQUARE 50", "CUADRADA 50"}, E_PULSE, {2, 0, 0, 13, 0, 0, 3, 0}, {0, 8, 12, 5}},
+    {{"SUPER CARRE", "SUPER PULSE", "SUPER PULSO"}, E_PULSE, {1, 0, 2, 14, 0, 9, 3, 0}, {0, 8, 11, 6}},
+    {{"PLUCK", "PLUCK", "PLUCK"}, E_PULSE, {1, 0, 0, 12, 0, 0, 3, 0}, {0, 5, 0, 4}},
+    {{"LASER", "LASER", "LASER"}, E_PULSE, {0, 12, 0, 15, 0, 0, 3, 0}, {0, 7, 0, 4}},
+    {{"PWM PAD", "PWM PAD", "PWM PAD"}, E_PULSE, {4, 0, 2, 11, 0, 4, 3, 0}, {7, 9, 11, 9}},
+    {{"BASSE", "BASS", "BAJO"}, E_PULSE, {2, 0, 0, 9, 0, 0, 3, 0}, {0, 7, 9, 3}},
+    {{"SALE", "DIRTY", "SUCIO"}, E_PULSE, {1, 0, 0, 15, 5, 0, 3, 0}, {0, 6, 10, 4}},
+    {{"BASSE NES", "NES BASS", "BAJO NES"}, E_WAVE, {0, 0, 0, 15, 0, 0, 3, 0}, {0, 8, 13, 3}},
+    {{"BASSE GB", "GB BASS", "BAJO GB"}, E_WAVE, {4, 0, 0, 12, 0, 0, 3, 0}, {0, 6, 10, 3}},
+    {{"SCIE", "SAW", "SIERRA"}, E_WAVE, {1, 0, 2, 13, 0, 6, 3, 0}, {0, 7, 9, 5}},
+    {{"FLUTE", "FLUTE", "FLAUTA"}, E_WAVE, {2, 0, 4, 12, 0, 0, 3, 3}, {4, 8, 12, 7}},
+    {{"ORGUE", "ORGAN", "ORGANO"}, E_WAVE, {5, 0, 0, 13, 0, 0, 3, 0}, {1, 9, 13, 6}},
+    {{"VOIX", "VOICE", "VOZ"}, E_WAVE, {6, 0, 5, 12, 0, 3, 3, 0}, {3, 8, 11, 7}},
+    {{"KICK TRI", "KICK TRI", "KICK TRI"}, E_WAVE, {0, 15, 0, 15, 0, 0, 3, 0}, {0, 4, 0, 2}},
+    {{"CHARLEY", "HI-HAT", "CHARLES"}, E_NOISE, {0, 0, 0, 15, 0, 0, 3, 0}, {0, 2, 0, 2}},
+    {{"CAISSE", "SNARE", "CAJA"}, E_NOISE, {0, -3, 0, 13, 0, 0, 3, 0}, {0, 5, 0, 4}},
+    {{"METAL", "METAL", "METAL"}, E_NOISE, {1, 0, 0, 15, 0, 0, 3, 0}, {0, 4, 0, 3}},
+    {{"VAPEUR", "STEAM", "VAPOR"}, E_NOISE, {0, 0, 0, 10, 0, 0, 3, 0}, {8, 10, 8, 9}},
+    {{"EXPLOSION", "EXPLOSION", "EXPLOSION"}, E_NOISE, {0, -8, 0, 11, 0, 0, 3, 0}, {0, 12, 0, 10}},
+    {{"CRASH", "CRASH", "CRASH"}, E_NOISE, {0, 0, 0, 15, 0, 0, 3, 0}, {0, 11, 0, 10}},
+    {{"PIANO TINE", "TINE EP", "PIANO TINE"}, E_FM, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 5}},
+    {{"CLOCHE", "BELL", "CAMPANA"}, E_FM, {1, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 9}},
+    {{"BASSE FM", "FM BASS", "BAJO FM"}, E_FM, {2, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 3}},
+    {{"CUIVRES", "BRASS", "METALES"}, E_FM, {3, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 5}},
+    {{"NAPPE", "PAD", "COLCHON"}, E_FM, {4, 0, 0, 0, 0, 0, 3, 0}, {0, 15, 15, 9}},
+    {{"MARIMBA", "MARIMBA", "MARIMBA"}, E_FM, {5, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 5}},
+    {{"ORGUE FM", "FM ORGAN", "ORGANO FM"}, E_FM, {6, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 4}},
+    {{"GUITARE", "PLUCK", "PUNTEO"}, E_FM, {7, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 4}},
+    {{"LEAD CHIP", "CHIP LEAD", "LEAD CHIP"}, E_FM, {8, 0, 0, 0, 0, 0, 0, 4}, {0, 15, 15, 4}},
+    {{"BASSE ACIDE", "ACID BASS", "BAJO ACIDO"}, E_FM, {9, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 2}},
+    {{"HOOVER", "HOOVER", "HOOVER"}, E_FM, {10, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 6}},
+    {{"KALIMBA", "KALIMBA", "KALIMBA"}, E_FM, {11, 0, 0, 0, 0, 0, 0, 0}, {0, 15, 15, 6}},
+    {{"CLASSIQUE", "CLASSIC", "CLASICO"}, E_KIT, {0, 0, 2, 0, 15, 0, 0, 0}, {0, 15, 15, 15}},
+    {{"GABBER", "GABBER", "GABBER"}, E_KIT, {0, 2, 12, 0, 13, 0, 0, 0}, {0, 15, 15, 15}},
+    {{"LOFI", "LOFI", "LOFI"}, E_KIT, {0, 0, 4, 4, 10, 0, 0, 0}, {0, 15, 15, 15}},
+    {{"MINUS", "MINUS", "MINUS"}, E_KIT, {-3, -3, 6, 0, 12, 0, 0, 0}, {0, 15, 15, 15}},
+    {{"AMENE", "AMENE", "AMENE"}, E_SAMPLE, {0, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
+    {{"PENSE", "PENSE", "PENSE"}, E_SAMPLE, {1, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
+    {{"FUNKY", "FUNKY", "FUNKY"}, E_SAMPLE, {2, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
+    {{"ECLAIR", "ECLAIR", "ECLAIR"}, E_SAMPLE, {3, 0, 0, 1, 11, 2, 0, 15}, {0, 15, 15, 2}},
+    {{"AMENE SALE", "AMENE DIRTY", "AMENE SUCIO"}, E_SAMPLE, {0, 0, 0, 1, 11, 10, 3, 12}, {0, 15, 15, 2}},
+    {{"AMENE COURT", "AMENE SHORT", "AMENE CORTO"}, E_SAMPLE, {0, 0, 0, 1, 3, 2, 0, 15}, {0, 15, 15, 1}},
+    {{"MON SAMPLE 1", "MY SAMPLE 1", "MI SAMPLE 1"}, E_SAMPLE, {4, 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
+    {{"MON SAMPLE 2", "MY SAMPLE 2", "MI SAMPLE 2"}, E_SAMPLE, {5, 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
+    {{"MON SAMPLE 3", "MY SAMPLE 3", "MI SAMPLE 3"}, E_SAMPLE, {6, 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
+    {{"MON SAMPLE 4", "MY SAMPLE 4", "MI SAMPLE 4"}, E_SAMPLE, {7, 1, 0, 0, 11, 0, 0, 15}, {0, 15, 15, 3}},
 };
-static const preset_t PRE_WAVE[] = {
-    {{"BASSE NES", "NES BASS", "BAJO NES"}, {0, 0, 8, 13, 3, 0, 0, 0, 14, 0, 0, 15}},
-    {{"BASSE GB", "GB BASS", "BAJO GB"}, {4, 0, 6, 10, 3, 0, 0, 0, 14, 0, 0, 12}},
-    {{"SCIE", "SAW", "SIERRA"}, {1, 0, 7, 9, 5, 0, 2, 0, 11, 0, 3, 13}},
-    {{"FLUTE", "FLUTE", "FLAUTA"}, {2, 4, 8, 12, 7, 0, 4, 0, 11, 0, 5, 12}},
-    {{"ORGUE", "ORGAN", "ORGANO"}, {5, 1, 9, 13, 6, 0, 0, 0, 10, 0, 3, 13}},
-    {{"VOIX", "VOICE", "VOZ"}, {6, 3, 8, 11, 7, 0, 5, 0, 10, 0, 6, 12}},
-    {{"FM CLOCHE", "FM BELL", "CAMPANA FM"}, {7, 0, 10, 0, 9, 0, 0, 0, 11, 0, 6, 14}},
-    {{"KICK TRI", "KICK TRI", "KICK TRI"}, {0, 0, 4, 0, 2, 15, 0, 0, 15, 0, 0, 15}},
-};
-static const preset_t PRE_NOISE[] = {
-    {{"CHARLEY", "HI-HAT", "CHARLES"}, {0, 0, 2, 0, 2, 0, 0, 0, 10, 2, 0, 15}},
-    {{"CAISSE", "SNARE", "CAJA"}, {0, 0, 5, 0, 4, -3, 0, 0, 12, 0, 2, 13}},
-    {{"METAL", "METAL", "METAL"}, {1, 0, 4, 0, 3, 0, 0, 0, 10, 0, 3, 15}},
-    {{"VAPEUR", "STEAM", "VAPOR"}, {0, 8, 10, 8, 9, 0, 0, 0, 9, 0, 6, 10}},
-    {{"EXPLOSION", "EXPLOSION", "EXPLOSION"}, {0, 0, 12, 0, 10, -8, 0, 0, 13, 0, 4, 11}},
-    {{"CRASH", "CRASH", "CRASH"}, {0, 0, 11, 0, 10, 0, 0, 0, 10, 0, 5, 15}},
-};
-static const preset_t PRE_KIT[] = {
-    {{"CLASSIQUE", "CLASSIC", "CLASICO"}, {0, 0, 2, 0, 0, 0, 0, 0, 13, 0, 0, 15}},
-    {{"GABBER", "GABBER", "GABBER"}, {0, 2, 12, 0, 0, 0, 0, 0, 13, 0, 0, 13}},
-    {{"LOFI", "LOFI", "LOFI"}, {0, 0, 4, 4, 0, 0, 0, 0, 12, 0, 2, 10}},
-    {{"MINUS", "MINUS", "MINUS"}, {-3, -3, 6, 0, 0, 0, 0, 0, 13, 0, 0, 12}},
-};
-static const preset_t PRE_BREAK[] = {
-    {{"AMENE", "AMENE", "AMENE"}, {0, 0, 11, 1, 0, 2, 2, 0, 13, 0, 0, 15}},
-    {{"PENSE", "PENSE", "PENSE"}, {1, 0, 11, 1, 0, 2, 2, 0, 13, 0, 0, 15}},
-    {{"FUNKY", "FUNKY", "FUNKY"}, {2, 0, 11, 1, 0, 2, 2, 0, 13, 0, 0, 15}},
-    {{"ECLAIR", "ECLAIR", "ECLAIR"}, {3, 0, 11, 1, 0, 2, 2, 0, 13, 0, 0, 15}},
-    {{"AMENE SALE", "AMENE DIRTY", "AMENE SUCIO"}, {0, 0, 11, 1, 0, 2, 10, 3, 13, 0, 0, 12}},
-    {{"AMENE COURT", "AMENE SHORT", "AMENE CORTO"}, {0, 0, 3, 1, 0, 1, 2, 0, 13, 0, 0, 15}},
-};
-#define NPRE(a) ((uint8_t)(sizeof(a) / sizeof((a)[0])))
-static const preset_t *const PRESETS_OF[E_N] = {PRE_PULSE, PRE_WAVE, PRE_NOISE, PRE_KIT, PRE_BREAK};
-static const uint8_t NPRESETS_OF[E_N] = {NPRE(PRE_PULSE), NPRE(PRE_WAVE), NPRE(PRE_NOISE), NPRE(PRE_KIT), NPRE(PRE_BREAK)};
-static const uint8_t TRK_PRESET0[NTRK] = {0, 1, 0, 0, 1, 0};   /* each track's sound on a new project */
+#define KIT_DEMO 0                              /* the demo's kit (its first knob) */
+#define NPRESET ((uint8_t)(sizeof(PRESETS) / sizeof(PRESETS[0])))
+/* each track's sound on a new project (an index in PRESETS) */
+static const uint8_t TRK_PRESET0[NTRK] = {0, 22, 9, 16, 34, 38};   /* lead, FM, bass, hats, kit, break */
 
 /* ---- the KIT's sixteen drums (the white keys) */
 #define NDRUM 16u
@@ -217,7 +311,8 @@ static const scale_t SCALES[12] = {
 };
 
 /* ---- live effects: hold FX (or tap it to keep the page open), then the white keys. Two banks of 16:
- * ids 0..31 (bit id of a mask); the LIVE lane of a pattern stores id + 1 (0: none) */
+ * ids 0..31 (bit id of a mask); the LIVE lane of a pattern stores id + 1 (0: none). They play on the
+ * master or on one track (FX page, KNOB 4: TARGET) */
 enum { LF_LOOP16, LF_LOOP12, LF_LOOP32, LF_LOOP64, LF_UNI, LF_UNILO, LF_OCTUP, LF_OCTDN,
        LF_STUT4, LF_STUT3, LF_SCR, LF_SCRF, LF_TRIP, LF_AGAIN, LF_REV, LF_ROLLUP,
        LF_CRUSH, LF_DECIM, LF_LPF, LF_HPF, LF_TAPE, LF_DIVE, LF_GATE16, LF_GATE32,
@@ -266,7 +361,7 @@ static const uint16_t LBANK_COL[2] = {RGB(255, 120, 200), RGB(255, 110, 70)};
 
 /* ---- the magic tools: tap LFO (MAGIE), then a white key; one undo each (SAVE held) */
 enum { MG_CHOP, MG_BEAT, MG_MELO, MG_BASS, MG_ARP, MG_EUCL, MG_VARY, MG_ROLLS, MG_NUANCE, MG_DOUBLE, MG_SHIFT,
-       MG_REVERSE, MG_TRANSP, MG_COPY, MG_PASTE, MG_CLEAR, MG_N };
+       MG_CLONE, MG_TRANSP, MG_COPY, MG_PASTE, MG_CLEAR, MG_N };
 static const lfx_t MAGIC[MG_N] = {
     {{"HACHOIR", "CHOPPER", "PICADOR"}, {"BREAK", "BREAK", "BREAK"}, ICO_KNIFE},
     {{"BEAT", "BEAT", "RITMO"}, {"HASARD", "RANDOM", "AZAR"}, ICO_KIT},
@@ -279,7 +374,7 @@ static const lfx_t MAGIC[MG_N] = {
     {{"NUANCES", "ACCENTS", "MATICES"}, {"VOLUMES", "VOLUMES", "VOLUMEN"}, ICO_VOL},
     {{"DOUBLER", "DOUBLE", "DUPLICA"}, {"X2", "X2", "X2"}, ICO_X2},
     {{"DECALER", "SHIFT", "MOVER"}, {"1 PAS", "1 STEP", "1 PASO"}, ICO_RIGHT},
-    {{"MIROIR", "MIRROR", "ESPEJO"}, {"SENS", "", ""}, ICO_MIRROR},
+    {{"CLONER", "CLONE", "CLONAR"}, {"MOTIF", "PATTERN", "PATRON"}, ICO_CLONE},
     {{"TRANSPO", "TRANSP", "TRANSP"}, {"+1 NOTE", "+1 NOTE", "+1 NOTA"}, ICO_UPDN},
     {{"COPIER", "COPY", "COPIAR"}, {"", "", ""}, ICO_COPY},
     {{"COLLER", "PASTE", "PEGAR"}, {"", "", ""}, ICO_PASTE},
@@ -291,3 +386,13 @@ static const char *const L_SCOPES[LANG_N][2] = {{"PISTE", "MOTIF"}, {"TRACK", "P
 /* ---- names for new projects */
 static const char *const NAME_A[8] = {"KAWA", "MIETTE", "PIXEL", "BOUM", "ZINZIN", "CHIP", "RAGE", "CANDY"};
 static const char *const NAME_B[8] = {"ROSE", "VOLT", "NOIRE", "FOLLE", "MAGIK", "TURBO", "DOUCE", "SALE"};
+
+/* a list's value in the language (K_LIST: n values x 3 languages; K_NAMES: [3][n], here FM_PATCH_NAME) */
+static const char *pd_value(const pdesc_t *d, int32_t v)
+{
+    uint32_t n = (uint32_t)(d->hi - d->lo + 1);
+    v = clampi(v, d->lo, d->hi);
+    if (d->kind == K_NAMES)
+        return d->list[(uint32_t)lang * FM_NPATCH + (uint32_t)(v - d->lo)];
+    return d->list[(uint32_t)lang * n + (uint32_t)(v - d->lo)];
+}

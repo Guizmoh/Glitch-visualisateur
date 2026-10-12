@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* KAWA: the voices. Runs in the audio interrupt: integers only, no division per frame.
  *
- *   CARRE 1, 2  pulse waves 12 / 25 / 50 / 75 % or PWM, band-limited (polyBLEP)
- *   ONDE        a 32-step 4-bit wave table (Game Boy style), stepped as the real thing
- *   BRUIT       a 15-bit LFSR (NES style), LONG or METAL (93 steps), clocked by the note
- *   KIT         16 synthesised drums, two voices
- *   CASSE       a breakbeat cut in 16 slices (the white keys), two voices crossfading
- *
- * Every track: ADSR (KIT and CASSE: their own shapes), pitch sweep, vibrato, bit crush, a one-pole
- * TON filter, pan and an echo send. Control (envelopes, pitch) runs once per chunk of 16 frames. */
+ * Each of the eight tracks plays one engine (its sound picks it):
+ *   PULSE   pulse waves 12 / 25 / 50 / 75 % or PWM, band-limited (polyBLEP), a detuned second oscillator
+ *   WAVE    a 32-step 4-bit wave table (Game Boy style), stepped as the real thing
+ *   NOISE   a 15-bit LFSR (NES style), LONG or METAL (93 steps), clocked by the note
+ *   FM      six operators, 32 algorithms: msfa (Dexed's core) as Felucca ported it (fm6_core.c), two voices
+ *   KIT     16 synthesised drums, two voices
+ *   SAMPLE  a break (16 slices on the white keys) or a sample of the user's, sliced or played on the notes
+ * Then, for every track: the ADSR envelope (ENV page), the track's effect (a filter, drive, crush,
+ * decimate, ring, tremolo or wah, with its mix), the LFO (pitch, volume, the effect's A, pan or shape).
+ * Control (envelopes, pitch, LFO) runs once per chunk of 16 frames; FM renders 32 frames at a time. */
+#include "fm6_core.c"
 
 static const uint32_t INC_C9[12] = {            /* MIDI 120..131 (C9..B9): f * 2^32 / 44100; lower octaves shift right */
     815363807u, 863847862u, 915214929u, 969636441u, 1027294024u, 1088380105u,
@@ -77,194 +80,140 @@ static int32_t sat(int32_t x)                   /* a soft knee from 16384, flat 
 
 static int32_t crush_mask(int32_t c) { return c > 0 ? ~((1 << (2 * c)) - 1) : -1; }
 
-/* the effects of the live layer that the voices need (kawa_fx.c sets them once per block) */
+/* what the live layer tells the voices (kawa_fx.c sets it once per block) */
 static int32_t lv_transpose;                    /* semitones: OCTAVE +1 / -1 */
 static uint8_t lv_uni;                          /* 1 unison, 2 unison an octave down */
-static uint8_t lv_mute;                         /* tracks silenced (SANS MELO / SANS BEAT), bit per track */
+static uint8_t lv_mute;                         /* tracks silenced, bit per track */
+static uint8_t lv_mask = 0xFF;                  /* the tracks the live layer's pitch effects reach (the target's) */
+static uint32_t lfo_inc[11];                    /* the LFO's rates per chunk, from the tempo (kawa_seq.c) */
 
-/* ---- CARRE, ONDE, BRUIT */
+/* ---- the effect of a track or of the master */
+typedef struct {
+    int32_t lp, bp, hold, tone;
+    uint32_t n, ph;
+} fxs_t;
+static void fx_insert(fxs_t *s, int32_t type, int32_t a, int32_t b, int32_t mix, int32_t *x, uint32_t n)
+{
+    uint32_t i, rinc = 0;
+    int32_t wet, f = 0, q = 0, m = clampi(mix, 0, 15) * 2185, bq;
+    if (type <= FXT_OFF || type >= FXT_N || !m)
+        return;
+    a = clampi(a, 0, 15);
+    b = clampi(b, 0, 15);
+    bq = b * 2185;                              /* b / 15, Q15 (no division per frame) */
+    if (type == FXT_RING)
+        rinc = pitch_inc((40 + a * 5) * 256);
+    if (type == FXT_LPF || type == FXT_HPF || type == FXT_BPF) {
+        f = SVF_F[30 + a * 6];
+        q = 30000 - b * 1800;
+    } else if (type == FXT_WAH) {
+        s->ph += lfo_inc[clampi(4 + a / 4, 0, 10)];
+        f = SVF_F[clampi(64 + ((sine(s->ph) * (b + 4) * 2) >> 15), 30, 110)];
+        q = 9000;
+    }
+    for (i = 0; i < n; i++) {
+        int32_t d = x[i], y;
+        switch (type) {
+        case FXT_LPF: case FXT_HPF: case FXT_BPF: case FXT_WAH: {
+            int32_t hp;
+            s->lp += (f * s->bp) >> 15;
+            hp = d - s->lp - ((q * s->bp) >> 15);
+            s->bp += (f * hp) >> 15;
+            s->bp = clampi(s->bp, -400000, 400000);
+            y = type == FXT_LPF ? s->lp : type == FXT_HPF ? hp : s->bp;
+            break;
+        }
+        case FXT_DIST:
+            y = sat(d * (1 + a * 2));
+            s->tone += ((y - s->tone) * TON_A[b]) >> 15;
+            y = (s->tone * 3) >> 2;
+            break;
+        case FXT_CRUSH:
+            y = d & ~((1 << clampi(a, 0, 14)) - 1);
+            break;
+        case FXT_DECIM:
+            if (++s->n > (uint32_t)a) { s->n = 0; s->hold = d; }
+            y = s->hold;
+            break;
+        case FXT_RING:
+            s->ph += rinc;
+            y = (d * sine(s->ph)) >> 15;
+            break;
+        case FXT_TREM:
+            if ((i & 15u) == 0u) s->ph += lfo_inc[clampi(4 + a / 4, 0, 10)] ;
+            y = (d * (32767 - ((((32767 - sine(s->ph)) >> 1) * bq) >> 15))) >> 15;
+            break;
+        default:
+            y = d;
+            break;
+        }
+        wet = y;
+        x[i] = d + (((wet - d) * m) >> 15);
+    }
+}
+
+/* ---- every track's common state: the envelope, pitch, tricks, LFO, effect */
 typedef struct {
     uint8_t gate, stage, note, vol, shape, crush, vib, arp_n, arp_i;
     int8_t arp_off[4];
-    int32_t env;                                /* Q16 */
-    int32_t pitch, ptgt, glide;                 /* Q8 semitones; glide: step per chunk toward ptgt */
-    int32_t sweep, bend;                        /* Q8: the BALAYE offset (decays), a bend per chunk */
-    uint32_t ph, ph2, vph, pwm, nph, lfsr;
-    uint32_t arp_cnt, arp_len;                  /* frames */
-    int32_t lp, amp, dc;                        /* dc: what the output's capacitor takes away (x 256) */
-} tone_t;
-static tone_t tone[4];
+    int32_t env;                                /* the ADSR, Q16 */
+    int32_t amp;                                /* the gain now, Q15 (ramps over a chunk) */
+    int32_t pitch, ptgt, glide, sweep, bend;    /* Q8 semitones */
+    uint32_t vph, arp_cnt, arp_len;
+    uint32_t ph, ph2, pwm, lfsr;                /* PULSE, WAVE, NOISE */
+    int32_t lp, dc;
+    uint32_t lfo_ph, lfo_rnd;
+    int32_t lfo;                                /* the LFO now, -32767..32767 x depth / 15 */
+    fxs_t fx;
+} trk_t;
+static trk_t tk[NTRK];
 
-static void tone_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, int32_t fxv, uint32_t arp_len)
+/* ---- FM: one track (fm_trk), two voices (the new note and the last one's release). The patch is the
+ * project's (prj.fmp: its operators, edited in EDIT) through the track's knobs; the main loop builds it */
+static fm6_note_t fmn[2];
+static uint8_t fm_cur, fm_pos, fm_seen;
+static int32_t fm_buf[CTL];
+static uint8_t fm_patch[156];
+static volatile uint8_t fm_gen;
+static uint8_t fm_alg, fm_fb;
+static fm6_lfo_t fm_lfo;
+static int32_t fm_dt[6];
+
+static void fm_build(uint32_t t)                /* main loop: the FM track's patch from its operators and knobs */
 {
-    tone_t *v = &tone[t];
     const int8_t *p = prj.snd[t].p;
-    int32_t pt = (int32_t)note << 8;
-    v->shape = (uint8_t)p[P_SHAPE];
-    v->crush = (uint8_t)p[P_CRUSH];
-    v->vib = (uint8_t)p[P_VIB];
-    v->arp_n = 0;
-    v->bend = 0;
-    if (fx == FX_GLIDE && v->stage) {           /* glide from the note sounding */
-        v->ptgt = pt;
-        v->glide = 1 + fxv * fxv / 6;           /* 1: an octave a second .. 15: ~400 semitones a second */
-    } else {
-        v->pitch = v->ptgt = pt;
-        v->glide = 0;
-        v->sweep = p[P_SWEEP] * 512;
-        if (v->env < 6000 && TRK_ENGINE[t] != E_NOISE)
-            v->ph = v->ph2 = 0;                 /* the same start every time (chip punch), when it cannot click */
+    uint8_t d[156];
+    uint32_t k, car, alg;
+    for (k = 0; k < 156u; k++)
+        d[k] = prj.fmp[k];
+    alg = p[P_FMALG] ? (uint32_t)(p[P_FMALG] - 1) : d[FP_ALG] & 31u;
+    d[FP_ALG] = (uint8_t)(alg & 31u);
+    car = fm6_carriers(alg & 31u);
+    for (k = 0; k < 6u; k++) {
+        uint8_t *op = d + k * FP_OP;
+        uint32_t r;
+        if ((car >> k) & 1u)
+            continue;                           /* the modulators: ratio and envelope speed */
+        op[FP_FC] = (uint8_t)clampi(op[FP_FC] + p[P_FMRAT], 0, 31);
+        for (r = 0; r < 4u; r++)
+            op[FP_R1 + r] = (uint8_t)clampi(op[FP_R1 + r] - p[P_FMMEG] * 6, 1, 99);
     }
-    if (fx == FX_ARP && fxv >= 0 && fxv < 14) {
-        uint32_t i;
-        v->arp_n = (uint8_t)CHORDS[fxv].n;
-        for (i = 0; i < 4u; i++)
-            v->arp_off[i] = CHORDS[fxv].off[i];
-        v->arp_i = 0;
-        v->arp_cnt = 0;
-        v->arp_len = arp_len ? arp_len : 700u;
+    if (p[P_FMVIB]) {
+        d[FP_LPMD] = (uint8_t)clampi(p[P_FMVIB] * 6, 0, 99);
+        d[FP_LPMS] = 4;
+        if (d[FP_LFS] < 30u) d[FP_LFS] = 34;
     }
-    if (fx == FX_VIB)
-        v->vib = (uint8_t)fxv;
-    if (fx == FX_BEND)
-        v->bend = fxv;                          /* Q8 a chunk: 1 ~ 11 semitones a second */
-    if (fx == FX_SHAPE)
-        v->shape = (uint8_t)fxv;
-    if (fx == FX_CRUSH)
-        v->crush = (uint8_t)fxv;
-    if (fx == FX_PITCH)
-        v->pitch = v->ptgt = pt + fxv * 256;
-    v->note = (uint8_t)note;
-    v->vol = (uint8_t)vol;
-    v->gate = 1;
-    if (!v->lfsr)
-        v->lfsr = 1;
-    if (!(fx == FX_GLIDE && v->stage) || v->stage == 4)
-        v->stage = 1;
+    fm_alg = (uint8_t)(alg & 31u);
+    fm_fb = (uint8_t)clampi((d[FP_FB] & 7) + p[P_FMFB], 0, 7);
+    for (k = 0; k < 6u; k++)                    /* DETUNE: the carriers apart, up to ~25 cents */
+        fm_dt[k] = ((car >> k) & 1u) ? (int32_t)((k & 1u) ? 1 : -1) * p[P_FMDET] * 23000 : 0;
+    for (k = 0; k < 156u; k++)                  /* (byte by byte: the interrupt sees at worst one block half new) */
+        fm_patch[k] = d[k];
+    fm_trk = (uint8_t)t;
+    fm_gen++;
 }
 
-static void tone_off(uint32_t t)
-{
-    tone[t].gate = 0;
-    if (tone[t].stage && tone[t].stage < 4)
-        tone[t].stage = 4;
-}
-
-static void tone_chunk(uint32_t t, int32_t *out)      /* CHUNK frames into out (mono, added) */
-{
-    tone_t *v = &tone[t];
-    const int8_t *p = prj.snd[t].p;
-    uint32_t i, inc, inc2 = 0, eng = TRK_ENGINE[t], duty = 0x80000000u, ph, ph2;
-    int32_t pit, gain, tgt, da, amp, a = TON_A[clampi(p[P_TON], 0, 15)], m = crush_mask(v->crush), lp;
-    if (!v->stage && !v->amp)
-        return;
-    switch (v->stage) {                         /* ADSR, once a chunk */
-    case 1:
-        v->env += ENV_RATE[p[P_ATT] & 15];
-        if (v->env >= 65535) {
-            v->env = 65535;
-            v->stage = 2;
-        }
-        break;
-    case 2:
-        tgt = p[P_SUS] * 4369;
-        v->env -= ENV_RATE[p[P_DEC] & 15] >> 1;
-        if (v->env <= tgt) {
-            v->env = tgt;
-            v->stage = tgt ? 3 : 0;
-        }
-        break;
-    case 4:
-        v->env -= ENV_RATE[p[P_REL] & 15] >> 1;
-        if (v->env <= 0) {
-            v->env = 0;
-            v->stage = 0;
-        }
-        break;
-    }
-    if (v->glide) {                             /* pitch: glide, bend, sweep, vibrato, arpeggio, the live octave */
-        if (v->pitch < v->ptgt) { v->pitch += v->glide; if (v->pitch > v->ptgt) v->pitch = v->ptgt; }
-        else if (v->pitch > v->ptgt) { v->pitch -= v->glide; if (v->pitch < v->ptgt) v->pitch = v->ptgt; }
-    }
-    v->pitch += v->bend;
-    v->sweep = (int32_t)(((int64_t)v->sweep * 64880) >> 16);   /* tau ~35 ms */
-    pit = v->pitch + v->sweep + lv_transpose * 256;
-    if (v->vib) {
-        v->vph += 9350000u;                     /* ~6 Hz */
-        pit += (sine(v->vph) * v->vib * 14) >> 15;
-    }
-    if (v->arp_n) {
-        v->arp_cnt += CHUNK;
-        if (v->arp_cnt >= v->arp_len) {
-            v->arp_cnt -= v->arp_len;
-            if (++v->arp_i >= v->arp_n)
-                v->arp_i = 0;
-        }
-        pit += v->arp_off[v->arp_i] * 256;
-    }
-    if (eng == E_NOISE)
-        pit += 48 * 256;                        /* the noise clock runs four octaves over the note */
-    inc = pitch_inc(pit);
-    if (lv_uni && eng != E_NOISE)
-        inc2 = lv_uni == 2 ? inc >> 1 : inc + (inc >> 7);
-    gain = (int32_t)(((uint32_t)v->env * (uint32_t)v->env) >> 17);
-    tgt = (int32_t)(((int64_t)gain * (v->vol * (p[P_VOL] & 15) * 5)) >> 12);
-    if (lv_mute >> t & 1u)
-        tgt = 0;
-    amp = v->amp;
-    da = (tgt - amp) / (int32_t)CHUNK;
-    if (eng == E_PULSE) {
-        static const uint32_t DUTY[4] = {0x20000000u, 0x40000000u, 0x80000000u, 0xC0000000u};
-        if (v->shape < 4)
-            duty = DUTY[v->shape];
-        else {
-            v->pwm += 1400000u;                 /* ~1 Hz */
-            duty = 0x80000000u + (uint32_t)(sine(v->pwm) * 40000);
-        }
-    }
-    ph = v->ph;
-    ph2 = v->ph2;
-    lp = v->lp;
-    for (i = 0; i < CHUNK; i++) {
-        int32_t s;
-        if (eng == E_PULSE) {
-            s = (ph < duty ? 32767 : -32767) + blep(ph, inc) - blep(ph - duty, inc);
-            ph += inc;
-            if (inc2) {
-                s += (ph2 < duty ? 32767 : -32767) + blep(ph2, inc2) - blep(ph2 - duty, inc2);
-                s = (s * 23170) >> 15;
-                ph2 += inc2;
-            }
-        } else if (eng == E_WAVE) {
-            const uint8_t *w = WAVES[v->shape & 7u];
-            s = (w[ph >> 27] * 2 - 15) * 2184;
-            ph += inc;
-            if (inc2) {
-                s = ((s + (w[ph2 >> 27] * 2 - 15) * 2184) * 23170) >> 15;
-                ph2 += inc2;
-            }
-        } else {
-            uint32_t o = ph;
-            ph += inc;
-            if (ph < o) {                       /* one LFSR step per wrap of the noise clock */
-                uint32_t l = v->lfsr, b = (l ^ (l >> (v->shape ? 6u : 1u))) & 1u;
-                v->lfsr = (l >> 1) | (b << 14);
-            }
-            s = (v->lfsr & 1u) ? 26000 : -26000;
-        }
-        s &= m;
-        lp += ((s - lp) * a) >> 15;
-        v->dc += (lp * 256 - v->dc) >> 11;      /* a ~3 Hz high-pass, as the chips' output capacitors */
-        out[i] += ((lp - (v->dc >> 8)) * (amp >> 1)) >> 14;
-        amp += da;
-    }
-    v->ph = ph;
-    v->ph2 = ph2;
-    v->lp = lp;
-    v->amp = tgt;
-}
-
-/* ---- KIT: 16 drums, two voices */
+/* ---- KIT: 16 drums, two voices a track */
 typedef struct {
     uint8_t wave, note, drop, ptau, atau, tone, noise, ntau, nhp, drive, flags;
 } drumdef_t;
@@ -274,38 +223,38 @@ static const drumdef_t DRUMS[NDRUM] = {
     /* wave, note, drop, ptau, atau, tone, noise, ntau, nhp, drive, flags   (taus: DECAY_K index, 7.6 ln(ms)) */
     {W_SINE, 31, 26, 26, 40, 15, 3, 8, 12, 2, 0},           /* KICK */
     {W_SINE, 33, 30, 24, 45, 15, 2, 8, 12, 12, 0},          /* GABBER */
-    {W_SINE, 54, 7, 20, 30, 9, 13, 37, 9, 3, 0},            /* CAISSE */
+    {W_SINE, 54, 7, 20, 30, 9, 13, 37, 9, 3, 0},            /* SNARE */
     {W_SINE, 60, 0, 10, 10, 0, 15, 35, 8, 2, DR_CLAP},      /* CLAP */
-    {W_SINE, 60, 0, 10, 10, 0, 12, 21, 14, 0, 0},           /* CHARLEY F */
-    {W_SINE, 60, 0, 10, 10, 0, 12, 41, 14, 0, 0},           /* CHARLEY O */
-    {W_SINE, 43, 5, 30, 39, 15, 2, 12, 10, 1, 0},           /* TOM BAS */
-    {W_SINE, 50, 5, 30, 37, 15, 2, 12, 10, 1, 0},           /* TOM HAUT */
-    {W_SINE, 60, 0, 10, 10, 0, 9, 52, 13, 0, DR_METAL},     /* CYMBALE */
+    {W_SINE, 60, 0, 10, 10, 0, 12, 21, 14, 0, 0},           /* CLOSED HAT */
+    {W_SINE, 60, 0, 10, 10, 0, 12, 41, 14, 0, 0},           /* OPEN HAT */
+    {W_SINE, 43, 5, 30, 39, 15, 2, 12, 10, 1, 0},           /* LOW TOM */
+    {W_SINE, 50, 5, 30, 37, 15, 2, 12, 10, 1, 0},           /* HIGH TOM */
+    {W_SINE, 60, 0, 10, 10, 0, 9, 52, 13, 0, DR_METAL},     /* CYMBAL */
     {W_SINE, 60, 0, 10, 10, 0, 5, 48, 13, 0, DR_METAL},     /* RIDE */
-    {W_SQUARE, 76, 0, 10, 32, 11, 0, 10, 10, 0, DR_BELL},   /* CLOCHE */
+    {W_SQUARE, 76, 0, 10, 32, 11, 0, 10, 10, 0, DR_BELL},   /* COWBELL */
     {W_SINE, 88, 0, 10, 17, 13, 5, 8, 11, 2, 0},            /* RIM */
     {W_SQUARE, 36, 48, 22, 32, 12, 0, 10, 10, 1, 0},        /* ZAP */
-    {W_SINE, 31, 5, 30, 52, 15, 0, 10, 10, 1, 0},           /* BOUM 808 */
-    {W_TRI, 36, 36, 22, 33, 15, 0, 10, 10, 0, 0},           /* KICK CHIP */
-    {W_TRI, 60, 12, 15, 20, 9, 13, 30, 8, 0, DR_CHIPN},     /* CAISSE CHIP */
+    {W_SINE, 31, 5, 30, 52, 15, 0, 10, 10, 1, 0},           /* 808 BOOM */
+    {W_TRI, 36, 36, 22, 33, 15, 0, 10, 10, 0, 0},           /* CHIP KICK */
+    {W_TRI, 60, 12, 15, 20, 9, 13, 30, 8, 0, DR_CHIPN},     /* CHIP SNARE */
 };
 typedef struct {
     uint8_t on, drum, crush;
     uint32_t ph, ph2, rnd, mph[6], t;
-    int32_t note, pe, pek, ae, aek, ne, nek, hp, hpk, lp, drive, amp;
+    int32_t note, pe, pek, ae, aek, ne, nek, hp, hpk, drive;
 } drum_t;
-static drum_t drum[2];
-static uint8_t drum_next;
+static drum_t drum[NTRK][2];
+static uint8_t drum_next[NTRK];
 
-static void drum_on(uint32_t d, uint32_t vol, uint32_t fx, int32_t fxv)
+static void drum_on(uint32_t t, uint32_t d, uint32_t fx, int32_t fxv)
 {
-    drum_t *v = &drum[drum_next];
+    drum_t *v = &drum[t][drum_next[t]];
     const drumdef_t *k = &DRUMS[d & 15u];
-    const int8_t *p = prj.snd[T_KIT].p;
+    const int8_t *p = prj.snd[t].p;
     int32_t dec = p[P_DECAY] * 2;
-    drum_next ^= 1u;
-    if (drum[drum_next].on && drum[drum_next].drum == (d & 15u))
-        drum[drum_next].aek = drum[drum_next].nek = 40000;   /* the same drum again: the old one chokes */
+    drum_next[t] ^= 1u;
+    if (drum[t][drum_next[t]].on && drum[t][drum_next[t]].drum == (d & 15u))
+        drum[t][drum_next[t]].aek = drum[t][drum_next[t]].nek = 40000;   /* the same drum again: the old one chokes */
     v->drum = (uint8_t)(d & 15u);
     v->note = (k->note + p[P_TUNE] + (fx == FX_PITCH ? fxv : 0)) * 256;
     v->pe = k->drop * 256;
@@ -316,12 +265,11 @@ static void drum_on(uint32_t d, uint32_t vol, uint32_t fx, int32_t fxv)
     v->nek = DECAY_K[clampi(k->ntau + dec, 0, 63)];
     v->hpk = TON_A[k->nhp];
     v->drive = 1 + k->drive + p[P_DRIVE];
-    v->amp = (int32_t)vol * (p[P_VOL] & 15) * 7;
     v->crush = (uint8_t)(fx == FX_CRUSH ? fxv : p[P_KCRUSH]);
     v->ph = v->ph2 = 0;
     v->t = 0;
     if (!v->rnd)
-        v->rnd = 0xACE1u + d;
+        v->rnd = 0xACE1u + d + t * 77u;
     v->on = 1;
 }
 
@@ -331,7 +279,7 @@ static void drum_chunk(drum_t *v, int32_t *out)
     uint32_t i, inc, inc2 = 0;
     int32_t ta = (int32_t)((uint32_t)(v->ae >> 1) * (uint32_t)(k->tone * 2185) >> 15);   /* Q15 */
     int32_t na = (int32_t)((uint32_t)(v->ne >> 1) * (uint32_t)(k->noise * 2185) >> 15);
-    int32_t m = crush_mask(v->crush), amp = (lv_mute >> T_KIT & 1u) ? 0 : v->amp;
+    int32_t m = crush_mask(v->crush);
     static const uint32_t METAL_INC[6] = {39994000u, 72000000u, 59300000u, 101800000u, 105200000u, 155800000u};
     if (!v->on)
         return;
@@ -378,9 +326,7 @@ static void drum_chunk(drum_t *v, int32_t *out)
             }
             s += (n * na) >> 15;
         }
-        s = sat(s * v->drive) & m;
-        v->lp += ((s - v->lp) * TON_A[clampi(prj.snd[T_KIT].p[P_TON], 0, 15)]) >> 15;
-        out[i] += (v->lp * amp) >> 12;
+        out[i] += sat(s * v->drive) & m;
         v->t++;
     }
     v->pe = (int32_t)(((int64_t)v->pe * v->pek) >> 16);
@@ -390,61 +336,87 @@ static void drum_chunk(drum_t *v, int32_t *out)
         v->on = 0;
 }
 
-/* ---- CASSE: the break, 16 slices; two voices so that a new slice fades the last one out */
+/* ---- SAMPLE: a break or a user sample, two voices so that a new note fades the last one out */
 typedef struct {
-    uint8_t on, rev, brk, crush;
-    uint32_t pos, step, lo, hi;                 /* Q16, in the break's samples (22050 Hz) */
-    int32_t g, gtgt, gstep, fade_at, rel;
-    int32_t drive, lp, amp;
-} brkv_t;
-static brkv_t brkv[2];
-static uint8_t brk_next;
+    uint8_t on, rev, crush;
+    const uint8_t *d;
+    uint32_t pos, step, lo, hi;                 /* Q16, in the sample's frames */
+    int32_t g, gtgt, gstep, fade_at, rel, drive;
+} smpv_t;
+static smpv_t smp[NTRK][2];
+static uint8_t smp_next[NTRK];
 
-static void brk_on(uint32_t slice, uint32_t vol, uint32_t fx, int32_t fxv)
+static int smp_source(uint32_t src, const uint8_t **d, uint32_t *len, uint32_t *rate)
 {
-    const int8_t *p = prj.snd[T_CASSE].p;
-    brkv_t *v = &brkv[brk_next], *o = &brkv[brk_next ^ 1u];
-    uint32_t q = DUR_Q[clampi(p[P_LEN], 0, 11)], s0, s1, ratio;
-    int32_t semis = p[P_BTUNE] + lv_transpose + (fx == FX_PITCH ? fxv : 0);
+    if (src < BRK_N) {
+        *d = BRK_DATA[src];
+        *len = BRK_LEN;
+        *rate = BRK_SR;
+        return 1;
+    }
+    src -= 4u;
+    if (src < NUSR && usr_data[src] && usr_hdr[src].len > 64u) {
+        *d = usr_data[src];
+        *len = usr_hdr[src].len;
+        *rate = usr_hdr[src].rate;
+        return 1;
+    }
+    return 0;
+}
+
+static int src_is_break(int32_t s) { return s >= 0 && s < (int32_t)BRK_N; }
+
+static void smp_on(uint32_t t, uint32_t note, uint32_t fx, int32_t fxv)
+{
+    const int8_t *p = prj.snd[t].p;
+    smpv_t *v = &smp[t][smp_next[t]], *o = &smp[t][smp_next[t] ^ 1u];
+    const uint8_t *d;
+    uint32_t len, rate, s0, s1, ratio, q = DUR_Q[clampi(p[P_LEN], 0, 11)];
+    int32_t semis = p[P_STUNE] + ((lv_mask >> t & 1u) ? lv_transpose : 0) + (fx == FX_PITCH ? fxv : 0);
+    if (!smp_source((uint32_t)clampi(p[P_SRC], 0, 7), &d, &len, &rate))
+        return;
     if (o->on)
         o->gtgt = 0, o->gstep = -(32767 / 96);  /* ~2 ms */
-    brk_next ^= 1u;
-    slice &= 15u;
-    v->brk = (uint8_t)clampi(p[P_BRK], 0, BRK_N - 1);
-    s0 = slice * BRK_LEN / 16u;
-    s1 = q ? s0 + q * BRK_LEN / 64u : BRK_LEN - 2u;
-    if (s1 > BRK_LEN - 2u)
-        s1 = BRK_LEN - 2u;
+    smp_next[t] ^= 1u;
+    if (p[P_SMODE] == 0) {                      /* slices: 16 across the sample */
+        uint32_t sl = note & 15u;
+        s0 = sl * len / 16u;
+        s1 = q ? s0 + q * len / 64u : len - 2u;
+    } else {                                    /* notes: from the start, C4 = as recorded */
+        s0 = 0;
+        s1 = len - 2u;
+        semis += (int32_t)note - 60;
+    }
+    if (s1 > len - 2u)
+        s1 = len - 2u;
+    v->d = d;
     v->lo = s0 << 16;
     v->hi = s1 << 16;
     v->rev = fx == FX_REV;
     v->pos = v->rev ? v->hi : v->lo;
     ratio = semi_ratio(semis);
-    v->step = (32768u * (ratio >> 4)) >> 12;    /* 22050 -> 44100: 0.5, times the pitch */
-    if (p[P_FIT])                               /* CALE: the break follows the tempo */
+    v->step = (((rate << 16) / 44100u) * (ratio >> 4)) >> 12;   /* the sample's rate, times the pitch */
+    if (p[P_FIT] && src_is_break(p[P_SRC]))     /* FIT: a break follows the tempo */
         v->step = (uint32_t)(((uint64_t)v->step * (((uint32_t)prj.bpm << 16) / BRK_BPM)) >> 16);
     v->g = 0;
     v->gtgt = 32767;
-    v->gstep = p[P_BATT] ? 32767 / (p[P_BATT] * 90) + 1 : 32767;
-    v->rel = p[P_BREL];
+    v->gstep = 32767 / 40;
+    v->rel = 2;
     v->fade_at = 0;
-    v->drive = 1 + p[P_BDRIVE];
-    v->crush = (uint8_t)(fx == FX_CRUSH ? fxv : p[P_BCRUSH]);
-    v->amp = (int32_t)vol * (p[P_VOL] & 15) * 7;
+    v->drive = 1 + p[P_SDRIVE];
+    v->crush = (uint8_t)(fx == FX_CRUSH ? fxv : p[P_SCRUSH]);
     v->on = 1;
 }
 
-static void brk_chunk(brkv_t *v, int32_t *out)
+static void smp_chunk(smpv_t *v, int32_t *out)
 {
-    const uint8_t *d = BRK_DATA[v->brk];
-    uint32_t i;
-    int32_t m = crush_mask(v->crush), a = TON_A[clampi(prj.snd[T_CASSE].p[P_TON], 0, 15)];
-    int32_t amp = (lv_mute >> T_CASSE & 1u) ? 0 : v->amp;
-    uint32_t remain;
+    const uint8_t *d = v->d;
+    uint32_t i, remain;
+    int32_t m = crush_mask(v->crush);
     if (!v->on)
         return;
     remain = v->rev ? (v->pos - v->lo) : (v->hi - v->pos);
-    if (!v->fade_at && remain < (uint32_t)(v->rel * 260 + 32) * v->step) {   /* the end: RELACHE fades */
+    if (!v->fade_at && remain < (uint32_t)(v->rel * 260 + 32) * v->step) {   /* the end fades */
         v->fade_at = 1;
         v->gtgt = 0;
         v->gstep = -(32767 / (v->rel * 260 + 32) + 1);
@@ -457,9 +429,7 @@ static void brk_chunk(brkv_t *v, int32_t *out)
         v->g += v->gstep;
         if ((v->gstep > 0 && v->g > v->gtgt) || (v->gstep < 0 && v->g < v->gtgt))
             v->g = v->gtgt;
-        s = (s * v->g) >> 15;
-        v->lp += ((s - v->lp) * a) >> 15;
-        out[i] += (v->lp * amp) >> 12;
+        out[i] += (s * v->g) >> 15;
         if (v->rev) {
             if (v->pos <= v->lo + v->step) { v->on = 0; break; }
             v->pos -= v->step;
@@ -472,38 +442,308 @@ static void brk_chunk(brkv_t *v, int32_t *out)
         v->on = 0;
 }
 
-/* ---- one interface for the sequencer */
+/* ---- a note on track t */
 static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv, uint32_t arp_len)
 {
-    int32_t sv = (int8_t)fxv;
+    trk_t *v = &tk[t];
+    const int8_t *p = prj.snd[t].p;
+    uint32_t e = prj.snd[t].engine, nm = note_mode(t), i;
+    int32_t sv = (int8_t)fxv, pt = (int32_t)note << 8;
     if (note == NOTE_OFF) {
-        if (t < 4u)
-            tone_off(t);
-        else if (t == T_CASSE) {
-            uint32_t i;
-            for (i = 0; i < 2u; i++)
-                brkv[i].gtgt = 0, brkv[i].gstep = -(32767 / 200);
+        v->gate = 0;
+        if (v->stage && v->stage < 4u) v->stage = 4;
+        if (e == E_FM && t == fm_trk) {
+            fm6_note_t *n = &fmn[fm_cur];
+            if (n->live && n->down) fm6_note_key(n, fm_patch, 0);
         }
         return;
     }
     trig_ms[t] = fm1_ms;
-    if (t < 4u)
-        tone_on(t, note, vol, fx, sv, arp_len);
-    else if (t == T_KIT)
-        drum_on(cell_idx(note), vol, fx, sv);
+    v->vol = (uint8_t)vol;
+    v->bend = 0;
+    v->arp_n = 0;
+    v->shape = (uint8_t)p[P_SHAPE];
+    v->crush = (uint8_t)p[P_CRUSH];
+    v->vib = (uint8_t)(e == E_FM ? 0 : p[P_VIB]);
+    if (nm == NM_NOTE) {
+        int glide = (fx == FX_GLIDE || (e <= E_NOISE && p[P_GLIDE])) && v->stage && v->stage < 4u;
+        if (glide) {
+            v->ptgt = pt;
+            v->glide = fx == FX_GLIDE ? 1 + sv * sv / 6 : 1 + p[P_GLIDE] * p[P_GLIDE] / 6;
+        } else {
+            v->pitch = v->ptgt = pt;
+            v->glide = 0;
+            v->sweep = e <= E_NOISE ? p[P_SWEEP] * 512 : 0;
+            if (v->env < 6000 && e <= E_WAVE)
+                v->ph = v->ph2 = 0;             /* the same start every time (chip punch), when it cannot click */
+        }
+        if (fx == FX_ARP && sv >= 0 && sv < 14) {
+            v->arp_n = (uint8_t)CHORDS[sv].n;
+            for (i = 0; i < 4u; i++)
+                v->arp_off[i] = CHORDS[sv].off[i];
+            v->arp_i = 0;
+            v->arp_cnt = 0;
+            v->arp_len = arp_len ? arp_len * 3u / (uint32_t)clampi(e <= E_NOISE ? p[P_ARPV] : 3, 1, 8) : 700u;
+        }
+        if (fx == FX_VIB) v->vib = (uint8_t)sv;
+        if (fx == FX_BEND) v->bend = sv;
+        if (fx == FX_SHAPE) v->shape = (uint8_t)sv;
+        if (fx == FX_CRUSH) v->crush = (uint8_t)sv;
+        if (fx == FX_PITCH) v->pitch = v->ptgt = pt + sv * 256;
+        if (!v->lfsr) v->lfsr = 1;
+        if (e == E_FM && t == fm_trk && !(v->glide && v->stage)) {   /* a new FM voice; the last one releases */
+            fm6_note_t *old = &fmn[fm_cur], *n;
+            const uint8_t *fp = fm_patch;
+            if (old->live && old->down) fm6_note_key(old, fp, 0);
+            fm_cur ^= 1u;
+            n = &fmn[fm_cur];
+            fm6_note_init(n, fp, (int32_t)note + fp[FP_TRNSP] - 24, (int32_t)(vol * 8u + 7u), 1);
+            fm6_lfo_key(&fm_lfo);
+        }
+    } else if (e == E_KIT)
+        drum_on(t, cell_idx(note), fx, sv);
     else
-        brk_on(cell_idx(note), vol, fx, sv);
+        smp_on(t, nm == NM_SLICE ? cell_idx(note) : note, fx, sv);
+    if (e == E_SAMPLE && nm == NM_NOTE)
+        smp_on(t, note, fx, sv);
+    v->note = (uint8_t)note;
+    if (!(v->glide && v->stage) || v->stage == 4u) {
+        v->stage = 1;
+        if (p[P_ATT] == 0) v->env = 65535, v->stage = 2;
+    }
+    v->gate = 1;
 }
 
 static void voice_off(uint32_t t)
 {
-    if (t < 4u)
-        tone_off(t);
+    trk_t *v = &tk[t];
+    v->gate = 0;
+    if (v->stage && v->stage < 4u)
+        v->stage = 4;
+    if (prj.snd[t].engine == E_FM && t == fm_trk) {
+        fm6_note_t *n = &fmn[fm_cur];
+        if (n->live && n->down) fm6_note_key(n, fm_patch, 0);
+    }
+}
+
+static void voice_cut(uint32_t t)                /* CUT: the note stops now, whatever plays it */
+{
+    voice_off(t);
+    drum[t][0].aek = drum[t][1].aek = drum[t][0].nek = drum[t][1].nek = 50000;
+    smp[t][0].gtgt = smp[t][1].gtgt = 0;
+    smp[t][0].gstep = smp[t][1].gstep = -(32767 / 120);
 }
 
 static void voices_silence(void)
 {
     uint32_t t;
-    for (t = 0; t < 4u; t++)
-        tone_off(t);
+    for (t = 0; t < NTRK; t++)
+        voice_off(t);
+}
+
+/* ---- the LFO of a track, once a chunk: -32767..32767 x depth / 15 */
+static void lfo_chunk(trk_t *v, const int8_t *p)
+{
+    int32_t w;
+    uint32_t o = v->lfo_ph;
+    if (!p[P_LFOD] || !p[P_LFOA]) {
+        v->lfo = 0;
+        return;
+    }
+    v->lfo_ph += lfo_inc[clampi(p[P_LFOR], 0, 10)];
+    switch (p[P_LFOW]) {
+    case 1: w = (int32_t)(v->lfo_ph >> 16); w = (w < 32768 ? w : 65535 - w) * 2 - 32767; break;
+    case 2: w = v->lfo_ph < 0x80000000u ? 32767 : -32767; break;
+    case 3: w = (int32_t)(v->lfo_ph >> 16) - 32768; break;
+    case 4:
+        if (v->lfo_ph < o) v->lfo_rnd = xr(&rnd_isr);
+        w = (int32_t)(v->lfo_rnd >> 17) - 16384;
+        w *= 2;
+        break;
+    default: w = sine(v->lfo_ph); break;
+    }
+    v->lfo = (w * p[P_LFOA]) / 15;
+}
+
+/* ---- one track, one chunk: the engine, the envelope, the effect -> out (mono) */
+static void track_chunk(uint32_t t, int32_t *out)
+{
+    trk_t *v = &tk[t];
+    const int8_t *p = prj.snd[t].p;
+    uint32_t e = prj.snd[t].engine, i, dest = (uint32_t)p[P_LFOD];
+    int32_t raw[CHUNK], pit, gain, tgt, da, amp, fxa = p[P_FXA];
+    int32_t ton = TON_A[clampi(e == E_KIT ? p[P_KTON] : e == E_SAMPLE ? p[P_STON] : p[P_TON], 0, 15)];
+    int active = v->stage != 0 || v->amp != 0;
+    lfo_chunk(v, p);
+    switch (v->stage) {                         /* ADSR, once a chunk */
+    case 1:
+        v->env += ENV_RATE[p[P_ATT] & 15];
+        if (v->env >= 65535) { v->env = 65535; v->stage = 2; }
+        break;
+    case 2:
+        tgt = p[P_SUS] * 4369;
+        v->env -= ENV_RATE[p[P_DEC] & 15] >> 1;
+        if (v->env <= tgt) { v->env = tgt; v->stage = tgt ? 3 : 0; }
+        break;
+    case 4:
+        v->env -= ENV_RATE[p[P_REL] & 15] >> 1;
+        if (v->env <= 0) { v->env = 0; v->stage = 0; }
+        break;
+    }
+    env_now[t] = (uint16_t)v->env;
+    env_stage[t] = v->stage;
+    for (i = 0; i < CHUNK; i++)
+        raw[i] = 0;
+    /* pitch: glide, bend, sweep, vibrato, arpeggio, the live octave, the LFO */
+    if (v->glide) {
+        if (v->pitch < v->ptgt) { v->pitch += v->glide; if (v->pitch > v->ptgt) v->pitch = v->ptgt; }
+        else if (v->pitch > v->ptgt) { v->pitch -= v->glide; if (v->pitch < v->ptgt) v->pitch = v->ptgt; }
+    }
+    v->pitch += v->bend;
+    v->sweep = (int32_t)(((int64_t)v->sweep * 64880) >> 16);   /* tau ~35 ms */
+    pit = v->pitch + v->sweep + ((lv_mask >> t & 1u) ? lv_transpose * 256 : 0);
+    if (v->vib) {
+        v->vph += 9350000u;                     /* ~6 Hz */
+        pit += (sine(v->vph) * v->vib * 14) >> 15;
+    }
+    if (v->arp_n) {
+        v->arp_cnt += CHUNK;
+        if (v->arp_cnt >= v->arp_len) {
+            v->arp_cnt -= v->arp_len;
+            if (++v->arp_i >= v->arp_n) v->arp_i = 0;
+        }
+        pit += v->arp_off[v->arp_i] * 256;
+    }
+    if (dest == LFD_PITCH)
+        pit += (v->lfo * p[P_LFOA] * 4) >> 15;
+    if (dest == LFD_FILT)
+        fxa = clampi(fxa + ((v->lfo * 8) >> 15), 0, 15);
+    if (e <= E_NOISE && active) {
+        uint32_t inc, inc2 = 0, duty = 0x80000000u, ph = v->ph, ph2 = v->ph2;
+        int32_t m = crush_mask(v->crush), lp = v->lp, det = p[P_DETUNE];
+        int uni = (lv_mask >> t & 1u) ? lv_uni : 0;
+        if (e == E_NOISE)
+            pit += 48 * 256;                    /* the noise clock runs four octaves over the note */
+        inc = pitch_inc(pit);
+        if (e != E_NOISE && (uni || det))
+            inc2 = uni == 2 ? inc >> 1 : inc + (inc >> 7) + (uint32_t)(((uint64_t)inc * (uint32_t)det) >> 11);
+        if (e == E_PULSE) {
+            static const uint32_t DUTY[4] = {0x20000000u, 0x40000000u, 0x80000000u, 0xC0000000u};
+            if (v->shape < 4u && dest != LFD_SHAPE)
+                duty = DUTY[v->shape];
+            else {
+                v->pwm += 1400000u;             /* ~1 Hz */
+                duty = 0x80000000u + (uint32_t)((dest == LFD_SHAPE ? v->lfo : sine(v->pwm)) * 40000);
+            }
+        }
+        for (i = 0; i < CHUNK; i++) {
+            int32_t s;
+            if (e == E_PULSE) {
+                s = (ph < duty ? 32767 : -32767) + blep(ph, inc) - blep(ph - duty, inc);
+                ph += inc;
+                if (inc2) {
+                    s += (ph2 < duty ? 32767 : -32767) + blep(ph2, inc2) - blep(ph2 - duty, inc2);
+                    s = (s * 23170) >> 15;
+                    ph2 += inc2;
+                }
+            } else if (e == E_WAVE) {
+                const uint8_t *w = WAVES[v->shape & 7u];
+                s = (w[ph >> 27] * 2 - 15) * 2184;
+                ph += inc;
+                if (inc2) {
+                    s = ((s + (w[ph2 >> 27] * 2 - 15) * 2184) * 23170) >> 15;
+                    ph2 += inc2;
+                }
+            } else {
+                uint32_t o = ph;
+                ph += inc;
+                if (ph < o) {                   /* one LFSR step per wrap of the noise clock */
+                    uint32_t l = v->lfsr, b = (l ^ (l >> (v->shape ? 6u : 1u))) & 1u;
+                    v->lfsr = (l >> 1) | (b << 14);
+                }
+                s = (v->lfsr & 1u) ? 26000 : -26000;
+            }
+            s &= m;
+            lp += ((s - lp) * ton) >> 15;
+            v->dc += (lp * 256 - v->dc) >> 11;  /* ~3 Hz high-pass, as the chips' output capacitors */
+            raw[i] = (lp - (v->dc >> 8)) >> 1;
+        }
+        v->ph = ph;
+        v->ph2 = ph2;
+        v->lp = lp;
+    } else if (e == E_FM) {
+        const uint8_t *fp = fm_patch;
+        if (t != fm_trk) {                      /* (a second FM track cannot happen: the editor refuses it) */
+            active = 0;
+        } else {
+            if (fm_seen != fm_gen) {            /* a new patch: its LFO */
+                fm_seen = fm_gen;
+                fm6_lfo_reset(&fm_lfo, fp);
+            }
+            if (fm_pos == 0u) {                 /* a new block of 32 */
+                int32_t lv, ld, lf, k;
+                uint32_t j;
+                int32_t bri = (p[P_FMBRI] + (dest == LFD_SHAPE ? (v->lfo * 10) >> 15 : 0)) * 48;
+                for (j = 0; j < (uint32_t)CTL; j++)
+                    fm_buf[j] = 0;
+                lv = fm6_lfo_sample(&fm_lfo);
+                ld = fm6_lfo_delay(&fm_lfo);
+                lf = fm6_note_logfreq((pit >> 4) + (fp[FP_TRNSP] - 24) * 16, 0);
+                for (k = 0; k < 2; k++) {
+                    fm6_note_t *n = &fmn[k];
+                    int32_t bus[CTL];
+                    if (cpu_shed && k != fm_cur)
+                        n->live = 0;            /* (the governor: no release voice) */
+                    if (!n->live)
+                        continue;
+                    if (fm6_note_compute(n, fp, bus, lv, ld, lf, fm_alg, fm_fb, fm_dt, bri << 16)) {
+                        for (j = 0; j < (uint32_t)CTL; j++) {
+                            int32_t x = bus[j] - n->dc;
+                            n->dc += x >> 10;   /* FM puts sidebands at 0 Hz */
+                            fm_buf[j] += x >> 10;
+                        }
+                    }
+                    if (!n->down && fm6_note_done(n, fp, fm_alg))
+                        n->live = 0;
+                }
+            }
+            for (i = 0; i < CHUNK; i++)
+                raw[i] = fm_buf[fm_pos + i];
+            fm_pos = (uint8_t)(fm_pos ^ CHUNK);
+            if (!fmn[0].live && !fmn[1].live && !v->stage)
+                active = 0;
+        }
+    } else if (e == E_KIT) {
+        if (cpu_shed >= 3u) drum[t][drum_next[t]].on = 0;   /* (the governor: the older voice goes) */
+        drum_chunk(&drum[t][0], raw);
+        drum_chunk(&drum[t][1], raw);
+        if (ton < 32767)
+            for (i = 0; i < CHUNK; i++) { v->lp += ((raw[i] - v->lp) * ton) >> 15; raw[i] = v->lp; }
+        active = 1;
+    } else {
+        if (cpu_shed >= 3u) smp[t][smp_next[t]].on = 0;
+        smp_chunk(&smp[t][0], raw);
+        smp_chunk(&smp[t][1], raw);
+        if (ton < 32767)
+            for (i = 0; i < CHUNK; i++) { v->lp += ((raw[i] - v->lp) * ton) >> 15; raw[i] = v->lp; }
+        active = 1;
+    }
+    if (!active && !v->amp)
+        return;
+    /* the envelope and the note's volume, ramped over the chunk */
+    gain = (int32_t)(((uint32_t)v->env * (uint32_t)v->env) >> 17);
+    tgt = (int32_t)(((int64_t)gain * (v->vol * 18)) >> 8);       /* vol 15 -> ~1.05 x gain */
+    if (dest == LFD_VOL)
+        tgt = (int32_t)(((int64_t)tgt * (32767 - ((32767 - v->lfo) >> 1) * 1)) >> 15);
+    if (lv_mute >> t & 1u)
+        tgt = 0;
+    amp = v->amp;
+    da = (tgt - amp) / (int32_t)CHUNK;
+    for (i = 0; i < CHUNK; i++) {
+        out[i] = (int32_t)(((int64_t)raw[i] * amp) >> 15);
+        amp += da;
+    }
+    v->amp = tgt;
+    if (cpu_shed < 2u)                          /* (the load governor: kawa_seq.c) */
+        fx_insert(&v->fx, p[P_FXT], fxa, p[P_FXB], p[P_FXM], out, CHUNK);
 }

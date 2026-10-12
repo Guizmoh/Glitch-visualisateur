@@ -1,29 +1,31 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* KAWA: the pages, the panel, the main loop.
  *
- *   HOME   PISTES   the tracker: 16 rows, six tracks, the track under the cursor wide
- *   SEQ    GRILLE   the track's 16 steps on the 16 white keys, as a Pocket Operator
- *   EDIT   SON      the track's sound: PRESETS a factory sound, the knobs its parameters (EDIT: next page)
- *   ENV    MIX      volume, pan, echo, tone; black keys mute
- *   LFO    MAGIE    16 tools on the white keys: chop the break, a beat, a melody in the scale...
- *   SCL    GAMME    root (a key), scale, lock, the cursor's step
- *   GLO    CHAINE   tempo, swing, the pattern's length, loop or song; the song list (white keys add)
- *   SAVE   PROJETS  five slots; SAVE held: undo
- *   FX     EFFETS   held: the live effects on the white keys (tap: the page stays); OCT-/+ the bank
- *   HOME held       the map of the panel
+ *   HOME   TRACKS     the tracker: 16 rows, eight tracks, the track under the cursor wide (HOME held: help)
+ *   SEQ    GRID       the track's 16 steps on the 16 white keys, as a Pocket Operator
+ *   EDIT   SOUND      the track's engine and sound; EDIT again: SOUND 2, (FM: OPERATOR, OP ENV), EFFECT, LFO
+ *   ENV    ENVELOPE   the ADSR, drawn in the knobs' colours; ENV again: MIX (the tracks, the master)
+ *   LFO    MAGIC      16 tools on the white keys: chop the break, a beat, a melody in the scale, clone...
+ *   SCL    SCALE      root (a key), scale, lock, the cursor's step
+ *   GLO    SONG       tempo, swing; the song list: patterns, each played N times; GLO again: OPTIONS (theme,
+ *                     language)
+ *   SAVE   PROJECTS   four slots; SAVE held: undo
+ *   FX     EFFECTS    held: the live effects on the white keys (tap: the page stays), on the master or a track
  *
- * Everywhere: SELECT the row, ALGORITHM the track, PRESETS the pattern (or the sound / the song entry),
- * KNOB 1-4 what the bottom line says, PLAY, REC (keys write at the cursor; while playing, on the beat),
- * ARP clears the cell, OCT-/OCT+ the keyboard's octave. */
+ * One knob, one colour: KNOB 1 red, 2 yellow, 3 green, 4 blue on every page (the cards, the bottom line,
+ * the emulator's rings). Everywhere: SELECT the row, ALGORITHM the track, PRESETS the pattern (or the
+ * sound / the song entry), PLAY, REC (keys write at the cursor; while playing, on the beat), ARP clears
+ * the cell, OCT-/OCT+ the keyboard's octave. */
 
-enum { PG_TRACK, PG_GRID, PG_SOUND, PG_MIX, PG_MAGIC, PG_SCALE, PG_SONG, PG_PROJ, PG_FX, PG_HELP, PG_BOOT };
-static const char *const PAGE_NAMES[LANG_N][11] = {
-    {"PISTES", "GRILLE", "SON", "MIX", "MAGIE", "GAMME", "CHAINE", "PROJETS", "EFFETS", "AIDE", ""},
-    {"TRACKS", "GRID", "SOUND", "MIX", "MAGIC", "SCALE", "SONG", "PROJECTS", "EFFECTS", "HELP", ""},
-    {"PISTAS", "REJILLA", "SONIDO", "MEZCLA", "MAGIA", "ESCALA", "CANCION", "PROYECTO", "EFECTOS", "AYUDA", ""}};
+static const char *const PAGE_NAMES[LANG_N][PG_N] = {
+    {"PISTES", "GRILLE", "SON", "ENVELOPPE", "MIX", "MAGIE", "GAMME", "CHAINE", "PROJETS", "OPTIONS", "EFFETS", "AIDE", ""},
+    {"TRACKS", "GRID", "SOUND", "ENVELOPE", "MIX", "MAGIC", "SCALE", "SONG", "PROJECTS", "OPTIONS", "EFFECTS", "HELP", ""},
+    {"PISTAS", "REJILLA", "SONIDO", "ENVOLVENTE", "MEZCLA", "MAGIA", "ESCALA", "CANCION", "PROYECTOS", "OPCIONES", "EFECTOS",
+     "AYUDA", ""}};
 #define PAGE_NAME PAGE_NAMES[lang]
-static uint8_t page = PG_BOOT, page_back = PG_TRACK;
-static uint8_t cur_row, cur_trk, ui_pat, rec, snd_page, grid_page, fx_bank, fx_sticky, mg_scope;
+static uint8_t page = PG_BOOT, page_back = PG_TRACK, help_pg = PG_TRACK;
+static uint8_t cur_row, cur_trk, ui_pat, rec, snd_page, grid_page, fx_bank, fx_sticky, mg_scope, follow = 1, fm_op = 1;
+static uint8_t rec_held, rec_turned;
 static int8_t oct_ofs;
 static uint8_t mg_inten = 8, mg_seed = 1, song_cur, proj_slot = 1, proj_act, proj_arm;
 static uint8_t brush_vol[NTRK] = {12, 12, 12, 12, 12, 12}, brush_fx[NTRK], brush_fxv[NTRK];
@@ -36,23 +38,31 @@ static uint32_t prev_keys;
 static uint8_t key_note[27], key_trk[27];
 static int8_t grid_held = -1;                   /* a step held on the grid (its knobs edit it) */
 static uint8_t grid_edit;                       /* the held step was edited (its release keeps it) */
-static uint8_t brk_peak[BRK_N][224];            /* the break's outline (SON page), made once */
+static uint8_t wv_peak[224], wv_src = 0xFF;     /* the sample's outline (SOUND page), made when it changes */
 static uint8_t names_ok[NSLOT];
 static char slot_name[NSLOT][16];
 static uint32_t ui_frame_ms;
 static int8_t arc_x[21], arc_y[21];             /* the knob gauge's dots */
+static char knob_lab[4][24];                    /* what each knob does on this page (the emulator shows it) */
+static char help_lab[4][24];
+#define MASTER NTRK                             /* MIX: the strip after the tracks */
 
-static const char *const LANG_CODE[LANG_N] = {"FR", "EN", "ES"};
-static struct { uint8_t lang; int8_t oct; uint8_t pad[2]; } set;   /* kept in the settings sector */
+static struct { uint8_t lang, theme; int8_t oct; uint8_t pad; } set;   /* kept in the settings sector */
 static uint8_t set_dirty;
 static uint32_t set_ms;
-static void set_lang(uint32_t l)
+static void set_changed(void)
 {
-    lang = (uint8_t)(l % LANG_N);
     set.lang = lang;
+    set.theme = theme;
+    set.oct = oct_ofs;
     set_dirty = 1;
     set_ms = fm1_ms;
     g_force = 1;
+}
+static void set_lang(uint32_t l)
+{
+    lang = (uint8_t)(l % LANG_N);
+    set_changed();
 }
 
 static void toast(const char *s)
@@ -65,21 +75,25 @@ static void toast(const char *s)
 
 static pat_t *P(void) { return &prj.pat[ui_pat]; }
 static uint32_t plen(void) { uint32_t l = P()->len; return l && l <= NROW ? l : 16u; }
-static cell_t *CUR(void) { return &P()->c[cur_row][cur_trk]; }
+static uint32_t trk(void) { return cur_trk < NTRK ? cur_trk : NTRK - 1u; }   /* the track (MIX may be on the master) */
+static cell_t *CUR(void) { return &P()->c[cur_row][trk()]; }
+static uint32_t ENG(uint32_t t) { return prj.snd[t].engine; }
 
-/* ---- text of a cell */
+/* ---- text */
 static void note_text(uint32_t t, uint32_t note, char *s, int wide)
 {
+    uint32_t nm = note_mode(t);
     if (note == NOTE_NONE) { str_cat(s, wide ? " . " : " ."); return; }
     if (note == NOTE_OFF) { str_cat(s, wide ? "OFF" : "--"); return; }
-    if (t == T_KIT) { str_cat(s, wide ? DRUM3[cell_idx(note) & 15u] : DRUM2[cell_idx(note) & 15u]); return; }
-    if (t == T_CASSE) { char *p = s; if (wide) *p++ = 'S'; fmt_u(p, cell_idx(note) + 1u, 2); return; }
+    if (nm == NM_DRUM) { str_cat(s, wide ? DRUM3[cell_idx(note) & 15u] : DRUM2[cell_idx(note) & 15u]); return; }
+    if (nm == NM_SLICE) { char *p = s; while (*p) p++; if (wide) *p++ = 'S'; fmt_u(p, cell_idx(note) + 1u, 2); return; }
     if (wide) {
         s = str_cat(s, NOTE_NAME[note % 12u]);
         fmt_u(s, note / 12u ? note / 12u - 1u : 0u, 1);
     } else if (NOTE_NAME[note % 12u][1] == '#')
         str_cat(s, NOTE_NAME[note % 12u]);      /* narrow: C# ... or the octave of a natural note: A2 */
     else {
+        while (*s) s++;
         s[0] = NOTE_NAME[note % 12u][0];
         fmt_u(s + 1, note / 12u ? note / 12u - 1u : 0u, 1);
     }
@@ -96,16 +110,59 @@ static void fxv_text(uint32_t t, const cell_t *c, char *s)
     case FX_CHANCE: s = fmt_u(s, c->fxv * 10u, 0); str_cat(s, "%"); break;
     case FX_REV: str_cat(s, "<<"); break;
     case FX_SHAPE: {
-        uint32_t e = TRK_ENGINE[t];
+        uint32_t e = ENG(t), n = e == E_PULSE ? 5u : e == E_WAVE ? 8u : e == E_NOISE ? 2u : 0u, i;
         const char *const *l = e == E_PULSE ? L_DUTY : e == E_WAVE ? L_WAVE : L_NOISE;
-        uint32_t n = e == E_PULSE ? 5u : e == E_WAVE ? 8u : 2u, i;
-        const char *w = l[lang * n + c->fxv % n];
+        const char *w;
+        if (!n) { fmt_u(s, c->fxv, 0); break; }
+        w = l[lang * n + c->fxv % n];
         for (i = 0; i < 3u && w[i]; i++) s[i] = w[i];
         s[i] = 0;
         break;
     }
     default: fmt_u(s, c->fxv, 0); break;
     }
+}
+static void trk_name(uint32_t t, char *s)      /* "1 PULSE" */
+{
+    s[0] = (char)('1' + t);
+    s[1] = ' ';
+    s[2] = 0;
+    str_cat(s, ENGINE_NAME[ENG(t)]);
+}
+static void src_text(int32_t v, char *s)        /* a SAMPLE's source: a break, or a slot of the user's */
+{
+    const char *n;
+    s[0] = 0;
+    if (v < (int32_t)BRK_N) { str_cat(s, BRK_NAME[v < 0 ? 0 : v]); return; }
+    n = usr_name((uint32_t)v - 4u);
+    if (n) { str_cat(s, n); return; }
+    str_cat(s, TR("MON ", "MY ", "MI "));
+    fmt_u(s + str_len(s), (uint32_t)v - 3u, 0);
+    str_cat(s, " -");
+}
+static const uint16_t ENV_MS[16] = {0, 2, 5, 10, 20, 35, 50, 80, 120, 180, 250, 350, 500, 800, 1200, 2000};
+static void param_text(const pdesc_t *d, int32_t v, char *s, int dec)
+{
+    s[0] = 0;
+    if (d->kind == K_LIST || d->kind == K_NAMES) str_cat(s, pd_value(d, v));
+    else if (d->kind == K_SIGN) fmt_s(s, v);
+    else if (d->kind == K_SRC) src_text(v, s);
+    else if (d->kind == K_MS) {
+        uint32_t ms = ENV_MS[v & 15] * (dec ? 2u : 1u);
+        if (ms >= 1000u) { char *p = fmt_u(s, ms / 1000u, 0); *p++ = '.'; p = fmt_u(p, ms / 100u % 10u, 0); str_cat(p, "S"); }
+        else str_cat(fmt_u(s, ms, 0), "MS");
+    } else if (d->kind == K_PAN) {
+        if (v == 0) str_cat(s, "C");
+        else { s[0] = v < 0 ? TR('G', 'L', 'I') : TR('D', 'R', 'D'); fmt_u(s + 1, (uint32_t)(v < 0 ? -v : v), 0); }
+    } else fmt_u(s, (uint32_t)v, 0);
+}
+/* a parameter's name: the effect's A and B take the name of what they do */
+static const char *param_name(uint32_t t, uint32_t k)
+{
+    const int8_t *p = prj.snd[t].p;
+    if (k == P_FXA) return FXA_NAMES[lang][clampi(p[P_FXT], 0, FXT_N - 1)];
+    if (k == P_FXB) return FXB_NAMES[lang][clampi(p[P_FXT], 0, FXT_N - 1)];
+    return PDESC[ENG(t)][k].name[lang];
 }
 
 /* ---- the panel's LEDs: 0 off, 1 the glow, 2 lit */
@@ -131,12 +188,13 @@ static void leds_flush(void)
 }
 #endif
 
-static int quiet(void)
+static int quiet(void)                          /* nothing sounds (the flash can be erased) */
 {
     uint32_t t;
-    for (t = 0; t < 4u; t++)
-        if (tone[t].stage || tone[t].amp) return 0;
-    return !drum[0].on && !drum[1].on && !brkv[0].on && !brkv[1].on;
+    for (t = 0; t < NTRK; t++)
+        if (tk[t].stage || tk[t].amp || drum[t][0].on || drum[t][1].on || smp[t][0].on || smp[t][1].on)
+            return 0;
+    return !fmn[0].live && !fmn[1].live;
 }
 
 /* ================================================================ drawing */
@@ -145,74 +203,110 @@ static int quiet(void)
 #define GUT_W 16
 #define FOC_W 92
 #define NAR_W 25
+#define LIVE_X 233
 static int32_t lane_x(uint32_t t)
 {
     int32_t x = GUT_W;
     uint32_t k;
     for (k = 0; k < t; k++)
-        x += k == cur_trk ? FOC_W : NAR_W;
+        x += k == trk() ? FOC_W : NAR_W;
     return x;
 }
-static int32_t lane_w(uint32_t t) { return t == cur_trk ? FOC_W : NAR_W; }
-static uint16_t lane_col(uint32_t t, uint32_t bright) { return g_mix(C_BG, TRK_COL[t], bright); }
+static int32_t lane_w(uint32_t t) { return t == trk() ? FOC_W : NAR_W; }
 
-static void draw_mascot(int32_t x, int32_t y, uint32_t scale)
+/* ---- the dog: 16 inks; the headband takes the page's colour (the live effect's when one plays), the
+ * cups the track's */
+static void dog_pal(uint16_t *pal, uint16_t band, uint16_t cups)
 {
-    static const uint16_t BODY_FX[2] = {RGB(255, 120, 200), RGB(255, 110, 70)};
-    uint16_t pal[3] = {RGB(30, 18, 54), RGB(190, 160, 255), C_WHITE};
-    uint32_t spr = SPR_IDLE, flip = 0, on = lfx_on, beat_age = 999;
-    if (sq_play) {
-        uint32_t f = sq_frac >> 24;             /* hop on the beat */
-        beat_age = ((sq_row & 3u) * 256u + f);
-        if (beat_age < 80u) spr = SPR_HOP;
-        else if (beat_age > 900u) spr = SPR_SQUASH;
-    }
-    if ((fm1_ms % 3200u) < 140u && spr == SPR_IDLE) spr = SPR_BLINK;
-    if (rec) pal[1] = RGB(255, 90, 120);
+    pal[0] = 0;
+    pal[1] = RGB(22, 16, 34);                   /* outline */
+    pal[2] = RGB(78, 70, 84);                   /* dark fur */
+    pal[3] = RGB(138, 128, 134);                /* mid fur */
+    pal[4] = RGB(196, 188, 186);                /* light fur */
+    pal[5] = RGB(244, 240, 236);                /* white */
+    pal[6] = RGB(255, 184, 48);                 /* amber eye */
+    pal[7] = RGB(34, 26, 34);                   /* nose */
+    pal[8] = RGB(24, 12, 12);                   /* pupil */
+    pal[9] = RGB(255, 112, 146);                /* tongue */
+    pal[10] = band;
+    pal[11] = cups;
+    pal[12] = g_mix(cups, RGB(0, 0, 0), 110);   /* the cups' rim */
+    pal[13] = RGB(255, 255, 255);               /* highlight */
+    pal[14] = RGB(232, 144, 156);               /* inner ear */
+    pal[15] = RGB(170, 160, 230);               /* z z z */
+}
+static void draw_mascot(int32_t x, int32_t y)
+{
+    uint16_t pal[16];
+    uint32_t spr = DOG_IDLE, on = lfx_on, flip = 0, hop = 0;
+    uint16_t band = PAGE_COL[page < PG_N ? page : 0];
+    if (sq_play && (sq_row & 3u) == 0u && (sq_frac >> 24) < 90u) hop = 1;   /* a nod on the beat */
+    if ((fm1_ms % 3400u) < 150u) spr = DOG_BLINK;
+    if (rec) band = C_REC;
     if (on) {
-        pal[1] = BODY_FX[(on & 0xFFFF0000u) ? 1 : 0];
-        spr = SPR_WILD;
-        if (on & (1u << LF_REV)) flip = 2;
+        spr = DOG_WILD;
+        band = LBANK_COL[(on & 0xFFFF0000u) ? 1 : 0];
         if (on & ((1u << LF_SCR) | (1u << LF_SCRF))) flip = (fm1_ms / 90u) & 1u;
-        if (on & ((1u << LF_CRUSH) | (1u << LF_DECIM))) spr = SPR_SQUASH;
-        if (on & ((1u << LF_TAPE) | (1u << LF_FREEZE))) { spr = SPR_SLEEP; pal[1] = RGB(120, 200, 255); }
+        if (on & ((1u << LF_TAPE) | (1u << LF_FREEZE))) spr = DOG_SLEEP;
     }
-    if (!sq_play && fm1_ms - last_input_ms > 20000u) spr = SPR_SLEEP;
-    g_sprite(x, y - (spr == SPR_HOP ? 1 : 0), spr, pal, scale, flip);
+    if (!sq_play && fm1_ms - last_input_ms > 20000u) spr = DOG_SLEEP;
+    dog_pal(pal, band, TRK_COL[trk()]);
+    g_dog(x, y + (int32_t)hop, DOG16[spr], 16, 16, pal, 1, flip);
+}
+
+static const char *lfx_first(uint32_t on, uint32_t *id_out)   /* the first live effect sounding */
+{
+    uint32_t id = 0;
+    while (id < LF_N && !(on >> id & 1u)) id++;
+    *id_out = id;
+    return id < LF_N ? LFX[id].name[lang] : "";
 }
 
 static void draw_top(void)
 {
     char s[24];
-    int32_t x;
-    uint32_t i, beat = sq_play ? (sq_row & 15u) / 4u : 4u;
+    int32_t x, w;
+    uint32_t i, beat = sq_play ? (sq_row & 15u) / 4u : 4u, on = lfx_on, pg = page < PG_N ? page : 0u;
+    uint16_t pc = PAGE_COL[pg];
     if (!g_vis(0, 20)) return;
     g_rect(0, 0, 240, 20, C_BG);
     g_rect(0, 19, 240, 1, C_RULE);
-    draw_mascot(2, 2, 1);
-    if (page == PG_TRACK || page == PG_GRID || page == PG_MAGIC || page == PG_FX) {
+    draw_mascot(2, 2);
+    w = g_text_w(PAGE_NAME[pg]) + 10;
+    g_rrect(21, 3, w, 14, pc);
+    g_text(26, 3, PAGE_NAME[pg], C_INK, T_CROP | T_BOLD);
+    x = 21 + w + 5;
+    if (on && page != PG_FX) {                  /* a live effect plays: everyone sees which */
+        uint32_t id, n = 0, k;
+        const char *nm = lfx_first(on, &id);
+        uint16_t bc = LBANK_COL[id >= 16u];
+        for (k = 0; k < LF_N; k++) n += on >> k & 1u;
+        s[0] = 0;
+        str_cat(s, nm);
+        if (n > 1u) { str_cat(s, "+"); fmt_u(s + str_len(s), n - 1u, 0); }
+        g_rrect(x, 3, 158 - x, 14, ((fm1_ms / 120u) & 1u) ? bc : g_mix(bc, C_BG, 60));
+        g_icon(x + 3, 6, LFX[id].icon, C_INK, 1);
+        g_text(x + 13, 3, s, C_INK, T_CROP);
+    } else if (pg == PG_TRACK || pg == PG_GRID || pg == PG_MAGIC || pg == PG_FX || pg == PG_SOUND || pg == PG_ENV) {
         s[0] = 'P';
         fmt_u(s + 1, ui_pat + 1u, 2);
-        x = g_text(22, 4, s, C_TXT, T_CROP | T_BOLD);
-        if (page != PG_TRACK)
-            g_text(x + 8, 4, PAGE_NAME[page], C_MID, T_CROP);
-        else if (sq_play && sq_pat != ui_pat) { /* another one plays */
+        x = g_text(x, 4, s, C_TXT, T_CROP | T_BOLD);
+        if (sq_play && sq_pat != ui_pat) {      /* another one plays */
             s[0] = '>';
             fmt_u(s + 1, sq_pat + 1u, 2);
-            g_text(x + 6, 4, s, C_FAINT, T_CROP);
+            g_text(x + 4, 4, s, C_FAINT, T_CROP);
         } else if (sq_next < NPAT && sq_play) { /* the next one, at the end of this one */
             s[0] = '>';
             fmt_u(s + 1, sq_next + 1u, 2);
-            g_text(x + 6, 4, s, C_GOLD, T_CROP);
+            g_text(x + 4, 4, s, C_GOLD, T_CROP);
         }
-    } else
-        g_text(22, 4, PAGE_NAME[page], C_TXT, T_CROP | T_BOLD);
-    if (prj.mode) {
+    }
+    if (prj.mode && !(on && page != PG_FX)) {
         s[0] = 0;
         str_cat(fmt_u(s, (uint32_t)sq_songpos + 1u, 0), "/");
         fmt_u(s + str_len(s), prj.song_len, 0);
-        x = 174 - g_text_w(s);
-        g_icon(x - 11, 6, ICO_CHAIN, C_MID, 1);
+        x = 172 - g_text_w(s);
+        g_icon(x - 10, 6, ICO_CHAIN, C_MID, 1);
         g_text(x, 4, s, C_MID, T_CROP);
     }
     fmt_u(s, prj.bpm, 0);
@@ -223,60 +317,104 @@ static void draw_top(void)
         g_rect(226 + (int32_t)i * 3, 14, 2, 3, i == beat ? C_GOLD : C_RULE);
 }
 
-static void hint(uint32_t k, const char *label, const char *val, uint16_t c)
+/* the bottom line: what the four knobs do, each in its colour. name: the long name (the emulator, the help) */
+#define HINT_W 56
+static void hint_beta(void)                     /* the bottom line's end: this is a beta */
 {
-    int32_t x = (int32_t)k * 60;
-    uint32_t hot = fm1_ms - knob_ms[k] < 700u;
-    g_rect(x, 224, 60, 16, hot ? g_mix(C_BG2, c, 60) : C_BG2);
-    g_rect(x + 59, 226, 1, 12, C_RULE);
-    g_rect(x + 3, 230, 3, 3, c);
+    if (!g_vis(224, 16)) return;
+    g_rect(4 * HINT_W, 224, 240 - 4 * HINT_W, 16, C_REC);
+    g_icon(4 * HINT_W + 4, 228, ICO_BETA, C_WHITE, 1);
+}
+static void hint(uint32_t k, const char *name, const char *label, const char *val)
+{
+    int32_t x = (int32_t)k * HINT_W;
+    uint16_t c = KNOB_COL[k];
+    uint32_t hot = fm1_ms - knob_ms[k] < 700u, i = 0;
+    char *d = knob_lab[k];
+    d[0] = 0;
+    if (name && name[0]) {
+        while (name[i] && i < 14u) { d[i] = name[i]; i++; }
+        d[i] = 0;
+        if (val && val[0]) { str_cat(d, " "); str_cat(d, val); d[23] = 0; }
+    }
+    if (!g_vis(224, 16)) return;
+    if (k == 3u) hint_beta();
+    g_rect(x, 224, HINT_W, 16, hot ? g_mix(C_BG2, c, 90) : C_BG2);
+    g_rect(x, 224, 3, 16, c);
+    g_rect(x + HINT_W - 1, 224, 1, 16, C_BG);
+    if (!name || !name[0]) return;
+    x += 5;
     if (label && label[0])
-        x = g_text(x + 8, 226, label, C_FAINT, T_CROP) - 8 * 0;
-    else
-        x += 8;
+        x = g_text(x, 226, label, hot ? C_WHITE : c, T_CROP) + 2;
     if (val)
-        g_text(label && label[0] ? x + 2 : x, 226, val, hot ? C_WHITE : C_TXT, T_CROP);
+        g_text(x, 226, val, hot ? C_WHITE : C_TXT, T_CROP | (label && label[0] ? 0 : T_BOLD));
 }
-static void hint_line(const char *s)
-{
-    g_rect(0, 224, 240, 16, C_BG2);
-    g_text(4, 226, s, C_MID, T_CROP);
-}
+static void hint_none(uint32_t k) { hint(k, "", "", ""); }
 
 static void draw_toast(void)
 {
     int32_t w;
     if (!toast_s[0] || fm1_ms - toast_ms > 1100u || !g_vis(104, 30)) return;
     w = g_text_w(toast_s) + 24;
-    g_rrect(120 - w / 2, 106, w, 26, RGB(255, 236, 150));
-    g_rrect(120 - w / 2 + 1, 107, w - 2, 24, RGB(46, 30, 80));
+    g_rrect(120 - w / 2, 106, w, 26, C_GOLD);
+    g_rrect(120 - w / 2 + 1, 107, w - 2, 24, C_BG2);
     g_text_c(120, 112, toast_s, C_GOLD, T_CROP | T_BOLD);
 }
 
-/* ---- PISTES */
+/* a knob card: its colour, its name, a gauge, its value */
+static void card(uint32_t i, int32_t x, int32_t y, int32_t h, const char *name, const char *val, int32_t num, int32_t den)
+{
+    uint16_t c = KNOB_COL[i];
+    uint32_t j, n, hot = fm1_ms - knob_ms[i] < 700u;
+    if (!g_vis(y, h)) return;
+    g_rrect(x, y, 58, h, hot ? g_mix(C_BG2, c, 70) : C_BG2);
+    g_rect(x + 1, y, 56, 3, c);
+    if (!name || !name[0]) { g_rect(x + 1, y, 56, 3, C_RULE); return; }
+    g_text_c(x + 29, y + 5, name, c, T_CROP);
+    if (h >= 70) {
+        n = den > 0 ? (uint32_t)(num * 20 / den) : 0u;
+        for (j = 0; j <= 20u; j++)
+            g_rect(x + 28 + arc_x[j], y + 44 + arc_y[j], 2, 2, j <= n ? c : C_RULE);
+        g_text_c(x + 29, y + 38, val, C_WHITE, T_CROP | T_BOLD);
+        g_text_c(x + 29, y + h - 15, i == 0u ? "1" : i == 1u ? "2" : i == 2u ? "3" : "4", g_mix(C_BG2, c, 120), T_CROP);
+    } else {
+        g_text_c(x + 29, y + 19, val, C_WHITE, T_CROP | T_BOLD);
+        g_rect(x + 5, y + h - 6, 48, 2, C_RULE);
+        if (den > 0) g_rect(x + 5, y + h - 6, 48 * num / den, 2, c);
+    }
+}
+
+/* ---- TRACKS */
 static void draw_lane_head(void)
 {
     uint32_t t;
+    char s[16];
     if (!g_vis(20, 12)) return;
     g_rect(0, 20, 240, 12, C_BG);
     for (t = 0; t < NTRK; t++) {
         int32_t x = lane_x(t), w = lane_w(t);
         uint16_t c = TRK_COL[t];
-        int muted = (prj.mute | live_mute) >> t & 1u;
-        g_rect(x, 20, w - 1, 11, muted ? C_BG2 : lane_col(t, t == cur_trk ? 110 : 50));
-        g_icon(x + (t == cur_trk ? 3 : (w - 8) / 2), 22, ENGINE_ICON[TRK_ENGINE[t]], muted ? C_FAINT : (t == cur_trk ? C_WHITE : c), 1);
-        if (t == cur_trk)
-            g_text(x + 14, 20, TRK_NAME[t], C_WHITE, T_CROP);
-        if (muted)
-            g_rect(x + 2, 25, w - 5, 1, C_REC);
+        int muted = (prj.mute | live_mute) >> t & 1u, foc = t == trk();
+        g_rect(x, 20, w - 1, 11, muted ? C_BG2 : g_mix(C_BG, c, foc ? 200 : 70));
+        if (foc) {
+            g_icon(x + 3, 22, ENGINE_ICON[ENG(t)], C_INK, 1);
+            trk_name(t, s);
+            g_text(x + 13, 20, s, C_INK, T_CROP | T_BOLD);
+        } else
+            g_icon(x + 6, 22, ENGINE_ICON[ENG(t)], muted ? C_FAINT : c, 1);
+        if (muted) g_rect(x + 2, 25, w - 5, 1, C_REC);
     }
-    g_rect(233, 20, 7, 11, C_BG2);
+    g_rect(LIVE_X, 20, 240 - LIVE_X, 11, C_BG2);
+    s[0] = '+';                                 /* the rows a note jumps when written (REC held + SELECT) */
+    fmt_u(s + 1, prj.step, 0);
+    if (prj.step > 9u) s[0] = s[1], s[1] = s[2], s[2] = 0;
+    g_text(0, 20, s, rec ? C_REC : C_FAINT, T_CROP);
 }
 
 static void draw_track(void)
 {
     const pat_t *pt = P();
-    uint32_t len = plen(), i, t, base, prow = sq_play && sq_pat == ui_pat ? sq_row : 0xFFu;
+    uint32_t len = plen(), i, t, base, prow = sq_play && sq_pat == ui_pat ? sq_row : 0xFFu, ct = trk();
     uint32_t focus_row = (sq_play && sq_pat == ui_pat && !rec) ? prow : cur_row;
     char s[8];
     base = len > 16u ? (focus_row / 16u) * 16u : 0u;
@@ -287,24 +425,20 @@ static void draw_track(void)
         uint16_t bg = (r % 4u) == 0u ? C_BEAT : (i & 1u) ? C_BG2 : C_BG;
         if (!g_vis(y, ROW_H)) continue;
         if (r >= len) {
-            g_rect(0, y, 240, ROW_H, RGB(12, 8, 24));
+            g_rect(0, y, 240, ROW_H, g_mix(C_BG, RGB(0, 0, 0), 90));
             continue;
         }
         g_rect(0, y, 240, ROW_H, bg);
-        if (r == prow) {
-            g_icon(4, y + 2, ICO_PLAY, C_GO, 1);
-        } else {
-            fmt_u(s, r + 1u, 2);
-            g_text(0, y, s, (r % 4u) == 0u ? C_MID : C_FAINT, T_CROP);
-        }
+        if (r == prow) g_icon(4, y + 2, ICO_PLAY, C_GO, 1);
+        else { fmt_u(s, r + 1u, 2); g_text(0, y, s, (r % 4u) == 0u ? C_MID : C_FAINT, T_CROP); }
         for (t = 0; t < NTRK; t++) {
             const cell_t *c = &pt->c[r][t];
             int32_t x = lane_x(t), w = lane_w(t);
-            int wide = t == cur_trk;
+            int wide = t == ct, on = c->note && c->note != NOTE_OFF;
             uint16_t col = TRK_COL[t];
-            g_blend(x, y, w, ROW_H, col, wide ? 22 : 12);
+            g_blend(x, y, w, ROW_H, col, wide ? 26 : 12);
             g_rect(x, y, 1, ROW_H, C_RULE);
-            if (r == prow && fm1_ms - trig_ms[t] < 200u && c->note && c->note != NOTE_OFF)
+            if (r == prow && fm1_ms - trig_ms[t] < 200u && on)
                 g_blend(x + 1, y, w - 1, ROW_H, col, 150u - (fm1_ms - trig_ms[t]) * 3u / 4u);
             if (r == cur_row && wide) {
                 g_blend(x + 1, y, w - 1, ROW_H, rec ? C_REC : C_WHITE, 50);
@@ -313,378 +447,637 @@ static void draw_track(void)
             s[0] = 0;
             note_text(t, c->note, s, wide);
             if (wide) {
-                uint16_t tc = c->note && c->note != NOTE_OFF ? g_mix(col, C_WHITE, 90) : C_FAINT;
-                g_text(x + 4, y, s, tc, T_CROP | (c->note && c->note != NOTE_OFF ? T_BOLD : 0));
-                if (c->note && c->note != NOTE_OFF) {   /* the volume as a bar */
+                g_text(x + 3, y, s, on ? g_mix(col, C_WHITE, 90) : C_FAINT, T_CROP | (on ? T_BOLD : 0));
+                if (on) {                       /* the volume as a bar */
                     int32_t h = (int32_t)(c->vol * 10u / 15u);
-                    g_rect(x + 30, y + 11 - h, 2, h, g_mix(col, C_BG, 80));
+                    g_rect(x + 29, y + 11 - h, 2, h, g_mix(col, C_BG, 80));
                 }
                 if (c->fx) {
                     char v[8];
-                    g_icon(x + 38, y + 2, FXD[c->fx % FX_N].icon, C_GOLD, 1);
+                    g_icon(x + 36, y + 2, FXD[c->fx % FX_N].icon, C_GOLD, 1);
                     fxv_text(t, c, v);
-                    g_text(x + 50, y, v, C_GOLD, T_CROP);
+                    v[5] = 0;
+                    g_text(x + 46, y, v, C_GOLD, T_CROP);
                 } else
-                    g_text(x + 46, y, "...", C_RULE, T_CROP);
+                    g_text(x + 44, y, "...", C_RULE, T_CROP);
             } else {
-                uint16_t tc = c->note && c->note != NOTE_OFF ? g_mix(C_BG, col, 120u + c->vol * 9u) : C_RULE;
-                g_text(x + (w - 16) / 2, y, s, tc, T_CROP);
-                if (c->fx)
-                    g_rect(x + w - 3, y + 1, 2, 2, C_GOLD);
+                g_text(x + (w - 16) / 2, y, s, on ? g_mix(C_BG, col, 120u + c->vol * 9u) : C_RULE, T_CROP);
+                if (c->fx) g_rect(x + w - 3, y + 1, 2, 2, C_GOLD);
             }
         }
+        g_rect(LIVE_X, y, 240 - LIVE_X, ROW_H, C_BG);
         if (pt->live[r] && pt->live[r] <= LF_N)
-            g_rrect(234, y + 1, 5, ROW_H - 2, LBANK_COL[pt->live[r] > 16u]);
-        else
-            g_rect(233, y, 7, ROW_H, C_BG);
+            g_rrect(LIVE_X + 1, y + 1, 240 - LIVE_X - 1, ROW_H - 2, LBANK_COL[pt->live[r] > 16u]);
         if (r == prow)
-            g_blend(GUT_W, y, 224, ROW_H, C_WHITE, 34);
+            g_blend(GUT_W, y, LIVE_X - GUT_W, ROW_H, C_WHITE, 34);
     }
     {
         const cell_t *c = CUR();
         char a[8], b[8];
         a[0] = 0;
-        note_text(cur_trk, c->note, a, 1);
+        note_text(ct, c->note, a, 1);
         fmt_u(b, c->vol, 0);
-        hint(0, "", a, TRK_COL[cur_trk]);
-        hint(1, "V", c->note ? b : "-", TRK_COL[cur_trk]);
-        hint(2, "", FXD[c->fx % FX_N].tag[lang], C_GOLD);
-        fxv_text(cur_trk, c, b);
-        hint(3, "", c->fx ? b : "-", C_GOLD);
+        hint(0, TR("NOTE", "NOTE", "NOTA"), "", a);
+        hint(1, TR("VOLUME", "VOLUME", "VOLUMEN"), "V", c->note ? b : "-");
+        hint(2, TR("EFFET CASE", "CELL FX", "EFECTO"), "", FXD[c->fx % FX_N].tag[lang]);
+        fxv_text(ct, c, b);
+        hint(3, TR("VALEUR", "VALUE", "VALOR"), "", c->fx ? b : "-");
     }
 }
 
-/* ---- tiles (GRILLE, EFFETS, MAGIE): the 16 white keys as 4 x 4 */
-static void tile_xy(uint32_t i, int32_t *x, int32_t *y)
+/* ---- tiles (GRID, EFFECTS, MAGIC): the 16 white keys as 4 x 4 */
+static void tile_xy(uint32_t i, int32_t *x, int32_t *y, int32_t y0, int32_t step)
 {
     *x = 1 + (int32_t)(i % 4u) * 60;
-    *y = 40 + (int32_t)(i / 4u) * 46;
+    *y = y0 + (int32_t)(i / 4u) * step;
 }
-static void draw_tile(uint32_t i, uint16_t col, uint32_t lit, uint32_t icon, const char *name, const char *sub)
+static void draw_tile(int32_t x, int32_t y, int32_t h, uint32_t i, uint16_t col, uint32_t lit, uint32_t icon,
+                      const char *name, const char *sub)
 {
-    int32_t x, y;
     char n[4];
-    tile_xy(i, &x, &y);
-    if (!g_vis(y, 44)) return;
-    g_rrect(x, y, 58, 44, lit ? col : g_mix(C_BG2, col, 34));
-    if (!lit) g_frame(x, y, 58, 44, g_mix(C_BG, col, 90));
+    if (!g_vis(y, h)) return;
+    g_rrect(x, y, 58, h, lit ? col : g_mix(C_BG2, col, 34));
+    if (!lit) g_frame(x, y, 58, h, g_mix(C_BG, col, 90));
     fmt_u(n, i + 1u, 0);
-    g_text(x + 3, y + 1, n, lit ? C_BG : C_FAINT, T_CROP);
-    if (icon < ICO_N) g_icon(x + 21, y + 4, icon, lit ? C_BG : col, 2);
-    g_text_c(x + 29, y + 20, name, lit ? C_BG : C_TXT, T_CROP);
-    if (sub && sub[0]) g_text_c(x + 29, y + 31, sub, lit ? g_mix(col, C_BG, 160) : C_MID, T_CROP);
+    g_text(x + 3, y + 1, n, lit ? C_INK : C_FAINT, T_CROP);
+    if (icon < ICO_N) g_icon(x + 21, y + (h > 42 ? 4 : 2), icon, lit ? C_INK : col, 2);
+    g_text_c(x + 29, y + (h > 42 ? 20 : 17), name, lit ? C_INK : C_TXT, T_CROP);
+    if (sub && sub[0]) g_text_c(x + 29, y + (h > 42 ? 31 : 27), sub, lit ? g_mix(col, C_INK, 160) : C_MID, T_CROP);
 }
 
 static void draw_grid(void)
 {
     const pat_t *pt = P();
-    uint32_t len = plen(), i, base = grid_page * 16u, prow = sq_play && sq_pat == ui_pat ? sq_row : 0xFFu;
-    uint16_t col = TRK_COL[cur_trk];
+    uint32_t len = plen(), i, base = grid_page * 16u, prow = sq_play && sq_pat == ui_pat ? sq_row : 0xFFu, t = trk();
+    uint16_t col = TRK_COL[t];
     char s[16], v[8];
     if (g_vis(20, 20)) {
         g_rect(0, 20, 240, 20, C_BG);
-        g_icon(4, 24, ENGINE_ICON[TRK_ENGINE[cur_trk]], col, 1);
-        g_text(16, 22, TRK_NAME[cur_trk], col, T_CROP | T_BOLD);
+        g_rrect(3, 22, 82, 15, col);
+        g_icon(6, 25, ENGINE_ICON[ENG(t)], C_INK, 1);
+        trk_name(t, s);
+        g_text(16, 22, s, C_INK, T_CROP | T_BOLD);
         s[0] = 0;
-        note_text(cur_trk, brush_note[cur_trk], s, 1);
-        g_text(110, 22, s, C_TXT, T_CROP);
-        if (brush_fx[cur_trk]) {
-            cell_t b = {0, 0, brush_fx[cur_trk], brush_fxv[cur_trk]};
-            g_icon(150, 24, FXD[b.fx].icon, C_GOLD, 1);
-            fxv_text(cur_trk, &b, v);
-            g_text(160, 22, v, C_GOLD, T_CROP);
+        note_text(t, brush_note[t], s, 1);
+        g_text(94, 22, s, C_TXT, T_CROP | T_BOLD);
+        if (brush_fx[t]) {
+            cell_t b = {0, 0, brush_fx[t], brush_fxv[t]};
+            g_icon(124, 25, FXD[b.fx].icon, C_GOLD, 1);
+            fxv_text(t, &b, v);
+            g_text(134, 22, v, C_GOLD, T_CROP);
         }
         if (len > 16u) {
             s[0] = 0;
-            str_cat(fmt_u(s, base + 1u, 0), "+");
-            g_text(204, 22, s, C_MID, T_CROP);
+            str_cat(fmt_u(s, base + 1u, 0), base ? "-32" : "-16");
+            g_text(236 - g_text_w(s), 22, s, C_MID, T_CROP);
         }
     }
     if (g_vis(38, 2)) g_rect(0, 38, 240, 2, C_BG);
     for (i = 0; i < 16u; i++) {
         uint32_t r = base + i;
         int32_t x, y;
-        const cell_t *c = &pt->c[r < NROW ? r : 0][cur_trk];
-        tile_xy(i, &x, &y);
+        const cell_t *c = &pt->c[r < NROW ? r : 0][t];
+        tile_xy(i, &x, &y, 40, 46);
         if (!g_vis(y - 2, 48)) continue;
         g_rect(x - 1, y - 2, 60, 48, C_BG);
-        if (r >= len) {
-            g_frame(x, y, 58, 44, C_BG2);
-            continue;
-        }
+        if (r >= len) { g_frame(x, y, 58, 44, C_BG2); continue; }
         if (c->note) {
-            uint16_t f = c->note == NOTE_OFF ? C_BG2 : g_mix(C_BG, col, 80u + c->vol * 8u);
-            g_rrect(x, y, 58, 44, f);
+            g_rrect(x, y, 58, 44, c->note == NOTE_OFF ? C_BG2 : g_mix(C_BG, col, 80u + c->vol * 8u));
             s[0] = 0;
-            note_text(cur_trk, c->note, s, 1);
+            note_text(t, c->note, s, 1);
             g_text_c(x + 29, y + 15, s, c->note == NOTE_OFF ? C_FAINT : C_WHITE, T_CROP | T_BOLD);
             if (c->fx) {
                 g_icon(x + 47, y + 3, FXD[c->fx % FX_N].icon, C_GOLD, 1);
-                fxv_text(cur_trk, c, v);
+                fxv_text(t, c, v);
                 g_text_c(x + 29, y + 30, v, C_GOLD, T_CROP);
             }
-        } else {
+        } else
             g_rrect(x, y, 58, 44, (r % 4u) == 0u ? C_BEAT : C_BG2);
-        }
         fmt_u(s, r + 1u, 0);
         g_text(x + 3, y + 1, s, C_FAINT, T_CROP);
-        if (r == prow) {
-            g_frame(x, y, 58, 44, C_WHITE);
-            g_frame(x + 1, y + 1, 56, 42, C_WHITE);
-        }
-        if (grid_held == (int32_t)i)
-            g_frame(x + 2, y + 2, 54, 40, C_GOLD);
+        if (r == prow) { g_frame(x, y, 58, 44, C_WHITE); g_frame(x + 1, y + 1, 56, 42, C_WHITE); }
+        if (grid_held == (int32_t)i) g_frame(x + 2, y + 2, 54, 40, C_GOLD);
     }
-    if (grid_held >= 0) {
-        const cell_t *c = &pt->c[base + (uint32_t)grid_held][cur_trk];
+    {
+        cell_t b = {(uint8_t)brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t]};
+        const cell_t *c = grid_held >= 0 ? &pt->c[base + (uint32_t)grid_held][t] : &b;
         s[0] = 0;
-        note_text(cur_trk, c->note, s, 1);
+        note_text(t, c->note, s, 1);
         fmt_u(v, c->vol, 0);
-        hint(0, "", s, C_GOLD);
-        hint(1, "V", v, C_GOLD);
-        hint(2, "", FXD[c->fx % FX_N].tag[lang], C_GOLD);
-        fxv_text(cur_trk, c, v);
-        hint(3, "", c->fx ? v : "-", C_GOLD);
-    } else {
-        cell_t b = {0, 0, brush_fx[cur_trk], brush_fxv[cur_trk]};
-        s[0] = 0;
-        note_text(cur_trk, brush_note[cur_trk], s, 1);
-        fmt_u(v, brush_vol[cur_trk], 0);
-        hint(0, "", s, col);
-        hint(1, "V", v, col);
-        hint(2, "", FXD[b.fx % FX_N].tag[lang], col);
-        fxv_text(cur_trk, &b, v);
-        hint(3, "", b.fx ? v : "-", col);
+        hint(0, TR("NOTE", "NOTE", "NOTA"), "", s);
+        hint(1, TR("VOLUME", "VOLUME", "VOLUMEN"), "V", v);
+        hint(2, TR("EFFET CASE", "CELL FX", "EFECTO"), "", FXD[c->fx % FX_N].tag[lang]);
+        fxv_text(t, c, v);
+        hint(3, TR("VALEUR", "VALUE", "VALOR"), "", c->fx ? v : "-");
     }
 }
 
-/* ---- SON */
-static void make_peaks(void)
+/* ---- SOUND */
+static void make_peaks(uint32_t src)
 {
-    uint32_t b, x;
-    for (b = 0; b < BRK_N; b++)
-        for (x = 0; x < 224u; x++) {
-            uint32_t a = x * BRK_LEN / 224u, z = (x + 1u) * BRK_LEN / 224u, m = 0;
-            for (; a < z; a++) {
-                int32_t v = BRK_ULAW[BRK_DATA[b][a]];
-                uint32_t av = (uint32_t)(v < 0 ? -v : v);
-                if (av > m) m = av;
-            }
-            brk_peak[b][x] = (uint8_t)(m >> 9);
+    const uint8_t *d;
+    uint32_t len, rate, x;
+    if (src == wv_src) return;
+    wv_src = (uint8_t)src;
+    memset(wv_peak, 0, sizeof wv_peak);
+    if (!smp_source(src, &d, &len, &rate)) return;
+    for (x = 0; x < 224u; x++) {
+        uint32_t a = x * len / 224u, z = (x + 1u) * len / 224u, m = 0;
+        for (; a < z; a++) {
+            int32_t v = BRK_ULAW[d[a]];
+            uint32_t av = (uint32_t)(v < 0 ? -v : v);
+            if (av > m) m = av;
         }
+        wv_peak[x] = (uint8_t)(m >> 9);
+    }
 }
 
-static void draw_env(int32_t x0, int32_t y0, int32_t w, int32_t h, const int8_t *p, uint16_t c)
+static void draw_wave(int32_t x0, int32_t y0, int32_t w, int32_t h, uint32_t e, uint32_t sh, uint16_t col)
 {
-    int32_t a = p[P_ATT] * 3 + 1, d = p[P_DEC] * 3 + 1, r = p[P_REL] * 3 + 1, sus = h - p[P_SUS] * h / 15;
-    int32_t x1 = x0 + a, x2 = x1 + d, x3 = x0 + w - r - 1;
-    if (x3 < x2 + 4) x3 = x2 + 4;
-    g_line(x0, y0 + h, x1, y0, c);
-    g_line(x1, y0, x2, y0 + sus, c);
-    g_line(x2, y0 + sus, x3, y0 + sus, c);
-    g_line(x3, y0 + sus, x3 + r > x0 + w ? x0 + w : x3 + r, y0 + h, c);
+    int32_t x, py = 0, mid = y0 + h / 2;
+    for (x = 0; x < w; x++) {                   /* two cycles of the wave */
+        uint32_t ph = (uint32_t)x * (0x80000000u / (uint32_t)w) * 4u;
+        int32_t v;
+        if (e == E_PULSE) {
+            static const uint32_t DUTY[5] = {0x20000000u, 0x40000000u, 0x80000000u, 0xC0000000u, 0x60000000u};
+            v = ph < DUTY[sh % 5u] ? 1000 : -1000;
+        } else if (e == E_WAVE)
+            v = ((int32_t)WAVES[sh & 7u][ph >> 27] * 2 - 15) * 66;
+        else
+            v = (int32_t)(((uint32_t)(x * 2654435761u) >> 28) & 1u ? 1000 : -1000) * ((x * 7 + 3) % 5 + 1) / 5;
+        v = mid - v * (h / 2 - 2) / 1000;
+        if (x) g_line(x0 + x - 1, py, x0 + x, v, col);
+        py = v;
+    }
+}
+
+static void draw_fx_curve(int32_t x0, int32_t y0, int32_t w, int32_t h, const int8_t *fp, uint16_t col)
+{                                               /* what the effect does: a filter's response, a curve */
+    int32_t type = fp[0], a = fp[1], b = fp[2], x, py = 0;
+    for (x = 0; x < w; x++) {
+        int32_t v = 0, f = x * 15 / w, c = a;
+        switch (type) {
+        case FXT_LPF: v = f <= c ? 600 + (f == c ? b * 30 : 0) : 600 - (f - c) * 160; break;
+        case FXT_HPF: v = f >= c ? 600 + (f == c ? b * 30 : 0) : 600 - (c - f) * 160; break;
+        case FXT_BPF: case FXT_WAH: v = 900 - (f > c ? f - c : c - f) * (130 + b * 8); break;
+        case FXT_DIST: { int32_t in = (x * 2000 / w) - 1000; v = sat(in * (1 + a * 2) * 16) / 33; v = 500 + v / 2; break; }
+        case FXT_CRUSH: { int32_t st = 1 + a / 2; v = ((x * st / w) * 1000) / st; break; }
+        case FXT_DECIM: { int32_t q = 2 + a; v = 500 + (sine((uint32_t)((x / q) * q) * (0xFFFFFFFFu / (uint32_t)w) * 2u) * 450 >> 15); break; }
+        case FXT_RING: v = 500 + ((sine((uint32_t)x * (0xFFFFFFFFu / (uint32_t)w) * 3u) >> 8) * (sine((uint32_t)x * (0xFFFFFFFFu / (uint32_t)w) * (6u + (uint32_t)a)) >> 8)) * 450 / 16384; break;
+        case FXT_TREM: v = 500 + (sine((uint32_t)x * (0xFFFFFFFFu / (uint32_t)w) * 3u) * (b * 30) >> 15); break;
+        default: v = 500; break;
+        }
+        v = clampi(v, 0, 1000);
+        v = y0 + h - 2 - v * (h - 4) / 1000;
+        if (x) { g_line(x0 + x - 1, py, x0 + x, v, col); g_line(x0 + x - 1, py + 1, x0 + x, v + 1, col); }
+        py = v;
+    }
+}
+
+/* the SOUND page's pages: the FM track has its operators too */
+static uint32_t sp_n(uint32_t t) { return ENG(t) == E_FM ? 6u : 4u; }
+static uint32_t sp_at(uint32_t t, uint32_t i) { return ENG(t) == E_FM ? SP_LIST_FM[i % 6u] : SP_LIST[i % 4u]; }
+
+static void op_text(uint32_t k, int32_t v, char *s)   /* an operator knob's value */
+{
+    s[0] = 0;
+    if (k == OPK_RATIO) { if (v == 0) str_cat(s, "X0.5"); else { s[0] = 'X'; fmt_u(s + 1, (uint32_t)v, 0); } }
+    else if (k == OPK_DET || k == OPK_FINE) fmt_s(s, v);
+    else fmt_u(s, (uint32_t)v, 0);
+}
+
+static void draw_fm(int32_t x0, int32_t y0, uint32_t t, uint16_t col, uint32_t sp)
+{
+    const uint8_t *fp = fm_patch;
+    uint32_t alg = fm_alg, car = fm6_carriers(alg), n, live = fmn[fm_cur].live;
+    char s[16];
+    s[0] = 0;
+    str_cat(s, "ALGO ");
+    fmt_u(s + str_len(s), alg + 1u, 0);
+    g_text(x0, y0, s, C_GOLD, T_CROP | T_BOLD);
+    g_rect(x0 + 80, y0 + 4, 6, 6, col);
+    g_text(x0 + 90, y0, TR("PORTEUSE", "CARRIER", "PORTADORA"), C_TXT, T_CROP);
+    g_rect(x0 + 168, y0 + 4, 6, 6, C_GOLD);
+    g_text(x0 + 178, y0, "MOD", C_TXT, T_CROP);
+    for (n = 1; n <= 6u; n++) {                 /* operator n is the patch's 6 - n (msfa) */
+        uint32_t k = 6u - n, c = car >> k & 1u, ol = fp[k * FP_OP + FP_OL] % 100u;
+        int32_t x = x0 + 2 + (int32_t)(n - 1u) * 36, h = (int32_t)(ol * 50u / 99u);
+        uint16_t oc = c ? col : C_GOLD;
+        int sel = (sp == SP_OP || sp == SP_OPENV) && n == fm_op;
+        g_rrect(x, y0 + 16, 30, 58, sel ? g_mix(C_BG, oc, 70) : C_BG);
+        if (sel) g_frame(x, y0 + 16, 30, 58, C_WHITE);
+        g_rect(x + 5, y0 + 70 - h, 20, h, g_mix(C_BG, oc, live ? 240 : 160));
+        fmt_u(s, n, 0);
+        g_text_c(x + 15, y0 + 18, s, sel ? C_WHITE : c ? oc : C_MID, T_CROP | T_BOLD);
+    }
+    (void)t;
+}
+
+static void draw_openv(int32_t x0, int32_t y0, int32_t w, int32_t h)   /* the selected operator's envelope */
+{
+    int32_t a = op_get(fm_op, OPK_ATT), d = op_get(fm_op, OPK_DEC), su = op_get(fm_op, OPK_SUS), r = op_get(fm_op, OPK_REL);
+    int32_t by = y0 + h, sy = by - su * h / 99, xa = x0 + 4 + a * 50 / 99, xd = xa + 4 + d * 50 / 99;
+    int32_t xr = x0 + w - 4 - r * 50 / 99, x, py = by;
+    if (xr < xd + 8) xr = xd + 8;
+    for (x = x0; x <= x0 + w; x++) {
+        int32_t y;
+        uint32_t seg;
+        if (x <= xa) { y = by - (x - x0) * h / (xa - x0 ? xa - x0 : 1); seg = 0; }
+        else if (x <= xd) { y = y0 + (x - xa) * (sy - y0) / (xd - xa ? xd - xa : 1); seg = 1; }
+        else if (x <= xr) { y = sy; seg = 2; }
+        else { y = sy + (x - xr) * (by - sy) / (x0 + w - xr ? x0 + w - xr : 1); seg = 3; }
+        y = clampi(y, y0, by);
+        g_blend(x, y, 1, by - y, KNOB_COL[seg], 50);
+        g_line(x - 1, py, x, y, KNOB_COL[seg]);
+        g_line(x - 1, py - 1, x, y - 1, KNOB_COL[seg]);
+        py = y;
+    }
 }
 
 static void draw_sound(void)
 {
-    uint32_t t = cur_trk, e = TRK_ENGINE[t], i;
+    uint32_t t = trk(), e = ENG(t), i, sp = sp_at(t, snd_page), first = SP_FIRST[sp];
     const int8_t *p = prj.snd[t].p;
-    const pdesc_t *pd = PDESC[e];
     uint16_t col = TRK_COL[t];
     char s[24];
     if (g_vis(20, 20)) {
-        const preset_t *pr = &PRESETS_OF[e][prj.snd[t].preset % NPRESETS_OF[e]];
-        int same = 1;
         g_rect(0, 20, 240, 20, C_BG);
-        g_icon(4, 24, ENGINE_ICON[e], col, 1);
-        g_text(16, 22, TRK_NAME[t], col, T_CROP | T_BOLD);
-        for (i = 0; i < NPARAM; i++)
-            if (pr->p[i] != p[i] && i != P_PAN) same = 0;
+        g_rrect(3, 22, 82, 15, col);
+        g_icon(6, 25, ENGINE_ICON[e], C_INK, 1);
+        trk_name(t, s);
+        g_text(16, 22, s, C_INK, T_CROP | T_BOLD);
         s[0] = 0;
-        str_cat(str_cat(s, pr->name[lang]), same ? "" : "*");
-        g_text(84, 22, s, C_TXT, T_CROP);
-        s[0] = 0;
-        fmt_u(s, snd_page + 1u, 0);
-        str_cat(s, e == E_KIT ? "/2" : "/3");
-        g_text(212, 22, s, C_MID, T_CROP);
+        str_cat(str_cat(s, PRESETS[prj.snd[t].preset % NPRESET].name[lang]), sound_is_preset(t) ? "" : "*");
+        s[14] = 0;
+        g_text(90, 22, s, C_TXT, T_CROP);
     }
     if (g_vis(40, 102)) {
         g_rect(0, 40, 240, 102, C_BG);
-        g_rrect(4, 42, 232, 98, C_BG2);
-        if (e == E_PULSE || e == E_WAVE || e == E_NOISE) {
-            int32_t x, py = 0;
-            for (x = 0; x < 128; x++) {         /* two cycles of the wave */
-                uint32_t ph = (uint32_t)x << 26, sh = (uint32_t)p[P_SHAPE];
+        {                                       /* the page's name, and where it is among them: EDIT goes round */
+            uint32_t n = sp_n(t);
+            int32_t w = g_text_w(SP_NAMES[lang][sp]) + 10;
+            g_rrect(4, 41, w, 14, col);
+            g_text(9, 41, SP_NAMES[lang][sp], C_INK, T_CROP | T_BOLD);
+            if (sp == SP_OP || sp == SP_OPENV) {
+                char o[8] = {'O', 'P', ' ', (char)('0' + fm_op), 0};
+                g_text(w + 10, 41, o, C_WHITE, T_CROP | T_BOLD);
+                g_text(w + 50, 41, "SEL", C_FAINT, T_CROP);
+            }
+            for (i = 0; i < n; i++)
+                g_rect(236 - (int32_t)(n - i) * 10, 45, 7, 7, i == snd_page ? col : C_RULE);
+        }
+        g_rrect(4, 56, 232, 86, C_BG2);
+        if (sp == SP_OPENV) {
+            draw_openv(14, 66, 212, 66);
+        } else if (sp == SP_OP) {
+            draw_fm(12, 60, t, col, sp);
+        } else if (sp == SP_FX) {
+            int8_t fp[3] = {p[P_FXT], p[P_FXA], p[P_FXB]};
+            int32_t m = p[P_FXM];
+            g_icon(12, 64, FXT_ICON[clampi(p[P_FXT], 0, FXT_N - 1)], col, 2);
+            g_text(34, 64, pd_value(&PDESC[e][P_FXT], p[P_FXT]), C_TXT, T_CROP | T_BOLD);
+            g_text(34, 76, TR("SUR CETTE PISTE", "ON THIS TRACK", "EN ESTA PISTA"), C_FAINT, T_CROP);
+            if (p[P_FXT]) draw_fx_curve(12, 90, 200, 48, fp, col);
+            else {
+                g_text_c(116, 100, TR("LE MASTER: ENV, ENV", "THE MASTER: ENV, ENV", "EL MASTER: ENV, ENV"), C_MID, T_CROP);
+                g_text_c(116, 114, TR("PUIS ALGO SUR M", "THEN ALGO TO M", "LUEGO ALGO A M"), C_MID, T_CROP);
+            }
+            g_rect(222, 136 - m * 50 / 15, 6, m * 50 / 15, KNOB_COL[3]);
+        } else if (sp == SP_LFO) {
+            int32_t x, py = 0, w = p[P_LFOW], dpt = p[P_LFOA];
+            for (x = 0; x < 200; x++) {
+                uint32_t ph = (uint32_t)x * (0xFFFFFFFFu / 100u);
                 int32_t v;
-                if (e == E_PULSE) {
-                    static const uint32_t DUTY[5] = {0x20000000u, 0x40000000u, 0x80000000u, 0xC0000000u, 0x60000000u};
-                    v = ph < DUTY[sh % 5u] ? 1000 : -1000;
-                } else if (e == E_WAVE)
-                    v = ((int32_t)WAVES[sh & 7u][ph >> 27] * 2 - 15) * 66;
-                else
-                    v = (int32_t)((xr(&rnd_main) >> 20) & 1u ? 1000 : -1000) * (int32_t)((x * 7 + 3) % 5 + 1) / 5;
-                v = 91 - v * 36 / 1000;
-                if (x) g_line(10 + x - 1, py, 10 + x, v, col);
+                switch (w) {
+                case 1: v = (int32_t)(ph >> 16); v = (v < 32768 ? v : 65535 - v) * 2 - 32767; break;
+                case 2: v = ph < 0x80000000u ? 32767 : -32767; break;
+                case 3: v = (int32_t)(ph >> 16) - 32768; break;
+                case 4: v = ((int32_t)((uint32_t)((x / 25) * 2654435761u) >> 17) - 16384) * 2; break;
+                default: v = sine(ph); break;
+                }
+                v = 98 - (v * (6 + dpt * 2)) / 32767;
+                if (x) g_line(16 + x - 1, py, 16 + x, v, p[P_LFOD] ? col : C_FAINT);
                 py = v;
             }
-            draw_env(146, 56, 84, 70, p, C_GOLD);
-            g_text(146, 44, "ADSR", C_FAINT, T_CROP);
-        } else if (e == E_KIT) {
+            g_text(14, 60, pd_value(&PDESC[e][P_LFOD], p[P_LFOD]), C_GOLD, T_CROP | T_BOLD);
+            if (p[P_LFOD]) g_rect(16 + 200 + 4, 98 - (tk[t].lfo * (6 + dpt * 2)) / 32767 - 2, 5, 5, C_WHITE);
+        } else if (e <= E_NOISE) {
+            draw_wave(12, 60, 120, 76, e, (uint32_t)p[P_SHAPE], col);
+            draw_wave(13, 60, 120, 76, e, (uint32_t)p[P_SHAPE], col);
+            g_text(150, 62, TR("ENV: ADSR", "ENV: ADSR", "ENV: ADSR"), C_FAINT, T_CROP);
+            g_text(150, 78, pd_value(&PDESC[e][P_SHAPE], p[P_SHAPE]), C_TXT, T_CROP | T_BOLD);
+        } else if (e == E_FM)
+            draw_fm(12, 60, t, col, sp);
+        else if (e == E_KIT) {
             for (i = 0; i < 16u; i++) {
-                int32_t x = 8 + (int32_t)(i % 8u) * 28, y = 48 + (int32_t)(i / 8u) * 44;
-                int lit = drum[0].on && drum[0].drum == i;
-                g_rrect(x, y, 26, 40, lit ? col : g_mix(C_BG2, col, 40));
-                g_text_c(x + 13, y + 14, DRUM2[i], lit ? C_BG : C_TXT, T_CROP | T_BOLD);
+                int32_t x = 8 + (int32_t)(i % 8u) * 28, y = 60 + (int32_t)(i / 8u) * 40;
+                int lit = (drum[t][0].on && drum[t][0].drum == i && drum[t][0].t < 4000u) ||
+                          (drum[t][1].on && drum[t][1].drum == i && drum[t][1].t < 4000u);
+                g_rrect(x, y, 26, 36, lit ? col : g_mix(C_BG2, col, 50));
+                g_text_c(x + 13, y + 12, DRUM2[i], lit ? C_INK : C_TXT, T_CROP | T_BOLD);
             }
         } else {
-            uint32_t b = (uint32_t)clampi(p[P_BRK], 0, BRK_N - 1), x, playing = 99;
-            const brkv_t *v = brkv[0].on ? &brkv[0] : brkv[1].on ? &brkv[1] : 0;
-            if (v) playing = (v->pos >> 16) * 16u / BRK_LEN;
-            for (x = 0; x < 224u; x++) {
-                int32_t h = brk_peak[b][x] * 38 / 64;
-                uint32_t sl = x * 16u / 224u;
-                g_rect(8 + (int32_t)x, 91 - h, 1, h * 2 + 1, sl == playing ? C_WHITE : g_mix(C_BG2, col, (sl & 1u) ? 200 : 150));
-            }
-            for (i = 0; i < 16u; i++) {
-                int32_t x = 8 + (int32_t)(i * 224u / 16u);
-                uint32_t tg = BRK_TAG[b][i];
-                g_rect(x, 46, 1, 90, C_RULE);
-                if (tg & 1u) g_rect(x + 3, 132, 4, 4, RGB(255, 140, 60));
-                if (tg & 2u) g_rect(x + 8, 132, 4, 4, C_WHITE);
+            uint32_t src = (uint32_t)clampi(p[P_SRC], 0, 7), x, playing = 99, sl;
+            const smpv_t *v = smp[t][0].on ? &smp[t][0] : smp[t][1].on ? &smp[t][1] : 0;
+            const uint8_t *d;
+            uint32_t len = 1, rate;
+            make_peaks(src);
+            if (!smp_source(src, &d, &len, &rate)) {
+                g_text_c(120, 84, TR("EMPLACEMENT VIDE", "EMPTY SLOT", "RANURA VACIA"), C_FAINT, T_CROP | T_BOLD);
+                g_text_c(120, 102, TR("GLISSE UN SON DANS", "DROP A SOUND ON THE", "SUELTA UN SONIDO EN"), C_FAINT, T_CROP);
+                g_text_c(120, 116, TR("L'EMULATEUR", "EMULATOR", "EL EMULADOR"), C_FAINT, T_CROP);
+            } else {
+                if (v) playing = (v->pos >> 16) * 224u / len;
+                for (x = 0; x < 224u; x++) {
+                    int32_t h = wv_peak[x] * 34 / 64;
+                    sl = x * 16u / 224u;
+                    g_rect(8 + (int32_t)x, 99 - h, 1, h * 2 + 1,
+                           x == playing ? C_WHITE : g_mix(C_BG2, col, p[P_SMODE] == 0 && (sl & 1u) ? 210 : 150));
+                }
+                if (p[P_SMODE] == 0)
+                    for (i = 0; i < 16u; i++) {
+                        int32_t x2 = 8 + (int32_t)(i * 224u / 16u);
+                        g_rect(x2, 60, 1, 78, C_RULE);
+                        if (src < BRK_N) {
+                            if (BRK_TAG[src][i] & 1u) g_rect(x2 + 3, 134, 4, 4, RGB(255, 140, 60));
+                            if (BRK_TAG[src][i] & 2u) g_rect(x2 + 8, 134, 4, 4, C_WHITE);
+                        }
+                    }
             }
         }
     }
-    for (i = 0; i < 4u; i++) {                  /* the four knob cards */
-        uint32_t k = snd_page * 4u + i, j, n;
-        const pdesc_t *d = &pd[k];
-        int32_t x = 1 + (int32_t)i * 60, y = 144, v = p[k];
-        if (!g_vis(y, 80)) continue;
-        g_rect(x - 1, y, 60, 80, C_BG);
-        if (!d->name[0]) continue;
-        g_rrect(x, y + 2, 58, 76, fm1_ms - knob_ms[i] < 700u ? g_mix(C_BG2, col, 50) : C_BG2);
-        g_text_c(x + 29, y + 6, d->name[lang], C_MID, T_CROP);
-        n = (uint32_t)(((v - d->lo) * 20) / (d->hi - d->lo ? d->hi - d->lo : 1));
-        for (j = 0; j <= 20u; j++)
-            g_rect(x + 27 + arc_x[j], y + 44 + arc_y[j], 2, 2, j <= n ? col : C_RULE);
-        s[0] = 0;
-        if (d->kind == K_LIST || d->kind == K_NAMES) str_cat(s, pd_value(d, v));
-        else if (d->kind == K_SIGN) fmt_s(s, v);
-        else if (d->kind == K_PAN) { if (v == 0) str_cat(s, "C"); else { s[0] = v < 0 ? TR('G', 'L', 'I') : TR('D', 'R', 'D'); fmt_u(s + 1, (uint32_t)(v < 0 ? -v : v), 0); } }
-        else fmt_u(s, (uint32_t)v, 0);
-        g_text_c(x + 29, y + 38, s, C_WHITE, T_CROP | T_BOLD);
+    if (sp == SP_OP || sp == SP_OPENV) {        /* an operator's four knobs */
+        for (i = 0; i < 4u; i++) {
+            uint32_t k = (sp == SP_OP ? OPK_LEVEL : OPK_ATT) + i;
+            int32_t v = op_get(fm_op, k);
+            op_text(k, v, s);
+            if (g_vis(144, 80)) {
+                g_rect((int32_t)i * 60, 144, 60, 80, C_BG);
+                card(i, 1 + (int32_t)i * 60, 146, 76, OPK_NAMES[lang][k], s, v - OPK_LO[k], OPK_HI[k] - OPK_LO[k]);
+            }
+            hint(i, OPK_NAMES[lang][k], "", s);
+        }
+        return;
     }
-    if (g_vis(224, 16))
-        hint_line(TR("PRESETS: SON  EDIT: PAGE", "PRESETS: SOUND  EDIT: PAGE", "PRESETS: SONIDO EDIT: PAG."));
+    for (i = 0; i < 4u; i++) {                  /* the four knob cards, each in its knob's colour */
+        uint32_t k = first + i;
+        const pdesc_t *d = &PDESC[e][k];
+        int32_t x = 1 + (int32_t)i * 60, v = p[k];
+        if (!g_vis(144, 80)) { if (d->name[0]) { param_text(d, v, s, k == P_DEC || k == P_REL); hint(i, param_name(t, k), "", s); } else hint_none(i); continue; }
+        g_rect(x - 1, 144, 60, 80, C_BG);
+        if (!d->name[0]) { card(i, x, 146, 76, "", "", 0, 0); hint_none(i); continue; }
+        param_text(d, v, s, k == P_DEC || k == P_REL);
+        s[8] = 0;
+        card(i, x, 146, 76, param_name(t, k), s, v - d->lo, d->hi - d->lo);
+        hint(i, param_name(t, k), "", s);
+    }
 }
 
-/* ---- MIX */
+/* ---- ENVELOPE: the ADSR, its four segments in the four knobs' colours, the note's dot moving on it */
+static void draw_envpage(void)
+{
+    uint32_t t = trk(), i;
+    const int8_t *p = prj.snd[t].p;
+    int32_t x0 = 10, y0 = 50, w = 220, h = 104, by = y0 + h;
+    int32_t a = p[P_ATT] * 4 + 2, d = p[P_DEC] * 4 + 2, r = p[P_REL] * 4 + 2, sy = by - p[P_SUS] * h / 15;
+    int32_t x1 = x0 + a, x2 = x1 + d, x3 = x0 + w - r, x;
+    uint16_t col = TRK_COL[t];
+    char s[24];
+    if (x3 < x2 + 10) x3 = x2 + 10;
+    if (g_vis(20, 20)) {
+        g_rect(0, 20, 240, 20, C_BG);
+        g_rrect(3, 22, 82, 15, col);
+        g_icon(6, 25, ENGINE_ICON[ENG(t)], C_INK, 1);
+        trk_name(t, s);
+        g_text(16, 22, s, C_INK, T_CROP | T_BOLD);
+        if (ENG(t) == E_FM) g_text(92, 22, TR("+ OPERATEURS", "+ OPERATORS", "+ OPERADORES"), C_MID, T_CROP);
+        else if (ENG(t) == E_KIT || note_mode(t) == NM_SLICE) g_text(92, 22, TR("COUPE LES COUPS", "SHAPES THE HITS", "CORTA GOLPES"), C_MID, T_CROP);
+    }
+    if (g_vis(40, 124)) {
+        int32_t py = by;
+        g_rect(0, 40, 240, 124, C_BG);
+        g_rrect(4, 42, 232, 120, C_BG2);
+        for (x = x0; x <= x0 + w; x++) {        /* the curve, filled under, each segment its knob's colour */
+            int32_t y;
+            uint32_t seg;
+            if (x <= x1) { y = by - (x - x0) * h / (a ? a : 1); seg = 0; }
+            else if (x <= x2) { y = y0 + (x - x1) * (sy - y0) / (d ? d : 1); seg = 1; }
+            else if (x <= x3) { y = sy; seg = 2; }
+            else { y = sy + (x - x3) * (by - sy) / (r ? r : 1); seg = 3; }
+            y = clampi(y, y0, by);
+            g_blend(x, y, 1, by - y, KNOB_COL[seg], 60);
+            g_line(x - 1, py, x, y, KNOB_COL[seg]);
+            g_line(x - 1, py - 1, x, y - 1, KNOB_COL[seg]);
+            py = y;
+        }
+        g_rect(x0, by, w + 1, 1, C_RULE);
+        {                                       /* the note now */
+            uint32_t st = env_stage[t];
+            int32_t ev = env_now[t], dx = -1, dy;
+            if (st == 1u) dx = x0 + a * ev / 65535;
+            else if (st == 2u) dx = x1 + d * (65535 - ev) / (65535 - p[P_SUS] * 4369 + 1);
+            else if (st == 3u) dx = x2 + (x3 - x2) / 2 + (int32_t)((fm1_ms / 60u) % 7u) - 3;
+            else if (st == 4u) dx = x3 + r - r * ev / (p[P_SUS] * 4369 + 1);
+            if (dx >= 0) {
+                dx = clampi(dx, x0, x0 + w);
+                dy = by - ev * h / 65535;
+                g_rect(dx - 3, dy - 3, 7, 7, C_WHITE);
+                g_rect(dx - 2, dy - 2, 5, 5, col);
+            }
+        }
+        g_text(x0 + 2, y0 - 6, "A", KNOB_COL[0], T_CROP | T_BOLD);
+        g_text(x1 + 2, y0 - 6, "D", KNOB_COL[1], T_CROP | T_BOLD);
+        g_text(x2 + (x3 - x2) / 2 - 4, sy - 14 < y0 ? sy + 2 : sy - 14, "S", KNOB_COL[2], T_CROP | T_BOLD);
+        g_text(x3 + 2, by - 14, "R", KNOB_COL[3], T_CROP | T_BOLD);
+    }
+    for (i = 0; i < 4u; i++) {
+        uint32_t k = P_ATT + i;
+        const pdesc_t *dd = &PDESC[ENG(t)][k];
+        param_text(dd, p[k], s, k == P_DEC || k == P_REL);
+        if (g_vis(166, 58)) {
+            g_rect(i * 60, 164, 60, 60, C_BG);
+            card(i, 1 + (int32_t)i * 60, 166, 56, dd->name[lang], s, p[k], 15);
+        }
+        hint(i, dd->name[lang], "", s);
+    }
+}
+
+/* ---- MIX: eight strips and the master; ALGORITHM past the eighth track: the master's effect */
+static int32_t meter_h(uint32_t lv, int32_t full)
+{
+    int32_t h = 0;
+    while (lv > 64u && h < 30) { lv = (lv * 3u) >> 2; h++; }
+    return h * full / 30;
+}
 static void draw_mix(void)
 {
     uint32_t t;
-    char s[8];
+    char s[16];
     if (g_vis(20, 204)) g_rect(0, 20, 240, 204, C_BG);
     for (t = 0; t < NTRK; t++) {
         const int8_t *p = prj.snd[t].p;
-        int32_t x = (int32_t)t * 40, lv = level[t], h, vy;
+        int32_t x = (int32_t)t * 34, h, vy;
         uint16_t col = TRK_COL[t];
         int muted = (prj.mute | live_mute) >> t & 1u;
-        if (t == cur_trk) g_frame(x + 1, 21, 38, 202, C_WHITE);
-        g_icon(x + 16, 25, ENGINE_ICON[TRK_ENGINE[t]], muted ? C_FAINT : col, 1);
-        h = 0;                                   /* the level, log-ish */
-        while (lv > 64 && h < 30) { lv = (lv * 3) >> 2; h++; }
-        h = h * 140 / 30;
-        g_rect(x + 12, 40, 16, 140, C_BG2);
-        g_rect(x + 12, 180 - h, 16, h, muted ? C_FAINT : g_mix(C_BG, col, 200));
-        vy = 180 - p[P_VOL] * 140 / 15;
-        g_rect(x + 8, vy, 24, 2, C_WHITE);
-        g_rect(x + 19 + p[P_PAN] * 2, 186, 3, 6, C_TXT);
-        g_rect(x + 6, 189, 28, 1, C_RULE);
-        g_rect(x + 6, 198, p[P_ECHO] * 28 / 15, 3, C_GOLD);
-        if (muted) g_text_c(x + 20, 205, "M", C_REC, T_CROP | T_BOLD);
-        else { fmt_u(s, (uint32_t)p[P_VOL], 0); g_text_c(x + 20, 205, s, C_MID, T_CROP); }
+        if (t == cur_trk) { g_frame(x + 1, 21, 32, 202, C_WHITE); g_frame(x + 2, 22, 30, 200, C_WHITE); }
+        g_icon(x + 13, 25, ENGINE_ICON[ENG(t)], muted ? C_FAINT : col, 1);
+        h = meter_h(level[t], 126);
+        g_rect(x + 9, 38, 16, 126, C_BG2);
+        g_rect(x + 9, 164 - h, 16, h, muted ? C_FAINT : g_mix(C_BG, col, 220));
+        vy = 164 - p[P_VOL] * 126 / 15;
+        g_rect(x + 5, vy - 1, 24, 3, C_WHITE);
+        g_rect(x + 5, 172, 24, 1, C_RULE);
+        g_rect(x + 16 + p[P_PAN] * 2, 168, 3, 9, KNOB_COL[1]);
+        g_rect(x + 5, 181, p[P_ECHO] * 24 / 15 + 1, 4, KNOB_COL[2]);
+        g_rect(x + 5, 188, p[P_VERB] * 24 / 15 + 1, 4, KNOB_COL[3]);
+        if (p[P_FXT]) g_icon(x + 13, 195, FXT_ICON[clampi(p[P_FXT], 0, FXT_N - 1)], C_GOLD, 1);
+        if (muted) g_text_c(x + 17, 207, "M", C_REC, T_CROP | T_BOLD);
+        else { fmt_u(s, t + 1u, 0); g_text_c(x + 17, 207, s, col, T_CROP | T_BOLD); }
     }
-    if (g_vis(224, 16)) {
-        const int8_t *p = prj.snd[cur_trk].p;
-        char a[8], b[8], c[8], d[8];
-        fmt_u(a, (uint32_t)p[P_VOL], 0);
-        fmt_s(b, p[P_PAN]);
-        fmt_u(c, (uint32_t)p[P_ECHO], 0);
-        fmt_u(d, (uint32_t)p[P_TON], 0);
-        hint(0, "VOL", a, TRK_COL[cur_trk]);
-        hint(1, "PAN", b, TRK_COL[cur_trk]);
-        hint(2, TR("ECH", "ECH", "ECO"), c, TRK_COL[cur_trk]);
-        hint(3, TR("TON", "TON", "TON"), d, TRK_COL[cur_trk]);
+    {                                           /* the master */
+        int32_t x = 204, h = meter_h(level[NTRK], 126);
+        int32_t ty = clampi(prj.mfx[0], 0, FXT_N - 1);
+        g_rect(x, 21, 1, 202, C_RULE);
+        if (cur_trk == MASTER) { g_frame(x + 1, 21, 35, 202, C_WHITE); g_frame(x + 2, 22, 33, 200, C_WHITE); }
+        g_text_c(x + 18, 22, "M", C_GOLD, T_CROP | T_BOLD);
+        g_rect(x + 9, 38, 18, 126, C_BG2);
+        g_rect(x + 9, 164 - h, 18, h, C_GOLD);
+        g_icon(x + 10, 172, FXT_ICON[ty], ty ? C_GOLD : C_FAINT, 2);
+        g_rect(x + 6, 192, prj.mfx[3] * 24 / 15 + 1, 4, KNOB_COL[3]);
+    }
+    if (cur_trk == MASTER) {
+        const pdesc_t *d = &PDESC[0][P_FXT];
+        int32_t ty = clampi(prj.mfx[0], 0, FXT_N - 1);
+        fmt_u(s, (uint32_t)prj.mfx[1], 0);
+        hint(0, TR("EFFET MASTER", "MASTER FX", "EFECTO MASTER"), "", pd_value(d, ty));
+        hint(1, FXA_NAMES[lang][ty], "A", s);
+        fmt_u(s, (uint32_t)prj.mfx[2], 0);
+        hint(2, FXB_NAMES[lang][ty], "B", s);
+        fmt_u(s, (uint32_t)prj.mfx[3], 0);
+        hint(3, TR("DOSAGE", "MIX", "MEZCLA"), "M", s);
+    } else {
+        const int8_t *p = prj.snd[trk()].p;
+        char b[8];
+        fmt_u(s, (uint32_t)p[P_VOL], 0);
+        hint(0, TR("VOLUME", "VOLUME", "VOLUMEN"), "VOL", s);
+        param_text(&PDESC[0][P_PAN], p[P_PAN], b, 0);
+        hint(1, TR("PANO", "PAN", "PANEO"), "PAN", b);
+        fmt_u(s, (uint32_t)p[P_ECHO], 0);
+        hint(2, "ECHO", TR("ECH", "ECH", "ECO"), s);
+        fmt_u(s, (uint32_t)p[P_VERB], 0);
+        hint(3, "REVERB", "REV", s);
     }
 }
 
-/* ---- MAGIE, EFFETS */
+/* ---- MAGIC */
 static void draw_magic(void)
 {
-    uint32_t i;
-    char s[8];
-    static const uint16_t MG_COL = RGB(255, 210, 90);
+    uint32_t i, t = trk();
+    char s[16];
+    uint16_t mc = PAGE_COL[PG_MAGIC];
     if (g_vis(20, 20)) {
         g_rect(0, 20, 240, 20, C_BG);
-        g_icon(4, 24, mg_scope ? ICO_CHAIN : ENGINE_ICON[TRK_ENGINE[cur_trk]], mg_scope ? C_GOLD : TRK_COL[cur_trk], 1);
-        g_text(16, 22, mg_scope ? TR("TOUT LE MOTIF", "WHOLE PATTERN", "TODO EL PATRON") : TRK_NAME[cur_trk], mg_scope ? C_GOLD : TRK_COL[cur_trk], T_CROP | T_BOLD);
+        if (mg_scope) {
+            g_rrect(3, 22, 120, 15, C_GOLD);
+            g_icon(6, 25, ICO_CHAIN, C_INK, 1);
+            g_text(16, 22, TR("TOUT LE MOTIF", "WHOLE PATTERN", "TODO EL PATRON"), C_INK, T_CROP | T_BOLD);
+        } else {
+            g_rrect(3, 22, 82, 15, TRK_COL[t]);
+            g_icon(6, 25, ENGINE_ICON[ENG(t)], C_INK, 1);
+            trk_name(t, s);
+            g_text(16, 22, s, C_INK, T_CROP | T_BOLD);
+        }
     }
     if (g_vis(38, 2)) g_rect(0, 38, 240, 2, C_BG);
     for (i = 0; i < MG_N; i++) {
         int32_t x, y;
-        tile_xy(i, &x, &y);
+        tile_xy(i, &x, &y, 40, 46);
         if (g_vis(y - 2, 48)) g_rect(x - 1, y - 2, 60, 48, C_BG);
-        draw_tile(i, MG_COL, 0, MAGIC[i].icon, MAGIC[i].name[lang], MAGIC[i].sub[lang]);
+        draw_tile(x, y, 44, i, mc, 0, MAGIC[i].icon, MAGIC[i].name[lang], MAGIC[i].sub[lang]);
     }
-    if (g_vis(224, 16)) {
-        fmt_u(s, mg_inten, 0);
-        hint(0, TR("FORCE", "AMT", "FZA"), s, MG_COL);
-        fmt_u(s, mg_seed, 0);
-        hint(1, TR("DE", "DIE", "DADO"), s, MG_COL);
-        hint(2, "", L_SCOPE[mg_scope], MG_COL);
-        hint(3, "", "", C_FAINT);
-    }
+    fmt_u(s, mg_inten, 0);
+    hint(0, TR("FORCE", "AMOUNT", "FUERZA"), TR("FOR", "AMT", "FZA"), s);
+    fmt_u(s, mg_seed, 0);
+    hint(1, TR("DE", "DIE", "DADO"), TR("DE", "DIE", "DAD"), s);
+    hint(2, TR("PORTEE", "SCOPE", "ALCANCE"), "", L_SCOPE[mg_scope]);
+    hint_none(3);
 }
 
+/* ---- EFFECTS: the bank, the target, the scope of the bus, the tiles alive while they play */
+static uint32_t lfx_phase(uint32_t id)          /* how far the effect is in its cycle, 0..255 (the tiles' bar) */
+{
+    uint32_t g = g_rowlen ? g_rowlen : 1u;
+    if ((BF_MASK >> id & 1u) && bf.act && bf.id == id && bf.L)
+        return ((afr - bf.S) % bf.L) * 255u / bf.L;
+    if (id == LF_LPF) return (127u - lpf_note) * 255u / 93u;
+    if (id == LF_HPF) return hpf_note * 255u / 100u;
+    if (id == LF_GATE32) g /= 2u;
+    return (g_beatpos % g) * 255u / g;
+}
 static void draw_fx(void)
 {
     uint32_t i, t, on = lfx_on;
     uint16_t col = LBANK_COL[fx_bank];
+    char s[16];
     if (g_vis(20, 20)) {
         g_rect(0, 20, 240, 20, C_BG);
         for (i = 0; i < 2u; i++) {
-            int32_t x = 4 + (int32_t)i * 62;
-            if (i == fx_bank) g_rrect(x, 22, 58, 15, LBANK_COL[i]);
-            else g_frame(x, 22, 58, 15, g_mix(C_BG, LBANK_COL[i], 120));
-            g_text_c(x + 29, 23, LBANK_NAME[i], i == fx_bank ? C_BG : LBANK_COL[i], T_CROP | T_BOLD);
+            int32_t x = 3 + (int32_t)i * 56;
+            if (i == fx_bank) g_rrect(x, 22, 54, 15, LBANK_COL[i]);
+            else g_frame(x, 22, 54, 15, g_mix(C_BG, LBANK_COL[i], 120));
+            g_text_c(x + 27, 22, LBANK_NAME[i], i == fx_bank ? C_INK : LBANK_COL[i], T_CROP | T_BOLD);
         }
-        if (rec && sq_play) { g_rrect(134, 22, 30, 15, C_REC); g_text_c(149, 23, "REC", C_WHITE, T_CROP); }
-        for (t = 0; t < NTRK; t++) {             /* the mutes (black keys 1-6) */
-            int32_t x = 172 + (int32_t)t * 11;
-            int muted = (prj.mute | live_mute) >> t & 1u;
-            g_rrect(x, 24, 9, 11, muted ? C_BG2 : TRK_COL[t]);
-            if (muted) g_frame(x, 24, 9, 11, TRK_COL[t]);
+        if (rec && sq_play) { g_rrect(116, 22, 28, 15, C_REC); g_text_c(130, 22, "REC", C_WHITE, T_CROP); }
+        g_icon(150, 25, ICO_TARGET, KNOB_COL[3], 1);   /* where they play: KNOB 4 */
+        if (lfx_target) {
+            g_rrect(160, 22, 77, 15, TRK_COL[lfx_target - 1u]);
+            trk_name(lfx_target - 1u, s);
+            g_text(164, 22, s, C_INK, T_CROP | T_BOLD);
+        } else {
+            g_rrect(160, 22, 77, 15, C_GOLD);
+            g_text(164, 22, "MASTER", C_INK, T_CROP | T_BOLD);
         }
     }
-    if (g_vis(38, 2)) g_rect(0, 38, 240, 2, C_BG);
+    if (g_vis(40, 20)) {                        /* the bus, as it sounds */
+        uint32_t w = scope_w, x;
+        int32_t py = 50;
+        g_rect(0, 40, 240, 20, C_BG);
+        g_rrect(2, 41, 236, 18, C_BG2);
+        for (x = 0; x < 232u; x++) {
+            int32_t v = scope[(w + 8u + x) % 240u], y = 50 - v * 8 / 32768;
+            if (x) g_line(4 + (int32_t)x - 1, py, 4 + (int32_t)x, y, on ? col : C_MID);
+            py = y;
+        }
+    }
     for (i = 0; i < 16u; i++) {
-        uint32_t id = fx_bank * 16u + i;
+        uint32_t id = fx_bank * 16u + i, lit = on >> id & 1u;
         int32_t x, y;
-        tile_xy(i, &x, &y);
-        if (g_vis(y - 2, 48)) g_rect(x - 1, y - 2, 60, 48, C_BG);
-        draw_tile(i, col, on >> id & 1u, LFX[id].icon, LFX[id].name[lang], LFX[id].sub[lang]);
+        tile_xy(i, &x, &y, 62, 40);
+        if (g_vis(y - 2, 42)) g_rect(x - 1, y - 2, 60, 42, C_BG);
+        draw_tile(x, y, 38, i, col, lit, LFX[id].icon, LFX[id].name[lang], LFX[id].sub[lang]);
+        if (lit && g_vis(y + 34, 3)) {          /* alive: where it is in its cycle */
+            uint32_t ph = lfx_phase(id);
+            g_rect(x + 3, y + 34, 52, 2, g_mix(col, C_INK, 120));
+            g_rect(x + 3, y + 34, (int32_t)(ph * 52u / 255u), 2, C_WHITE);
+        }
     }
-    if (g_vis(224, 16))
-        hint_line(fx_sticky ? TR("OCT:BANQUE  NOIR:MUET  FX:FIN", "OCT:BANK  BLACK:MUTE  FX:END", "OCT:BANCO  NEGRA:MUTE  FX:FIN")
-                            : TR("OCT:BANQUE  NOIRES:MUETS", "OCT:BANK  BLACK KEYS:MUTE", "OCT:BANCO  NEGRAS:SILENCIO"));
+    for (t = 0; t < NTRK; t++) { (void)t; }
+    hint(0, TR("BANQUE", "BANK", "BANCO"), "", LBANK_NAME[fx_bank]);
+    hint_none(1);
+    hint(2, TR("ENREG. LIVE", "REC LIVE", "GRABAR LIVE"), "REC", rec ? TR("OUI", "YES", "SI") : TR("NON", "NO", "NO"));
+    if (lfx_target) { s[0] = 'T'; s[1] = (char)('0' + lfx_target); s[2] = 0; }
+    else { s[0] = 0; str_cat(s, "MAST"); }
+    hint(3, TR("CIBLE", "TARGET", "DESTINO"), "", s);
 }
 
-/* ---- GAMME */
+/* ---- SCALE */
 static void draw_scale(void)
 {
     uint32_t i, mask = SCALES[prj.scale % 12u].mask;
     char s[16];
     static const uint8_t WHITE7[7] = {0, 2, 4, 5, 7, 9, 11}, BLACK5[5] = {1, 3, 6, 8, 10};
     static const uint8_t BLACK_X[5] = {0, 1, 3, 4, 5};
+    uint16_t pc = PAGE_COL[PG_SCALE];
     if (g_vis(20, 204)) g_rect(0, 20, 240, 204, C_BG);
     s[0] = 0;
     str_cat(s, NOTE_NAME[prj.root % 12u]);
@@ -698,80 +1091,86 @@ static void draw_scale(void)
     for (i = 0; i < 7u; i++) {                  /* one octave from C, the scale's notes lit */
         uint32_t n = WHITE7[i], in = mask >> ((n + 12u - prj.root) % 12u) & 1u;
         int32_t x = 8 + (int32_t)i * 32;
-        g_rrect(x, 86, 30, 96, in ? (n == prj.root ? C_GOLD : RGB(220, 210, 255)) : RGB(70, 60, 110));
-        if (n == prj.root) g_text_c(x + 15, 164, "*", C_BG, T_BOLD);
+        g_rrect(x, 86, 30, 96, in ? (n == prj.root ? C_GOLD : g_mix(C_TXT, pc, 60)) : C_RULE);
+        if (n == prj.root) g_text_c(x + 15, 164, "*", C_INK, T_BOLD);
     }
     for (i = 0; i < 5u; i++) {
         uint32_t n = BLACK5[i], in = mask >> ((n + 12u - prj.root) % 12u) & 1u;
         int32_t x = 8 + (int32_t)BLACK_X[i] * 32 + 22;
-        g_rrect(x, 86, 18, 58, in ? (n == prj.root ? C_GOLD : RGB(150, 120, 230)) : RGB(30, 22, 56));
+        g_rrect(x, 86, 18, 58, in ? (n == prj.root ? C_GOLD : pc) : C_BG2);
         g_frame(x, 86, 18, 58, C_BG);
     }
     g_text(8, 192, TR("UNE TOUCHE = TONIQUE", "A KEY = THE ROOT", "UNA TECLA = TONICA"), C_FAINT, T_CROP);
-    s[0] = 0;
-    fmt_u(str_cat(s, TR("PAS ", "STEP ", "PASO ")), prj.step, 0);
-    g_text(176, 192, s, C_MID, T_CROP);
-    if (g_vis(224, 16)) {
+    {
         char a[4] = {0}, b[8];
         str_cat(a, NOTE_NAME[prj.root % 12u]);
         if (a[1] == '-') a[1] = 0;
-        hint(0, TR("TON", "KEY", "TON"), a, C_GOLD);
-        hint(1, "", TR("GAMME", "SCALE", "ESCALA"), C_GOLD);
-        hint(2, "", prj.lock ? TR("VERROU", "LOCK", "FIJA") : TR("LIBRE", "FREE", "LIBRE"), C_GOLD);
+        hint(0, TR("TONIQUE", "ROOT", "TONICA"), TR("TON", "KEY", "TON"), a);
+        hint(1, TR("GAMME", "SCALE", "ESCALA"), "", SCALES[prj.scale % 12u].name[lang]);
+        hint(2, TR("VERROU", "LOCK", "FIJAR"), "", prj.lock ? TR("VERROU", "LOCK", "FIJA") : TR("LIBRE", "FREE", "LIBRE"));
         fmt_u(b, prj.step, 0);
-        hint(3, TR("PAS", "STP", "PAS"), b, C_GOLD);
+        hint(3, TR("PAS DU CURSEUR", "CURSOR STEP", "PASO CURSOR"), TR("PAS", "STP", "PAS"), b);
     }
 }
 
-/* ---- CHAINE */
-static uint16_t pat_col(uint32_t p) { return TRK_COL[p % NTRK]; }
+/* ---- SONG: the entries (a pattern, played N times) */
 static void draw_song(void)
 {
-    uint32_t i, top = song_cur >= 24u ? ((song_cur - 16u) / 8u) * 8u : 0u;
+    uint32_t i, top = song_cur >= 16u ? ((song_cur - 8u) / 8u) * 8u : 0u;
     char s[16];
+    uint16_t sc = PAGE_COL[PG_SONG];
     if (g_vis(20, 204)) g_rect(0, 20, 240, 204, C_BG);
-    if (g_vis(22, 60)) {
+    if (g_vis(22, 50)) {
         fmt_u(s, prj.bpm, 0);
-        g_text_l(8, 26, s, C_WHITE);
-        g_text(64, 28, "BPM", C_FAINT, T_CROP);
+        g_text_l(8, 24, s, C_WHITE);
+        g_text(64, 26, "BPM", C_FAINT, T_CROP);
         s[0] = 0;
         str_cat(fmt_u(str_cat(s, "SWING "), prj.swing, 0), "%");
-        g_text(64, 42, s, C_MID, T_CROP);
-        g_rrect(150, 26, 84, 18, prj.mode ? C_GOLD : C_BG2);
-        g_text_c(192, 29, prj.mode ? TR("CHAINE", "SONG", "CANCION") : TR("BOUCLE", "LOOP", "BUCLE"), prj.mode ? C_BG : C_TXT, T_CROP | T_BOLD);
-        s[0] = 0;
-        str_cat(fmt_u(str_cat(s, "P"), ui_pat + 1u, 2), ":");
-        str_cat(fmt_u(s + str_len(s), plen(), 0), TR(" PAS", " STEPS", " PASOS"));
-        g_text(236 - g_text_w(s), 48, s, C_MID, T_CROP);
-        g_rect(4, 66, 232, 1, C_RULE);
+        g_text(64, 40, s, C_MID, T_CROP);
+        g_rrect(150, 24, 84, 18, prj.mode ? sc : C_BG2);
+        g_text_c(192, 27, prj.mode ? TR("CHAINE", "SONG", "CANCION") : TR("BOUCLE", "LOOP", "BUCLE"), prj.mode ? C_INK : C_TXT, T_CROP | T_BOLD);
+        g_text(150, 44, TR("ARP: MODE", "ARP: MODE", "ARP: MODO"), C_FAINT, T_CROP);
+        g_rect(4, 60, 232, 1, C_RULE);
     }
-    for (i = 0; i < 32u; i++) {
+    for (i = 0; i < 24u; i++) {
         uint32_t k = top + i;
-        int32_t x = 4 + (int32_t)(i % 8u) * 29, y = 72 + (int32_t)(i / 8u) * 36;
-        if (!g_vis(y, 32)) continue;
+        int32_t x = 4 + (int32_t)(i % 8u) * 29, y = 66 + (int32_t)(i / 8u) * 44;
+        if (!g_vis(y, 42)) continue;
         if (k < prj.song_len) {
-            uint32_t pn = prj.song[k];
+            uint32_t pn = prj.song[k].pat, rep = prj.song[k].rep ? prj.song[k].rep : 1u;
             int playing = sq_play && prj.mode && k == sq_songpos;
-            g_rrect(x, y, 27, 30, playing ? C_WHITE : g_mix(C_BG2, pat_col(pn), 110));
+            uint16_t pcol = TRK_COL[pn % NTRK];
+            g_rrect(x, y, 27, 38, playing ? C_WHITE : g_mix(C_BG2, pcol, 120));
             fmt_u(s, pn + 1u, 2);
-            g_text_c(x + 14, y + 9, s, playing ? C_BG : C_WHITE, T_CROP | T_BOLD);
+            g_text_c(x + 14, y + 4, s, playing ? C_INK : C_WHITE, T_CROP | T_BOLD);
+            s[0] = 'x';
+            fmt_u(s + 1, rep, 0);
+            g_text_c(x + 14, y + 20, s, playing ? C_INK : C_GOLD, T_CROP);
+            if (playing && rep > 1u) {           /* the repeats done */
+                uint32_t j;
+                for (j = 0; j < rep && j < 8u; j++)
+                    g_rect(x + 3 + (int32_t)j * 3, y + 33, 2, 2, j <= sq_rep ? C_REC : C_RULE);
+            }
         } else if (k == prj.song_len)
-            g_text_c(x + 14, y + 9, "+", C_FAINT, T_CROP);
-        if (k == song_cur) g_frame(x - 1, y - 1, 29, 32, C_GOLD);
+            g_text_c(x + 14, y + 12, "+", C_FAINT, T_CROP | T_BOLD);
+        if (k == song_cur) { g_frame(x - 1, y - 1, 29, 40, C_GOLD); g_frame(x - 2, y - 2, 31, 42, C_GOLD); }
     }
-    if (g_vis(224, 16)) {
-        char a[8], b[8], c[8];
+    {
+        char a[8], b[8], c[8], d[8];
+        uint32_t rep = song_cur < prj.song_len ? prj.song[song_cur].rep : 0u;
         fmt_u(a, prj.bpm, 0);
         fmt_u(b, prj.swing, 0);
-        fmt_u(c, plen(), 0);
-        hint(0, "BPM", a, C_GOLD);
-        hint(1, "SW", b, C_GOLD);
-        hint(2, TR("PAS", "STP", "PAS"), c, C_GOLD);
-        hint(3, "", prj.mode ? TR("CHAINE", "SONG", "CANCION") : TR("BOUCLE", "LOOP", "BUCLE"), C_GOLD);
+        c[0] = 'x';
+        fmt_u(c + 1, rep ? rep : 1u, 0);
+        fmt_u(d, plen(), 0);
+        hint(0, "TEMPO", "BPM", a);
+        hint(1, "SWING", "SW", b);
+        hint(2, TR("REPETER", "REPEAT", "REPETIR"), TR("REP", "REP", "REP"), song_cur < prj.song_len ? c : "-");
+        hint(3, TR("PAS DU MOTIF", "PATTERN STEPS", "PASOS PATRON"), TR("PAS", "STP", "PAS"), d);
     }
 }
 
-/* ---- PROJETS */
+/* ---- PROJECTS */
 static const char *const PROJ_ACTS[LANG_N][4] = {{"SAUVER", "CHARGER", "NOUVEAU", "DEMO"},
                                                  {"SAVE", "LOAD", "NEW", "DEMO"}, {"GUARDAR", "CARGAR", "NUEVO", "DEMO"}};
 #define PROJ_ACT PROJ_ACTS[lang]
@@ -780,79 +1179,183 @@ static void draw_proj(void)
     uint32_t k;
     char s[24];
     if (g_vis(20, 204)) g_rect(0, 20, 240, 204, C_BG);
-    g_text(8, 24, TR("EN COURS:", "CURRENT:", "ACTUAL:"), C_FAINT, T_CROP);
-    g_text(84, 24, prj.name, C_GOLD, T_CROP | T_BOLD);
+    g_text(8, 26, TR("EN COURS:", "CURRENT:", "ACTUAL:"), C_FAINT, T_CROP);
+    g_text(84, 26, prj.name, C_GOLD, T_CROP | T_BOLD);
     for (k = 0; k < NSLOT; k++) {
-        int32_t y = 44 + (int32_t)k * 30;
-        uint16_t bg = k == proj_slot ? RGB(70, 50, 120) : C_BG2;
-        if (!g_vis(y, 28)) continue;
-        g_rrect(6, y, 228, 26, bg);
-        if (k == proj_slot) g_frame(6, y, 228, 26, C_GOLD);
+        int32_t y = 48 + (int32_t)k * 34;
+        if (!g_vis(y, 30)) continue;
+        g_rrect(6, y, 228, 30, k == proj_slot ? g_mix(C_BG2, PAGE_COL[PG_PROJ], 80) : C_BG2);
+        if (k == proj_slot) g_frame(6, y, 228, 30, C_GOLD);
         s[0] = 0;
         if (k == 0u) str_cat(s, "AUTO");
         else fmt_u(s, k, 0);
-        g_text(14, y + 7, s, C_MID, T_CROP | T_BOLD);
-        g_text(62, y + 7, names_ok[k] ? slot_name[k] : TR("- VIDE -", "- EMPTY -", "- VACIO -"), names_ok[k] ? C_TXT : C_FAINT, T_CROP);
+        g_text(14, y + 9, s, C_MID, T_CROP | T_BOLD);
+        g_text(62, y + 9, names_ok[k] ? slot_name[k] : TR("- VIDE -", "- EMPTY -", "- VACIO -"), names_ok[k] ? C_TXT : C_FAINT, T_CROP);
     }
-    if (g_vis(196, 26)) {
-        g_rrect(6, 196, 228, 24, proj_arm ? C_GOLD : C_BG2);
+    if (g_vis(190, 30)) {
+        g_rrect(6, 190, 228, 28, proj_arm ? C_GOLD : C_BG2);
         s[0] = 0;
         str_cat(str_cat(s, PROJ_ACT[proj_act]), proj_arm ? " ? OCT+" : "  (OCT+)");
-        g_text_c(120, 202, s, proj_arm ? C_BG : C_TXT, T_CROP | T_BOLD);
+        g_text_c(120, 197, s, proj_arm ? C_INK : C_TXT, T_CROP | T_BOLD);
     }
-    if (g_vis(224, 16)) {
+    {
         char a[4];
         fmt_u(a, proj_slot, 0);
-        hint(0, "SLOT", proj_slot ? a : "A", C_GOLD);
-        hint(1, "", PROJ_ACT[proj_act], C_GOLD);
-        hint(2, "LANG", LANG_CODE[lang], C_GOLD);
-        hint(3, "", TR("+: OUI", "+: YES", "+: SI"), C_FAINT);
+        hint(0, TR("EMPLACEMENT", "SLOT", "RANURA"), "SLOT", proj_slot ? a : "A");
+        hint(1, TR("ACTION", "ACTION", "ACCION"), "", PROJ_ACT[proj_act]);
+        hint_none(2);
+        hint_none(3);
     }
 }
 
-/* ---- AIDE (HOME held): the panel */
+/* ---- OPTIONS (SAVE twice): the theme, the language */
+static void draw_opt(void)
+{
+    uint32_t k, i;
+    if (g_vis(20, 204)) g_rect(0, 20, 240, 204, C_BG);
+    g_text(8, 26, TR("THEME", "THEME", "TEMA"), KNOB_COL[0], T_CROP | T_BOLD);
+    for (k = 0; k < NTHEME; k++) {              /* each theme as a little screen */
+        const theme_t *th = &THEMES[k];
+        int32_t x = 8 + (int32_t)k * 76, y = 44;
+        if (!g_vis(y, 72)) continue;
+        if (k == theme) { g_frame(x - 2, y - 2, 72, 66, C_WHITE); g_frame(x - 3, y - 3, 74, 68, KNOB_COL[0]); }
+        g_rect(x, y, 68, 62, th->bg);
+        g_rect(x, y, 68, 10, th->bg2);
+        for (i = 0; i < NTRK; i++)
+            g_rect(x + 2 + (int32_t)i * 8, y + 14, 6, 30 - (int32_t)((i * 7u) % 20u), th->trk[i]);
+        g_rect(x + 2, y + 48, 40, 2, th->gold);
+        g_text_c(x + 34, y + 50, th->name, th->txt, T_CROP);
+    }
+    g_text(8, 124, TR("LANGUE", "LANGUAGE", "IDIOMA"), KNOB_COL[1], T_CROP | T_BOLD);
+    for (k = 0; k < LANG_N; k++) {
+        int32_t x = 8 + (int32_t)k * 76;
+        g_rrect(x, 142, 68, 22, k == lang ? KNOB_COL[1] : C_BG2);
+        g_text_c(x + 34, 146, k == 0u ? "FRANCAIS" : k == 1u ? "ENGLISH" : "ESPANOL", k == lang ? C_INK : C_TXT, T_CROP | T_BOLD);
+    }
+    g_text_c(120, 174, "KAWA " APP_VER " BETA - Pocket Tracker", C_MID, T_CROP);
+    g_text_c(120, 188, "by Omnipotard", C_FAINT, T_CROP);
+    {                                           /* the audio interrupt's load (for the beta's testers) */
+        char c[32];
+        c[0] = 0;
+        str_cat(fmt_u(str_cat(c, "CPU "), cpu_pct, 0), "%  MAX ");
+        str_cat(fmt_u(c + str_len(c), cpu_max, 0), "%");
+        if (cpu_shed) { str_cat(c, "  ECO "); fmt_u(c + str_len(c), cpu_shed, 0); }
+        if (audio_late) { str_cat(c, " !"); fmt_u(c + str_len(c), audio_late > 99u ? 99u : audio_late, 0); }
+        g_text_c(120, 204, c, cpu_max > 70u ? C_REC : cpu_max > 45u ? C_GOLD : C_GO, T_CROP);
+    }
+    hint(0, TR("THEME", "THEME", "TEMA"), "", THEMES[theme].name);
+    hint(1, TR("LANGUE", "LANGUAGE", "IDIOMA"), "", LANG_CODE[lang]);
+    hint_none(2);
+    hint_none(3);
+}
+
+/* ---- HELP (HOME held): what the knobs, the encoders and the keys do on the page it was held on */
+typedef struct { const char *e[3], *l[2]; } help_t;
+static const help_t HELP[LANG_N][PG_HELP] = {
+    {{{"LIGNE", "PISTE", "MOTIF"}, {"TOUCHES: JOUER, REC: ECRIRE", "REC TENU + SELECT: LE SAUT"}},
+     {{"PAS 1-16/17-32", "PISTE", "MOTIF"}, {"BLANCHES: PAS OUI/NON", "NOIRES: LA PISTE"}},
+     {{"MOTEUR / OPERATEUR", "PISTE", "SON"}, {"EDIT: PAGE SUIVANTE", "FM: UNE SEULE PISTE"}},
+     {{"-", "PISTE", "SON"}, {"ENV ENCORE: LE MIX", "TOUCHES: ECOUTER"}},
+     {{"-", "PISTE / MASTER", "MOTIF"}, {"NOIRES: MUETS", "APRES LA 8: LE MASTER"}},
+     {{"-", "PISTE", "MOTIF"}, {"BLANCHE: UN OUTIL", "SAVE TENU: ANNULER"}},
+     {{"-", "PISTE", "MOTIF"}, {"UNE TOUCHE: LA TONIQUE", "VERROU: NOTES DE LA GAMME"}},
+     {{"ENTREE", "-", "SON MOTIF"}, {"BLANCHE: MOTIF  K3: X FOIS", "OCT+ AJOUTE  OCT- ENLEVE"}},
+     {{"EMPLACEMENT", "-", "-"}, {"OCT+: FAIRE (DEUX FOIS)", "SAVE ENCORE: RETOUR"}},
+     {{"-", "-", "-"}, {"THEME ET LANGUE, GARDES", "GLO: RETOUR A LA CHAINE"}},
+     {{"-", "PISTE", "MOTIF"}, {"FX TENU + BLANCHES", "OCT: BANQUE  NOIRES: MUETS"}}},
+    {{{"ROW", "TRACK", "PATTERN"}, {"KEYS: PLAY, REC: WRITE", "REC HELD + SELECT: THE JUMP"}},
+     {{"STEPS 1-16/17-32", "TRACK", "PATTERN"}, {"WHITE KEYS: STEPS ON/OFF", "BLACK KEYS: THE TRACK"}},
+     {{"ENGINE / OPERATOR", "TRACK", "SOUND"}, {"EDIT: NEXT PAGE", "FM: ONE TRACK ONLY"}},
+     {{"-", "TRACK", "SOUND"}, {"ENV AGAIN: THE MIX", "KEYS: LISTEN"}},
+     {{"-", "TRACK / MASTER", "PATTERN"}, {"BLACK KEYS: MUTES", "PAST TRACK 8: MASTER"}},
+     {{"-", "TRACK", "PATTERN"}, {"WHITE KEY: A TOOL", "SAVE HELD: UNDO"}},
+     {{"-", "TRACK", "PATTERN"}, {"A KEY: THE ROOT", "LOCK: NOTES OF THE SCALE"}},
+     {{"ENTRY", "-", "ITS PATTERN"}, {"WHITE KEY: PATTERN K3: TIMES", "OCT+ ADD  OCT- DELETE"}},
+     {{"SLOT", "-", "-"}, {"OCT+: DO IT (TWICE)", "SAVE AGAIN: BACK"}},
+     {{"-", "-", "-"}, {"THEME AND LANGUAGE, KEPT", "GLO: BACK TO THE SONG"}},
+     {{"-", "TRACK", "PATTERN"}, {"HOLD FX + WHITE KEYS", "OCT: BANK  BLACK: MUTES"}}},
+    {{{"FILA", "PISTA", "PATRON"}, {"TECLAS: TOCAR, REC: GRABAR", "REC + SELECT: EL SALTO"}},
+     {{"PASOS 1-16/17-32", "PISTA", "PATRON"}, {"BLANCAS: PASOS SI/NO", "NEGRAS: LA PISTA"}},
+     {{"MOTOR / OPERADOR", "PISTA", "SONIDO"}, {"EDIT: PAGINA SIGUIENTE", "FM: UNA SOLA PISTA"}},
+     {{"-", "PISTA", "SONIDO"}, {"ENV OTRA VEZ: LA MEZCLA", "TECLAS: ESCUCHAR"}},
+     {{"-", "PISTA / MASTER", "PATRON"}, {"NEGRAS: SILENCIOS", "TRAS LA 8: EL MASTER"}},
+     {{"-", "PISTA", "PATRON"}, {"BLANCA: UNA HERRAMIENTA", "SAVE PULSADO: DESHACER"}},
+     {{"-", "PISTA", "PATRON"}, {"UNA TECLA: LA TONICA", "FIJA: NOTAS DE LA ESCALA"}},
+     {{"ENTRADA", "-", "SU PATRON"}, {"BLANCA: PATRON  K3: VECES", "OCT+ ANADE  OCT- QUITA"}},
+     {{"RANURA", "-", "-"}, {"OCT+: HACERLO (DOS VECES)", "SAVE OTRA VEZ: VOLVER"}},
+     {{"-", "-", "-"}, {"TEMA E IDIOMA, GUARDADOS", "GLO: VOLVER A LA CANCION"}},
+     {{"-", "PISTA", "PATRON"}, {"FX PULSADO + BLANCAS", "OCT: BANCO  NEGRAS: MUTE"}}}};
 static void draw_help(void)
 {
     static const char *const BT[12] = {"FX", "SCL", "ENV", "LFO", "EDIT", "GLO", "HOME", "SAVE", "ARP", "SEQ", "PLAY", "REC"};
-    static const char *const NMS[LANG_N][12] = {
-        {"EFFETS", "GAMME", "MIX", "MAGIE", "SON", "CHAINE", "PISTES", "PROJETS", "EFFACE", "GRILLE", "JOUE", "ENREG"},
-        {"EFFECTS", "SCALE", "MIX", "MAGIC", "SOUND", "SONG", "TRACKS", "PROJECTS", "CLEAR", "GRID", "PLAY", "REC"},
-        {"EFECTOS", "ESCALA", "MEZCLA", "MAGIA", "SONIDO", "CANCION", "PISTAS", "PROYECTO", "BORRAR", "REJILLA", "TOCAR", "GRABAR"}};
-    static const char *const KNS[LANG_N][12] = {
-        {"SELECT", "LIGNE", "ALGO", "PISTE", "PRESETS", "MOTIF / SON", "KNOB 1-4", "LIGNE DU BAS", "OCT- OCT+",
-         "OCTAVE, BANQUE", "SAVE TENU", "ANNULER"},
-        {"SELECT", "ROW", "ALGO", "TRACK", "PRESETS", "PATTERN / SOUND", "KNOB 1-4", "THE BOTTOM LINE", "OCT- OCT+",
-         "OCTAVE, BANK", "SAVE HELD", "UNDO"},
-        {"SELECT", "FILA", "ALGO", "PISTA", "PRESETS", "PATRON / SONIDO", "KNOB 1-4", "LA LINEA DE ABAJO", "OCT- OCT+",
-         "OCTAVA, BANCO", "SAVE PULS.", "DESHACER"}};
-    const char *const *NM = NMS[lang], *const *KN = KNS[lang];
+    static const uint8_t BT_PG[12] = {PG_FX, PG_SCALE, PG_ENV, PG_MAGIC, PG_SOUND, PG_SONG, PG_TRACK, PG_PROJ, 255, PG_GRID, 255, 255};
+    const help_t *h = &HELP[lang][help_pg < PG_HELP ? help_pg : 0];
+    static const char *const ENC[3] = {"SELECT", "ALGO", "PRESETS"};
     uint32_t i;
+    char s[32];
     if (g_vis(20, 204)) g_rect(0, 20, 240, 204, C_BG);
-    for (i = 0; i < 12u; i++) {
-        int32_t x = i < 6u ? 4 : 122, y = 24 + (int32_t)(i % 6u) * 15;
-        g_rrect(x, y, 38, 13, RGB(70, 56, 120));
-        g_text_c(x + 19, y, BT[i], C_WHITE, T_CROP | T_BOLD);
-        g_text(x + 42, y, NM[i], C_GOLD, T_CROP);
+    if (g_vis(20, 18)) {
+        s[0] = 0;
+        str_cat(s, PAGE_NAME[help_pg < PG_N ? help_pg : 0]);
+        g_rrect(4, 22, g_text_w(s) + 10, 14, PAGE_COL[help_pg < PG_N ? help_pg : 0]);
+        g_text(9, 22, s, C_INK, T_CROP | T_BOLD);
     }
-    g_rect(4, 116, 232, 1, C_RULE);
-    for (i = 0; i < 6u; i++) {
-        int32_t y = 122 + (int32_t)i * 16;
-        g_text(6, y, KN[i * 2u], C_WHITE, T_CROP | T_BOLD);
-        g_text(92, y, KN[i * 2u + 1u], C_GOLD, T_CROP);
+    for (i = 0; i < 4u; i++) {                  /* the knobs, in their colours */
+        int32_t x = 4 + (int32_t)(i % 2u) * 117, y = 40 + (int32_t)(i / 2u) * 30;
+        char n[4] = {'K', (char)('1' + i), 0, 0};
+        if (!g_vis(y, 28)) continue;
+        g_rrect(x, y, 114, 27, C_BG2);
+        g_rect(x, y, 4, 27, KNOB_COL[i]);
+        g_text(x + 7, y + 1, n, KNOB_COL[i], T_CROP | T_BOLD);
+        g_text(x + 7, y + 13, help_lab[i][0] ? help_lab[i] : "-", help_lab[i][0] ? C_TXT : C_FAINT, T_CROP);
     }
-    if (g_vis(224, 16)) hint_line("KAWA " APP_VER " - Pocket Tracker");
+    for (i = 0; i < 3u; i++) {
+        int32_t y = 102 + (int32_t)i * 13;
+        g_text(6, y, ENC[i], C_MID, T_CROP | T_BOLD);
+        g_text(80, y, h->e[i], C_GOLD, T_CROP);
+    }
+    g_text(6, 142, h->l[0], C_TXT, T_CROP);
+    g_text(6, 155, h->l[1], C_TXT, T_CROP);
+    g_rect(4, 170, 232, 1, C_RULE);
+    for (i = 0; i < 12u; i++) {                 /* the buttons, coloured as their pages */
+        int32_t x = 4 + (int32_t)(i % 6u) * 39, y = 175 + (int32_t)(i / 6u) * 23;
+        uint16_t c = BT_PG[i] < PG_N ? PAGE_COL[BT_PG[i]] : i == 10u ? C_GO : i == 11u ? C_REC : C_MID;
+        g_rrect(x, y, 37, 20, g_mix(C_BG2, c, 90));
+        g_text_c(x + 18, y + 4, BT[i], C_WHITE, T_CROP | T_BOLD);
+    }
+    hint(0, "", "", "");
+    hint(1, "", "", "");
+    hint(2, "", "", "");
+    hint(3, "", "", "");
 }
 
+/* ---- the boot: the dog, his headphones, the notes coming out of them */
 static void draw_boot(void)
 {
-    static const uint16_t pal[3] = {RGB(30, 18, 54), RGB(190, 160, 255), C_WHITE};
-    uint32_t t = fm1_ms - boot_ms, hop = (t / 180u) % 4u == 0u;
+    uint16_t pal[16];
+    uint32_t t = fm1_ms - boot_ms, i, bob = (t / 220u) % 4u;
+    int32_t dy = bob == 1u ? -3 : bob == 3u ? -1 : 0;
     g_rect(0, g_y0, 240, (int32_t)BAND_H, C_BG);
-    g_sprite(88, 40 - (hop ? 6 : 0), hop ? SPR_HOP : (t % 1400u < 120u ? SPR_BLINK : SPR_IDLE), pal, 4, 0);
-    g_text_l(88, 124, "KAWA", C_WHITE);
-    g_text_c(120, 162, "Pocket Tracker", C_GOLD, T_BOLD);
-    g_text_c(120, 180, "by Omnipotard", C_MID, 0);
-    g_text_c(120, 214, "V" APP_VER, C_FAINT, T_CROP);
+    for (i = 0; i < 12u; i++) {                 /* a starry backdrop in the tracks' colours */
+        int32_t sx = (int32_t)((i * 83u + 17u) % 236u), sy = (int32_t)((i * 47u + 11u) % 150u);
+        if ((t / 300u + i) % 5u) g_rect(sx, sy, 2, 2, g_mix(C_BG, TRK_COL[i % NTRK], 140));
+    }
+    dog_pal(pal, PAGE_COL[(t / 400u) % 3u ? PG_GRID : PG_TRACK], RGB(62, 216, 255));
+    g_dog(48, 6 + dy, DOG48, 48, 48, pal, 3, 0);
+    if ((t % 2600u) < 160u && g_vis(6 + dy + 63, 9))   /* a blink: the eyes' rows in fur */
+        for (i = 0; i < 2u; i++)
+            g_rect(48 + (i ? 102 : 39), 6 + dy + 63, 15, 8, pal[3]);
+    for (i = 0; i < 4u; i++) {                  /* notes rise from the cups */
+        uint32_t ph = (t + i * 350u) % 1400u;
+        int32_t nx = i & 1u ? 196 + (int32_t)((ph / 90u) % 3u) : 26 - (int32_t)((ph / 90u) % 3u), ny = 96 - (int32_t)(ph / 16u);
+        if (ny > 6) g_icon(nx, ny, ICO_NOTE, TRK_COL[(i * 3u) % NTRK], 2);
+    }
+    g_text_l(88, 158, "KAWA", C_WHITE);
+    g_text_c(120, 194, "Pocket Tracker", C_GOLD, T_BOLD);
+    g_text_c(120, 210, "by Omnipotard", C_MID, 0);
+    g_rrect(4, 224, 44, 14, C_REC);
+    g_text(8, 224, "BETA", C_WHITE, T_CROP | T_BOLD);
+    g_text(236 - g_text_w("V" APP_VER), 226, "V" APP_VER, C_FAINT, T_CROP);
 }
 
 static void draw_all(void)
@@ -863,11 +1366,13 @@ static void draw_all(void)
     case PG_TRACK: draw_track(); break;
     case PG_GRID: draw_grid(); break;
     case PG_SOUND: draw_sound(); break;
+    case PG_ENV: draw_envpage(); break;
     case PG_MIX: draw_mix(); break;
     case PG_MAGIC: draw_magic(); break;
     case PG_SCALE: draw_scale(); break;
     case PG_SONG: draw_song(); break;
     case PG_PROJ: draw_proj(); break;
+    case PG_OPT: draw_opt(); break;
     case PG_FX: draw_fx(); break;
     case PG_HELP: draw_help(); break;
     }
@@ -889,6 +1394,14 @@ static void set_page(uint32_t p)
     }
     if (p == PG_GRID && grid_page * 16u >= plen())
         grid_page = 0;
+    if (p != PG_MIX && cur_trk >= NTRK)
+        cur_trk = NTRK - 1u;
+    if (p == PG_HELP)
+        memcpy(help_lab, knob_lab, sizeof help_lab);
+    if (p == PG_SONG) {
+        int f = song_find(ui_pat);
+        if (song_cur >= prj.song_len || prj.song[song_cur].pat != ui_pat) song_cur = (uint8_t)(f < 0 ? 0 : f);
+    }
     grid_held = -1;
     page = (uint8_t)p;
 }
@@ -902,13 +1415,12 @@ static void play_toggle(void)
     sq_start_pat = ui_pat;
     sq_start_pos = 0;
     if (prj.mode) {                             /* the song: from the cursor's entry, else from where the pattern is */
-        uint32_t k;
+        int f = song_find(ui_pat);
         sq_start_pos = song_cur < prj.song_len ? song_cur : 0u;
-        if (page != PG_SONG)
-            for (k = 0; k < prj.song_len; k++)
-                if (prj.song[k] == ui_pat) { sq_start_pos = (uint8_t)k; break; }
+        if (page != PG_SONG && f >= 0) sq_start_pos = (uint8_t)f;
     }
     sq_next = 0xFF;
+    follow = 1;
     sq_req = 1;
 }
 
@@ -918,7 +1430,9 @@ static uint32_t key_to_note(uint32_t t, uint32_t k, uint8_t *fx, uint8_t *fxv)
     *fx = 0;
     *fxv = 0;
     if (IS_TONAL(t)) {
-        int32_t n = (int32_t)KEY0 + (int32_t)k + 12 * oct_ofs + (t == T_ONDE ? -12 : 0) + (t == T_BRUIT ? 24 : 0);
+        int32_t n = (int32_t)KEY0 + (int32_t)k + 12 * oct_ofs, b = (int32_t)lane_base(t);
+        if (b < 52) n -= 12;                    /* a bass track an octave lower, the noise higher */
+        else if (b > 90) n += 24;
         n = clampi(n, 12, 119);
         return prj.lock ? scale_snap((uint32_t)n) : (uint32_t)n;
     }
@@ -926,8 +1440,8 @@ static uint32_t key_to_note(uint32_t t, uint32_t k, uint8_t *fx, uint8_t *fxv)
         int32_t w = WHITE_OF_KEY[k];
         if (w < 0) {
             w = k ? WHITE_OF_KEY[k - 1u] : 0;
-            *fx = t == T_KIT ? FX_ROLL : FX_REV;
-            *fxv = t == T_KIT ? 1u : 0u;
+            *fx = ENG(t) == E_KIT ? FX_ROLL : FX_REV;
+            *fxv = ENG(t) == E_KIT ? 1u : 0u;
         }
         return (uint32_t)w + 1u;
     }
@@ -946,8 +1460,8 @@ static void write_cell(uint32_t pi, uint32_t r, uint32_t t, uint32_t note, uint3
 static void key_down(uint32_t k)
 {
     uint8_t fx, fxv;
-    uint32_t t = cur_trk, note = key_to_note(t, k, &fx, &fxv), vol = brush_vol[t];
-    if (page == PG_SCALE) {                     /* GAMME: a key is the root */
+    uint32_t t = trk(), note = key_to_note(t, k, &fx, &fxv), vol = brush_vol[t];
+    if (page == PG_SCALE) {                     /* SCALE: a key is the root */
         prj.root = (uint8_t)((KEY0 + k) % 12u);
         touched();
     }
@@ -955,9 +1469,9 @@ static void key_down(uint32_t k)
     key_trk[k] = (uint8_t)t;
     brush_note[t] = note;
     ev_push(EV_ON, t, note, vol, fx, fxv);
-    if (!rec || (page != PG_TRACK && page != PG_GRID && page != PG_SOUND))
+    if (!rec || (page != PG_TRACK && page != PG_GRID && page != PG_SOUND && page != PG_ENV))
         return;
-    if (sq_play) {                              /* live take: on the nearest row */
+    if (sq_play && sq_pat == ui_pat) {          /* live take: on the nearest row */
         uint32_t pi = sq_pat, r = sq_row, len = prj.pat[pi].len ? prj.pat[pi].len : 16u;
         if (sq_frac > 0x80000000u) {
             r = (r + 1u) % len;
@@ -975,10 +1489,10 @@ static void key_up(uint32_t k)
     ev_push(EV_OFF, key_trk[k], key_note[k], 0, 0, 0);
 }
 
-static void cell_turn(cell_t *c, uint32_t pi, uint32_t t, uint32_t knob, int32_t d, int preview)
+static void cell_turn(cell_t *c, uint32_t pi, uint32_t t, uint32_t knob, int32_t d, int preview, int undo)
 {
     int32_t v;
-    undo_push_merge(pi, 1);
+    if (undo) undo_push_merge(pi, 1);
     switch (knob) {
     case 0: {                                   /* the note: ... empty, OFF, notes */
         int32_t lo = IS_TONAL(t) ? 12 : 1, hi = IS_TONAL(t) ? 119 : 16;
@@ -1019,42 +1533,61 @@ static void cell_turn(cell_t *c, uint32_t pi, uint32_t t, uint32_t knob, int32_t
     }
 }
 
+static void param_turn(uint32_t t, uint32_t k, int32_t d)
+{
+    const pdesc_t *pd = &PDESC[ENG(t)][k];
+    if (!pd->name[0]) return;
+    prj.snd[t].p[k] = (int8_t)clampi(prj.snd[t].p[k] + d, pd->lo, pd->hi);
+    if (k <= P_S7) sound_build(t);
+    if (k == P_SRC || k == P_SMODE) brush_note[t] = lane_base(t);
+    if (k == P_FMPAT && ENG(t) == E_FM) { fm_patch_load(t); sound_build(t); }
+    touched();
+}
+
 static void knob(uint32_t i, int32_t d)
 {
+    uint32_t t = trk();
     knob_ms[i] = fm1_ms;
     switch (page) {
     case PG_TRACK:
-        cell_turn(CUR(), ui_pat, cur_trk, i, d, 1);
+        cell_turn(CUR(), ui_pat, t, i, d, 1, 1);
         break;
     case PG_GRID:
         if (grid_held >= 0) {
             grid_edit = 1;
-            cell_turn(&P()->c[grid_page * 16u + (uint32_t)grid_held][cur_trk], ui_pat, cur_trk, i, d, 1);
+            cell_turn(&P()->c[grid_page * 16u + (uint32_t)grid_held][t], ui_pat, t, i, d, 1, 1);
         } else {
-            cell_t b = {(uint8_t)brush_note[cur_trk], brush_vol[cur_trk], brush_fx[cur_trk], brush_fxv[cur_trk]};
-            cell_turn(&b, ui_pat, cur_trk, i, d, 1);
-            if (b.note && b.note != NOTE_OFF) brush_note[cur_trk] = b.note;
-            brush_vol[cur_trk] = b.vol ? b.vol : brush_vol[cur_trk];
-            brush_fx[cur_trk] = b.fx;
-            brush_fxv[cur_trk] = b.fxv;
+            cell_t b = {(uint8_t)brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t]};
+            cell_turn(&b, ui_pat, t, i, d, 1, 0);
+            if (b.note && b.note != NOTE_OFF) brush_note[t] = b.note;
+            brush_vol[t] = b.vol ? b.vol : brush_vol[t];
+            brush_fx[t] = b.fx;
+            brush_fxv[t] = b.fxv;
         }
         break;
     case PG_SOUND: {
-        uint32_t k = snd_page * 4u + i;
-        const pdesc_t *pd = &PDESC[TRK_ENGINE[cur_trk]][k];
-        if (pd->name[0]) {
-            prj.snd[cur_trk].p[k] = (int8_t)clampi(prj.snd[cur_trk].p[k] + d, pd->lo, pd->hi);
+        uint32_t sp = sp_at(t, snd_page);
+        if (sp == SP_OP || sp == SP_OPENV) {    /* an operator of the FM track */
+            uint32_t k = (sp == SP_OP ? OPK_LEVEL : OPK_ATT) + i;
+            op_set(fm_op, k, op_get(fm_op, k) + d);
+            sound_build(t);
             touched();
+        } else
+            param_turn(t, SP_FIRST[sp] + i, d);
+        break;
+    }
+    case PG_ENV:
+        param_turn(t, P_ATT + i, d);
+        break;
+    case PG_MIX:
+        if (cur_trk == MASTER) {
+            prj.mfx[i] = (int8_t)clampi(prj.mfx[i] + d, 0, i ? 15 : FXT_N - 1);
+            touched();
+        } else {
+            static const uint8_t K[4] = {P_VOL, P_PAN, P_ECHO, P_VERB};
+            param_turn(t, K[i], d);
         }
         break;
-    }
-    case PG_MIX: {
-        static const uint8_t K[4] = {P_VOL, P_PAN, P_ECHO, P_TON};
-        const pdesc_t *pd = &PDESC[0][K[i]];
-        prj.snd[cur_trk].p[K[i]] = (int8_t)clampi(prj.snd[cur_trk].p[K[i]] + d, pd->lo, pd->hi);
-        touched();
-        break;
-    }
     case PG_MAGIC:
         if (i == 0u) mg_inten = (uint8_t)clampi(mg_inten + d, 0, 15);
         else if (i == 1u) mg_seed = (uint8_t)clampi(mg_seed + d, 0, 99);
@@ -1070,15 +1603,23 @@ static void knob(uint32_t i, int32_t d)
     case PG_SONG:
         if (i == 0u) prj.bpm = (uint16_t)clampi(prj.bpm + d, 40, 300);
         else if (i == 1u) prj.swing = (uint8_t)clampi(prj.swing + d, 50, 75);
-        else if (i == 2u) { undo_push_merge(ui_pat, 1); P()->len = (uint8_t)clampi((int32_t)plen() + d, 1, NROW); }
-        else prj.mode = (uint8_t)clampi(prj.mode + d, 0, 1);
+        else if (i == 2u) { if (song_cur < prj.song_len) prj.song[song_cur].rep = (uint8_t)clampi(prj.song[song_cur].rep + d, 1, 16); }
+        else { undo_push_merge(ui_pat, 1); P()->len = (uint8_t)clampi((int32_t)plen() + d, 1, NROW); }
         touched();
         break;
     case PG_PROJ:
         if (i == 0u) proj_slot = (uint8_t)clampi(proj_slot + d, 0, NSLOT - 1);
         else if (i == 1u) proj_act = (uint8_t)clampi(proj_act + d, 0, 3);
-        else if (i == 2u) set_lang((uint32_t)((int32_t)lang + (d > 0 ? 1 : LANG_N - 1)));   /* the screen's language */
         proj_arm = 0;
+        break;
+    case PG_OPT:
+        if (i == 0u) { theme_set((uint32_t)clampi(theme + d, 0, NTHEME - 1)); set_changed(); }
+        else if (i == 1u) set_lang((uint32_t)clampi(lang + d, 0, LANG_N - 1));
+        break;
+    case PG_FX:
+        if (i == 0u) { fx_bank = (uint8_t)clampi(fx_bank + d, 0, 1); lfx_keys = 0; }
+        else if (i == 2u) rec = (uint8_t)clampi(rec + d, 0, 1);
+        else if (i == 3u) { lfx_target = (uint8_t)clampi(lfx_target + d, 0, NTRK); lfx_keys = 0; }
         break;
     }
 }
@@ -1087,14 +1628,16 @@ static void pat_select(int32_t d)
 {
     ui_pat = (uint8_t)clampi(ui_pat + d, 0, NPAT - 1);
     if (cur_row >= plen()) cur_row = 0;
+    follow = (uint8_t)(sq_play && ui_pat == sq_pat);   /* browsing while it plays: the screen stays here */
     if (sq_play && !prj.mode) sq_next = ui_pat == sq_pat ? 0xFF : ui_pat;   /* at the end of the one playing */
 }
 
 static void proj_do(void)
 {
+    uint32_t k;
     if (!proj_arm) { proj_arm = 1; return; }
     proj_arm = 0;
-    if (sq_play) { sq_req = 2; }
+    if (sq_play) sq_req = 2;
     switch (proj_act) {
     case 0:
         if (proj_slot == 0u) { toast("SLOT AUTO"); break; }
@@ -1102,14 +1645,28 @@ static void proj_do(void)
         break;
     case 1:
         if (prj_load(proj_slot)) toast(TR("RIEN ICI", "NOTHING HERE", "NADA AQUI"));
-        else { toast(TR("CHARGE !", "LOADED !", "CARGADO !")); ui_pat = 0; cur_row = 0; set_page(PG_TRACK); }
+        else { toast(TR("CHARGE !", "LOADED !", "CARGADO !")); ui_pat = 0; cur_row = 0; song_cur = 0; set_page(PG_TRACK); }
         break;
-    case 2: prj_new(); undo_n = 0; ui_pat = 0; cur_row = 0; toast(prj.name); set_page(PG_TRACK); break;
-    case 3: prj_demo(); undo_n = 0; ui_pat = 0; cur_row = 0; toast("DEMO !"); set_page(PG_TRACK); break;
+    case 2: prj_new(); undo_n = 0; ui_pat = 0; cur_row = 0; song_cur = 0; toast(prj.name); set_page(PG_TRACK); break;
+    case 3: prj_demo(); undo_n = 0; ui_pat = 0; cur_row = 0; song_cur = 0; toast("DEMO !"); set_page(PG_TRACK); break;
     }
-    {
-        uint32_t k;
-        for (k = 0; k < NSLOT; k++) names_ok[k] = (uint8_t)slot_valid(k, slot_name[k]);
+    for (k = 0; k < NSLOT; k++) names_ok[k] = (uint8_t)slot_valid(k, slot_name[k]);
+}
+
+static void page_button(uint32_t p)             /* a page's button: open it, or go round its pages */
+{
+    if (page == PG_HELP) page = help_pg;
+    switch (p) {
+    case PG_SOUND:
+        if (page == PG_SOUND) snd_page = (uint8_t)((snd_page + 1u) % sp_n(trk()));
+        else { set_page(PG_SOUND); snd_page = SP_SON1; }
+        break;
+    case PG_ENV: set_page(page == PG_ENV ? PG_MIX : PG_ENV); break;
+    case PG_GRID: set_page(page == PG_GRID ? PG_TRACK : PG_GRID); break;
+    case PG_MAGIC: set_page(page == PG_MAGIC ? PG_TRACK : PG_MAGIC); break;
+    case PG_SCALE: set_page(page == PG_SCALE ? PG_TRACK : PG_SCALE); break;
+    case PG_SONG: set_page(page == PG_SONG ? PG_OPT : PG_SONG); break;
+    default: set_page(p); break;
     }
 }
 
@@ -1117,42 +1674,35 @@ static void button_down(uint32_t b)
 {
     switch (b) {
     case BTN_PLAY: play_toggle(); break;
-    case BTN_REC: rec ^= 1u; break;
+    case BTN_REC: rec_held = 1; rec_turned = 0; break;   /* REC: on its release (held + SELECT: the jump) */
     case BTN_FX:
         if (page == PG_FX && fx_sticky) { set_page(page_back); fx_sticky = 0; break; }
-        if (page != PG_FX) page_back = page == PG_HELP ? PG_TRACK : page;
+        if (page != PG_FX) page_back = page == PG_HELP ? help_pg : page;
         set_page(PG_FX);
         fx_sticky = 0;
         fx_down_ms = fm1_ms;
         break;
-    case BTN_HOME: home_down_ms = fm1_ms; home_held = 1; set_page(PG_TRACK); break;
-    case BTN_SEQ: set_page(page == PG_GRID ? PG_TRACK : PG_GRID); break;
-    case BTN_EDIT:
-        if (page == PG_SOUND) {
-            snd_page = (uint8_t)((snd_page + 1u) % 3u);
-            if (TRK_ENGINE[cur_trk] == E_KIT && snd_page == 1u) snd_page = 2;
-        } else { set_page(PG_SOUND); snd_page = 0; }
-        break;
-    case BTN_ENV: set_page(page == PG_MIX ? PG_TRACK : PG_MIX); break;
-    case BTN_LFO: set_page(page == PG_MAGIC ? PG_TRACK : PG_MAGIC); break;
-    case BTN_SEL: set_page(page == PG_SCALE ? PG_TRACK : PG_SCALE); break;
-    case BTN_GLO: set_page(page == PG_SONG ? PG_TRACK : PG_SONG); break;
+    case BTN_HOME: home_down_ms = fm1_ms; home_held = 1; help_pg = page == PG_HELP ? help_pg : page; break;
+    case BTN_SEQ: page_button(PG_GRID); break;
+    case BTN_EDIT: page_button(PG_SOUND); break;
+    case BTN_ENV: page_button(PG_ENV); break;
+    case BTN_LFO: page_button(PG_MAGIC); break;
+    case BTN_SEL: page_button(PG_SCALE); break;
+    case BTN_GLO: page_button(PG_SONG); break;      /* SONG, again OPTIONS */
     case BTN_SAVE: save_down_ms = fm1_ms; save_held = 1; save_did = 0; break;
     case BTN_ARP:
         if (page == PG_TRACK) {
-            write_cell(ui_pat, cur_row, cur_trk, 0, 0, 0, 0, 0);
+            write_cell(ui_pat, cur_row, trk(), 0, 0, 0, 0, 0);
             if (rec) cur_row = (uint8_t)((cur_row + prj.step) % plen());
         } else if (page == PG_FX) {
             undo_push(ui_pat);
             memset(P()->live, 0, sizeof P()->live);
             toast(TR("LIVE EFFACE", "LIVE CLEARED", "LIVE BORRADO"));
-        } else if (page == PG_SONG && song_cur < prj.song_len) {
-            uint32_t k;
-            for (k = song_cur; k + 1u < prj.song_len; k++) prj.song[k] = prj.song[k + 1u];
-            if (prj.song_len > 1u) prj.song_len--;
+        } else if (page == PG_SONG) {
+            prj.mode ^= 1u;
             touched();
         } else if (page == PG_GRID && grid_held >= 0) {
-            write_cell(ui_pat, grid_page * 16u + (uint32_t)grid_held, cur_trk, 0, 0, 0, 0, 0);
+            write_cell(ui_pat, grid_page * 16u + (uint32_t)grid_held, trk(), 0, 0, 0, 0, 0);
             grid_edit = 1;
         }
         break;
@@ -1162,20 +1712,19 @@ static void button_down(uint32_t b)
         if (page == PG_FX) { fx_bank = d > 0; lfx_keys = 0; }
         else if (page == PG_PROJ) { if (d > 0) proj_do(); else { proj_arm = 0; set_page(PG_TRACK); } }
         else if (page == PG_SONG) {
-            if (d > 0 && prj.song_len < NSONG) {
-                uint32_t k, at = song_cur < prj.song_len ? song_cur + 1u : prj.song_len;
-                for (k = prj.song_len; k > at; k--) prj.song[k] = prj.song[k - 1u];
-                prj.song[at] = song_cur < prj.song_len ? prj.song[song_cur] : ui_pat;
-                prj.song_len++;
-                song_cur = (uint8_t)at;
-            } else if (d < 0 && song_cur < prj.song_len && prj.song_len > 1u) {
-                uint32_t k;
-                for (k = song_cur; k + 1u < prj.song_len; k++) prj.song[k] = prj.song[k + 1u];
-                prj.song_len--;
+            if (d > 0) {                        /* a copy of the entry after it (or the pattern on screen) */
+                uint32_t at = song_cur < prj.song_len ? song_cur + 1u : prj.song_len;
+                uint32_t pn = song_cur < prj.song_len ? prj.song[song_cur].pat : ui_pat;
+                uint32_t rp = song_cur < prj.song_len ? prj.song[song_cur].rep : 1u;
+                if (song_insert(at, pn, rp)) song_cur = (uint8_t)at;
+            } else if (song_cur < prj.song_len) {
+                song_delete(song_cur);
+                if (song_cur >= prj.song_len && song_cur) song_cur--;
             }
-            touched();
-        } else
+        } else {
             oct_ofs = (int8_t)clampi(oct_ofs + d, -3, 3);
+            set_changed();
+        }
         break;
     }
     }
@@ -1192,18 +1741,26 @@ static void button_up(uint32_t b)
         break;
     case BTN_HOME:
         home_held = 0;
-        if (page == PG_HELP) set_page(PG_TRACK);
+        if (page == PG_HELP) set_page(help_pg);  /* the help goes, the page stays */
+        else set_page(PG_TRACK);                 /* a tap: the tracks */
         break;
     case BTN_SAVE:
         save_held = 0;
-        if (!save_did) set_page(page == PG_PROJ ? PG_TRACK : PG_PROJ);
+        if (!save_did) {
+            if (page == PG_PROJ) set_page(page_back);
+            else { page_back = page == PG_HELP ? help_pg : page; set_page(PG_PROJ); }
+        }
+        break;
+    case BTN_REC:
+        rec_held = 0;
+        if (!rec_turned) rec ^= 1u;
         break;
     }
 }
 
 static void grid_key(uint32_t i, int down)
 {
-    uint32_t r = grid_page * 16u + i;
+    uint32_t r = grid_page * 16u + i, t = trk();
     if (r >= plen()) return;
     if (down) {
         grid_held = (int8_t)i;
@@ -1211,11 +1768,11 @@ static void grid_key(uint32_t i, int down)
         return;
     }
     if (grid_held == (int8_t)i && !grid_edit) { /* a tap: on / off */
-        cell_t *c = &P()->c[r][cur_trk];
-        if (c->note) write_cell(ui_pat, r, cur_trk, 0, 0, 0, 0, 0);
+        cell_t *c = &P()->c[r][t];
+        if (c->note) write_cell(ui_pat, r, t, 0, 0, 0, 0, 0);
         else {
-            write_cell(ui_pat, r, cur_trk, brush_note[cur_trk], brush_vol[cur_trk], brush_fx[cur_trk], brush_fxv[cur_trk], 0);
-            if (!sq_play) ev_push(EV_ON, cur_trk, brush_note[cur_trk], brush_vol[cur_trk], brush_fx[cur_trk], brush_fxv[cur_trk]);
+            write_cell(ui_pat, r, t, brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t], 0);
+            if (!sq_play) ev_push(EV_ON, t, brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t]);
         }
     }
     if (grid_held == (int8_t)i) grid_held = -1;
@@ -1237,38 +1794,45 @@ static void keys_input(void)
                 if (dn) lfx_keys |= 1u << id;
                 else lfx_keys &= ~(1u << id);
                 rec_live = (uint8_t)(rec && sq_play);
-            } else if (dn && bl < 6)
+            } else if (dn && bl < (int32_t)NTRK)
                 live_mute ^= (uint8_t)(1u << bl);
             break;
         case PG_GRID:
             if (w >= 0) grid_key((uint32_t)w, (int)dn);
-            else if (dn && bl < 6) { cur_trk = (uint8_t)bl; grid_held = -1; }
+            else if (dn && bl < (int32_t)NTRK) { cur_trk = (uint8_t)bl; grid_held = -1; }
             break;
         case PG_MAGIC:
             if (dn && w >= 0) {
-                const char *r = magic_run((uint32_t)w, ui_pat, cur_trk, mg_scope, mg_inten, mg_seed);
+                const char *r = magic_run((uint32_t)w, ui_pat, trk(), mg_scope, mg_inten, mg_seed, song_cur);
                 char s[24];
                 s[0] = 0;
                 str_cat(str_cat(str_cat(s, MAGIC[w].name[lang]), " "), r);
                 toast(s);
                 mg_seed = (uint8_t)((mg_seed + 1u) % 100u);
-            } else if (dn && bl < 6)
+                if (mg_clone_to < NPAT) {       /* CLONE: here is the new one */
+                    ui_pat = mg_clone_to;
+                    mg_clone_to = 0xFF;
+                    if (cur_row >= plen()) cur_row = 0;
+                }
+            } else if (dn && bl < (int32_t)NTRK)
                 cur_trk = (uint8_t)bl;
             break;
         case PG_MIX:
-            if (bl >= 0) { if (dn && bl < 6) { prj.mute ^= (uint8_t)(1u << bl); touched(); } }
-            else if (dn) key_down(k); else key_up(k);
+            if (bl >= 0) { if (dn && bl < (int32_t)NTRK) { prj.mute ^= (uint8_t)(1u << bl); touched(); } }
+            else if (cur_trk < NTRK) { if (dn) key_down(k); else key_up(k); }
             break;
         case PG_SONG:
             if (dn && w >= 0 && song_cur <= prj.song_len && song_cur < NSONG) {
-                prj.song[song_cur] = (uint8_t)w;
-                if (song_cur == prj.song_len) prj.song_len++;
-                song_cur++;
-                touched();
+                if (song_cur == prj.song_len) song_insert(song_cur, (uint32_t)w, 1);
+                else { prj.song[song_cur].pat = (uint8_t)w; touched(); }
+                ui_pat = (uint8_t)w;
+                if (song_cur + 1u < NSONG) song_cur++;
             }
             break;
         case PG_PROJ:
             if (dn && w >= 0 && w < (int32_t)NSLOT) { proj_slot = (uint8_t)w; proj_arm = 0; }
+            break;
+        case PG_OPT: case PG_HELP:
             break;
         default:
             if (dn) key_down(k);
@@ -1284,51 +1848,87 @@ static void ui_input(void)
     int32_t d;
     if (b | rel) last_input_ms = fm1_ms;
     if (page == PG_BOOT) {
-        if (b || fm1_ms - boot_ms > 1600u || fm1_in.notes) set_page(PG_TRACK);
+        if (b || fm1_ms - boot_ms > 2400u || fm1_in.notes) set_page(PG_TRACK);
         return;
     }
     for (i = 0; i < 14u; i++) {
         if (b >> i & 1u) button_down(i);
         if (rel >> i & 1u) button_up(i);
     }
-    if (home_held && page == PG_TRACK && fm1_ms - home_down_ms > 500u) set_page(PG_HELP);
+    if (home_held && page != PG_HELP && fm1_ms - home_down_ms > 450u) set_page(PG_HELP);
     if (save_held && !save_did && fm1_ms - save_down_ms > 600u) {   /* SAVE held: undo */
         int p = undo_pop();
         save_did = 1;
         toast(p < 0 ? TR("RIEN A ANNULER", "NOTHING TO UNDO", "NADA QUE DESHACER") : TR("ANNULE", "UNDONE", "DESHECHO"));
         if (p >= 0) ui_pat = (uint8_t)p;
     }
-    if ((d = fm1_enc_take(ENC_SELECT)) != 0) {
+    if ((d = fm1_enc_take(ENC_SELECT)) != 0 && rec_held) {   /* REC held + SELECT: the rows a note jumps */
+        char s[16];
+        last_input_ms = fm1_ms;
+        rec_turned = 1;
+        prj.step = (uint8_t)clampi(prj.step + d, 0, 16);
+        touched();
+        s[0] = 0;
+        fmt_u(str_cat(s, TR("SAUT ", "STEP ", "SALTO ")), prj.step, 0);
+        toast(s);
+        d = 0;
+    }
+    if (d != 0) {
         last_input_ms = fm1_ms;
         switch (page) {
         case PG_GRID: if (plen() > 16u) grid_page = (uint8_t)(d > 0 ? 1u : 0u); break;
-        case PG_SONG: song_cur = (uint8_t)clampi(song_cur + d, 0, prj.song_len < NSONG ? prj.song_len : NSONG - 1); break;
+        case PG_SONG:
+            song_cur = (uint8_t)clampi(song_cur + d, 0, prj.song_len < NSONG ? prj.song_len : NSONG - 1);
+            if (song_cur < prj.song_len) { ui_pat = prj.song[song_cur].pat; follow = 0; }
+            break;
         case PG_PROJ: proj_slot = (uint8_t)clampi(proj_slot + d, 0, NSLOT - 1); proj_arm = 0; break;
-        case PG_SOUND: snd_page = (uint8_t)clampi(snd_page + d, 0, 2); if (TRK_ENGINE[cur_trk] == E_KIT && snd_page == 1u) snd_page = d > 0 ? 2 : 0; break;
-        default: {
+        case PG_SOUND: {                        /* the engine: the first sound of the next (previous) one */
+            uint32_t t = trk(), sp = sp_at(t, snd_page), e;
+            int32_t ne = (int32_t)ENG(t) + (d > 0 ? 1 : -1);
+            if (sp == SP_OP || sp == SP_OPENV) { fm_op = (uint8_t)clampi(fm_op + d, 1, 6); break; }
+            if (ne == E_FM && !fm_free(t)) ne += d > 0 ? 1 : -1;   /* FM: one track only */
+            e = (uint32_t)clampi(ne, 0, E_N - 1);
+            if (e == E_FM && !fm_free(t)) { toast(TR("FM: UNE SEULE PISTE", "FM: ONE TRACK ONLY", "FM: UNA SOLA PISTA")); break; }
+            if (e != ENG(t)) {
+                snd_page = 0;
+                sound_preset(t, preset_first(e));
+                brush_note[t] = lane_base(t);
+                touched();
+                if (!sq_play) ev_push(EV_ON, t, brush_note[t], 12, 0, 0);
+            }
+            break;
+        }
+        case PG_TRACK: {
             int32_t r = ((int32_t)cur_row + d) % (int32_t)plen();
             cur_row = (uint8_t)(r < 0 ? r + (int32_t)plen() : r);
             break;
         }
+        default: break;
         }
     }
     if ((d = fm1_enc_take(ENC_ALGORITHM)) != 0) {
         last_input_ms = fm1_ms;
-        cur_trk = (uint8_t)clampi(cur_trk + d, 0, NTRK - 1);
-        if (page == PG_SOUND && TRK_ENGINE[cur_trk] == E_KIT && snd_page == 1u) snd_page = 0;
+        cur_trk = (uint8_t)clampi(cur_trk + d, 0, page == PG_MIX ? NTRK : NTRK - 1);
+        if (snd_page >= sp_n(trk())) snd_page = 0;
         grid_held = -1;
     }
     if ((d = fm1_enc_take(ENC_PRESETS)) != 0) {
         last_input_ms = fm1_ms;
-        if (page == PG_SOUND) {
-            uint32_t e = TRK_ENGINE[cur_trk], n = NPRESETS_OF[e];
-            sound_preset(cur_trk, (uint32_t)(((int32_t)prj.snd[cur_trk].preset + d % (int32_t)n + (int32_t)n) % (int32_t)n));
+        if (page == PG_SOUND || page == PG_ENV) {
+            uint32_t t = trk(), k = prj.snd[t].preset, guard = NPRESET;
+            do                                  /* the next factory sound (FM: only if no other track has it) */
+                k = (uint32_t)(((int32_t)k + (d > 0 ? 1 : -1) + (int32_t)NPRESET) % (int32_t)NPRESET);
+            while (--guard && PRESETS[k].engine == E_FM && !fm_free(t));
+            if (PRESETS[k].engine != ENG(t)) snd_page = 0;
+            sound_preset(t, k);
+            brush_note[t] = lane_base(t);
             touched();
-            if (!sq_play) ev_push(EV_ON, cur_trk, brush_note[cur_trk], 12, 0, 0);
+            if (!sq_play) ev_push(EV_ON, t, brush_note[t], 12, 0, 0);
         } else if (page == PG_SONG) {
             if (song_cur < prj.song_len) {
-                prj.song[song_cur] = (uint8_t)clampi(prj.song[song_cur] + d, 0, NPAT - 1);
-                ui_pat = prj.song[song_cur];
+                prj.song[song_cur].pat = (uint8_t)clampi(prj.song[song_cur].pat + d, 0, NPAT - 1);
+                ui_pat = prj.song[song_cur].pat;
+                follow = 0;
                 touched();
             }
         } else
@@ -1342,19 +1942,21 @@ static void ui_input(void)
     keys_input();
     while (1) {                                 /* USB-MIDI in plays the track under the cursor */
         uint8_t st, d1, d2;
+        uint32_t t = trk();
         if (!midi_get(&st, &d1, &d2)) break;
-        if ((st & 0xF0u) == 0x90u && d2) ev_push(EV_ON, cur_trk, IS_TONAL(cur_trk) ? d1 : 1u + d1 % 16u, 1u + d2 / 9u, 0, 0);
-        else if ((st & 0xF0u) == 0x80u || (st & 0xF0u) == 0x90u) ev_push(EV_OFF, cur_trk, d1, 0, 0, 0);
+        if ((st & 0xF0u) == 0x90u && d2) ev_push(EV_ON, t, IS_TONAL(t) ? d1 : 1u + d1 % 16u, 1u + d2 / 9u, 0, 0);
+        else if ((st & 0xF0u) == 0x80u || (st & 0xF0u) == 0x90u) ev_push(EV_OFF, t, d1, 0, 0, 0);
     }
 }
 
 static void ui_leds(void)
 {
-    uint32_t i, k;
-    static const uint8_t PAGE_BTN[] = {BTN_HOME, BTN_SEQ, BTN_EDIT, BTN_ENV, BTN_LFO, BTN_SEL, BTN_GLO, BTN_SAVE, BTN_FX, BTN_HOME, 255};
+    uint32_t i, k, t = trk();
+    static const uint8_t PAGE_BTN[PG_N] = {BTN_HOME, BTN_SEQ, BTN_EDIT, BTN_ENV, BTN_ENV, BTN_LFO, BTN_SEL, BTN_GLO,
+                                           BTN_SAVE, BTN_SAVE, BTN_FX, BTN_HOME, 255};
     for (i = 0; i < 41u; i++) led_want[i] = 0;
     for (i = 2; i < 12u; i++) led_want[i] = 1;   /* the page buttons glow, the one open is lit */
-    if (PAGE_BTN[page] < 14u) led(PAGE_BTN[page], 2);
+    if (page < PG_N && PAGE_BTN[page] < 14u) led(PAGE_BTN[page], 2);
     led(BTN_PLAY, sq_play ? 2u : 1u);
     led(BTN_REC, rec ? ((fm1_ms / 300u) & 1u ? 2u : 1u) : 1u);
     led(BTN_OCT_DOWN, oct_ofs < 0 ? 2u : 1u);
@@ -1365,26 +1967,29 @@ static void ui_leds(void)
         uint32_t prow = sq_play && sq_pat == ui_pat ? sq_row : 0xFFu;
         for (i = 0; i < 16u; i++) {
             uint32_t r = grid_page * 16u + i;
-            uint32_t lit = r < plen() && pt->c[r][cur_trk].note;
+            uint32_t lit = r < plen() && pt->c[r][t].note;
             if (r == prow) lit = !lit;
             led(KEY_LED(KEY_OF_WHITE[i]), lit ? 2u : (r < plen() ? 1u : 0u));
         }
-        for (i = 0; i < 6u; i++) led(KEY_LED(KEY_OF_BLACK[i]), i == cur_trk ? 2u : 1u);
+        for (i = 0; i < NTRK; i++) led(KEY_LED(KEY_OF_BLACK[i]), i == t ? 2u : 1u);
         break;
     }
     case PG_FX:
         for (i = 0; i < 16u; i++) led(KEY_LED(KEY_OF_WHITE[i]), (lfx_on >> (fx_bank * 16u + i) & 1u) ? 2u : 1u);
-        for (i = 0; i < 6u; i++) led(KEY_LED(KEY_OF_BLACK[i]), ((prj.mute | live_mute) >> i & 1u) ? 2u : 1u);
+        for (i = 0; i < NTRK; i++) led(KEY_LED(KEY_OF_BLACK[i]), ((prj.mute | live_mute) >> i & 1u) ? 2u : 1u);
         break;
     case PG_MAGIC:
         for (i = 0; i < 16u; i++) led(KEY_LED(KEY_OF_WHITE[i]), 1);
-        for (i = 0; i < 6u; i++) led(KEY_LED(KEY_OF_BLACK[i]), i == cur_trk ? 2u : 1u);
+        for (i = 0; i < NTRK; i++) led(KEY_LED(KEY_OF_BLACK[i]), i == t ? 2u : 1u);
         break;
     case PG_MIX:
-        for (i = 0; i < 6u; i++) led(KEY_LED(KEY_OF_BLACK[i]), (prj.mute >> i & 1u) ? 2u : 1u);
+        for (i = 0; i < NTRK; i++) led(KEY_LED(KEY_OF_BLACK[i]), (prj.mute >> i & 1u) ? 2u : 1u);
+        break;
+    case PG_SONG: case PG_PROJ:
+        for (i = 0; i < 16u; i++) led(KEY_LED(KEY_OF_WHITE[i]), 1);
         break;
     default:
-        if (IS_TONAL(cur_trk) && prj.lock)      /* the scale's notes glow */
+        if (IS_TONAL(t) && prj.lock)            /* the scale's notes glow */
             for (k = 0; k < 27u; k++)
                 if (in_scale(KEY0 + k)) led(KEY_LED(k), 1);
         for (k = 0; k < 27u; k++)
@@ -1404,11 +2009,14 @@ static void app_init(void)
         arc_x[i] = (int8_t)((sine(ph + 0x40000000u) * 13) >> 15);
         arc_y[i] = (int8_t)(-(sine(ph) * 13) >> 15);
     }
-    make_peaks();
-    if (settings_load(&set, sizeof set) == 0 && set.lang < LANG_N)
+    if (settings_load(&set, sizeof set) == 0 && set.lang < LANG_N && set.theme < NTHEME) {
         lang = set.lang;
-    else
+        oct_ofs = (int8_t)clampi(set.oct, -3, 3);
+        theme_set(set.theme);
+    } else {
+        theme_set(0);
         set.lang = lang;
+    }
     if (prj_load(0))
         prj_demo();                             /* nothing saved: the demo, ready to play */
     boot_ms = fm1_ms;
@@ -1419,8 +2027,12 @@ static void app_init(void)
 static void app_step(void)
 {
     ui_input();
-    if (sq_play && prj.mode && page != PG_SONG)
-        ui_pat = sq_pat;                        /* the song: the screen follows */
+    if (sq_play && follow && page != PG_SONG && page != PG_PROJ && page != PG_OPT && ui_pat != sq_pat) {
+        ui_pat = sq_pat;                        /* playing: the screen follows (until the pattern is changed by hand) */
+        if (cur_row >= plen()) cur_row = 0;
+    }
+    if (sq_play && follow && prj.mode && page == PG_SONG)
+        song_cur = sq_songpos;
     if (cur_row >= plen())
         cur_row = 0;
     if (fm1_ms - ui_frame_ms >= 33u) {          /* ~30 frames a second, only what changed is sent */
@@ -1429,7 +2041,7 @@ static void app_step(void)
         g_frame_send(draw_all);
     }
     if (set_dirty && !sq_play && quiet() && fm1_ms - set_ms > 2000u) {
-        set_dirty = 0;                          /* the language (erasing stalls the sound: only when silent) */
+        set_dirty = 0;                          /* the settings (erasing stalls the sound: only when silent) */
         settings_save(&set, sizeof set);
     }
     if (dirty && !sq_play && quiet() && fm1_ms - dirty_ms > 8000u && fm1_ms - last_input_ms > 8000u) {
@@ -1446,3 +2058,39 @@ static void app_main(void)
         app_step();
     }
 }
+
+#if defined(KAWA_WASM)
+/* the emulator reads what the knobs do on this page (their labels under the knobs), the page, and
+ * puts the user's samples in (drag and drop: the page decodes, resamples and mu-law encodes them) */
+static uint8_t w_smp_stage[USR_SIZE];
+static char w_smp_name[16];
+WASM_EXPORT("kawa_page") uint32_t kawa_page(void) { return page; }
+WASM_EXPORT("kawa_knob_label") const char *kawa_knob_label(uint32_t i) { return i < 4u ? knob_lab[i] : ""; }
+WASM_EXPORT("kawa_track") uint32_t kawa_track(void) { return cur_trk; }
+WASM_EXPORT("kawa_theme") uint32_t kawa_theme(void) { return theme; }
+WASM_EXPORT("kawa_sample_buf") uint8_t *kawa_sample_buf(void) { return w_smp_stage; }
+WASM_EXPORT("kawa_sample_name") char *kawa_sample_name(void) { return w_smp_name; }
+WASM_EXPORT("kawa_sample_size") uint32_t kawa_sample_size(void) { return USR_SIZE - 4u; }
+WASM_EXPORT("kawa_sample_commit") void kawa_sample_commit(uint32_t slot, uint32_t len, uint32_t rate)
+{
+    usr_put(slot, w_smp_stage, len, rate, w_smp_name);
+    wv_src = 0xFF;
+    toast(TR("SAMPLE PRET !", "SAMPLE READY !", "SAMPLE LISTO !"));
+}
+WASM_EXPORT("kawa_sample_slot_name") const char *kawa_sample_slot_name(uint32_t slot)
+{
+    const char *n = usr_name(slot);
+    return n ? n : "";
+}
+/* the project slots live in the page's memory: the page keeps them (localStorage) and puts them back */
+WASM_EXPORT("kawa_store") uint8_t *kawa_store(void) { return &host_flash[0][0]; }
+WASM_EXPORT("kawa_store_size") uint32_t kawa_store_size(void) { return NSLOT * SLOT_SIZE; }
+WASM_EXPORT("kawa_store_gen") uint32_t kawa_store_gen(void) { return store_gen; }
+WASM_EXPORT("kawa_store_loaded") void kawa_store_loaded(void)   /* the page put the slots back: the autosave, if any */
+{
+    uint32_t k;
+    if (!prj_load(0)) { ui_pat = 0; cur_row = 0; song_cur = 0; }
+    for (k = 0; k < NSLOT; k++) names_ok[k] = (uint8_t)slot_valid(k, slot_name[k]);
+    g_force = 1;
+}
+#endif

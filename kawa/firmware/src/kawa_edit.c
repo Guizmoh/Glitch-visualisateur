@@ -1,21 +1,113 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* KAWA: what changes the project: new project and the demo, undo, the clipboard, the magic tools,
- * the store (five project slots in flash: 0 the autosave, 1..4 the user's). Main loop only. */
+/* KAWA: what changes the project: sounds, new project and the demo, undo, the clipboard, the magic
+ * tools, the song list, the store (four project slots in flash: 0 the autosave, 1..3 the user's) and the
+ * user samples. Main loop only. */
 
 /* ---- sounds */
-static void sound_preset(uint32_t t, uint32_t k)
+static void sound_build(uint32_t t)             /* after any change of a track's sound */
 {
-    uint32_t e = TRK_ENGINE[t], i;
-    const preset_t *pr;
-    k %= NPRESETS_OF[e];
-    pr = &PRESETS_OF[e][k];
-    for (i = 0; i < NPARAM; i++)
-        prj.snd[t].p[i] = pr->p[i];
-    if (t == T_PU2)
-        prj.snd[t].p[P_PAN] = 3;                /* the two pulses a little apart */
-    if (t == T_PU1)
-        prj.snd[t].p[P_PAN] = -2;
-    prj.snd[t].preset = (uint8_t)k;
+    if (prj.snd[t].engine == E_FM)
+        fm_build(t);
+}
+
+static void fm_patch_load(uint32_t t)           /* FM SOUND: a factory patch into the project (its operators) */
+{
+    uint32_t k, n = (uint32_t)clampi(prj.snd[t].p[P_FMPAT], 0, FM_NPATCH - 1);
+    for (k = 0; k < 156u; k++)
+        prj.fmp[k] = FM_PATCH[n][k];
+}
+
+/* an FM operator's knob (OPERATOR, OP ENV): operator n (1..6) is the patch's 6 - n (msfa). The envelope is
+ * shown as an ADSR: ATTACK is R1 (turned round: up is slower), DECAY R2 and R3, SUSTAIN L2 and L3, RELEASE R4 */
+static int32_t op_get(uint32_t n, uint32_t k)
+{
+    const uint8_t *op = prj.fmp + (6u - n) * FP_OP;
+    switch (k) {
+    case OPK_LEVEL: return op[FP_OL] % 100u;
+    case OPK_RATIO: return op[FP_FC] & 31u;
+    case OPK_FINE: return op[FP_FF] % 100u;
+    case OPK_DET: return (int32_t)(op[FP_DET] % 15u) - 7;
+    case OPK_ATT: return 99 - (int32_t)(op[FP_R1] % 100u);
+    case OPK_DEC: return 99 - (int32_t)(op[FP_R1 + 1] % 100u);
+    case OPK_SUS: return op[FP_L1 + 2] % 100u;
+    default: return 99 - (int32_t)(op[FP_R1 + 3] % 100u);
+    }
+}
+static void op_set(uint32_t n, uint32_t k, int32_t v)
+{
+    uint8_t *op = prj.fmp + (6u - n) * FP_OP;
+    v = clampi(v, OPK_LO[k], OPK_HI[k]);
+    switch (k) {
+    case OPK_LEVEL: op[FP_OL] = (uint8_t)v; break;
+    case OPK_RATIO: op[FP_FC] = (uint8_t)v; break;
+    case OPK_FINE: op[FP_FF] = (uint8_t)v; break;
+    case OPK_DET: op[FP_DET] = (uint8_t)(v + 7); break;
+    case OPK_ATT: op[FP_R1] = (uint8_t)(99 - v); break;
+    case OPK_DEC: op[FP_R1 + 1] = op[FP_R1 + 2] = (uint8_t)(99 - v); break;
+    case OPK_SUS: op[FP_L1 + 1] = op[FP_L1 + 2] = (uint8_t)v; break;
+    default: op[FP_R1 + 3] = (uint8_t)(99 - v); break;
+    }
+}
+
+static int fm_free(uint32_t t)                  /* track t may play FM: no other track does (one FM track) */
+{
+    uint32_t f = fm_track();
+    return f == NTRK || f == t;
+}
+
+static void sound_mix_default(uint32_t t)
+{
+    static const int8_t PAN0[NTRK] = {-2, 3, 0, 2, 0, 0};
+    int8_t *p = prj.snd[t].p;
+    p[P_VOL] = 12;
+    p[P_PAN] = PAN0[t];
+    p[P_ECHO] = 0;
+    p[P_VERB] = 2;
+    p[P_FXT] = FXT_OFF;
+    p[P_FXA] = 8;
+    p[P_FXB] = 4;
+    p[P_FXM] = 15;
+    p[P_LFOD] = LFD_OFF;
+    p[P_LFOR] = 4;
+    p[P_LFOA] = 6;
+    p[P_LFOW] = 0;
+}
+
+static void sound_preset(uint32_t t, uint32_t k)   /* a factory sound: SOUND and the envelope (the rest stays) */
+{
+    const preset_t *pr = &PRESETS[k % NPRESET];
+    uint32_t i;
+    prj.snd[t].engine = pr->engine;
+    prj.snd[t].preset = (uint8_t)(k % NPRESET);
+    for (i = 0; i < 8u; i++)
+        prj.snd[t].p[P_S0 + i] = pr->s[i];
+    for (i = 0; i < 4u; i++)
+        prj.snd[t].p[P_ATT + i] = pr->env[i];
+    if (pr->engine == E_FM)
+        fm_patch_load(t);
+    sound_build(t);
+}
+static int sound_is_preset(uint32_t t)          /* the sound is still its preset (no '*') */
+{
+    const preset_t *pr = &PRESETS[prj.snd[t].preset % NPRESET];
+    uint32_t i;
+    if (pr->engine != prj.snd[t].engine)
+        return 0;
+    for (i = 0; i < 8u; i++)
+        if (prj.snd[t].p[P_S0 + i] != pr->s[i] && PDESC[pr->engine][P_S0 + i].name[0])
+            return 0;
+    for (i = 0; i < 4u; i++)
+        if (prj.snd[t].p[P_ATT + i] != pr->env[i])
+            return 0;
+    return 1;
+}
+static uint32_t preset_first(uint32_t e)        /* the first factory sound of an engine */
+{
+    uint32_t k;
+    for (k = 0; k < NPRESET; k++)
+        if (PRESETS[k].engine == e)
+            return k;
+    return 0;
 }
 
 /* ---- the scale */
@@ -56,6 +148,20 @@ static uint32_t scale_degree(int32_t deg, uint32_t base)   /* deg-th note of the
     return n;
 }
 
+/* a track's home note (the magic tools, the grid, the keys' octave) */
+static uint32_t lane_base(uint32_t t)
+{
+    switch (prj.snd[t].engine) {
+    case E_WAVE: return 45u;                    /* A2: the bass */
+    case E_NOISE: return 96u;
+    case E_FM: return 64u;
+    case E_KIT: case E_SAMPLE: return note_mode(t) == NM_NOTE ? 60u : 1u;
+    default: return 69u;
+    }
+}
+static int is_bass(uint32_t t) { return IS_TONAL(t) && lane_base(t) < 52u; }
+static uint32_t brush_note[NTRK];               /* the note the tools and the grid write */
+
 /* ---- new project, demo */
 static void name_new(char *s)
 {
@@ -71,24 +177,38 @@ static void pat_clear(pat_t *p)
     memset(p, 0, sizeof *p);
     p->len = 16;
 }
+static void brushes_reset(void)
+{
+    uint32_t t;
+    for (t = 0; t < NTRK; t++)
+        brush_note[t] = lane_base(t);
+}
 static void prj_new(void)
 {
     uint32_t i;
     memset(&prj, 0, sizeof prj);
     prj.magic = PRJ_MAGIC;
     prj.version = PRJ_VERSION;
-    prj.bpm = 172;
+    prj.bpm = 160;
     prj.swing = 50;
     prj.root = 9;                               /* A */
-    prj.scale = 2;                              /* MINEUR */
+    prj.scale = 2;                              /* MINOR */
     prj.lock = 1;
     prj.step = 1;
     prj.song_len = 1;
+    prj.song[0].rep = 1;
+    prj.mfx[0] = FXT_OFF;
+    prj.mfx[1] = 10;
+    prj.mfx[2] = 4;
+    prj.mfx[3] = 15;
     for (i = 0; i < NPAT; i++)
         pat_clear(&prj.pat[i]);
-    for (i = 0; i < NTRK; i++)
+    for (i = 0; i < NTRK; i++) {
+        sound_mix_default(i);
         sound_preset(i, TRK_PRESET0[i]);
+    }
     name_new(prj.name);
+    brushes_reset();
 }
 
 static void put(uint32_t p, uint32_t r, uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, int32_t fxv)
@@ -99,79 +219,150 @@ static void put(uint32_t p, uint32_t r, uint32_t t, uint32_t note, uint32_t vol,
     c->fx = (uint8_t)fx;
     c->fxv = (uint8_t)fxv;
 }
-static void put_row(uint32_t p, uint32_t t, const uint8_t *notes, uint32_t vol)
+
+/* a lane written as text, one token a row: "C5" "F#3" (notes), "7" (a drum or a slice), "." (empty),
+ * "x" (OFF). Only for the demo */
+static void lane(uint32_t p, uint32_t t, const char *s, uint32_t vol)
 {
-    uint32_t r;
-    for (r = 0; r < 16u; r++)
-        if (notes[r])
-            put(p, r, t, notes[r], vol, 0, 0);
+    static const int8_t LETTER[7] = {9, 11, 0, 2, 4, 5, 7};   /* A B C D E F G */
+    uint32_t r = 0;
+    while (*s && r < NROW) {
+        while (*s == ' ') s++;
+        if (!*s) break;
+        if (*s == '.') s++;
+        else if (*s == 'x') { put(p, r, t, NOTE_OFF, 0, 0, 0); s++; }
+        else if (*s >= 'A' && *s <= 'G') {
+            int32_t n = LETTER[*s++ - 'A'];
+            if (*s == '#') { n++; s++; }
+            n += (*s++ - '0' + 1) * 12;
+            put(p, r, t, (uint32_t)n, vol, 0, 0);
+        } else {
+            uint32_t n = 0;
+            while (*s >= '0' && *s <= '9') n = n * 10u + (uint32_t)(*s++ - '0');
+            put(p, r, t, n, vol, 0, 0);
+        }
+        r++;
+    }
+}
+static void fx_at(uint32_t p, uint32_t r, uint32_t t, uint32_t fx, int32_t v)
+{
+    prj.pat[p].c[r][t].fx = (uint8_t)fx;
+    prj.pat[p].c[r][t].fxv = (uint8_t)(int8_t)v;
 }
 
-/* the demo: four patterns of breakcore in A minor at 172, chained 1 1 2 3 2 3 4 3 */
+static uint32_t preset_named(uint32_t e, int32_t s0)   /* a factory sound by its engine and its first knob */
+{
+    uint32_t k;
+    for (k = 0; k < NPRESET; k++)
+        if (PRESETS[k].engine == e && PRESETS[k].s[0] == s0)
+            return k;
+    return preset_first(e);
+}
+
+/* the demo, "KAWA QUEST": an overworld in C (bouncy), a dungeon in A minor (an ostinato in the dark),
+ * the boss (breakcore on the break), the victory. Seven patterns of two bars, the song plays most twice.
+ * T1 a pulse lead, T2 FM (kalimba), T3 the wave bass, T4 noise hats, T5 the kit, T6 the break */
+enum { T1, T2, T3, T4, T5, T6 };
 static void prj_demo(void)
 {
-    static const uint8_t BASS[4][16] = {
-        {45, 0, 0, 45, 0, 0, 57, 0, 41, 0, 0, 41, 43, 0, 55, 0},
-        {45, 0, 57, 45, 0, 45, 57, 0, 41, 0, 53, 41, 43, 0, 43, 55},
-        {45, 0, 57, 45, 0, 45, 57, 0, 41, 0, 53, 41, 43, 0, 43, 55},
-        {45, 0, 0, 0, 0, 0, 0, 0, 41, 0, 0, 0, 43, 0, 0, 0}};
-    static const uint8_t LEAD2[16] = {76, 0, 74, 0, 72, 0, 69, 0, 72, 0, 74, 0, 76, 0, 79, 77};
-    static const uint8_t LEAD3[16] = {81, 0, 79, 76, 0, 74, 76, 0, 72, 0, 69, 72, 74, 0, 0, 0};
-    static const uint8_t COUNTER[16] = {0, 81, 0, 84, 0, 81, 0, 88, 0, 77, 0, 81, 0, 79, 0, 83};
-    static const uint8_t HATS[16] = {0, 0, 96, 0, 0, 0, 96, 0, 0, 0, 96, 0, 0, 96, 96, 96};
-    static const uint8_t CHOP2[16] = {1, 2, 3, 4, 5, 5, 7, 8, 1, 10, 11, 12, 13, 13, 15, 16};
-    static const uint8_t CHOP3[16] = {1, 2, 1, 2, 5, 6, 7, 8, 3, 4, 11, 12, 13, 14, 13, 16};
     uint32_t p, r;
     prj_new();
-    memcpy(prj.name, "DEMO KAWA", 10);
-    for (p = 0; p < 4u; p++)
-        put_row(p, T_ONDE, BASS[p], 13);
-    put(0, 0, T_PU1, 69, 11, FX_ARP, 1);        /* chip chords: A minor, F, G */
-    put(0, 3, T_PU1, NOTE_OFF, 0, 0, 0);
-    put(0, 6, T_PU1, 69, 9, FX_ARP, 1);
-    put(0, 8, T_PU1, 65, 11, FX_ARP, 0);
-    put(0, 11, T_PU1, NOTE_OFF, 0, 0, 0);
-    put(0, 12, T_PU1, 67, 11, FX_ARP, 0);
-    put_row(1, T_PU1, LEAD2, 12);
-    put(1, 14, T_PU1, 79, 12, FX_VIB, 6);
-    put_row(2, T_PU1, LEAD3, 12);
-    put(2, 2, T_PU1, 76, 12, FX_GLIDE, 9);
-    put(2, 12, T_PU1, 74, 12, FX_VIB, 8);
-    put_row(1, T_PU2, COUNTER, 8);
-    put_row(2, T_PU2, COUNTER, 8);
-    put(3, 0, T_PU2, 69, 10, FX_ARP, 7);
-    put(3, 8, T_PU2, 65, 10, FX_ARP, 6);
-    put(3, 12, T_PU2, 67, 10, FX_ARP, 5);
-    for (p = 1; p < 3u; p++) {
-        put_row(p, T_BRUIT, HATS, 9);
-        put(p, 0, T_KIT, 2, 15, 0, 0);          /* GABBER */
-        put(p, 3, T_KIT, 2, 12, 0, 0);
-        put(p, 6, T_KIT, 2, 14, 0, 0);
-        put(p, 10, T_KIT, 2, 14, 0, 0);
+    memcpy(prj.name, "KAWA QUEST", 11);
+    prj.root = 0;                               /* C major (the dungeon and the boss are A minor: the same notes) */
+    prj.scale = 1;
+    sound_preset(T2, preset_named(E_FM, 11));   /* KALIMBA */
+    sound_preset(T5, preset_named(E_KIT, KIT_DEMO));
+    prj.snd[T1].p[P_ECHO] = 3;
+    prj.snd[T2].p[P_ECHO] = 7;
+    prj.snd[T2].p[P_VERB] = 6;
+    prj.snd[T2].p[P_VOL] = 11;
+    prj.snd[T4].p[P_VOL] = 10;
+    prj.snd[T6].p[P_VOL] = 13;
+    prj.snd[T1].p[P_VERB] = 3;
+    for (p = 0; p < 7u; p++)
+        prj.pat[p].len = 32;
+    /* P1, P2: the overworld */
+    lane(0, T1, "C5 . E5 G5 . E5 C6 . A5 . G5 . E5 . D5 . F5 . A5 . G5 E5 . C5 D5 . E5 . C5 . x .", 12);
+    lane(1, T1, "E5 . G5 A5 . G5 E5 . D5 . E5 D5 C5 . A4 . B4 . C5 D5 . E5 G5 . F5 . E5 D5 C5 . . x", 12);
+    lane(0, T3, "C3 . C4 . G3 . C4 . A2 . A3 . E3 . A3 . F2 . F3 . C3 . F3 . G2 . G3 . D3 . G3 .", 13);
+    lane(1, T3, "A2 . A3 . E3 . A3 . F2 . F3 . C3 . F3 . G2 . G3 . D3 . G3 . C3 . C4 . G3 . C4 .", 13);
+    for (p = 0; p < 2u; p++) {
+        static const uint8_t CH[2][4] = {{72, 69, 65, 67}, {69, 65, 67, 72}};   /* roots: C Am F G / Am F G C */
+        static const uint8_t MN[2][4] = {{0, 1, 0, 0}, {1, 0, 0, 0}};
+        for (r = 0; r < 32u; r += 8u) {
+            put(p, r + 2u, T2, CH[p][r / 8u], 9, FX_ARP, MN[p][r / 8u]);
+            put(p, r + 6u, T2, CH[p][r / 8u], 7, FX_ARP, MN[p][r / 8u]);
+        }
+        lane(p, T4, ". . 96 . . . 96 96 . . 96 . . . 96 . . . 96 . . . 96 96 . . 96 . . 96 96 96", 9);
+        lane(p, T5, "1 . . . 3 . . 1 1 . 1 . 3 . . . 1 . . . 3 . . 1 1 . 1 . 3 . 3 3", 13);
     }
-    put(2, 4, T_KIT, 4, 12, 0, 0);              /* CLAP */
-    put(2, 12, T_KIT, 4, 12, 0, 0);
-    put(2, 15, T_KIT, 2, 13, FX_ROLL, 2);
-    for (r = 0; r < 16u; r++)
-        put(0, r, T_CASSE, r + 1u, 13, 0, 0);   /* the break, straight */
-    put_row(1, T_CASSE, CHOP2, 13);
-    put(1, 13, T_CASSE, 13, 13, FX_ROLL, 1);
-    put_row(2, T_CASSE, CHOP3, 13);
-    put(2, 8, T_CASSE, 3, 13, FX_REV, 0);
-    put(2, 15, T_CASSE, 16, 13, FX_ROLL, 4);
-    put(3, 0, T_CASSE, 1, 12, 0, 0);
-    put(3, 4, T_CASSE, 5, 10, FX_PITCH, -12);
-    put(3, 12, T_CASSE, 13, 12, FX_ROLL, 3);
-    prj.pat[2].live[14] = LF_LOOP32 + 1u;       /* live effects, recorded */
-    prj.pat[2].live[15] = LF_LOOP64 + 1u;
-    for (r = 12; r < 16u; r++)
-        prj.pat[3].live[r] = LF_LPF + 1u;
+    put(1, 4, T2, 96, 8, 0, 0);                 /* a counter-melody on the kalimba, between the chords */
+    put(1, 12, T2, 100, 8, 0, 0);
+    put(1, 20, T2, 98, 8, 0, 0);
+    put(1, 28, T2, 103, 8, 0, 0);
+    fx_at(1, 28, T1, FX_VIB, 6);
+    fx_at(0, 6, T1, FX_GLIDE, 4);
+    /* P3, P4: the dungeon (A minor, a 16th ostinato on the kalimba, drops of water) */
+    lane(2, T2, "A4 E5 C5 E5 A4 E5 C5 E5 A#4 F5 D5 F5 A#4 F5 D5 F5 A4 E5 C5 E5 A4 E5 C5 E5 G#4 E5 B4 E5 G#4 E5 B4 E5", 8);
+    lane(3, T2, "D5 A5 F5 A5 D5 A5 F5 A5 A4 E5 C5 E5 A4 E5 C5 E5 A#4 F5 D5 F5 A#4 F5 D5 F5 G#4 E5 B4 E5 G#4 E5 B4 E5", 8);
+    lane(2, T3, "A2 . . . . . . . A#2 . . . . . . . A2 . . . . . . . E2 . . . . . . .", 12);
+    lane(3, T3, "D3 . . . . . . . A2 . . . . . . . A#2 . . . . . . . E2 . . . . . . .", 12);
+    lane(2, T1, ". . . . . . A6 x . . . . . . . . . . . . . . E6 x . . . . . . . .", 6);
+    lane(3, T1, "E5 . . . . . F5 . E5 . . . D5 . . . C5 . . . B4 . . . G#4 . . . . . x .", 11);
+    fx_at(3, 24, T1, FX_VIB, 7);
+    fx_at(3, 6, T1, FX_GLIDE, 6);
+    lane(2, T5, "1 . . . . . . . . . . . . . . . 1 . . . . . . . . . . . . . . .", 10);
+    lane(3, T5, "1 . . . . . . . 4 . 1 . . . . . 1 . . . . . . . 4 . 1 . . . 4 4", 11);
+    lane(3, T4, "96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 . 96 96", 5);
+    fx_at(3, 30, T5, FX_ROLL, 2);
+    /* P5, P6: the boss (breakcore: the break chopped, kicks, a riff in harmonic minor) */
+    lane(4, T6, "1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 1 2 1 2 5 6 7 8 3 4 11 12 13 13 15 16", 13);
+    lane(5, T6, "1 2 5 6 3 4 7 7 9 10 13 14 11 12 16 16 1 . 1 2 5 5 7 8 9 9 11 12 13 14 15 16", 13);
+    fx_at(4, 29, T6, FX_ROLL, 1);
+    fx_at(4, 31, T6, FX_ROLL, 3);
+    fx_at(5, 8, T6, FX_REV, 0);
+    fx_at(5, 14, T6, FX_ROLL, 2);
+    fx_at(5, 20, T6, FX_PITCH, -5);
+    fx_at(5, 31, T6, FX_ROLL, 5);
+    lane(4, T5, "1 . . . 1 . . . 1 . . . 1 . 1 . 1 . . . 1 . . . 1 . . . 1 . 1 1", 15);
+    lane(5, T5, "1 . . 1 1 . . . 1 . . 1 1 . 1 . 1 . . 1 1 . . . 1 . 1 . 1 1 1 1", 15);
+    fx_at(5, 30, T5, FX_ROLL, 3);
+    lane(4, T3, "A2 . A2 A3 . A2 C3 . G2 . G2 G3 . G2 A#2 . F2 . F2 F3 . F2 A2 . E2 . E2 E3 . G#2 B2 .", 14);
+    lane(5, T3, "A2 . A2 A3 . A2 C3 . G2 . G2 G3 . G2 A#2 . F2 . F2 F3 . F2 A2 . E2 E3 E2 E3 G#2 G#3 B2 B3", 14);
+    lane(4, T1, "A5 . . C6 . . B5 . G#5 . A5 . E5 . . . F5 . . E5 . . D5 . C5 . . . B4 . G#4 .", 12);
+    lane(5, T1, "A5 . . . . . . . A#5 . . . . . . . A5 . . . . . . . G#5 . . . . . . .", 12);
+    fx_at(4, 24, T1, FX_GLIDE, 5);
+    fx_at(5, 0, T1, FX_ARP, 1);                 /* chip arpeggios: Am, Bb, Am, E dim */
+    fx_at(5, 8, T1, FX_ARP, 0);
+    fx_at(5, 16, T1, FX_ARP, 1);
+    fx_at(5, 24, T1, FX_ARP, 8);
+    lane(4, T2, "A4 . . . . . . . G4 . . . . . . . F4 . . . . . . . E4 . . . . . . .", 7);
+    for (r = 0; r < 32u; r += 8u) fx_at(4, r, T2, FX_ARP, r ? 0 : 1);   /* Am G F E */
+    lane(4, T4, "96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96", 6);
+    lane(5, T4, "96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96 96", 7);
+    fx_at(5, 15, T4, FX_ROLL, 2);
+    for (r = 12; r < 16u; r++) prj.pat[5].live[r] = LF_LOOP32 + 1u;   /* live effects, recorded */
+    prj.pat[5].live[30] = prj.pat[5].live[31] = LF_LOOP64 + 1u;
+    for (r = 24; r < 30u; r++) prj.pat[5].live[r] = LF_LPF + 1u;
+    /* P7: the victory */
+    lane(6, T1, "G4 C5 E5 G5 C6 . . . . . . . A#5 . C6 . D6 . . . E6 . . . . . . . x . . .", 13);
+    fx_at(6, 4, T1, FX_VIB, 4);
+    fx_at(6, 20, T1, FX_VIB, 6);
+    lane(6, T2, "C5 . . . . . . . F4 . . . A#4 . . . C5 . . . . . . . C7 . G6 . E6 . C6 .", 8);
+    fx_at(6, 0, T2, FX_ARP, 0);
+    fx_at(6, 8, T2, FX_ARP, 0);
+    fx_at(6, 12, T2, FX_ARP, 0);
+    fx_at(6, 16, T2, FX_ARP, 0);
+    lane(6, T3, "C3 . C4 . C3 . C4 . F2 . F3 . A#2 . A#3 . C3 . . . . . . . . . . . x . . .", 13);
+    lane(6, T5, "9 . . . 3 . . . 1 . . . 3 . 3 3 9 . . . . . . . . . . . . . . .", 14);
+    fx_at(6, 15, T5, FX_ROLL, 3);
     {
-        static const uint8_t SONG[8] = {0, 0, 1, 2, 1, 2, 3, 2};
-        memcpy(prj.song, SONG, 8);
-        prj.song_len = 8;
+        static const song_t SONG[7] = {{0, 2}, {1, 2}, {2, 2}, {3, 2}, {4, 2}, {5, 2}, {6, 1}};
+        memcpy(prj.song, SONG, sizeof SONG);
+        prj.song_len = 7;
     }
     prj.mode = 1;
+    brushes_reset();
 }
 
 /* ---- undo: the last edits of patterns (SAVE held puts the last one back) */
@@ -217,29 +408,71 @@ static int undo_pop(void)                       /* the pattern put back, or -1 *
     return (int)p;
 }
 
+/* ---- the song list */
+static int pat_empty(const pat_t *p)
+{
+    uint32_t r, t;
+    for (r = 0; r < NROW; r++) {
+        if (p->live[r])
+            return 0;
+        for (t = 0; t < NTRK; t++)
+            if (p->c[r][t].note || p->c[r][t].fx)
+                return 0;
+    }
+    return 1;
+}
+static int song_insert(uint32_t at, uint32_t pat, uint32_t rep)   /* an entry at `at`; 0 when full */
+{
+    uint32_t k;
+    if (prj.song_len >= NSONG)
+        return 0;
+    if (at > prj.song_len)
+        at = prj.song_len;
+    for (k = prj.song_len; k > at; k--)
+        prj.song[k] = prj.song[k - 1u];
+    prj.song[at].pat = (uint8_t)pat;
+    prj.song[at].rep = (uint8_t)(rep ? rep : 1u);
+    prj.song_len++;
+    touched();
+    return 1;
+}
+static void song_delete(uint32_t at)
+{
+    uint32_t k;
+    if (at >= prj.song_len || prj.song_len <= 1u)
+        return;
+    for (k = at; k + 1u < prj.song_len; k++)
+        prj.song[k] = prj.song[k + 1u];
+    prj.song_len--;
+    touched();
+}
+static int song_find(uint32_t pat)              /* the first entry that plays pattern pat, or -1 */
+{
+    uint32_t k;
+    for (k = 0; k < prj.song_len; k++)
+        if (prj.song[k].pat == pat)
+            return (int)k;
+    return -1;
+}
+
 /* ---- the clipboard: a track's rows, or a whole pattern */
 static pat_t clip_pat;
 static cell_t clip_lane[NROW];
 static uint8_t clip_kind, clip_len, clip_trk;   /* 0 empty, 1 a track, 2 a pattern */
 
-/* ---- the magic tools: on the track (PISTE) or on the whole pattern (MOTIF) */
-static uint32_t brush_note[NTRK] = {69, 76, 45, 96, 1, 1};   /* the note the tools and the grid write */
-static uint32_t lane_base(uint32_t t)            /* a track's home octave */
-{
-    static const uint8_t B[NTRK] = {69, 76, 45, 96, 1, 1};
-    return B[t];
-}
+/* ---- the magic tools: on the track (TRACK) or on the whole pattern (PATTERN) */
+static uint8_t mg_clone_to = 0xFF;              /* CLONE: the new pattern (the screen goes to it) */
 
 static void mg_chop(pat_t *p, uint32_t t, uint32_t inten)
 {
-    uint32_t r, len = p->len, brk = (uint32_t)clampi(prj.snd[T_CASSE].p[P_BRK], 0, BRK_N - 1);
-    if (t == T_CASSE) {
+    uint32_t r, len = p->len, src = (uint32_t)clampi(prj.snd[t].p[P_SRC], 0, 7), brk = src < BRK_N ? src : 99u;
+    if (note_mode(t) == NM_SLICE) {
         for (r = 0; r < len; r++) {
             uint32_t s = r % 16u, k, pick = s;
             cell_t *c = &p->c[r][t];
             if ((r % 8u) == 0u)
                 pick = (r % 16u) == 0u ? 0u : 8u;           /* the downbeats keep a kick */
-            else if ((r % 8u) == 4u) {
+            else if ((r % 8u) == 4u && brk < BRK_N) {
                 for (k = 0; k < 16u; k++) {                 /* a snare on 2 and 4 */
                     uint32_t q = (r + k * 5u) % 16u;
                     if (BRK_TAG[brk][q] & 2u) { pick = q; break; }
@@ -274,10 +507,10 @@ static void mg_chop(pat_t *p, uint32_t t, uint32_t inten)
 
 static void mg_beat(pat_t *p, uint32_t t, uint32_t inten)
 {
-    uint32_t r, len = p->len;
+    uint32_t r, len = p->len, e = prj.snd[t].engine;
     for (r = 0; r < len; r++)
         p->c[r][t].note = p->c[r][t].fx = p->c[r][t].fxv = 0;
-    if (t == T_KIT) {                           /* low: four on the floor; mid: broken; high: gabber */
+    if (e == E_KIT) {                           /* low: four on the floor; mid: broken; high: gabber */
         uint32_t kick = inten > 10u ? 2u : 1u;
         for (r = 0; r < len; r++) {
             cell_t *c = &p->c[r][t];
@@ -287,23 +520,23 @@ static void mg_beat(pat_t *p, uint32_t t, uint32_t inten)
             else if (inten < 11u) hit = b == 0u || b == 6u || b == 10u || (b == 13u && rnd(2));
             else hit = b % 4u == 0u || b == 3u || b == 6u || b == 10u || b == 14u || rnd(6) == 0u;
             if (hit) { c->note = (uint8_t)kick; c->vol = (uint8_t)(b % 4u ? 12u : 15u); }
-            else if ((b == 4u || b == 12u) && inten >= 3u) { c->note = 3; c->vol = 13; }   /* CAISSE */
+            else if ((b == 4u || b == 12u) && inten >= 3u) { c->note = 3; c->vol = 13; }   /* SNARE */
             else if (inten >= 7u && rnd(6) == 0u) { c->note = 5; c->vol = 7; }             /* a hat */
         }
-        if (inten > 8u) { p->c[len - 1u][t].note = 3; p->c[len - 1u][t].vol = 12; p->c[len - 1u][t].fx = FX_ROLL; p->c[len - 1u][t].fxv = 2; }
+        if (inten > 8u) { cell_t *c = &p->c[len - 1u][t]; c->note = 3; c->vol = 12; c->fx = FX_ROLL; c->fxv = 2; }
         return;
     }
-    if (t == T_CASSE) {
+    if (note_mode(t) == NM_SLICE) {
         mg_chop(p, t, inten);
         return;
     }
     for (r = 0; r < len; r++) {                 /* the noise: hats; the others: a rhythm on the brush note */
         cell_t *c = &p->c[r][t];
-        int hit = t == T_BRUIT ? ((r % 2u) == 1u || rnd(16) < inten) : (r % 4u == 0u || rnd(24) < inten);
+        int hit = e == E_NOISE ? ((r % 2u) == 1u || rnd(16) < inten) : (r % 4u == 0u || rnd(24) < inten);
         if (hit) {
             c->note = (uint8_t)brush_note[t];
             c->vol = (uint8_t)(r % 2u ? 8u + rnd(4) : 11u);
-            if (t == T_BRUIT && rnd(24) < inten) { c->fx = FX_ROLL; c->fxv = (uint8_t)rnd(3); }
+            if (e == E_NOISE && rnd(24) < inten) { c->fx = FX_ROLL; c->fxv = (uint8_t)rnd(3); }
         }
     }
 }
@@ -312,14 +545,12 @@ static void mg_melo(pat_t *p, uint32_t t, uint32_t inten, int bass)
 {
     uint32_t r, len = p->len, base = bass ? 45u : lane_base(t), n;
     int32_t deg = 0;
-    if (!IS_TONAL(t)) {
+    if (!IS_TONAL(t) || prj.snd[t].engine == E_NOISE) {
         mg_beat(p, t, inten);
         return;
     }
-    if (t == T_ONDE && !bass)
+    if (is_bass(t) && !bass)
         base = 57u;
-    if (t == T_BRUIT)
-        base = 96u;
     n = scale_snap(base);
     for (r = 0; r < len; r++) {
         cell_t *c = &p->c[r][t];
@@ -419,7 +650,7 @@ static void mg_rolls(pat_t *p, uint32_t t, uint32_t inten)
         if (rnd(16) > inten && r != len - 1u)
             continue;
         if (!c->note)
-            c->note = (uint8_t)(t >= T_KIT ? (t == T_CASSE ? 13u : 3u) : brush_note[t]), c->vol = 12;
+            c->note = (uint8_t)(prj.snd[t].engine == E_KIT ? 3u : note_mode(t) == NM_SLICE ? 13u : brush_note[t]), c->vol = 12;
         c->fx = FX_ROLL;
         c->fxv = (uint8_t)(r == len - 1u ? 3u + rnd(4) : rnd(3));
     }
@@ -449,13 +680,6 @@ static void lane_apply(uint32_t tool, pat_t *p, uint32_t t, uint32_t inten, uint
         p->c[0][t] = last;
         break;
     }
-    case MG_REVERSE:
-        for (r = 0; r < len / 2u; r++) {
-            cell_t x = p->c[r][t];
-            p->c[r][t] = p->c[len - 1u - r][t];
-            p->c[len - 1u - r][t] = x;
-        }
-        break;
     case MG_TRANSP:
         for (r = 0; r < len; r++) {
             cell_t *c = &p->c[r][t];
@@ -471,8 +695,28 @@ static void lane_apply(uint32_t tool, pat_t *p, uint32_t t, uint32_t inten, uint
     }
 }
 
+/* CLONE: the pattern into the next empty one, and into the song after it (where the cursor's entry is) */
+static const char *mg_clone(uint32_t pi, uint32_t song_at)
+{
+    uint32_t k, q = NPAT;
+    for (k = 1; k < NPAT; k++)
+        if (pat_empty(&prj.pat[(pi + k) % NPAT])) { q = (pi + k) % NPAT; break; }
+    if (q >= NPAT)
+        return TR("PLUS DE PLACE", "NO ROOM", "SIN ESPACIO");
+    undo_push(q);
+    prj.pat[q] = prj.pat[pi];
+    if (song_at >= prj.song_len || prj.song[song_at].pat != pi) {
+        int f = song_find(pi);
+        song_at = f < 0 ? prj.song_len : (uint32_t)f;
+    }
+    song_insert(song_at + 1u, q, 1);
+    mg_clone_to = (uint8_t)q;
+    return "OK";
+}
+
 /* one tool, on the track or the pattern; returns a word for the screen */
-static const char *magic_run(uint32_t tool, uint32_t pi, uint32_t t, uint32_t scope_all, uint32_t inten, uint32_t seed)
+static const char *magic_run(uint32_t tool, uint32_t pi, uint32_t t, uint32_t scope_all, uint32_t inten, uint32_t seed,
+                             uint32_t song_at)
 {
     pat_t *p = &prj.pat[pi];
     uint32_t k;
@@ -489,6 +733,8 @@ static const char *magic_run(uint32_t tool, uint32_t pi, uint32_t t, uint32_t sc
         }
         return TR("COPIE", "COPIED", "COPIADO");
     }
+    if (tool == MG_CLONE)
+        return mg_clone(pi, song_at);
     undo_push(pi);                              /* each tool its own undo step */
     if (tool == MG_PASTE) {
         if (clip_kind == 2) *p = clip_pat;
@@ -512,13 +758,13 @@ static const char *magic_run(uint32_t tool, uint32_t pi, uint32_t t, uint32_t sc
         return "OK";
     }
     for (k = 0; k < NTRK; k++) {                /* the whole pattern: each track gets what suits it */
-        uint32_t tl = tool;
-        if (tool == MG_MELO && (k == T_ONDE)) tl = MG_BASS;
-        if ((tool == MG_MELO || tool == MG_BASS) && k >= T_BRUIT) tl = MG_BEAT;
-        if (tool == MG_BASS && k < T_ONDE) continue;
-        if (tool == MG_BEAT && k < T_BRUIT) continue;
-        if (tool == MG_CHOP && k != T_CASSE) continue;
-        if (tool == MG_ARP && k >= T_ONDE) continue;
+        uint32_t tl = tool, tonal = IS_TONAL(k) && prj.snd[k].engine != E_NOISE;
+        if (tool == MG_MELO && is_bass(k)) tl = MG_BASS;
+        if ((tool == MG_MELO || tool == MG_BASS) && !tonal) tl = MG_BEAT;
+        if (tool == MG_BASS && tonal && !is_bass(k)) continue;
+        if (tool == MG_BEAT && tonal) continue;
+        if (tool == MG_CHOP && note_mode(k) != NM_SLICE) continue;
+        if (tool == MG_ARP && (!tonal || is_bass(k))) continue;
         if (tool == MG_TRANSP && !IS_TONAL(k)) continue;
         if (tool == MG_EUCL && k != t) continue;
         lane_apply(tl, p, k, inten, seed + k);
@@ -528,15 +774,19 @@ static const char *magic_run(uint32_t tool, uint32_t pi, uint32_t t, uint32_t sc
     return "OK";
 }
 
-/* ---- the store: slots of 28 KiB from STORE_LO; [project_t with its CRC] */
-#define SLOT_SIZE 0x7000u
-#define NSLOT 5u
+/* ---- the store: four slots of 36 KiB from STORE_LO [project_t with its CRC]; the user samples after
+ * them (USR_AT: 4 x 37 KiB, up to STORE_HI) */
+#define SLOT_SIZE 0x9000u
+#define NSLOT 4u
+#define USR_AT (STORE_LO + NSLOT * SLOT_SIZE)
+typedef char prj_fits_a_slot[sizeof(project_t) <= SLOT_SIZE ? 1 : -1];
 static uint32_t slot_at(uint32_t k) { return STORE_LO + k * SLOT_SIZE; }
 
 #if defined(DINGHY_HOST) || defined(KAWA_WASM)
 static uint8_t host_flash[NSLOT][SLOT_SIZE];
 static int store_read(uint32_t k, uint32_t off, void *p, uint32_t n) { memcpy(p, host_flash[k] + off, n); return 0; }
-static int store_write(uint32_t k, const void *p, uint32_t n) { memcpy(host_flash[k], p, n); return 0; }
+static uint32_t store_gen;                      /* counts the saves (the emulator keeps the slots when it changes) */
+static int store_write(uint32_t k, const void *p, uint32_t n) { memcpy(host_flash[k], p, n); store_gen++; return 0; }
 #else
 static int store_read(uint32_t k, uint32_t off, void *p, uint32_t n) { return st_read(slot_at(k) + off, p, n); }
 static int store_write(uint32_t k, const void *p, uint32_t n)
@@ -601,13 +851,72 @@ static int slot_valid(uint32_t k, char *name)   /* the slot holds a project (its
     return ~c == crc;
 }
 
+static void prj_sanitize(void)                  /* a loaded project: nothing out of range reaches the voices */
+{
+    uint32_t t, i, k;
+    prj.name[15] = 0;
+    if (!prj.song_len || prj.song_len > NSONG) prj.song_len = 1;
+    for (k = 0; k < NSONG; k++) {
+        if (prj.song[k].pat >= NPAT) prj.song[k].pat = 0;
+        if (!prj.song[k].rep || prj.song[k].rep > 16u) prj.song[k].rep = 1;
+    }
+    for (t = 0; t < NTRK; t++) {
+        sound_t *s = &prj.snd[t];
+        if (s->engine >= E_N) s->engine = E_PULSE;
+        for (i = 0; i < NPARAM; i++) {
+            const pdesc_t *d = &PDESC[s->engine][i];
+            if (d->name[0]) s->p[i] = (int8_t)clampi(s->p[i], d->lo, d->hi);
+        }
+        sound_build(t);
+    }
+    for (k = 0; k < NPAT; k++)
+        if (!prj.pat[k].len || prj.pat[k].len > NROW) prj.pat[k].len = 16;
+    for (i = 0; i < 4u; i++)
+        prj.mfx[i] = (int8_t)clampi(prj.mfx[i], 0, i ? 15 : FXT_N - 1);
+}
+
 static int prj_load(uint32_t k)
 {
     if (!slot_valid(k, 0))
         return -1;
     if (store_read(k, 0, &prj, sizeof prj))
         return -1;
+    prj_sanitize();
     dirty = 0;
     undo_n = 0;
+    brushes_reset();
+    return 0;
+}
+
+/* ---- the user samples. In the emulator they come in by drag and drop (web/wasm_host.c: decoded,
+ * mono, 22050 or 11025 Hz, 8-bit mu-law as the breaks). On the FM-1 the slots stay empty until the
+ * transfer over USB comes (their place in flash is kept: USR_AT) */
+#if defined(DINGHY_HOST) || defined(KAWA_WASM)
+static uint8_t usr_mem[NUSR][USR_SIZE];
+static void usr_put(uint32_t k, const uint8_t *d, uint32_t len, uint32_t rate, const char *name)
+{
+    uint32_t i;
+    if (k >= NUSR)
+        return;
+    if (len > USR_SIZE - 4u)
+        len = USR_SIZE - 4u;
+    usr_data[k] = 0;                            /* (the voices stop reading it while it changes) */
+    for (i = 0; i < len; i++)
+        usr_mem[k][i] = d[i];
+    for (i = 0; i < 4u; i++)
+        usr_mem[k][len + i] = 128u;             /* silence after the end (the interpolation reads one more) */
+    usr_hdr[k].magic = USR_MAGIC;
+    usr_hdr[k].len = len;
+    usr_hdr[k].rate = rate == 11025u ? 11025u : 22050u;
+    for (i = 0; i < 11u && name && name[i]; i++)
+        usr_hdr[k].name[i] = name[i] >= 'a' && name[i] <= 'z' ? (char)(name[i] - 32) : name[i];
+    usr_hdr[k].name[i] = 0;
+    usr_data[k] = usr_mem[k];
+}
+#endif
+static const char *usr_name(uint32_t k)         /* the slot's name for the screen */
+{
+    if (k < NUSR && usr_data[k] && usr_hdr[k].name[0])
+        return usr_hdr[k].name;
     return 0;
 }

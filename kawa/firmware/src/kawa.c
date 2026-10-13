@@ -34,6 +34,7 @@
 #include "kawa_tables.h"
 #include "kawa_breaks.h"
 #include "kawa_art.h"
+#include "kawa_photo.h"
 #include "kawa_fm.h"
 #include "kawa_kits.h"
 #include "kawa_data.c"

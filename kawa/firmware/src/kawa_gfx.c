@@ -179,6 +179,20 @@ static void g_icon(int32_t x, int32_t y, uint32_t id, uint16_t c, uint32_t scale
             }
 }
 
+/* a picture: w x h pixels, a byte each into pal (RGB565), at 1x (the boot's): the rows of this band only */
+static void g_pic(int32_t x, int32_t y, const uint8_t *img, uint32_t w, uint32_t h, const uint16_t *pal)
+{
+    int32_t r = g_y0 - y, r1 = r + (int32_t)BAND_H, k0 = x < 0 ? -x : 0, k1 = x + (int32_t)w > 240 ? 240 - x : (int32_t)w, k;
+    if (r < 0) r = 0;
+    if (r1 > (int32_t)h) r1 = (int32_t)h;
+    for (; r < r1; r++) {
+        const uint8_t *s = img + (uint32_t)r * w;
+        uint16_t *d = &g_buf[(uint32_t)(y + r - g_y0) * 240u + (uint32_t)x];
+        for (k = k0; k < k1; k++)
+            d[k] = pal[s[k]];
+    }
+}
+
 /* the dog: w x h pixels at 4 bits (the low nibble is the left pixel), ink 0 clear, pal[ink] for the
  * others; flip mirrors it */
 static void g_dog(int32_t x, int32_t y, const uint8_t *img, uint32_t w, uint32_t h, const uint16_t *pal,

@@ -225,20 +225,20 @@ static int32_t lane_w(uint32_t t) { return t == trk() ? FOC_W : NAR_W; }
 static void dog_pal(uint16_t *pal, uint16_t band, uint16_t cups)
 {
     pal[0] = 0;
-    pal[1] = RGB(22, 16, 34);                   /* outline */
-    pal[2] = RGB(78, 70, 84);                   /* dark fur */
-    pal[3] = RGB(138, 128, 134);                /* mid fur */
-    pal[4] = RGB(196, 188, 186);                /* light fur */
-    pal[5] = RGB(244, 240, 236);                /* white */
-    pal[6] = RGB(255, 184, 48);                 /* amber eye */
-    pal[7] = RGB(34, 26, 34);                   /* nose */
-    pal[8] = RGB(24, 12, 12);                   /* pupil */
-    pal[9] = RGB(255, 112, 146);                /* tongue */
+    pal[1] = RGB(26, 18, 32);                   /* outline */
+    pal[2] = RGB(70, 46, 44);                   /* dark fur: the saddle, the ears' edge */
+    pal[3] = RGB(204, 124, 62);                 /* tan */
+    pal[4] = RGB(236, 172, 102);                /* light tan */
+    pal[5] = RGB(250, 218, 166);                /* cream: the muzzle */
+    pal[6] = RGB(255, 184, 48);                 /* amber */
+    pal[7] = RGB(30, 26, 40);                   /* nose */
+    pal[8] = RGB(14, 10, 14);                   /* pupil */
+    pal[9] = RGB(246, 104, 136);                /* tongue */
     pal[10] = band;
     pal[11] = cups;
     pal[12] = g_mix(cups, RGB(0, 0, 0), 110);   /* the cups' rim */
     pal[13] = RGB(255, 255, 255);               /* highlight */
-    pal[14] = RGB(232, 144, 156);               /* inner ear */
+    pal[14] = RGB(226, 140, 120);               /* inner ear */
     pal[15] = RGB(170, 160, 230);               /* z z z */
 }
 static void draw_mascot(int32_t x, int32_t y)
@@ -1449,33 +1449,38 @@ static void draw_help(void)
     hint(3, "", "", "");
 }
 
-/* ---- the boot: the dog, his headphones, the notes coming out of them */
+/* ---- the boot: Omnipotard's dog in 32 bits (kawa_photo.h), notes out of his headphones, stars that twinkle */
+static void g_text_sh(int32_t x, int32_t y, const char *s, uint16_t c, uint32_t mode)   /* with a shadow */
+{
+    g_text(x + 1, y + 1, s, RGB(8, 6, 20), mode);
+    g_text(x, y, s, c, mode);
+}
 static void draw_boot(void)
 {
-    uint16_t pal[16];
-    uint32_t t = fm1_ms - boot_ms, i, bob = (t / 220u) % 4u;
-    int32_t dy = bob == 1u ? -3 : bob == 3u ? -1 : 0;
-    g_rect(0, g_y0, 240, (int32_t)BAND_H, C_BG);
-    for (i = 0; i < 12u; i++) {                 /* a starry backdrop in the tracks' colours */
-        int32_t sx = (int32_t)((i * 83u + 17u) % 236u), sy = (int32_t)((i * 47u + 11u) % 150u);
-        if ((t / 300u + i) % 5u) g_rect(sx, sy, 2, 2, g_mix(C_BG, TRK_COL[i % NTRK], 140));
+    uint32_t t = fm1_ms - boot_ms, i;
+    g_pic(0, 0, BOOT_IMG, 240, 240, BOOT_PAL);
+    for (i = 0; i < BOOT_NSTAR; i++) {          /* the stars twinkle, each in its turn */
+        uint32_t ph = (t / 70u + i * 5u) % 14u;
+        int32_t sx = BOOT_STAR[i][0], sy = BOOT_STAR[i][1];
+        if (ph < 4u) {
+            uint16_t c = ph == 1u || ph == 2u ? C_WHITE : RGB(170, 190, 255);
+            g_rect(sx - 1, sy, 3, 1, c);
+            g_rect(sx, sy - 1, 1, 3, c);
+            if (ph == 2u) { g_px(sx - 2, sy, c); g_px(sx + 2, sy, c); g_px(sx, sy - 2, c); g_px(sx, sy + 2, c); }
+        }
     }
-    dog_pal(pal, PAGE_COL[(t / 400u) % 3u ? PG_GRID : PG_TRACK], RGB(62, 216, 255));
-    g_dog(48, 6 + dy, DOG48, 48, 48, pal, 3, 0);
-    if ((t % 2600u) < 160u && g_vis(6 + dy + 63, 9))   /* a blink: the eyes' rows in fur */
-        for (i = 0; i < 2u; i++)
-            g_rect(48 + (i ? 102 : 39), 6 + dy + 63, 15, 8, pal[3]);
-    for (i = 0; i < 4u; i++) {                  /* notes rise from the cups */
+    for (i = 0; i < 4u; i++) {                  /* notes rise out of the cup, up into the sky */
         uint32_t ph = (t + i * 350u) % 1400u;
-        int32_t nx = i & 1u ? 196 + (int32_t)((ph / 90u) % 3u) : 26 - (int32_t)((ph / 90u) % 3u), ny = 96 - (int32_t)(ph / 16u);
-        if (ny > 6) g_icon(nx, ny, ICO_NOTE, TRK_COL[(i * 3u) % NTRK], 2);
+        int32_t nx = 34 - (int32_t)(ph / 60u) + (int32_t)((ph / 120u) % 3u), ny = 104 - (int32_t)(ph / 15u);
+        if (ny > 4) g_icon(nx < 0 ? 0 : nx, ny, ICO_NOTE, TRK_COL[(i * 3u) % NTRK], 2);
     }
-    g_text_l(88, 158, "KAWA", C_WHITE);
-    g_text_c(120, 194, "Pocket Tracker", C_GOLD, T_BOLD);
-    g_text_c(120, 210, "by Omnipotard", C_MID, 0);
+    g_text_l(233 - 64 + 1, 9, "KAWA", RGB(8, 6, 20));
+    g_text_l(233 - 64, 8, "KAWA", C_WHITE);
+    g_text_sh(233 - g_text_w("Pocket Tracker"), 44, "Pocket Tracker", C_GOLD, T_BOLD);
+    g_text_sh(233 - g_text_w("by Omnipotard"), 60, "by Omnipotard", C_TXT, 0);
     g_rrect(4, 224, 44, 14, C_REC);
     g_text(8, 224, "BETA", C_WHITE, T_CROP | T_BOLD);
-    g_text(236 - g_text_w("V" APP_VER), 226, "V" APP_VER, C_FAINT, T_CROP);
+    g_text_sh(236 - g_text_w("V" APP_VER), 226, "V" APP_VER, C_TXT, T_CROP);
 }
 
 static void draw_all(void)

@@ -14,6 +14,7 @@ das un firmware construido a partir de él, da también su código fuente.*
 | | |
 | --- | --- |
 | KAWA: `firmware/src/kawa*.c`, `firmware/gen/kawa_*.h`, `tools/gen_*.py`, `tests/`, `web/`, `emulateur/`, the docs | Omnipotard |
+| KAWA's dog: `art/boot-dog.png` (the boot picture, the dog in 32 bits) and `art/mascot-dog.png` (the 16-bit dog the mascot is drawn after) | Omnipotard |
 | The platform: `firmware/hal/`, `firmware/loader/`, `crt0.S`, `app.ld`, `firmware/src/` (`usb.c`, `ota.c`, `recovery.c`, `lcd.c`, `gfx.c`, `libc.c`, `bootguard.h`, `uac_fir.h`), `tools/build.py`, `tools/fm1_install.py`, `tools/fm1pkg_make.py`, `tools/lz4blk.py`, `tools/get_toolchain.sh` | Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments ([Felucca](https://github.com/hugelton/Felucca)), with the changes of [SLOOP](https://github.com/isod89/sloop-fm1) (isod89) |
 | The wiring `firmware/src/platform.c` and the host mode that `tests/host.c` started from | zvenson ([Dinghy](https://github.com/zvenson/dinghy)) |
 

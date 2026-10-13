@@ -87,13 +87,14 @@ On an unknown flash chip it writes nothing and the old firmware starts again. Af
 | File | Made by | |
 | --- | --- | --- |
 | `firmware/gen/kawa_art.h` | `tools/gen_art.py` | icons 8 x 8 and the mascot 16 x 16, drawn as text |
+| `firmware/gen/kawa_photo.h` | `tools/gen_art.py` | the boot picture, from `art/boot-dog.png`: 240 x 240, 192 colours, a byte a pixel (needs Pillow) |
 | `firmware/gen/kawa_breaks.h` | `tools/gen_breaks.py` | six breaks, synthesised, 22050 Hz, 8-bit mu-law (needs numpy; `--wav DIR` to listen; `tests/breaks_check.py` checks them) |
 | `firmware/gen/kawa_tables.h` | `tools/gen_tables.py` | fixed-point tables: pitch, envelopes, filters, the 4-bit waves |
 | `firmware/gen/felucca_font.h` | Dinghy | Terminus 8 x 16 (SIL OFL 1.1) |
 
 ## Memory and flash
 
-The 0.2 build uses an image of about 359 KB of the 568 KB available, 43 KB of the 96 KB of RAM and 292 KB
+The 0.2 build uses an image of about 414 KB of the 568 KB available (the boot picture is 58 KB of it), 43 KB of the 96 KB of RAM and 292 KB
 of the 336 KB pool (the effects' capture, the echo, the project and the screen bands). Projects are kept in
 four 36 KB slots from `0x97000` (slot 0 is the autosave) and the user samples in four 37 KB slots from
 `0xBB000` up to `0xE0000`: the store is `0x97000..0xE0000`, the part of the flash an update never erases.

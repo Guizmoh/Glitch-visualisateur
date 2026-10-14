@@ -69,7 +69,7 @@ static uint32_t kt_render(uint32_t k, uint32_t d, const kt_knob_t *kn, uint32_t 
     p[P_KCRUSH] = kn->crush;
     p[P_KTON] = kn->ton;
     ton = TON_A[clampi(p[P_KTON], 0, 15)];
-    drum_on(0, d, fx, fxv);
+    drum_on(0, d, fx == FX_PITCH ? fxv : 0, fx == FX_CRUSH ? fxv : -1);
     for (i = 0; i < max; i += CHUNK) {
         int32_t raw[CHUNK];
         for (j = 0; j < CHUNK; j++)
@@ -260,10 +260,10 @@ static uint32_t kt_beat(uint32_t k, int32_t *y)
     for (i = 0; i < n; i += CHUNK) {
         if (i % step < CHUNK && i / step < 32u) {
             s = i / step;
-            if (KICK[s]) drum_on(0, KICK[s] - 1u, FX_NONE, 0);
-            if (SNR[s]) drum_on(1, SNR[s] - 1u, FX_NONE, 0);
-            if (HAT[s]) drum_on(2, HAT[s] - 1u, FX_NONE, 0);
-            if (PER[s]) drum_on(3, PER[s] - 1u, FX_NONE, 0);
+            if (KICK[s]) drum_on(0, KICK[s] - 1u, 0, -1);
+            if (SNR[s]) drum_on(1, SNR[s] - 1u, 0, -1);
+            if (HAT[s]) drum_on(2, HAT[s] - 1u, 0, -1);
+            if (PER[s]) drum_on(3, PER[s] - 1u, 0, -1);
         }
         for (j = 0; j < CHUNK; j++)
             y[i + j] = 0;
@@ -405,7 +405,7 @@ int main(int argc, char **argv)
             }
             kt_render(k, d, kn, FX_NONE, 0, kt_buf, 0, KT_FS / 20u);
             if (drum[0][0].on) {
-                drum_on(0, d, FX_NONE, 0);     /* again: the first voice chokes */
+                drum_on(0, d, 0, -1);     /* again: the first voice chokes */
                 for (n = 0; n < KT_FS * 15u / 1000u && drum[0][0].on; n += CHUNK) {
                     int32_t raw[CHUNK] = {0};
                     drum_chunk(&drum[0][0], raw);

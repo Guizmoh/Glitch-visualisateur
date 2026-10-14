@@ -78,8 +78,8 @@ static int32_t dsat(int32_t x)                  /* the drive's knee: straight to
     return x < 0 ? -a : a;
 }
 
-static void drum_on(uint32_t t, uint32_t d, uint32_t fx, int32_t fxv)
-{
+static void drum_on(uint32_t t, uint32_t d, int32_t tune, int32_t crush)   /* tune: semitones more (PITCH, the table); */
+{                                                                       /* crush: the cell's (CRUSH), or -1: the knob */
     drum_t *v = &drum[t][drum_next[t]], *o;
     const int8_t *p = prj.snd[t].p;
     uint32_t kit = (uint32_t)clampi(p[P_KIT], 0, NKIT - 1), j;
@@ -92,7 +92,7 @@ static void drum_on(uint32_t t, uint32_t d, uint32_t fx, int32_t fxv)
         o->choke = 40000, o->hits = 0;          /* the same drum again, or a hat over a hat: the old one chokes */
     v->drum = (uint8_t)(d & 15u);
     v->kit = (uint8_t)kit;
-    v->tune = p[P_TUNE] + (fx == FX_PITCH ? fxv : 0);
+    v->tune = p[P_TUNE] + tune;
     v->dec = (int8_t)(p[P_DECAY] * 2);
     v->pe = k->drop * 256;
     v->ae = k->tone ? 65535 : 0;
@@ -104,7 +104,7 @@ static void drum_on(uint32_t t, uint32_t d, uint32_t fx, int32_t fxv)
     v->gap = k->hgap;
     v->choke = 0;
     v->drive = (256 + 48 * g + 8 * g * g) * k->vol >> 7;   /* x1, 1.5 (2), 2.25 (4), 4.5 (8), 10.8 (15); Q8 */
-    v->crush = (uint8_t)clampi(k->bits + (fx == FX_CRUSH ? fxv : p[P_KCRUSH]), 0, 7);
+    v->crush = (uint8_t)clampi(k->bits + (crush >= 0 ? crush : p[P_KCRUSH]), 0, 7);
     v->sr = k->srate;
     if (!v->rnd)
         v->rnd = 0xACE1u + d + t * 77u;

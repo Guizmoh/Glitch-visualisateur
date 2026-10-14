@@ -1,18 +1,22 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* KAWA: the project (patterns, sounds, song, master) and what the audio interrupt and the main loop share.
  *
- * A pattern is NROW rows of NTRK cells (note, volume, trick, its value) plus the LIVE lane: the live
- * effect recorded on each row. A project is 32 patterns, the sound of each track (its engine and 24
- * parameters), the song (a list of patterns, each played N times), the master effect, the tempo, the swing
- * and the scale. It is all in RAM; kawa_edit.c keeps it in flash. */
+ * A pattern is NROW rows of NTRK cells (note, volume, two tricks and their values) plus the LIVE lane: the
+ * live effect recorded on each row. A project is 32 patterns, the sound of each track (its engine and 24
+ * parameters), its table (steps played from each note) and its sample's edit, the song (a list of
+ * patterns, each played N times), the master effect, the tempo, the swing or the groove, and the scale.
+ * It is all in RAM; kawa_edit.c keeps it in flash. */
 #define NROW 32u
 #define NPAT 32u
 #define NSONG 64u
 #define CHUNK 16u                               /* control rate: envelopes, pitch, sequencer every 16 frames */
 
-typedef struct {
-    uint8_t note, vol, fx, fxv;                 /* note: 0 empty, 255 OFF, else MIDI note / drum + 1 / slice + 1 */
+typedef struct __attribute__((packed)) {      /* 5 bytes (format 5; 4 before: note, vol, fx, fxv) */
+    uint8_t note;                               /* 0 empty, 255 OFF, else MIDI note / drum + 1 / slice + 1 */
+    uint16_t vol : 4, fx : 6, fx2 : 6;          /* the volume 1..15; two tricks (FX_...), both played */
+    uint8_t fxv, fxv2;                          /* their values (int8_t for the signed ones) */
 } cell_t;
+typedef char cell_is_5_bytes[sizeof(cell_t) == 5u ? 1 : -1];
 typedef struct {
     cell_t c[NROW][NTRK];
     uint8_t live[NROW];                         /* a live effect per row (LF_... + 1), 0 = none */
@@ -26,8 +30,33 @@ typedef struct {
 typedef struct {
     uint8_t pat, rep;                           /* a song entry: the pattern, played rep times (1..16) */
 } song_t;
+/* a track's table (M8's): steps played one after the other from each note, every SPEED ticks (6 a row) */
+#define NTSTEP 16u
+typedef struct {
+    int8_t tr;                                  /* semitones over the note (KIT, slices: drums / slices over it) */
+    uint8_t vol;                                /* 0: the note's, else 1..15 */
+    uint8_t fx;                                 /* a trick of the table (TB_...) */
+    int8_t fxv;
+} tstep_t;
+typedef struct {
+    tstep_t s[NTSTEP];
+    uint8_t on, speed, len, loop;               /* speed 1..24 ticks a step; len 1..16; loop: the step it goes back
+                                                 * to after the last (NTSTEP: none, the last step stays) */
+} table_t;
+/* a track's sample, edited (nothing is written into the sound: these say how it plays) */
+typedef struct {
+    uint16_t start, end;                        /* where it plays, in 65536ths of the sound */
+    uint16_t sl[16];                            /* the slices' starts (MANUAL), in 65536ths; else 16 even ones */
+    uint16_t gain;                              /* Q8: 256 as recorded (NORMALISE sets it from the peak) */
+    uint8_t rev, manual, norm, pad;
+} sedit_t;
+/* the groove (M8's): the ticks of each row in turn (6 a straight 16th), in place of the swing when on */
+typedef struct {
+    uint8_t tick[16];                           /* 1..12 */
+    uint8_t len, on, pad[2];                    /* len 1..16 */
+} groove_t;
 #define PRJ_MAGIC 0x4157414Bu                   /* "KAWA" */
-#define PRJ_VERSION 4u
+#define PRJ_VERSION 5u
 typedef struct {
     uint32_t magic, version;
     char name[16];
@@ -41,6 +70,9 @@ typedef struct {
                                                  * not saved into it (the autosave keeps both: they come back at boot) */
     uint8_t fmp[156];                           /* the FM track's patch (its operators, edited in EDIT) */
     pat_t pat[NPAT];
+    table_t tbl[NTRK];                          /* (format 5 from here) */
+    sedit_t sed[NTRK];
+    groove_t grv;
     uint32_t crc;
 } project_t;
 
@@ -103,18 +135,36 @@ static volatile uint8_t cpu_shed;               /* ISR: the load governor's leve
 static volatile uint8_t cpu_pct, cpu_max;       /* ISR: the render's share of its 5.8 ms, now and at most (OPTIONS) */
 static int16_t scope[240];                      /* ISR: the live effects' bus, decimated, for the screens */
 static volatile uint32_t scope_w;
+static volatile uint8_t tb_now[NTRK];           /* ISR: the step each track's table plays (TABLE), NTSTEP: none */
+static volatile uint8_t clk_in;                 /* main: the tempo comes from the MIDI clock in (OPTIONS CLOCK IN) */
+static volatile uint32_t clk_in_ticks;          /* main: MIDI clock ticks received since the start (FA) */
+static volatile uint32_t clk_in_tick;           /* main: frames a tick, measured over the last beat (0: none yet) */
 static uint32_t g_rowlen = 3845u;               /* ISR: frames per row (16th) at the tempo, without swing */
+static uint32_t g_ticklen = 640u;               /* ISR: frames per tick (a row is 6): the tables' and the groove's */
 static uint32_t g_beatpos;                      /* ISR: frames since the last beat (the live effects lock to it) */
+
+/* a cell's two tricks, as the voices take them */
+typedef struct {
+    uint8_t fx, fx2;
+    int8_t v, v2;
+} tricks_t;
+static int trick(const tricks_t *k, uint32_t f, int32_t *v)   /* the cell plays trick f: its value (the second */
+{                                                              /* column's when both have it) */
+    if (k->fx2 == f) { *v = k->v2; return 1; }
+    if (k->fx == f) { *v = k->v; return 1; }
+    return 0;
+}
 
 /* main -> ISR: notes played on the keys (or a cell to hear), a small queue */
 typedef struct {
-    uint8_t type, trk, note, vol, fx, fxv;
+    uint8_t type, trk, note, vol, fx, fxv, fx2, fxv2;
 } ev_t;
 enum { EV_ON = 1, EV_OFF, EV_ALLOFF, EV_KILL };   /* EV_KILL: a track's voices go now (its engine changed; trk NTRK: all) */
 #define EVQ 32u
 static ev_t evq[EVQ];
 static volatile uint32_t evq_w, evq_r;
-static void ev_push(uint32_t type, uint32_t trk, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv)
+static void ev_push2(uint32_t type, uint32_t trk, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv, uint32_t fx2,
+                     uint32_t fxv2)
 {
     ev_t *e;
     if (evq_w - evq_r >= EVQ)
@@ -126,8 +176,14 @@ static void ev_push(uint32_t type, uint32_t trk, uint32_t note, uint32_t vol, ui
     e->vol = (uint8_t)vol;
     e->fx = (uint8_t)fx;
     e->fxv = (uint8_t)fxv;
+    e->fx2 = (uint8_t)fx2;
+    e->fxv2 = (uint8_t)fxv2;
     RING_PUBLISH();
     evq_w++;
+}
+static void ev_push(uint32_t type, uint32_t trk, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv)
+{
+    ev_push2(type, trk, note, vol, fx, fxv, FX_NONE, 0);
 }
 
 /* random numbers: one generator for the ISR, one for the main loop */

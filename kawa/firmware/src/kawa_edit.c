@@ -192,6 +192,36 @@ static void pat_clear(pat_t *p)
     memset(p, 0, sizeof *p);
     p->len = 16;
 }
+static void sed_reset(sedit_t *e)               /* a sample as it is: all of it, 16 even slices, no gain */
+{
+    uint32_t i;
+    memset(e, 0, sizeof *e);
+    e->end = 65535u;
+    for (i = 0; i < 16u; i++)
+        e->sl[i] = (uint16_t)(i * 4096u);
+    e->gain = 256;
+}
+static void groove_preset(uint32_t k)
+{
+    const uint8_t *g = GROOVE_PRESET[k % 6u];
+    uint32_t i;
+    prj.grv.len = g[0];
+    for (i = 0; i < 16u; i++)
+        prj.grv.tick[i] = g[1u + i % g[0]];
+}
+static void prj_v5_defaults(void)              /* what format 5 adds: the tables off, the samples whole, no groove */
+{
+    uint32_t t;
+    for (t = 0; t < NTRK; t++) {
+        memset(&prj.tbl[t], 0, sizeof prj.tbl[t]);
+        prj.tbl[t].speed = 6;                   /* a step a row */
+        prj.tbl[t].len = 4;
+        prj.tbl[t].loop = 0;
+        sed_reset(&prj.sed[t]);
+    }
+    memset(&prj.grv, 0, sizeof prj.grv);
+    groove_preset(1);                           /* (off; on, a light swing to start from) */
+}
 static void brushes_reset(void)
 {
     uint32_t t;
@@ -218,6 +248,7 @@ static void prj_new(void)
     prj.mfx[3] = 15;
     for (i = 0; i < NPAT; i++)
         pat_clear(&prj.pat[i]);
+    prj_v5_defaults();
     for (i = 0; i < NTRK; i++) {
         sound_mix_default(i);
         sound_preset(i, preset_named(TRK_ENGINE0[i], TRK_S0[i]));
@@ -233,6 +264,8 @@ static void put(uint32_t p, uint32_t r, uint32_t t, uint32_t note, uint32_t vol,
     c->vol = (uint8_t)vol;
     c->fx = (uint8_t)fx;
     c->fxv = (uint8_t)fxv;
+    c->fx2 = FX_NONE;
+    c->fxv2 = 0;
 }
 
 /* a lane written as text, one token a row: "C5" "F#3" (notes), "7" (a drum or a slice), "." (empty),
@@ -453,7 +486,7 @@ static int pat_empty(const pat_t *p)
         if (p->live[r])
             return 0;
         for (t = 0; t < NTRK; t++)
-            if (p->c[r][t].note || p->c[r][t].fx)
+            if (p->c[r][t].note || p->c[r][t].fx || p->c[r][t].fx2)
                 return 0;
     }
     return 1;
@@ -526,8 +559,8 @@ static void mg_chop(pat_t *p, uint32_t t, uint32_t inten)
                 pick = rnd(16);
             c->note = (uint8_t)(pick + 1u);
             c->vol = (uint8_t)(r % 4u ? 12u : 14u);
-            c->fx = 0;
-            c->fxv = 0;
+            c->fx = c->fx2 = 0;
+            c->fxv = c->fxv2 = 0;
             if ((r % 8u) == 7u && rnd(24) < inten) { c->fx = FX_ROLL; c->fxv = (uint8_t)rnd(5); }
             else if (rnd(40) < inten) { c->fx = FX_REV; }
             else if (rnd(56) < inten) { c->fx = FX_PITCH; c->fxv = (uint8_t)(int8_t)(rnd(2) ? 12 : -5); }
@@ -554,7 +587,7 @@ static void mg_beat(pat_t *p, uint32_t t, uint32_t inten)
 {
     uint32_t r, len = p->len, e = prj.snd[t].engine;
     for (r = 0; r < len; r++)
-        p->c[r][t].note = p->c[r][t].fx = p->c[r][t].fxv = 0;
+        p->c[r][t].note = p->c[r][t].fx = p->c[r][t].fxv = p->c[r][t].fx2 = p->c[r][t].fxv2 = 0;
     if (e == E_KIT) {                           /* low: four on the floor; mid: broken; high: gabber */
         uint32_t kick = inten > 10u ? 2u : 1u;
         for (r = 0; r < len; r++) {
@@ -600,7 +633,7 @@ static void mg_melo(pat_t *p, uint32_t t, uint32_t inten, int bass)
     for (r = 0; r < len; r++) {
         cell_t *c = &p->c[r][t];
         uint32_t dens = bass ? (r % 4u == 0u ? 16u : 4u + inten / 2u) : 5u + inten;
-        c->fx = c->fxv = 0;
+        c->fx = c->fxv = c->fx2 = c->fxv2 = 0;
         if (r && rnd(20) >= dens) {             /* a rest (the first row always plays) */
             c->note = (bass || rnd(3)) ? 0u : NOTE_OFF;
             c->vol = 0;
@@ -641,7 +674,7 @@ static void mg_eucl(pat_t *p, uint32_t t, uint32_t inten, uint32_t rot)
     for (r = 0; r < len; r++) {
         cell_t *c = &p->c[(r + rot) % len][t];
         acc += k;
-        c->fx = c->fxv = 0;
+        c->fx = c->fxv = c->fx2 = c->fxv2 = 0;
         if (acc >= len) {
             acc -= len;
             c->note = (uint8_t)brush_note[t];
@@ -831,6 +864,13 @@ static const char *magic_run(uint32_t tool, uint32_t pi, uint32_t t, uint32_t sc
 #define NSLOT 4u
 #define USR_AT (STORE_LO + NSLOT * SLOT_SIZE)
 typedef char prj_fits_a_slot[sizeof(project_t) <= SLOT_SIZE ? 1 : -1];
+#define V4_CELL 4u                              /* format 4 (KAWA 0.2): cells of 4 bytes, no tables, no groove */
+#define V4_PAT (NROW * NTRK * V4_CELL + NROW + 4u)
+static uint32_t prj_body(uint32_t ver)          /* the bytes the CRC covers (the CRC follows them) */
+{
+    uint32_t pat_at = (uint32_t)((uint8_t *)&prj.pat - (uint8_t *)&prj);
+    return ver == 4u ? pat_at + NPAT * V4_PAT : (uint32_t)((uint8_t *)&prj.crc - (uint8_t *)&prj);
+}
 static uint32_t slot_at(uint32_t k) { return STORE_LO + k * SLOT_SIZE; }
 
 #if defined(DINGHY_HOST) || defined(KAWA_WASM)
@@ -888,14 +928,14 @@ static int prj_save(uint32_t k)
     return 0;
 }
 
-static int slot_valid(uint32_t k, char *name)   /* the slot holds a project (its name into name, 16 B) */
-{
-    uint32_t h[2], c = 0xFFFFFFFFu, off;
+static int slot_valid(uint32_t k, char *name)   /* the slot holds a project: its format (4 or 5), else 0 (its name */
+{                                               /* into name, 16 B) */
+    uint32_t h[2], c = 0xFFFFFFFFu, off, body, crc_at;
     uint8_t buf[256];
-    const uint32_t body = (uint32_t)((uint8_t *)&prj.crc - (uint8_t *)&prj), crc_at = body;
     uint32_t crc;
-    if (store_read(k, 0, h, 8) || h[0] != PRJ_MAGIC || h[1] != PRJ_VERSION)
+    if (store_read(k, 0, h, 8) || h[0] != PRJ_MAGIC || (h[1] != PRJ_VERSION && h[1] != 4u))
         return 0;
+    body = crc_at = prj_body(h[1]);
     for (off = 0; off < body; off += 256u) {    /* the CRC by pieces: no second copy of the project in RAM */
         uint32_t n = body - off < 256u ? body - off : 256u;
         if (store_read(k, off, buf, n))
@@ -906,7 +946,68 @@ static int slot_valid(uint32_t k, char *name)   /* the slot holds a project (its
     }
     if (store_read(k, crc_at, &crc, 4))
         return 0;
-    return ~c == crc;
+    return ~c == crc ? (int)h[1] : 0;
+}
+
+/* format 4 to 5, in place: each pattern widened from the last, each cell from the last (a cell lands at or
+ * after where it was: nothing not yet read is written over) */
+static void prj_from_v4(void)
+{
+    uint8_t *base = (uint8_t *)prj.pat;
+    int32_t p, i;
+    for (p = (int32_t)NPAT - 1; p >= 0; p--) {
+        uint8_t *src = base + (uint32_t)p * V4_PAT, *dst = base + (uint32_t)p * sizeof(pat_t);
+        for (i = (int32_t)NROW + 3; i >= 0; i--)   /* LIVE, the length (from the end: the FM-1 has no memmove) */
+            dst[NROW * NTRK * sizeof(cell_t) + (uint32_t)i] = src[NROW * NTRK * V4_CELL + (uint32_t)i];
+        for (i = (int32_t)(NROW * NTRK) - 1; i >= 0; i--) {
+            const uint8_t *c4 = src + (uint32_t)i * V4_CELL;
+            uint8_t n = c4[0], v = c4[1], f = c4[2], fv = c4[3];
+            cell_t *c = (cell_t *)(void *)(dst + (uint32_t)i * sizeof(cell_t));
+            c->note = n;
+            c->vol = (uint8_t)(v & 15u);
+            c->fx = (uint8_t)(f < FX_HOP ? f : FX_NONE);
+            c->fxv = fv;
+            c->fx2 = FX_NONE;
+            c->fxv2 = 0;
+        }
+    }
+    prj_v5_defaults();
+    prj.version = PRJ_VERSION;
+}
+
+/* the edit's NORMALISE: the gain that brings the edited part's peak to full scale (x 1 .. x 16) */
+static void sed_normalise(uint32_t t)
+{
+    sedit_t *e = &prj.sed[t];
+    const uint8_t *d;
+    uint32_t len, rate, a, b, peak = 0;
+    e->gain = 256;
+    if (prj.snd[t].engine != E_SAMPLE || !e->norm ||
+        !smp_source((uint32_t)clampi(prj.snd[t].p[P_SRC], 0, BRK_N + NUSR - 1), &d, &len, &rate))
+        return;
+    a = sed_at(e->start, len);
+    b = sed_at(e->end, len);
+    for (; a < b && a < len; a++) {
+        int32_t x = BRK_ULAW[d[a]];
+        uint32_t ax = (uint32_t)(x < 0 ? -x : x);
+        if (ax > peak) peak = ax;
+    }
+    if (peak > 0u)
+        e->gain = (uint16_t)clampi((int32_t)(31000u * 256u / peak), 256, 4096);
+}
+
+static void sed_fix(sedit_t *e)                 /* the edit in order: start < end, the slices between them, rising */
+{
+    uint32_t i;
+    if (e->start + 512u > e->end) e->start = e->end > 512u ? (uint16_t)(e->end - 512u) : 0u;
+    if (e->start + 512u > e->end) e->end = (uint16_t)(e->start + 512u);
+    e->sl[0] = e->start;
+    for (i = 1; i < 16u; i++)
+        e->sl[i] = (uint16_t)clampi(e->sl[i], e->sl[i - 1u], e->end);
+    e->rev = e->rev ? 1u : 0u;
+    e->manual = e->manual ? 1u : 0u;
+    e->norm = e->norm ? 1u : 0u;
+    e->gain = (uint16_t)clampi(e->gain, 64, 4096);
 }
 
 static void prj_sanitize(void)                  /* a loaded project: nothing out of range reaches the voices */
@@ -927,19 +1028,52 @@ static void prj_sanitize(void)                  /* a loaded project: nothing out
         }
         sound_build(t);
     }
-    for (k = 0; k < NPAT; k++)
+    for (k = 0; k < NPAT; k++) {
+        uint32_t r;
         if (!prj.pat[k].len || prj.pat[k].len > NROW) prj.pat[k].len = 16;
+        for (r = 0; r < NROW; r++)
+            for (t = 0; t < NTRK; t++) {
+                cell_t *c = &prj.pat[k].c[r][t];
+                if (c->fx >= FX_N) c->fx = FX_NONE;
+                if (c->fx2 >= FX_N) c->fx2 = FX_NONE;
+            }
+    }
     for (i = 0; i < 4u; i++)
         prj.mfx[i] = (int8_t)clampi(prj.mfx[i], 0, i ? 15 : FXT_N - 1);
+    for (t = 0; t < NTRK; t++) {                /* format 5: the tables, the sample edits, the groove */
+        table_t *tb = &prj.tbl[t];
+        tb->on = tb->on ? 1u : 0u;
+        tb->speed = (uint8_t)clampi(tb->speed, 1, 24);
+        tb->len = (uint8_t)clampi(tb->len, 1, NTSTEP);
+        tb->loop = (uint8_t)clampi(tb->loop, 0, NTSTEP);
+        for (i = 0; i < NTSTEP; i++) {
+            tstep_t *st = &tb->s[i];
+            st->tr = (int8_t)clampi(st->tr, -24, 24);
+            st->vol = (uint8_t)clampi(st->vol, 0, 15);
+            if (st->fx >= TB_N) st->fx = TB_NONE;
+            st->fxv = (int8_t)clampi(st->fxv, TBD[st->fx].lo, TBD[st->fx].hi);
+        }
+        sed_fix(&prj.sed[t]);
+    }
+    prj.grv.on = prj.grv.on ? 1u : 0u;
+    prj.grv.len = (uint8_t)clampi(prj.grv.len, 1, 16);
+    for (i = 0; i < 16u; i++)
+        prj.grv.tick[i] = (uint8_t)clampi(prj.grv.tick[i], 1, 12);
 }
 
 static int prj_load(uint32_t k)
 {
-    if (!slot_valid(k, 0))
+    uint32_t t;
+    int ver = slot_valid(k, 0);
+    if (!ver)
         return -1;
-    if (store_read(k, 0, &prj, sizeof prj))
+    if (store_read(k, 0, &prj, ver == 4 ? prj_body(4u) + 4u : sizeof prj))
         return -1;
+    if (ver == 4)
+        prj_from_v4();                          /* a project of KAWA 0.2: it plays as it did */
     prj_sanitize();
+    for (t = 0; t < NTRK; t++)
+        sed_normalise(t);                       /* (a user's sample may have changed since) */
     if (prj.home >= NSLOT)
         prj.home = 0;
     if (k)

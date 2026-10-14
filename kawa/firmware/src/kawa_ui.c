@@ -104,31 +104,33 @@ static void note_text(uint32_t t, uint32_t note, char *s, int wide)
         fmt_u(s + 1, note / 12u ? note / 12u - 1u : 0u, 1);
     }
 }
-static void fxv_text(uint32_t t, const cell_t *c, char *s)
+static void fx_text(uint32_t t, uint32_t fx, uint32_t fxv, char *s)   /* a trick's value as the cell shows it */
 {
-    int32_t v = (int8_t)c->fxv;
+    int32_t v = (int8_t)fxv;
     s[0] = 0;
-    switch (c->fx) {
-    case FX_NONE: break;
-    case FX_ARP: str_cat(s, CHORDS[c->fxv % 14u].name[lang]); break;
-    case FX_ROLL: *s++ = 'X'; fmt_u(s, ROLL_N[c->fxv < 9u ? c->fxv : 8u], 0); break;
-    case FX_BEND: case FX_PITCH: fmt_s(s, v); break;
-    case FX_CHANCE: s = fmt_u(s, c->fxv * 10u, 0); str_cat(s, "%"); break;
+    switch (fx) {
+    case FX_NONE: case FX_END: break;
+    case FX_ARP: str_cat(s, CHORDS[fxv % 14u].name[lang]); break;
+    case FX_ROLL: *s++ = 'X'; fmt_u(s, ROLL_N[fxv < 9u ? fxv : 8u], 0); break;
+    case FX_BEND: case FX_PITCH: case FX_VSL: case FX_PAN: fmt_s(s, v); break;
+    case FX_CHANCE: s = fmt_u(s, fxv * 10u, 0); str_cat(s, "%"); break;
     case FX_REV: str_cat(s, "<<"); break;
+    case FX_HOP: fmt_u(s, (fxv & 31u) + 1u, 0); break;     /* the row it goes to */
     case FX_SHAPE: {
         uint32_t e = ENG(t), n = e == E_PULSE ? 5u : e == E_WAVE ? 8u : e == E_NOISE ? 2u : 0u, i;
         const char *const *l = e == E_PULSE ? L_DUTY : e == E_WAVE ? L_WAVE : L_NOISE;
         const char *w;
-        if (!n) { fmt_u(s, c->fxv, 0); break; }
-        w = l[lang * n + (e == E_PULSE ? (c->fxv < 4u ? c->fxv : 4u) : e == E_NOISE ? (c->fxv ? 1u : 0u) : c->fxv % n)];
+        if (!n) { fmt_u(s, fxv, 0); break; }
+        w = l[lang * n + (e == E_PULSE ? (fxv < 4u ? fxv : 4u) : e == E_NOISE ? (fxv ? 1u : 0u) : fxv % n)];
                                                 /* (what plays: PULSE 4 and over is PWM, NOISE any but 0 the metal) */
         for (i = 0; i < 3u && w[i]; i++) s[i] = w[i];
         s[i] = 0;
         break;
     }
-    default: fmt_u(s, c->fxv, 0); break;
+    default: fmt_u(s, fxv, 0); break;
     }
 }
+static void fxv_text(uint32_t t, const cell_t *c, char *s) { fx_text(t, c->fx, c->fxv, s); }
 static void trk_name(uint32_t t, char *s)      /* "1 PULSE" */
 {
     s[0] = (char)('1' + t);
@@ -432,7 +434,7 @@ static void draw_track(void)
 {
     const pat_t *pt = P();
     uint32_t len = plen(), i, t, base, prow = sq_play && sq_pat == ui_pat ? sq_row : 0xFFu, ct = trk();
-    uint32_t focus_row = (sq_play && sq_pat == ui_pat && !rec) ? prow : cur_row;
+    uint32_t focus_row = (sq_play && sq_pat == ui_pat && !rec) ? prow : cur_row, two = arp_held;   /* (the 2nd column) */
     char s[8];
     base = len > 16u ? (focus_row / 16u) * 16u : 0u;
     draw_lane_head();
@@ -469,17 +471,22 @@ static void draw_track(void)
                     int32_t h = (int32_t)(c->vol * 10u / 15u);
                     g_rect(x + 29, y + 11 - h, 2, h, g_mix(col, C_BG, 80));
                 }
-                if (c->fx) {
-                    char v[8];
-                    g_icon(x + 36, y + 2, FXD[c->fx % FX_N].icon, C_GOLD, 1);
-                    fxv_text(t, c, v);
-                    v[5] = 0;
-                    g_text(x + 46, y, v, C_GOLD, T_CROP);
-                } else
-                    g_text(x + 44, y, "...", C_RULE, T_CROP);
+                {                       /* a trick (ARP held: the second column's), the other one's icon after it */
+                    uint32_t f = two ? c->fx2 : c->fx, fv = two ? c->fxv2 : c->fxv, o = two ? c->fx : c->fx2;
+                    uint16_t fc = two ? C_GO : C_GOLD;
+                    if (f) {
+                        char v[8];
+                        g_icon(x + 36, y + 2, FXD[f % FX_N].icon, fc, 1);
+                        fx_text(t, f, fv, v);
+                        v[4] = 0;
+                        g_text(x + 46, y, v, fc, T_CROP);
+                    } else
+                        g_text(x + 44, y, "...", two ? g_mix(C_RULE, C_GO, 90) : C_RULE, T_CROP);
+                    if (o) g_icon(x + 82, y + 2, FXD[o % FX_N].icon, two ? C_GOLD : C_GO, 1);
+                }
             } else {
                 g_text(x + (w - 16) / 2, y, s, on ? g_mix(C_BG, col, 120u + c->vol * 9u) : C_RULE, T_CROP);
-                if (c->fx) g_rect(x + w - 3, y + 1, 2, 2, C_GOLD);
+                if (c->fx || c->fx2) g_rect(x + w - 3, y + 1, 2, 2, c->fx ? C_GOLD : C_GO);
             }
         }
         g_rect(LIVE_X, y, 240 - LIVE_X, ROW_H, C_BG);
@@ -496,9 +503,15 @@ static void draw_track(void)
         fmt_u(b, c->vol, 0);
         hint(0, TR("NOTE", "NOTE", "NOTA"), "", a);
         hint(1, TR("VOLUME", "VOLUME", "VOLUMEN"), "V", c->note ? b : "-");
-        hint(2, TR("EFFET CASE", "CELL FX", "EFECTO"), "", FXD[c->fx % FX_N].tag[lang]);
-        fxv_text(ct, c, b);
-        hint(3, TR("VALEUR", "VALUE", "VALOR"), "", c->fx ? b : "-");
+        if (two) {                              /* ARP held: KNOB 3 and 4 on the second column */
+            hint(2, TR("EFFET 2", "CELL FX 2", "EFECTO 2"), "2", FXD[c->fx2 % FX_N].tag[lang]);
+            fx_text(ct, c->fx2, c->fxv2, b);
+            hint(3, TR("VALEUR 2", "VALUE 2", "VALOR 2"), "2", c->fx2 && b[0] ? b : "-");
+        } else {
+            hint(2, TR("EFFET CASE", "CELL FX", "EFECTO"), "", FXD[c->fx % FX_N].tag[lang]);
+            fxv_text(ct, c, b);
+            hint(3, TR("VALEUR", "VALUE", "VALOR"), "", c->fx && b[0] ? b : "-");
+        }
     }
 }
 
@@ -538,9 +551,8 @@ static void draw_grid(void)
         note_text(t, brush_note[t], s, 1);
         g_text(94, 22, s, C_TXT, T_CROP | T_BOLD);
         if (brush_fx[t]) {
-            cell_t b = {0, 0, brush_fx[t], brush_fxv[t]};
-            g_icon(124, 25, FXD[b.fx].icon, C_GOLD, 1);
-            fxv_text(t, &b, v);
+            g_icon(124, 25, FXD[brush_fx[t] % FX_N].icon, C_GOLD, 1);
+            fx_text(t, brush_fx[t], brush_fxv[t], v);
             g_text(134, 22, v, C_GOLD, T_CROP);
         }
         if (len > 16u) {
@@ -563,10 +575,12 @@ static void draw_grid(void)
             s[0] = 0;
             note_text(t, c->note, s, 1);
             g_text_c(x + 29, y + 15, s, c->note == NOTE_OFF ? C_FAINT : C_WHITE, T_CROP | T_BOLD);
-            if (c->fx) {
-                g_icon(x + 47, y + 3, FXD[c->fx % FX_N].icon, C_GOLD, 1);
-                fxv_text(t, c, v);
-                g_text_c(x + 29, y + 30, v, C_GOLD, T_CROP);
+            if (c->fx || c->fx2) {              /* (the first trick; the second's icon if there is one) */
+                uint32_t f = c->fx ? c->fx : c->fx2;
+                g_icon(x + 47, y + 3, FXD[f % FX_N].icon, c->fx ? C_GOLD : C_GO, 1);
+                if (c->fx && c->fx2) g_icon(x + 37, y + 3, FXD[c->fx2 % FX_N].icon, C_GO, 1);
+                fx_text(t, f, c->fx ? c->fxv : c->fxv2, v);
+                g_text_c(x + 29, y + 30, v, c->fx ? C_GOLD : C_GO, T_CROP);
             }
         } else
             g_rrect(x, y, 58, 44, (r % 4u) == 0u ? C_BEAT : C_BG2);
@@ -576,8 +590,13 @@ static void draw_grid(void)
         if (grid_held == (int32_t)i) g_frame(x + 2, y + 2, 54, 40, C_GOLD);
     }
     {
-        cell_t b = {(uint8_t)brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t]};
+        cell_t b;
         const cell_t *c = grid_held >= 0 ? &pt->c[base + (uint32_t)grid_held][t] : &b;
+        memset(&b, 0, sizeof b);
+        b.note = (uint8_t)brush_note[t];
+        b.vol = brush_vol[t] & 15u;
+        b.fx = brush_fx[t] % FX_N;
+        b.fxv = brush_fxv[t];
         s[0] = 0;
         note_text(t, c->note, s, 1);
         fmt_u(v, c->vol, 0);
@@ -652,8 +671,13 @@ static void draw_fx_curve(int32_t x0, int32_t y0, int32_t w, int32_t h, const in
 }
 
 /* the SOUND page's pages: the FM track has its operators too */
-static uint32_t sp_n(uint32_t t) { return ENG(t) == E_FM ? 7u : 5u; }
-static uint32_t sp_at(uint32_t t, uint32_t i) { return ENG(t) == E_FM ? SP_LIST_FM[i % 7u] : SP_LIST[i % 5u]; }
+static uint32_t sp_n(uint32_t t) { return ENG(t) == E_FM ? 8u : ENG(t) == E_SAMPLE ? 7u : 6u; }
+static uint32_t sp_at(uint32_t t, uint32_t i)
+{
+    if (ENG(t) == E_FM) return SP_LIST_FM[i % 8u];
+    if (ENG(t) == E_SAMPLE) return SP_LIST_SMP[i % 7u];
+    return SP_LIST[i % 6u];
+}
 
 static void op_text(uint32_t k, int32_t v, char *s)   /* an operator knob's value */
 {
@@ -1594,13 +1618,17 @@ static uint32_t key_to_note(uint32_t t, uint32_t k, uint8_t *fx, uint8_t *fxv)
 }
 
 static void write_cell(uint32_t pi, uint32_t r, uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv, int merge)
-{
+{                                               /* (a note keeps the second column; an empty cell clears it) */
     cell_t *c = &prj.pat[pi].c[r][t];
     undo_push_merge(pi, merge);
     c->note = (uint8_t)note;
-    c->vol = (uint8_t)vol;
-    c->fx = (uint8_t)fx;
+    c->vol = (uint8_t)(vol & 15u);
+    c->fx = (uint8_t)(fx % FX_N);
     c->fxv = (uint8_t)fxv;
+    if (!note && !fx) {
+        c->fx2 = FX_NONE;
+        c->fxv2 = 0;
+    }
 }
 
 /* a note heard to try something (a step, a cell, a sound): it ends by itself after a moment (app_step) */
@@ -1610,6 +1638,12 @@ static void try_note(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
 {
     ev_push(EV_ON, t, note, vol, fx, fxv);
     pv_note[t] = (uint8_t)note;
+    pv_ms[t] = fm1_ms | 1u;
+}
+static void try_cell(uint32_t t, const cell_t *c)   /* a cell heard as it plays: both its tricks */
+{
+    ev_push2(EV_ON, t, c->note, c->vol, c->fx, c->fxv, c->fx2, c->fxv2);
+    pv_note[t] = c->note;
     pv_ms[t] = fm1_ms | 1u;
 }
 static void try_note_ends(void)
@@ -1695,8 +1729,8 @@ static void key_up(uint32_t k)
     ev_push(EV_OFF, key_trk[k], key_note[k], 0, 0, 0);
 }
 
-static void cell_turn(cell_t *c, uint32_t pi, uint32_t t, uint32_t knob, int32_t d, int preview, int undo)
-{
+static void cell_turn(cell_t *c, uint32_t pi, uint32_t t, uint32_t knob, int32_t d, int preview, int undo, int two)
+{                                               /* two: KNOB 3 and 4 on the second column (ARP held, TRACKS) */
     int32_t v;
     if (undo) undo_push_merge(pi, 1);
     switch (knob) {
@@ -1716,25 +1750,31 @@ static void cell_turn(cell_t *c, uint32_t pi, uint32_t t, uint32_t knob, int32_t
         if (c->note && c->note != NOTE_OFF) {
             if (!c->vol) c->vol = brush_vol[t];
             brush_note[t] = c->note;
-            if (preview && !sq_play) try_note(t, c->note, c->vol, c->fx, c->fxv);
+            if (preview && !sq_play) try_cell(t, c);
         }
         break;
     }
     case 1:
         if (!c->note) break;
-        c->vol = (uint8_t)clampi((int32_t)c->vol + d, 1, 15);
+        c->vol = (uint8_t)clampi((int32_t)c->vol + d, 1, 15);   /* (4 bits) */
         brush_vol[t] = c->vol;
         break;
     case 2:
-        v = ((int32_t)c->fx + d) % (int32_t)FX_N;
+        v = ((int32_t)(two ? c->fx2 : c->fx) + d) % (int32_t)FX_N;
         if (v < 0) v += FX_N;
-        c->fx = (uint8_t)v;
-        c->fxv = (uint8_t)FXD[v].def;
+        if (two) { c->fx2 = (uint8_t)v; c->fxv2 = (uint8_t)FXD[v].def; }
+        else { c->fx = (uint8_t)v; c->fxv = (uint8_t)FXD[v].def; }
         break;
     case 3:
-        if (!c->fx) break;
-        v = clampi((int8_t)c->fxv + d, FXD[c->fx].lo, FXD[c->fx].hi);
-        c->fxv = (uint8_t)(int8_t)v;
+        if (two) {
+            if (!c->fx2) break;
+            v = clampi((int8_t)c->fxv2 + d, FXD[c->fx2].lo, FXD[c->fx2].hi);
+            c->fxv2 = (uint8_t)(int8_t)v;
+        } else {
+            if (!c->fx) break;
+            v = clampi((int8_t)c->fxv + d, FXD[c->fx].lo, FXD[c->fx].hi);
+            c->fxv = (uint8_t)(int8_t)v;
+        }
         break;
     }
 }
@@ -1756,15 +1796,21 @@ static void knob(uint32_t i, int32_t d)
     knob_ms[i] = fm1_ms;
     switch (page) {
     case PG_TRACK:
-        cell_turn(CUR(), ui_pat, t, i, d, 1, 1);
+        if (arp_held && i >= 2u) arp_turned = 1;   /* (ARP's release then clears nothing) */
+        cell_turn(CUR(), ui_pat, t, i, d, 1, 1, arp_held && i >= 2u);
         break;
     case PG_GRID:
         if (grid_held >= 0) {
             grid_edit = 1;
-            cell_turn(&P()->c[grid_page * 16u + (uint32_t)grid_held][t], ui_pat, t, i, d, 1, 1);
+            cell_turn(&P()->c[grid_page * 16u + (uint32_t)grid_held][t], ui_pat, t, i, d, 1, 1, 0);
         } else {
-            cell_t b = {(uint8_t)brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t]};
-            cell_turn(&b, ui_pat, t, i, d, 1, 0);
+            cell_t b;
+            memset(&b, 0, sizeof b);
+            b.note = (uint8_t)brush_note[t];
+            b.vol = brush_vol[t] & 15u;
+            b.fx = brush_fx[t] % FX_N;
+            b.fxv = brush_fxv[t];
+            cell_turn(&b, ui_pat, t, i, d, 1, 0, 0);
             if (b.note && b.note != NOTE_OFF) brush_note[t] = b.note;
             brush_vol[t] = b.vol ? b.vol : brush_vol[t];
             brush_fx[t] = b.fx;

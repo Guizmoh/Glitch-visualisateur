@@ -53,11 +53,12 @@ static void theme_set(uint32_t k)
 /* one knob, one colour: KNOB 1..4 everywhere (the cards, the bottom line, the emulator's rings) */
 static const uint16_t KNOB_COL[4] = {RGB(255, 92, 92), RGB(255, 204, 64), RGB(92, 226, 116), RGB(84, 164, 255)};
 /* one page, one colour (the page's pill, the emulator's buttons) */
-enum { PG_TRACK, PG_GRID, PG_SOUND, PG_ENV, PG_MIX, PG_MAGIC, PG_SCALE, PG_SONG, PG_PROJ, PG_OPT, PG_FX, PG_HELP, PG_BOOT, PG_N };
+enum { PG_TRACK, PG_GRID, PG_SOUND, PG_ENV, PG_MIX, PG_MAGIC, PG_SCALE, PG_SONG, PG_PROJ, PG_OPT, PG_FX, PG_HELP, PG_BOOT,
+       PG_GROOVE, PG_N };                       /* (GROOVE last: the emulator knows the others by their number) */
 static const uint16_t PAGE_COL[PG_N] = {RGB(169, 139, 255), RGB(255, 96, 146), RGB(62, 216, 255), RGB(98, 242, 154),
                                         RGB(255, 160, 60), RGB(255, 210, 90), RGB(200, 240, 90), RGB(255, 160, 60),
                                         RGB(100, 150, 255), RGB(255, 160, 60), RGB(255, 120, 200), RGB(169, 139, 255),
-                                        RGB(169, 139, 255)};
+                                        RGB(169, 139, 255), RGB(255, 160, 60)};
 
 /* ---- the 24 parameters of a track: SOUND 1, SOUND 2 (the engine's), ENVELOPE, MIX, EFFECT, LFO */
 #define NPARAM 28u
@@ -158,14 +159,17 @@ static const pdesc_t PDESC[E_N][NPARAM] = {
      {PDN("ECRASE", "CRUSH", "TRITURA"), 0, 7, K_NUM, 0}, {PDN("TON", "TONE", "TONO"), 0, 15, K_NUM, 0},
      PD_ENV, PD_MIX, PD_FX, PD_LFO, PD_MOD},
 };
-/* the pages of the SOUND page (EDIT again: the next one); the FM track has two more: its operators */
-enum { SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO, SP_MOD, SP_N };
-static const uint8_t SP_FIRST[SP_N] = {P_S0, P_S4, 0, 0, P_FXT, P_LFOD, P_MENVA};
-static const char *const SP_NAMES[LANG_N][SP_N] = {{"SON", "SON 2", "OPERATEUR", "ENV OPERAT", "EFFET", "LFO", "MODULATION"},
-                                                   {"SOUND", "SOUND 2", "OPERATOR", "OP ENVELOPE", "EFFECT", "LFO", "MODULATION"},
-                                                   {"SONIDO", "SONIDO 2", "OPERADOR", "ENV OPERAD", "EFECTO", "LFO", "MODULACION"}};
-static const uint8_t SP_LIST_FM[7] = {SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO, SP_MOD};
-static const uint8_t SP_LIST[5] = {SP_SON1, SP_SON2, SP_FX, SP_LFO, SP_MOD};
+/* the pages of the SOUND page (EDIT again: the next one); the FM track has two more: its operators; a SAMPLE
+ * track one: its sample's edit. Every track has its TABLE last */
+enum { SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_SMP, SP_FX, SP_LFO, SP_MOD, SP_TABLE, SP_N };
+static const uint8_t SP_FIRST[SP_N] = {P_S0, P_S4, 0, 0, 0, P_FXT, P_LFOD, P_MENVA, 0};
+static const char *const SP_NAMES[LANG_N][SP_N] = {
+    {"SON", "SON 2", "OPERATEUR", "ENV OPERAT", "SAMPLE", "EFFET", "LFO", "MODULATION", "TABLE"},
+    {"SOUND", "SOUND 2", "OPERATOR", "OP ENVELOPE", "SAMPLE EDIT", "EFFECT", "LFO", "MODULATION", "TABLE"},
+    {"SONIDO", "SONIDO 2", "OPERADOR", "ENV OPERAD", "EDITAR SAMPLE", "EFECTO", "LFO", "MODULACION", "TABLA"}};
+static const uint8_t SP_LIST_FM[8] = {SP_SON1, SP_SON2, SP_OP, SP_OPENV, SP_FX, SP_LFO, SP_MOD, SP_TABLE};
+static const uint8_t SP_LIST_SMP[7] = {SP_SON1, SP_SON2, SP_SMP, SP_FX, SP_LFO, SP_MOD, SP_TABLE};
+static const uint8_t SP_LIST[6] = {SP_SON1, SP_SON2, SP_FX, SP_LFO, SP_MOD, SP_TABLE};
 /* an FM operator's knobs (OPERATOR, OP ENV): what they change in the patch is in kawa_edit.c (op_get, op_set) */
 enum { OPK_LEVEL, OPK_RATIO, OPK_FINE, OPK_DET, OPK_ATT, OPK_DEC, OPK_SUS, OPK_REL, OPK_N };
 static const char *const OPK_NAMES[LANG_N][OPK_N] = {
@@ -265,7 +269,7 @@ static void keys_init(void)
 
 /* ---- the cell tricks (FX column): a type and a value */
 enum { FX_NONE, FX_ARP, FX_GLIDE, FX_VIB, FX_ROLL, FX_BEND, FX_CHANCE, FX_DELAY, FX_CUT, FX_REV, FX_PITCH, FX_SHAPE,
-       FX_CRUSH, FX_VSL, FX_PAN, FX_OFS, FX_N };
+       FX_CRUSH, FX_VSL, FX_PAN, FX_OFS, FX_HOP, FX_END, FX_N };   /* (HOP and END: the sequencer's, format 5) */
 typedef struct {
     const char *tag[LANG_N];                    /* three letters */
     uint8_t icon;
@@ -288,7 +292,29 @@ static const fxdesc_t FXD[FX_N] = {
     {{"VOL", "VSL", "VOL"}, ICO_VOL, -15, 15, -4},          /* volume slide over the row (an empty cell: the note playing) */
     {{"PAN", "PAN", "PAN"}, ICO_MIRROR, -7, 7, -5},         /* this note's pan */
     {{"DEP", "OFS", "INI"}, ICO_RIGHT, 0, 15, 8},           /* SAMPLE: start further in (n / 16 of the slice; depart, inicio) */
+    {{"SAU", "HOP", "SAL"}, ICO_LOOP, 0, 31, 0},            /* after this row, row n + 1 (saut, salto) */
+    {{"FIN", "END", "FIN"}, ICO_STOP, 0, 0, 0},             /* the pattern ends after this row */
 };
+/* the tricks of a table's steps (TABLE): each acts on the note playing when its step comes */
+enum { TB_NONE, TB_HIT, TB_CUT, TB_VIB, TB_BEND, TB_SHAPE, TB_CRUSH, TB_VSL, TB_PAN, TB_HOP, TB_N };
+static const fxdesc_t TBD[TB_N] = {
+    {{"---", "---", "---"}, ICO_ERASE, 0, 0, 0},
+    {{"FRP", "HIT", "GOL"}, ICO_AGAIN, 0, 0, 0},            /* the note again (frappe, golpe), its step's pitch */
+    {{"CUT", "CUT", "CRT"}, ICO_CUT, 0, 0, 0},              /* the note stops */
+    {{"VIB", "VIB", "VIB"}, ICO_VIB, 0, 15, 5},             /* vibrato from here (0: none) */
+    {{"BND", "BND", "BND"}, ICO_BEND, -15, 15, -6},         /* the pitch bends from here (0: no more) */
+    {{"FOR", "SHP", "FOR"}, ICO_SHAPE, 0, 7, 0},            /* the wave's shape */
+    {{"ECR", "CRU", "TRI"}, ICO_CRUSH, 0, 7, 4},            /* crush (0: none) */
+    {{"VOL", "VSL", "VOL"}, ICO_VOL, -15, 15, -4},          /* the volume slides (0: it stops) */
+    {{"PAN", "PAN", "PAN"}, ICO_MIRROR, -7, 7, -5},         /* the note's pan */
+    {{"SAU", "HOP", "SAL"}, ICO_LOOP, 0, 15, 0},            /* to step n + 1 (after this one plays its time) */
+};
+static const uint8_t GROOVE_PRESET[6][17] = {   /* the groove's presets (GROOVE, KNOB 3): length, then the ticks */
+    {2, 6, 6}, {2, 7, 5}, {2, 8, 4}, {3, 4, 4, 4}, {4, 7, 5, 6, 6}, {4, 9, 3, 8, 4}};
+static const char *const GROOVE_NAMES[LANG_N][6] = {
+    {"DROIT", "SWING 58", "SWING 67", "TRIOLET", "DECALE", "SHUFFLE"},
+    {"STRAIGHT", "SWING 58", "SWING 67", "TRIPLET", "LAZY", "SHUFFLE"},
+    {"RECTO", "SWING 58", "SWING 67", "TRESILLO", "PEREZOSO", "SHUFFLE"}};
 static const uint8_t ROLL_N[9] = {2, 3, 4, 6, 8, 12, 16, 24, 32};
 typedef struct {
     const char *name[LANG_N];

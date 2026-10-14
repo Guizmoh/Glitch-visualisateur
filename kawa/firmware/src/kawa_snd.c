@@ -167,6 +167,9 @@ typedef struct {
     int32_t lfo;                                /* the LFO now, -32767..32767 x depth / 15 */
     int32_t volq;                               /* the note's volume, Q16 (VSL slides it) */
     int8_t vslide, npan;                        /* VSL: volume a row; PAN: this note's pan */
+    uint8_t tb_run, tb_i, tb_note;              /* the table: running, its step, the note it started from */
+    int8_t tb_tr, tb_vsl;                       /* its step's semitones, its volume slide */
+    uint32_t tb_cnt;                            /* frames into its step */
     fxs_t fx;
 } trk_t;
 static uint32_t vsl_k = 272u;                   /* a VSL unit per chunk: 65536 x CHUNK / the row's frames (seq_tempo) */
@@ -224,8 +227,8 @@ static void fm_build(uint32_t t)                /* main loop: the FM track's pat
 typedef struct {
     uint8_t on, rev, crush;
     const uint8_t *d;
-    uint32_t pos, step, lo, hi;                 /* Q16, in the sample's frames */
-    int32_t g, gtgt, gstep, fade_at, rel, drive;
+    uint32_t pos, step, step0, lo, hi;          /* Q16, in the sample's frames; step0: without the table's pitch */
+    int32_t g, gtgt, gstep, fade_at, rel, drive, gain;   /* gain: the edit's NORMALISE, Q8 */
 } smpv_t;
 static smpv_t smp[NTRK][2];
 static uint8_t smp_next[NTRK];
@@ -250,47 +253,74 @@ static int smp_source(uint32_t src, const uint8_t **d, uint32_t *len, uint32_t *
 
 static int src_is_break(int32_t s) { return s >= 0 && s < (int32_t)BRK_N; }
 
-static void smp_on(uint32_t t, uint32_t note, uint32_t fx, int32_t fxv)
+static uint32_t sed_at(uint32_t x, uint32_t len) { return (uint32_t)(((uint64_t)x * len) >> 16); }   /* 65536ths */
+
+static void smp_retune(smpv_t *v, int32_t tr)   /* the table's semitones over the note (no division) */
+{
+    v->step = tr ? (uint32_t)(((uint64_t)v->step0 * semi_ratio(tr)) >> 16) : v->step0;
+}
+
+static void smp_on(uint32_t t, uint32_t note, const tricks_t *k)
 {
     const int8_t *p = prj.snd[t].p;
+    const sedit_t *se = &prj.sed[t];
     smpv_t *v = &smp[t][smp_next[t]], *o = &smp[t][smp_next[t] ^ 1u];
     const uint8_t *d;
-    uint32_t len, rate, s0, s1, ratio, q = DUR_Q[clampi(p[P_LEN], 0, 11)];
-    int32_t semis = p[P_STUNE] + ((lv_mask >> t & 1u) ? lv_transpose : 0) + (fx == FX_PITCH ? fxv : 0);
+    uint32_t len, rate, s0, s1, a, b, ratio, q = DUR_Q[clampi(p[P_LEN], 0, 11)];
+    int32_t sv, semis = p[P_STUNE] + ((lv_mask >> t & 1u) ? lv_transpose : 0) + (trick(k, FX_PITCH, &sv) ? sv : 0);
     if (!smp_source((uint32_t)clampi(p[P_SRC], 0, BRK_N + NUSR - 1), &d, &len, &rate))
         return;
     if (o->on)
         o->gtgt = 0, o->gstep = -(32767 / 96);  /* ~2 ms */
     smp_next[t] ^= 1u;
-    if (p[P_SMODE] == 0) {                      /* slices: 16 across the sample */
-        uint32_t sl = note & 15u;
-        s0 = sl * len / 16u;
-        s1 = q ? s0 + q * len / 64u : len - 2u;
+    a = sed_at(se->start, len);                 /* the edit: where the sound starts and ends (65535: its end) */
+    b = se->end >= 65535u ? len : sed_at(se->end, len);
+    if (a + 64u > b)
+        a = b > 64u ? b - 64u : 0u;
+    if (p[P_SMODE] == 0) {                      /* slices: 16 across it, or where the edit put them */
+        uint32_t sl = note & 15u, w;
+        if (se->manual) {
+            s0 = sed_at(se->sl[sl], len);
+            w = sl < 15u ? sed_at(se->sl[sl + 1u], len) : b;
+            w = w > s0 ? (w - s0) << 4 : 0u;    /* (as 16 of them: the LENGTH below is in 64ths) */
+        } else {
+            w = b - a;
+            s0 = a + ((sl * w) >> 4);
+        }
+        if (s0 < a) s0 = a;
+        s1 = q ? s0 + ((q * w) >> 6) : b;       /* LENGTH: quarters of a slice */
     } else {                                    /* notes: from the start, C4 = as recorded */
-        s0 = 0;
-        s1 = len - 2u;
+        s0 = a;
+        s1 = b;
         semis += (int32_t)note - 60;
     }
-    if (s1 > len - 2u)
+    if (s1 > b)
+        s1 = b;
+    if (s1 > len - 2u)                          /* (the interpolation reads one frame on) */
         s1 = len - 2u;
-    if (fx == FX_OFS && s1 > s0)                /* OFS: further in */
-        s0 += (uint32_t)clampi(fxv, 0, 15) * ((s1 - s0) >> 4);
+    if (s0 > s1)
+        s0 = s1;
+    if (trick(k, FX_OFS, &sv) && s1 > s0)       /* OFS: further in */
+        s0 += (uint32_t)clampi(sv, 0, 15) * ((s1 - s0) >> 4);
     v->d = d;
     v->lo = s0 << 16;
     v->hi = s1 << 16;
-    v->rev = fx == FX_REV;
+    v->rev = (uint8_t)((trick(k, FX_REV, &sv) ? 1u : 0u) ^ (se->rev ? 1u : 0u));   /* REV: the other way */
     v->pos = v->rev ? v->hi : v->lo;
+    v->gain = se->norm ? clampi(se->gain, 64, 4096) : 256;
     ratio = semi_ratio(semis);
     v->step = (((rate << 16) / 44100u) * (ratio >> 4)) >> 12;   /* the sample's rate, times the pitch */
     if (p[P_FIT] && src_is_break(p[P_SRC]))     /* FIT: a break follows the tempo */
         v->step = (uint32_t)(((uint64_t)v->step * (((uint32_t)prj.bpm << 16) / BRK_BPM)) >> 16);
+    v->step0 = v->step;
+    smp_retune(v, tk[t].tb_tr);
     v->g = 0;
     v->gtgt = 32767;
     v->gstep = 32767 / 40;
     v->rel = 2;
     v->fade_at = 0;
     v->drive = 1 + p[P_SDRIVE];
-    v->crush = (uint8_t)(fx == FX_CRUSH ? fxv : p[P_SCRUSH]);
+    v->crush = (uint8_t)(trick(k, FX_CRUSH, &sv) ? sv : p[P_SCRUSH]);
     v->on = 1;
 }
 
@@ -311,6 +341,8 @@ static void smp_chunk(smpv_t *v, int32_t *out)
         uint32_t k = v->pos >> 16, f = (v->pos >> 2) & 0x3FFFu;
         int32_t x0 = BRK_ULAW[d[k]], x1 = BRK_ULAW[d[k + 1u]], s;
         s = x0 + (((x1 - x0) * (int32_t)f) >> 14);
+        if (v->gain != 256)                     /* NORMALISE (the edit) */
+            s = clampi((s * v->gain) >> 8, -32767, 32767);
         s = sat(s * v->drive) & m;
         v->g += v->gstep;
         if ((v->gstep > 0 && v->g > v->gtgt) || (v->gstep < 0 && v->g < v->gtgt))
@@ -328,13 +360,17 @@ static void smp_chunk(smpv_t *v, int32_t *out)
         v->on = 0;
 }
 
-/* ---- a note on track t */
-static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv, uint32_t arp_len)
+/* ---- a note on track t (k: the cell's two tricks) */
+static const tricks_t NO_TRICKS = {FX_NONE, FX_NONE, 0, 0};
+static uint8_t tb_inner;                        /* a table's HIT plays the note: the table goes on */
+static void tb_apply(uint32_t t, int hit);
+static void voice_on(uint32_t t, uint32_t note, uint32_t vol, const tricks_t *k, uint32_t arp_len)
 {
     trk_t *v = &tk[t];
     const int8_t *p = prj.snd[t].p;
-    uint32_t e = prj.snd[t].engine, nm = note_mode(t), i;
-    int32_t sv = (int8_t)fxv, pt = (int32_t)note << 8, old_pit = v->pitch;   /* (old_pit: an FM release's note) */
+    const table_t *tb = &prj.tbl[t];
+    uint32_t e = prj.snd[t].engine, nm = note_mode(t), i, table = 0;
+    int32_t sv, pt = (int32_t)note << 8, old_pit = v->pitch;   /* (old_pit: an FM release's note) */
     if (note == NOTE_OFF) {
         v->gate = 0;
         if (v->stage && v->stage < 4u) v->stage = 4;
@@ -344,11 +380,26 @@ static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
         }
         return;
     }
+    if (!tb_inner) {                            /* a new note: its table from the first step */
+        v->tb_run = 0;
+        v->tb_tr = 0;
+        v->tb_vsl = 0;
+        tb_now[t] = NTSTEP;
+        if (tb->on) {
+            table = 1;
+            v->tb_run = 1;
+            v->tb_i = 0;
+            v->tb_cnt = 0;
+            v->tb_note = (uint8_t)note;
+            v->tb_tr = (int8_t)clampi(tb->s[0].tr, -48, 48);
+            if (tb->s[0].vol) vol = tb->s[0].vol & 15u;
+        }
+    }
     trig_ms[t] = fm1_ms;
     v->vol = (uint8_t)vol;
     v->volq = (int32_t)vol << 16;
-    v->vslide = (int8_t)(fx == FX_VSL ? sv : 0);
-    v->npan = (int8_t)(fx == FX_PAN ? sv : 0);
+    v->vslide = (int8_t)(trick(k, FX_VSL, &sv) ? sv : 0);
+    v->npan = (int8_t)(trick(k, FX_PAN, &sv) ? sv : 0);
     if (p[P_MLFRT]) {                           /* LFO KEY: the LFO starts again with each note */
         v->lfo_ph = 0;
         v->lfo_rnd = xr(&rnd_isr);
@@ -359,10 +410,12 @@ static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
     v->crush = (uint8_t)p[P_CRUSH];
     v->vib = (uint8_t)(e == E_FM ? 0 : p[P_VIB]);
     if (nm == NM_NOTE) {
-        int glide = (fx == FX_GLIDE || (e <= E_NOISE && p[P_GLIDE])) && v->stage && v->stage < 4u;
+        int32_t gv;
+        int fg = trick(k, FX_GLIDE, &gv);
+        int glide = (fg || (e <= E_NOISE && p[P_GLIDE])) && v->stage && v->stage < 4u;
         if (glide) {
             v->ptgt = pt;
-            v->glide = fx == FX_GLIDE ? 1 + sv * sv / 6 : 1 + p[P_GLIDE] * p[P_GLIDE] / 6;
+            v->glide = fg ? 1 + gv * gv / 6 : 1 + p[P_GLIDE] * p[P_GLIDE] / 6;
         } else {
             v->pitch = v->ptgt = pt;
             v->glide = 0;
@@ -370,7 +423,7 @@ static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
             if (v->env < 6000 && e <= E_WAVE)
                 v->ph = v->ph2 = 0;             /* the same start every time (chip punch), when it cannot click */
         }
-        if (fx == FX_ARP && sv >= 0 && sv < 14) {
+        if (trick(k, FX_ARP, &sv) && sv >= 0 && sv < 14) {
             v->arp_n = (uint8_t)CHORDS[sv].n;
             for (i = 0; i < 4u; i++)
                 v->arp_off[i] = CHORDS[sv].off[i];
@@ -378,11 +431,11 @@ static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
             v->arp_cnt = 0;
             v->arp_len = arp_len ? arp_len * 3u / (uint32_t)clampi(e <= E_NOISE ? p[P_ARPV] : 3, 1, 8) : 700u;
         }
-        if (fx == FX_VIB) v->vib = (uint8_t)sv;
-        if (fx == FX_BEND) v->bend = sv;
-        if (fx == FX_SHAPE) v->shape = (uint8_t)sv;
-        if (fx == FX_CRUSH) v->crush = (uint8_t)sv;
-        if (fx == FX_PITCH) v->pitch = v->ptgt = pt + sv * 256;
+        if (trick(k, FX_VIB, &sv)) v->vib = (uint8_t)sv;
+        if (trick(k, FX_BEND, &sv)) v->bend = sv;
+        if (trick(k, FX_SHAPE, &sv)) v->shape = (uint8_t)sv;
+        if (trick(k, FX_CRUSH, &sv)) v->crush = (uint8_t)sv;
+        if (trick(k, FX_PITCH, &sv)) v->pitch = v->ptgt = pt + sv * 256;
         if (!v->lfsr) v->lfsr = 1;
         if (e == E_FM && t == fm_trk && !(v->glide && v->stage)) {   /* a new FM voice; the last one releases */
             fm6_note_t *old = &fmn[fm_cur], *n;
@@ -395,17 +448,19 @@ static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
             fm6_lfo_key(&fm_lfo);
         }
     } else if (e == E_KIT)
-        drum_on(t, cell_idx(note), fx, sv);
+        drum_on(t, cell_idx(note), (trick(k, FX_PITCH, &sv) ? sv : 0) + v->tb_tr, trick(k, FX_CRUSH, &sv) ? sv : -1);
     else
-        smp_on(t, nm == NM_SLICE ? cell_idx(note) : note, fx, sv);
+        smp_on(t, nm == NM_SLICE ? cell_idx(note) : note, k);
     if (e == E_SAMPLE && nm == NM_NOTE)
-        smp_on(t, note, fx, sv);
+        smp_on(t, note, k);
     v->note = (uint8_t)note;
     if (!(v->glide && v->stage) || v->stage == 4u) {
         v->stage = 1;
         if (p[P_ATT] == 0) v->env = 65535, v->stage = 2;
     }
     v->gate = 1;
+    if (table)
+        tb_apply(t, 0);                         /* the first step's trick (its pitch and volume are in) */
 }
 
 static void voice_off(uint32_t t)
@@ -429,11 +484,20 @@ static void voice_cut(uint32_t t)                /* CUT: the note stops now, wha
     smp[t][0].gstep = smp[t][1].gstep = -(32767 / 120);
 }
 
-static void voices_silence(void)
+static void tb_stop(uint32_t t)
+{
+    tk[t].tb_run = 0;
+    tk[t].tb_vsl = 0;
+    tb_now[t] = NTSTEP;
+}
+
+static void voices_silence(void)                 /* (the stop: the tables stop too, no HIT starts a note again) */
 {
     uint32_t t;
-    for (t = 0; t < NTRK; t++)
+    for (t = 0; t < NTRK; t++) {
         voice_off(t);
+        tb_stop(t);
+    }
 }
 
 static void voice_kill(uint32_t t)               /* the engine changed (t NTRK: all tracks): the old voices go now, */
@@ -443,11 +507,89 @@ static void voice_kill(uint32_t t)               /* the engine changed (t NTRK: 
         tk[t].gate = 0;
         tk[t].stage = 0;
         tk[t].env = 0;
+        tk[t].tb_tr = 0;
+        tb_stop(t);
         drum[t][0].on = drum[t][1].on = 0;
         smp[t][0].on = smp[t][1].on = 0;
         if (t == fm_trk)
             fmn[0].live = fmn[1].live = 0;
     }
+}
+
+/* ---- the table of a track (TABLE): from each note, a step every SPEED ticks; each step its pitch over the
+ * note, its volume, its trick. HIT plays the note again (only while it is held: an OFF, a stop end it) */
+static void tb_apply(uint32_t t, int hit)
+{
+    trk_t *v = &tk[t];
+    const tstep_t *s = &prj.tbl[t].s[v->tb_i % NTSTEP];
+    uint32_t e = prj.snd[t].engine;
+    int32_t fv = s->fxv;
+    v->tb_tr = (int8_t)clampi(s->tr, -48, 48);
+    tb_now[t] = v->tb_i;
+    if (s->vol) {
+        v->vol = (uint8_t)(s->vol & 15u);
+        v->volq = (int32_t)v->vol << 16;
+    }
+    if (e == E_SAMPLE) {                        /* (the other engines take the pitch in track_chunk) */
+        smpv_t *sv = &smp[t][smp_next[t] ^ 1u];
+        if (sv->on) smp_retune(sv, v->tb_tr);
+    }
+    switch (s->fx) {
+    case TB_HIT:
+        if (hit && v->gate) {
+            tb_inner = 1;
+            voice_on(t, v->tb_note, v->vol, &NO_TRICKS, 0);
+            tb_inner = 0;
+        }
+        break;
+    case TB_CUT: voice_cut(t); break;
+    case TB_VIB: v->vib = (uint8_t)clampi(fv, 0, 15); break;
+    case TB_BEND: v->bend = clampi(fv, -15, 15); break;
+    case TB_SHAPE: v->shape = (uint8_t)clampi(fv, 0, 7); break;
+    case TB_CRUSH:
+        v->crush = (uint8_t)clampi(fv, 0, 7);
+        if (e == E_SAMPLE) smp[t][smp_next[t] ^ 1u].crush = v->crush;
+        if (e == E_KIT) drum[t][drum_next[t] ^ 1u].crush = v->crush;
+        break;
+    case TB_VSL: v->tb_vsl = (int8_t)clampi(fv, -15, 15); break;
+    case TB_PAN: v->npan = (int8_t)clampi(fv, -7, 7); break;
+    }
+}
+
+static void tb_chunk(uint32_t t)                /* once a chunk, before the track renders */
+{
+    trk_t *v = &tk[t];
+    const table_t *tb = &prj.tbl[t];
+    const tstep_t *s;
+    uint32_t len, n, next;
+    if (!v->tb_run)
+        return;
+    if (!tb->on) {                              /* turned off while it ran */
+        tb_stop(t);
+        v->tb_tr = 0;
+        return;
+    }
+    n = g_ticklen * (uint32_t)clampi(tb->speed, 1, 24);
+    v->tb_cnt += CHUNK;
+    if (v->tb_cnt < n)
+        return;
+    v->tb_cnt -= n;                             /* (a step lasts at least a tick: 367 frames, never two a chunk) */
+    if (v->tb_cnt >= n)
+        v->tb_cnt = 0;
+    len = (uint32_t)clampi(tb->len, 1, NTSTEP);
+    s = &tb->s[v->tb_i % NTSTEP];
+    if (s->fx == TB_HOP && (uint32_t)s->fxv < len)
+        next = (uint32_t)s->fxv;
+    else if (v->tb_i + 1u < len)
+        next = v->tb_i + 1u;
+    else if (tb->loop < len)
+        next = tb->loop;
+    else {
+        v->tb_run = 0;                          /* the end, no loop: the last step stays */
+        return;
+    }
+    v->tb_i = (uint8_t)next;
+    tb_apply(t, 1);
 }
 
 /* ---- the LFO of a track, once a chunk: -32767..32767 x depth / 15 */
@@ -509,8 +651,9 @@ static void track_chunk(uint32_t t, int32_t *out)
         else if (v->pitch > v->ptgt) { v->pitch -= v->glide; if (v->pitch < v->ptgt) v->pitch = v->ptgt; }
     }
     v->pitch += v->bend;
+    v->pitch = clampi(v->pitch, -48 * 256, 160 * 256);   /* (a long BEND, a table's, stays in range) */
     v->sweep = (int32_t)(((int64_t)v->sweep * 64880) >> 16);   /* tau ~35 ms */
-    pit = v->pitch + v->sweep + ((lv_mask >> t & 1u) ? lv_transpose * 256 : 0);
+    pit = v->pitch + v->sweep + ((lv_mask >> t & 1u) ? lv_transpose * 256 : 0) + v->tb_tr * 256;
     if (v->vib) {
         v->vph += 9350000u;                     /* ~6 Hz */
         pit += (sine(v->vph) * v->vib * 14) >> 15;
@@ -531,8 +674,8 @@ static void track_chunk(uint32_t t, int32_t *out)
         fxa = clampi(fxa + ((v->env * p[P_MENVA]) >> 16) + ((v->vol * p[P_MVELA]) >> 4), 0, 15);
     if (p[P_MENVP])                             /* ... and bend the pitch */
         pit += (v->env * p[P_MENVP]) >> 8;
-    if (v->vslide) {                            /* VSL: the volume slides over the row */
-        v->volq = clampi(v->volq + v->vslide * (int32_t)vsl_k, 0, 15 << 16);
+    if (v->vslide || v->tb_vsl) {               /* VSL: the volume slides over the row (a table's: on) */
+        v->volq = clampi(v->volq + (v->vslide + v->tb_vsl) * (int32_t)vsl_k, 0, 15 << 16);
         v->vol = (uint8_t)(v->volq >> 16);
     }
     if (e <= E_NOISE && active) {

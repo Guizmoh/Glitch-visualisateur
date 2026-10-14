@@ -1,26 +1,58 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* KAWA: the sequencer and the audio interrupt's entry (app_audio).
  *
- * Rows are 16ths. A row's phase is a 32-bit counter that wraps once per row (swing: even rows longer).
- * In a row, per track: DELAY starts the note later, ROLL plays it again 2..32 times, CUT stops it,
- * CHANCE may skip it. The LIVE lane of the pattern adds its effect on its rows, as if its key were held.
- * Loop mode plays the pattern on the screen (a new one starts at the end of the one playing); song mode
- * plays the song's list, each entry its number of times. Then the mix: each track panned, its echo and
- * reverb sends; the live effects' track (or the whole mix) through the live bus; the master. */
+ * Rows are 16ths. A row's phase is a 32-bit counter that wraps once per row (swing: even rows longer; the
+ * groove: each row its ticks, 6 a straight 16th). In a row, per track and for each of its cell's two
+ * tricks: DELAY starts the note later, ROLL plays it again 2..32 times, CUT stops it, CHANCE may skip it;
+ * HOP goes on to another row, END to the next pattern. The LIVE lane of the pattern adds its effect on its
+ * rows, as if its key were held. Loop mode plays the pattern on the screen (a new one starts at the end of
+ * the one playing); song mode plays the song's list, each entry its number of times. The MIDI clock in
+ * (OPTIONS) can lead: its ticks set the tempo, and the rows wait for them or catch up. Then the mix: each
+ * track panned, its echo and reverb sends; the live effects' track (or the whole mix) through the live bus;
+ * the master. */
 
 static uint32_t s_phase, s_inc_even = 1117000u, s_inc_odd = 1117000u, s_len_even = 3845u, s_len_odd = 3845u;
+static uint32_t s_len_k[13], s_inc_k[13];       /* a row of k ticks: its frames, its phase step */
+static uint32_t s_inc = 1117000u, s_len = 3845u;   /* the row playing */
 static uint8_t s_pat, s_row, s_pos, s_rep, s_again_row;
 static uint16_t s_bpm;
 static uint8_t s_swing, s_trip, s_again, s_tick6;
+static uint8_t s_kt = 6;                        /* the ticks of the row playing (6: a straight 16th) */
+static uint8_t s_gi;                            /* the groove's step */
+static uint8_t s_kt_even = 6, s_kt_odd = 6;     /* the swing in ticks (the clock in counts them) */
+static uint32_t s_tick_in;                      /* clk_in_tick as last applied (0: the project's tempo) */
+static uint32_t s_tickbase, s_tick0;            /* the clock in: ticks of the rows before this one; ticks before PLAY */
 static int32_t s_adj;                           /* sq_adj as last applied */
 static uint32_t s_step;                         /* rows played since PLAY (the swing's long and short rows) */
 static uint8_t s_lane_skip;                     /* this beat is a RETRIG's repeat: the LIVE lane's RETRIG waits */
 static struct {
-    uint8_t note, vol, fx, fxv, pending, roll_n, roll_k, cut;
+    uint8_t note, vol, pending, roll_n, roll_k, cut;
     uint16_t delay16;
+    tricks_t k;
 } st[NTRK];
 static uint8_t last_note[NTRK];                 /* the note each track played last (ROLL on an empty cell) */
 static volatile uint8_t sq_suppress[NTRK];      /* main: the note of the next row is already sounding (live take) */
+static volatile uint32_t sq_tick0;              /* main: the clock in's ticks before a start (kept from PLAY) */
+
+static void seq_row_len(void)                   /* the row's ticks and length: the groove's, the swing's */
+{
+    uint32_t tick_mode = prj.grv.on || clk_in;
+    if (s_trip && tick_mode)
+        s_kt = (uint8_t)(s_step & 1u ? 4u : 8u);   /* 6/8 over the groove: triplet pairs */
+    else if (prj.grv.on)
+        s_kt = (uint8_t)clampi(prj.grv.tick[s_gi % 16u], 1, 12);
+    else if (clk_in)
+        s_kt = s_step & 1u ? s_kt_odd : s_kt_even;
+    else
+        s_kt = 6;
+    if (tick_mode) {
+        s_inc = s_inc_k[s_kt];
+        s_len = s_len_k[s_kt];
+    } else {                                    /* (the swing: every other row played, whatever the pattern's */
+        s_inc = s_step & 1u ? s_inc_odd : s_inc_even;   /* length: an odd one keeps the tempo) */
+        s_len = s_step & 1u ? s_len_odd : s_len_even;
+    }
+}
 
 static void seq_tempo(void)                     /* row lengths from the tempo and the swing; the LFO's rates */
 {
@@ -29,27 +61,36 @@ static void seq_tempo(void)                     /* row lengths from the tempo an
     uint32_t base, sw, k;
     s_bpm = prj.bpm < 40u ? 40u : prj.bpm > 300u ? 300u : prj.bpm;
     s_swing = prj.swing;
+    s_tick_in = clk_in ? clk_in_tick : 0u;
     sw = s_swing < 50u ? 50u : s_swing > 75u ? 75u : s_swing;
     if (s_trip && sw < 67u)
         sw = 67u;                               /* 6/8: the second 16th of each pair comes late, as a triplet */
-    base = 661500u / s_bpm;                     /* 44100 * 60 / 4 */
+    base = s_tick_in ? (uint32_t)clampi((int32_t)(s_tick_in * 6u), 2205, 16537) : 661500u / s_bpm;   /* 44100*60/4 */
     s_len_even = 2u * base * sw / 100u;
     s_len_odd = 2u * base - s_len_even;
     s_inc_even = 0xFFFFFFFFu / s_len_even;
     s_inc_odd = 0xFFFFFFFFu / s_len_odd;
+    s_kt_even = (uint8_t)((12u * sw + 50u) / 100u);
+    s_kt_odd = (uint8_t)(12u - s_kt_even);
+    for (k = 1; k <= 12u; k++) {
+        s_len_k[k] = base * k / 6u;
+        s_inc_k[k] = 0xFFFFFFFFu / s_len_k[k];
+    }
     g_rowlen = base;
+    g_ticklen = base / 6u;
     vsl_k = (65536u * CHUNK) / base;
     for (k = 0; k < 8u; k++)
         lfo_inc[k] = (0xFFFFFFFFu / (HALF_ROWS[k] * (base >> 1) + 1u)) * CHUNK;
     for (k = 0; k < 3u; k++)
         lfo_inc[8u + k] = FREE[k];
+    seq_row_len();
 }
 
-static void seq_play_cell(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv)
+static void seq_play_cell(uint32_t t, uint32_t note, uint32_t vol, const tricks_t *k)
 {
     if (note != NOTE_OFF)
         last_note[t] = (uint8_t)note;
-    voice_on(t, note, vol, fx, fxv, g_rowlen / 6u);
+    voice_on(t, note, vol, k, g_rowlen / 6u);
 }
 
 static void seq_row_start(void)
@@ -59,43 +100,48 @@ static void seq_row_start(void)
     for (t = 0; t < NTRK; t++) {
         const cell_t *c = &pt->c[s_row][t];
         uint32_t sup = sq_suppress[t];          /* (taken at every row: it is about this row only) */
+        tricks_t k;
+        int32_t v;
         sq_suppress[t] = 0;
+        k.fx = (uint8_t)c->fx;
+        k.fx2 = (uint8_t)c->fx2;
+        k.v = (int8_t)c->fxv;
+        k.v2 = (int8_t)c->fxv2;
         st[t].note = c->note;
-        st[t].vol = c->vol;
-        st[t].fx = c->fx;
-        st[t].fxv = c->fxv;
+        st[t].vol = (uint8_t)c->vol;
+        st[t].k = k;
         st[t].pending = 0;
         st[t].roll_n = 0;
         st[t].cut = 0;
         tk[t].vslide = 0;                       /* VSL lasts its row */
-        if (c->fx == FX_VSL && c->note == NOTE_NONE)
-            tk[t].vslide = (int8_t)c->fxv;      /* (an empty cell: the note playing slides) */
-        if (c->fx == FX_CUT)
-            st[t].cut = (uint8_t)((c->fxv * 256u) / 24u);
+        if (c->note == NOTE_NONE && trick(&k, FX_VSL, &v))
+            tk[t].vslide = (int8_t)v;           /* (an empty cell: the note playing slides) */
+        if (trick(&k, FX_CUT, &v))
+            st[t].cut = (uint8_t)(((uint32_t)clampi(v, 1, 23) * 256u) / 24u);
         if (c->note == NOTE_NONE) {
-            if (c->fx == FX_ROLL && last_note[t]) {          /* a roll on an empty cell: the last note again */
+            if (trick(&k, FX_ROLL, &v) && last_note[t]) {    /* a roll on an empty cell: the last note again */
                 st[t].note = last_note[t];
-                st[t].vol = c->vol ? c->vol : 12u;
-                st[t].roll_n = ROLL_N[c->fxv < 9u ? c->fxv : 8u];
+                st[t].vol = c->vol ? (uint8_t)c->vol : 12u;
+                st[t].roll_n = ROLL_N[clampi(v, 0, 8)];
                 st[t].roll_k = 1;
-                seq_play_cell(t, st[t].note, st[t].vol, FX_NONE, 0);
+                seq_play_cell(t, st[t].note, st[t].vol, &NO_TRICKS);
             }
             continue;
         }
         if (sup)                                /* played live a moment ago: do not play it twice */
             continue;
-        if (c->fx == FX_CHANCE && (xr(&rnd_isr) >> 8) % 10u >= c->fxv)
+        if (trick(&k, FX_CHANCE, &v) && (xr(&rnd_isr) >> 8) % 10u >= (uint32_t)clampi(v, 0, 9))
             continue;
-        if (c->fx == FX_DELAY) {
+        if (trick(&k, FX_DELAY, &v)) {
             st[t].pending = 1;
-            st[t].delay16 = (uint16_t)((c->fxv * 65536u) / 24u);
+            st[t].delay16 = (uint16_t)(((uint32_t)clampi(v, 1, 23) * 65536u) / 24u);
             continue;
         }
-        if (c->fx == FX_ROLL && c->note != NOTE_OFF) {
-            st[t].roll_n = ROLL_N[c->fxv < 9u ? c->fxv : 8u];
+        if (trick(&k, FX_ROLL, &v) && c->note != NOTE_OFF) {
+            st[t].roll_n = ROLL_N[clampi(v, 0, 8)];
             st[t].roll_k = 1;
         }
-        seq_play_cell(t, c->note, c->vol, c->fx, c->fxv);
+        seq_play_cell(t, c->note, c->vol, &k);
     }
 }
 
@@ -113,6 +159,9 @@ static void seq_start(void)
     }
     s_row = 0;
     s_step = 0;
+    s_gi = 0;
+    s_tickbase = 0;
+    s_tick0 = sq_tick0;
     s_lane_skip = 0;
     s_phase = 0;
     s_again = 0;
@@ -132,11 +181,25 @@ static void seq_start(void)
 
 static void seq_next_row(void)
 {
-    uint32_t len = prj.pat[s_pat].len;
+    const cell_t *cr = prj.pat[s_pat].c[s_row < NROW ? s_row : 0u];
+    uint32_t len = prj.pat[s_pat].len, t, hop = NROW, end = 0, glen = (uint32_t)clampi(prj.grv.len, 1, 16);
     if (!len || len > NROW)
         len = 16u;
-    s_row++;
+    for (t = 0; t < NTRK; t++) {                /* the row just played: HOP, END (on any track) */
+        if (cr[t].fx == FX_HOP) hop = cr[t].fxv;
+        if (cr[t].fx2 == FX_HOP) hop = cr[t].fxv2;
+        if (cr[t].fx == FX_END || cr[t].fx2 == FX_END) end = 1;
+    }
+    s_tickbase += s_kt;
     s_step++;
+    if (++s_gi >= glen)
+        s_gi = 0;
+    if (end)
+        s_row = (uint8_t)len;                   /* END: the pattern ends here */
+    else if (hop < len)
+        s_row = (uint8_t)hop;                   /* HOP: on to its row */
+    else
+        s_row++;
     if (s_again && (s_row & 3u) == 0u) {        /* RETRIG: the same beat again */
         s_row = s_again_row;
         s_lane_skip = 1;                        /* (a RETRIG of the LIVE lane: once, not for ever) */
@@ -173,6 +236,7 @@ static void seq_next_row(void)
         if (id < LF_N)
             prj.pat[s_pat].live[s_row] = (uint8_t)(id + 1u);
     }
+    seq_row_len();
     seq_row_start();
     sq_rowtick++;
     s_tick6 = 0;
@@ -180,33 +244,51 @@ static void seq_next_row(void)
 
 static void seq_chunk(void)
 {
-    uint32_t t, old = s_phase, f16, cur_len;
-    s_phase += (s_step & 1u ? s_inc_odd : s_inc_even) * CHUNK;   /* (the swing: every other row played, whatever
-                                                                  * the length: an odd one keeps the tempo) */
+    uint32_t t, old, f16, inc = s_inc * CHUNK;
+    if (clk_in) {                               /* the MIDI clock in leads: two ticks ahead the row waits for it, */
+        uint32_t got = clk_in_ticks - s_tick0, have = s_tickbase + s_tick6;   /* two behind it catches up */
+        if (have >= got + 2u)
+            inc = 0;
+        else if (got >= have + 2u) {
+            inc = 0;
+            if (s_tick6 >= s_kt) {
+                s_phase = 0;
+                seq_next_row();
+            } else
+                s_phase = (((uint32_t)s_tick6 << 16) / s_kt) << 16;   /* (only when it lags: not a frame's work) */
+        }
+    }
+    old = s_phase;
+    s_phase += inc;
     if (s_phase < old)
         seq_next_row();
     sq_frac = s_phase;
     f16 = s_phase >> 16;
-    while (s_tick6 < ((f16 * 6u) >> 16) + 1u) {  /* the MIDI clock: 6 ticks a row (24 a beat) */
+    while (s_tick6 < ((f16 * s_kt) >> 16) + 1u) {   /* the MIDI clock: the row's ticks (6: 24 a beat) */
         s_tick6++;
-        clk_ticks++;
+        if (!clk_in)
+            clk_ticks++;
     }
     for (t = 0; t < NTRK; t++) {                /* inside the row: late notes, rolls, cuts */
         if (st[t].pending && f16 >= st[t].delay16) {
+            tricks_t k = st[t].k;
             st[t].pending = 0;
-            seq_play_cell(t, st[t].note, st[t].vol, st[t].fx == FX_DELAY ? FX_NONE : st[t].fx, st[t].fxv);
+            if (k.fx == FX_DELAY) k.fx = FX_NONE;
+            if (k.fx2 == FX_DELAY) k.fx2 = FX_NONE;
+            seq_play_cell(t, st[t].note, st[t].vol, &k);
         }
         if (st[t].roll_n && st[t].roll_k < st[t].roll_n && f16 >= (st[t].roll_k * 65536u) / st[t].roll_n) {
             st[t].roll_k++;
-            seq_play_cell(t, st[t].note, st[t].vol, FX_NONE, 0);
+            seq_play_cell(t, st[t].note, st[t].vol, &NO_TRICKS);
         }
         if (st[t].cut && (f16 >> 8) >= st[t].cut) {
             st[t].cut = 0;
             voice_cut(t);
         }
     }
-    cur_len = s_step & 1u ? s_len_odd : s_len_even;
-    g_beatpos = (s_row & 3u) * g_rowlen + ((f16 * cur_len) >> 16);
+    g_beatpos = (s_row & 3u) * g_rowlen + ((f16 * s_len) >> 16);
+    if (g_beatpos >= g_rowlen * 4u)             /* (a groove's long row, a HOP: the beat stays in range) */
+        g_beatpos %= g_rowlen * 4u;
 }
 
 /* ---- the load governor (after Felucca's audio.c shed_check): two blocks in a row over 70 % of the 5.8 ms
@@ -255,8 +337,15 @@ static void app_audio(int32_t *out, uint32_t n)
     }
     while (evq_r != evq_w) {                    /* the keys */
         const ev_t *e = &evq[evq_r % EVQ];
-        if (e->type == EV_ON)
-            seq_play_cell(e->trk, e->note, e->vol, e->fx, e->fxv);
+        if (e->type == EV_ON) {
+            tricks_t k;
+            k.fx = e->fx;
+            k.fx2 = e->fx2;
+            k.v = (int8_t)e->fxv;
+            k.v2 = (int8_t)e->fxv2;
+            if (e->trk < NTRK)
+                seq_play_cell(e->trk, e->note, e->vol, &k);
+        }
         else if (e->type == EV_OFF) {
             if (e->trk < NTRK && tk[e->trk].note == e->note && note_mode(e->trk) == NM_NOTE)
                 voice_off(e->trk);
@@ -276,7 +365,8 @@ static void app_audio(int32_t *out, uint32_t n)
         voices_silence();
         s_again = 0;
     }
-    if (prj.bpm != s_bpm || prj.swing != s_swing || s_trip != (uint8_t)(lfx_on >> LF_TRIP & 1u)) {
+    if (prj.bpm != s_bpm || prj.swing != s_swing || s_trip != (uint8_t)(lfx_on >> LF_TRIP & 1u) ||
+        (clk_in ? clk_in_tick : 0u) != s_tick_in) {
         s_trip = (uint8_t)(lfx_on >> LF_TRIP & 1u);
         seq_tempo();
     }
@@ -300,6 +390,8 @@ static void app_audio(int32_t *out, uint32_t n)
             seq_chunk();
         else
             g_beatpos = (g_beatpos + CHUNK) % (g_rowlen * 4u);
+        for (t = 0; t < NTRK; t++)              /* the tables step on */
+            tb_chunk(t);
         for (i = 0; i < CHUNK; i++)
             L[i] = R[i] = BL[i] = BR[i] = E[i] = V[i] = 0;
         for (t = 0; t < NTRK; t++) {

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>KAWA Manual</title>
-<meta name="description" content="The manual of KAWA 0.2 beta, Omnipotard's Pocket Tracker for the M-VAVE FM-1: install it, make a song, the sound, the effects.">
+<meta name="description" content="The manual of KAWA 0.3 beta, Omnipotard's Pocket Tracker for the M-VAVE FM-1: install it, make a song, the sound, the effects.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@500;600&display=swap">
@@ -150,6 +150,8 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
       <li><a href="#live">Live effects</a></li>
       <li><a href="#magie">Magic</a></li>
       <li><a href="#cases">Cell effects</a></li>
+      <li><a href="#tables">Tables</a></li>
+      <li><a href="#groove">The groove</a></li>
       <li><a href="#samples">Your own samples</a></li>
       <li><a href="#raccourcis">Shortcuts</a></li>
       <li><a href="#options">Options</a></li>
@@ -163,7 +165,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
       <div>
         <h1>The KAWA manual <span class="beta">BETA</span></h1>
         <p>KAWA turns the <strong>M-VAVE FM-1</strong> into a pocket tracker for composing in any style. You get six tracks, each with its own engine: pulse, wave, noise, FM, drum kit or sample. On top of that come patterns that you chain into a song, 32 effects to play live, and tools that write beats for you.</p>
-        <p>This manual gets straight to the point: install KAWA, then five tutorials to make a real song, then the details of the sound and the effects. Version <strong>0.2 beta</strong>.</p>
+        <p>This manual gets straight to the point: install KAWA, then five tutorials to make a real song, then the details of the sound and the effects. Version <strong>0.3 beta</strong>.</p>
       </div>
       <figure class="screen"><img src="img/en/01-boot.png" alt="The start-up screen: KAWA's dog, wearing headphones" width="480" height="480"><figcaption>At power-on, KAWA's dog and the demo, ready to play.</figcaption></figure>
     </header>
@@ -171,7 +173,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     <section id="beta">
       <div class="note warn">
         <h3>Beta version: read this first</h3>
-        <p>KAWA 0.2 builds for the FM-1 and passes every check of its platform: size, memory, hardware access. It runs in the simulator and in the web emulator. However, <strong>it has not been tried on a real FM-1 yet</strong>.</p>
+        <p>KAWA 0.3 builds for the FM-1 and passes every check of its platform: size, memory, hardware access. It runs in the simulator and in the web emulator. However, <strong>it has not been tried on a real FM-1 yet</strong>.</p>
         <p>Installing an unofficial firmware is at your own risk. The install path is the one used by Dinghy and Felucca, which already run on real FM-1s, and it has several safety nets (see below). Plug the FM-1 into a stable power supply and never unplug it during an install.</p>
         <p>Projects cannot be moved to a computer yet. If something seems odd, say so: that is what a beta is for.</p>
       </div>
@@ -203,18 +205,18 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
 
     <section id="installer">
       <h2><span class="n">01</span>Install KAWA</h2>
-      <p>You need the file <code>kawa-0.2.fwsc</code> (in the <code>release/</code> folder), a USB <strong>data</strong> cable, a computer, and Python 3 with <code>pip3 install mido python-rtmidi</code>.</p>
+      <p>You need the file <code>kawa-0.3.fwsc</code> (in the <code>release/</code> folder), a USB <strong>data</strong> cable, a computer, and Python 3 with <code>pip3 install mido python-rtmidi</code>.</p>
       <ol>
         <li>Close any other MIDI software, then plug in the FM-1, switched on.</li>
         <li>Check what it runs: <code>python3 tools/fm1_install.py --info</code>.</li>
-        <li>Install: <code>python3 tools/fm1_install.py release/kawa-0.2.fwsc</code>. The installer checks the package, asks you to confirm, sends the loader, then the application.</li>
+        <li>Install: <code>python3 tools/fm1_install.py release/kawa-0.3.fwsc</code>. The installer checks the package, asks you to confirm, sends the loader, then the application.</li>
         <li>The FM-1 restarts into KAWA: the dog appears, then the demo.</li>
       </ol>
       <h3>What the install never writes</h3>
       <ul>
         <li>The start of the memory, with the chip's bootloader and its configuration.</li>
         <li>The projects and samples area, from 0x97000 to 0xE0000, and the settings at 0xFC000.</li>
-        <li>An update keeps your projects and samples. One exception: projects made with 0.1 are not read by 0.2 (their format changed); the demo starts instead, and they are replaced as soon as you save.</li>
+        <li>An update keeps your projects and samples. The projects of 0.2 open in 0.3 as they were (they are converted when they load, and saved in the new format). Projects made with 0.1 are not read (their format changed); the demo starts instead, and they are replaced as soon as you save.</li>
       </ul>
       <h3>The safety nets</h3>
       <ul>
@@ -275,7 +277,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
           <tr><td><kbd>ENV</kbd></td><td>ENVELOPE: the track's ADSR</td><td>MIX: volumes, pans, sends, master effect</td></tr>
           <tr><td><kbd>LFO</kbd></td><td>MAGIC: 16 tools on the white keys</td><td>Back to the tracks</td></tr>
           <tr><td><kbd>SCL</kbd></td><td>SCALE: root, scale, lock</td><td>Back to the tracks</td></tr>
-          <tr><td><kbd>GLO</kbd></td><td>SONG: tempo, swing, the list of patterns</td><td>OPTIONS: theme, language, MIDI clock</td></tr>
+          <tr><td><kbd>GLO</kbd></td><td>SONG: tempo, swing, the list of patterns</td><td>GROOVE: the ticks of each row; then OPTIONS: theme, language, MIDI clock</td></tr>
           <tr><td><kbd>SAVE</kbd></td><td>PROJECTS: the song menu</td><td>Held: undo / redo</td></tr>
           <tr><td><kbd>FX</kbd></td><td>EFFECTS: held, the live effects</td><td>A short press keeps the page open</td></tr>
           <tr><td><kbd>ARP</kbd></td><td>Clears the cell</td><td>Held + SELECT: inserts or removes a row</td></tr>
@@ -369,7 +371,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
         <figure class="screen"><img src="img/en/59-sample.png" alt="A sliced break" width="480" height="480"><figcaption>SAMPLE: the break and its 16 slices, with the kicks and snares marked.</figcaption></figure>
       </div>
       <h3>The pages of a sound</h3>
-      <p><kbd>EDIT</kbd> goes from one page to the next: <strong>SOUND</strong> and <strong>SOUND 2</strong> (the engine's settings), for FM <strong>OPERATOR</strong> and <strong>OP ENVELOPE</strong>, then <strong>EFFECT</strong>, <strong>LFO</strong> and <strong>MODULATION</strong>. The small squares at the top right show where you are.</p>
+      <p><kbd>EDIT</kbd> goes from one page to the next: <strong>SOUND</strong> and <strong>SOUND 2</strong> (the engine's settings), for FM <strong>OPERATOR</strong> and <strong>OP ENVELOPE</strong>, for SAMPLE <strong>SAMPLE EDIT</strong> (<a href="#edit-sample">below</a>), then <strong>EFFECT</strong>, <strong>LFO</strong>, <strong>MODULATION</strong> and the track's <strong>TABLE</strong> (<a href="#tables">its own section</a>). The small squares at the top right show where you are.</p>
       <div class="gallery">
         <figure class="screen"><img src="img/en/55-effect.png" alt="The track's effect" width="480" height="480"><figcaption>EFFECT: an effect for this track only (filters, drive, crush, lo-fi, ring, tremolo, wah), with its mix.</figcaption></figure>
         <figure class="screen"><img src="img/en/56-lfo.png" alt="The LFO" width="480" height="480"><figcaption>LFO: to the pitch, the volume, the effect, the pan or the shape; locked to the tempo or free.</figcaption></figure>
@@ -408,7 +410,10 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
 
     <section id="cases">
       <h2><span class="n">13</span>Cell effects</h2>
-      <p>Each cell has an effect, chosen with <span class="k k3">K3</span> and set with <span class="k k4">K4</span>. A small gold icon shows it in the tracker.</p>
+      <p>Each cell has <strong>two effects</strong>, and both play. The first is chosen with <span class="k k3">K3</span> and set with <span class="k k4">K4</span>; a gold icon shows it in the tracker. Hold <kbd>ARP</kbd> and the same two knobs set the second: while <kbd>ARP</kbd> is held, the tracker shows the second column in green, with the first one's icon next to it. A delayed note can keep its pitch, a vibrato can have its own pan, a roll can be crushed.</p>
+      <ol class="steps">
+        <li><figure class="screen"><img src="img/en/67-fx2.png" alt="The second effect of a cell" width="480" height="480"></figure><div><b>The second column</b><p>Here, <kbd>ARP</kbd> held: the second effect of the cell under the cursor is a HOP to row 9, in green; the gold icon after it is its first effect. Let go of <kbd>ARP</kbd> and the tracker shows the first column again. A tap on <kbd>ARP</kbd> alone still clears the cell.</p></div></li>
+      </ol>
       <div class="table"><table>
         <thead><tr><th>Effect</th><th>What it does</th></tr></thead>
         <tbody>
@@ -427,22 +432,60 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
           <tr><td>VSL</td><td>Volume slide over the row; on an empty cell, the note that is playing</td></tr>
           <tr><td>PAN</td><td>Pan for this note</td></tr>
           <tr><td>OFS</td><td>Starts further into the sample or the slice (in sixteenths)</td></tr>
+          <tr><td>HOP</td><td>After this row, the pattern goes on from row N: a loop inside the pattern, a shorter pattern, a jump to a fill (on any track)</td></tr>
+          <tr><td>END</td><td>The pattern ends after this row: the song goes on to the next one</td></tr>
         </tbody>
       </table></div>
     </section>
 
+    <section id="tables">
+      <h2><span class="n">14</span>Tables</h2>
+      <p>A table is a small sequence played inside every note of a track, as on the M8. Its 16 steps come one after the other, every SPEED ticks (6 ticks make a row). Each step can move the pitch over the note, set the volume and play a trick. You write a single note in the tracker, and the table plays a chip arpeggio, a drum roll that grows, a kick that drops in pitch, a slice that stutters.</p>
+      <ol class="steps">
+        <li><figure class="screen"><img src="img/en/65-table.png" alt="The TABLE page" width="480" height="480"></figure><div><b>EDIT until TABLE</b><p>The table is the last page of a sound. Row 0 holds its settings: <span class="k k1">K1</span> the speed (in ticks, 6 = a row), <span class="k k2">K2</span> the length, <span class="k k3">K3</span> the step it loops back to after the last one (or none: the last step stays), <span class="k k4">K4</span> on or off. SELECT goes down the steps. On a step: <span class="k k1">K1</span> the pitch over the note (±24 semitones; on a KIT, the drum's tuning), <span class="k k2">K2</span> the volume (<code>--</code> leaves it as it is), <span class="k k3">K3</span> the trick, <span class="k k4">K4</span> its value. <kbd>ARP</kbd> clears the step. The step playing lights up in the track's colour, and the bars at the bottom draw the pitch of each step.</p></div></li>
+      </ol>
+      <div class="table"><table>
+        <thead><tr><th>Trick</th><th>What it does when its step comes</th></tr></thead>
+        <tbody>
+          <tr><td>HIT</td><td>Plays the note again (the drum, the slice, the synth), at its step's pitch</td></tr>
+          <tr><td>CUT</td><td>Stops the note</td></tr>
+          <tr><td>VIB, BND</td><td>Vibrato, pitch bend from here (0: no more)</td></tr>
+          <tr><td>SHP, CRU</td><td>The waveform; crushed bits</td></tr>
+          <tr><td>VSL, PAN</td><td>The volume slides from here (0: it stops); the note's pan</td></tr>
+          <tr><td>HOP</td><td>Goes on to step N after this one</td></tr>
+        </tbody>
+      </table></div>
+      <p>The table starts again with each note and keeps going while the note sounds; it stops with the song. A HIT only plays while the note is held: an OFF in the tracker ends it. Three tables to try:</p>
+      <ul>
+        <li><strong>A chip arpeggio:</strong> speed 2, length 3, loop to step 1; steps 0, +4, +7 (or +3 for minor).</li>
+        <li><strong>A roll that grows:</strong> on a KIT, speed 3, length 4: four HITs, their volumes 6, 9, 12, 15, looping to step 4.</li>
+        <li><strong>A falling kick:</strong> on a WAVE or PULSE, speed 1, steps 0, −2, −4, −6, −8… and no loop.</li>
+      </ul>
+    </section>
+
+    <section id="groove">
+      <h2><span class="n">15</span>The groove</h2>
+      <ol class="steps">
+        <li><figure class="screen"><img src="img/en/64-groove.png" alt="The GROOVE page" width="480" height="480"></figure><div><b>GLO twice</b><p>The groove sets how long each row lasts, in ticks: 6 ticks is a straight sixteenth. Its steps play in turn, one per row: 7 then 5 is a light swing, 8 then 4 a heavy one, 4 4 4 a triplet feel. When it is on, it replaces the swing of the SONG page. <span class="k k1">K1</span> sets the ticks of the chosen step (SELECT or a white key chooses it), <span class="k k2">K2</span> the length, <span class="k k3">K3</span> a preset (it turns the groove on), <span class="k k4">K4</span> on or off.</p><p>The strip under the bars shows one turn as it plays. When the ticks add up to 6 a row (7 + 5), the bar keeps its length; otherwise the count turns red, and the pattern gets shorter or longer. The MIDI clock out sends the ticks as they play: a drum machine follows the groove.</p></div></li>
+      </ol>
+    </section>
+
     <section id="samples">
-      <h2><span class="n">14</span>Your own samples</h2>
+      <h2><span class="n">16</span>Your own samples</h2>
       <p>KAWA has four slots for your sounds: <strong>MY 1</strong> to <strong>MY 4</strong>, about 1.7 s each at 22 kHz. They show up as a SOURCE of the SAMPLE engine, next to the breaks.</p>
       <ul>
         <li><strong>In the emulator:</strong> drop a sound file on the page, or choose it in the “Your samples” panel. It is converted for you: mono, 22 kHz, normalised.</li>
         <li><strong>On the FM-1:</strong> <code>python3 tools/kawa_samples.py put 1 my-sound.wav</code>, or the emulator's “Send to my FM-1” button. KAWA must be stopped while it receives: the sound cuts out for a moment during the write. If the transfer is cut off, the slot stays empty, never damaged.</li>
         <li>Then, on the SOUND page of a SAMPLE track, set SOURCE to MY 1 to 4 and choose the MODE: SLICES on the white keys, or NOTES, played on the notes (C4 = the original pitch).</li>
       </ul>
+      <h3 id="edit-sample">Edit a sample</h3>
+      <ol class="steps">
+        <li><figure class="screen"><img src="img/en/66-sample-edit.png" alt="The SAMPLE EDIT page" width="480" height="480"></figure><div><b>EDIT until SAMPLE EDIT</b><p>On a SAMPLE track, a break or one of your sounds. Nothing is rewritten in the sound: the edit only says how it plays, and it is kept with the project, track by track. SELECT picks the marker: START, END, then the slices 2 to 16 (in SLICES mode). <span class="k k1">K1</span> moves it, <span class="k k2">K2</span> finely (its place shows in milliseconds), and you hear the slice. Move a slice and the others stay where they were; <kbd>ARP</kbd> spreads them evenly again. <span class="k k3">K3</span> NORM brings the loudest point of the edited part to full scale (up to ×16), <span class="k k4">K4</span> plays it backwards.</p></div></li>
+      </ol>
     </section>
 
     <section id="raccourcis">
-      <h2><span class="n">15</span>Shortcuts</h2>
+      <h2><span class="n">17</span>Shortcuts</h2>
       <div class="table"><table>
         <thead><tr><th>Gesture</th><th>What it does</th></tr></thead>
         <tbody>
@@ -450,11 +493,12 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
           <tr><td><kbd>SAVE</kbd> held + <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Undo / redo</td></tr>
           <tr><td><kbd>SAVE</kbd> then <kbd>OCT+</kbd></td><td>Save the song again in its slot</td></tr>
           <tr><td><kbd>REC</kbd> held + SELECT</td><td>The cursor step after a note</td></tr>
+          <tr><td><kbd>ARP</kbd> held + <span class="k k3">K3</span> <span class="k k4">K4</span> (TRACKS)</td><td>The cell's second effect</td></tr>
           <tr><td><kbd>ARP</kbd> held + SELECT</td><td>Insert / remove a row in the track</td></tr>
           <tr><td><kbd>ARP</kbd> held + ALGORITHM</td><td>Insert / remove a row in the whole pattern</td></tr>
           <tr><td><kbd>ARP</kbd> held + black key (MIX)</td><td>Solo the track</td></tr>
           <tr><td><kbd>FX</kbd> held + white keys</td><td>Live effects</td></tr>
-          <tr><td><kbd>GLO</kbd> twice</td><td>OPTIONS</td></tr>
+          <tr><td><kbd>GLO</kbd> twice, three times</td><td>The GROOVE, then the OPTIONS</td></tr>
           <tr><td><kbd>ENV</kbd> twice</td><td>MIX and the master effect</td></tr>
         </tbody>
       </table></div>
@@ -462,14 +506,14 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     </section>
 
     <section id="options">
-      <h2><span class="n">16</span>Options</h2>
+      <h2><span class="n">18</span>Options</h2>
       <ol class="steps">
-        <li><figure class="screen"><img src="img/en/62-options.png" alt="The OPTIONS page" width="480" height="480"></figure><div><b>Theme, language, clock</b><p><kbd>GLO</kbd> twice. <span class="k k1">K1</span> picks the theme (KAWA, GAME BOY, BONBON), <span class="k k2">K2</span> the language of the screen (French, English, Spanish), <span class="k k3">K3</span> the MIDI clock: KAWA sends start, stop and the tempo over USB, to sync a drum machine or a program on your computer. The settings are kept when you switch off.</p><p>The CPU line tells you how much of the processing time the sound uses. Above 70%, KAWA lightens the sound by itself, reverb first, rather than crackle.</p></div></li>
+        <li><figure class="screen"><img src="img/en/62-options.png" alt="The OPTIONS page" width="480" height="480"></figure><div><b>Theme, language, clock</b><p><kbd>GLO</kbd> three times. <span class="k k1">K1</span> picks the theme (KAWA, GAME BOY, BONBON), <span class="k k2">K2</span> the language of the screen (French, English, Spanish), <span class="k k3">K3</span> the MIDI clock over USB:</p><ul><li><strong>OUT:</strong> KAWA sends start, stop and the tempo (the groove's ticks too), to sync a drum machine or a program on your computer.</li><li><strong>IN:</strong> KAWA follows another machine. Its START starts the song where PLAY would, its STOP stops it, its tempo leads (it shows in green, measured over four beats); each row waits for its ticks or catches up, and starts a few milliseconds after its tick. With IN and no clock, PLAY waits for one, and says so.</li></ul><p>The settings are kept when you switch off.</p><p>The CPU line tells you how much of the processing time the sound uses. Above 70%, KAWA lightens the sound by itself, reverb first, rather than crackle.</p></div></li>
       </ol>
     </section>
 
     <section id="aide">
-      <h2><span class="n">17</span>Help and troubleshooting</h2>
+      <h2><span class="n">19</span>Help and troubleshooting</h2>
       <ul>
         <li><strong>I forgot what a knob does:</strong> look at the bottom line, or hold <kbd>HOME</kbd>.</li>
         <li><strong>No sound:</strong> turn up MASTER; on MIX, check that no track is muted (a red M); check the note's volume with <span class="k k2">K2</span>.</li>
@@ -480,7 +524,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     </section>
 
     <section id="soutenir">
-      <h2><span class="n">18</span>Support KAWA</h2>
+      <h2><span class="n">20</span>Support KAWA</h2>
       <div class="support">
         <p>KAWA is free and open source. If you enjoy what I do, consider supporting me! Every little bit means the world! Buy me a beer, and I'll keep the FM-1 making noise.</p>
         <a class="kofi" href="https://ko-fi.com/omnipotard" target="_blank" rel="noopener">Buy me a beer</a>
@@ -488,7 +532,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     </section>
 
     <footer>
-      <p>KAWA 0.2 beta, Pocket Tracker by Omnipotard. Free software (GPL-3.0), built on Dinghy, Felucca (Hügelton Instruments) and SLOOP, the open platform of the FM-1 community. The FM engine comes from msfa (Dexed, Apache-2.0). The breaks and the kits are fully synthesised. M-VAVE and FM-1 are trademarks of their owners; KAWA is not an M-VAVE product.</p>
+      <p>KAWA 0.3 beta, Pocket Tracker by Omnipotard. Free software (GPL-3.0), built on Dinghy, Felucca (Hügelton Instruments) and SLOOP, the open platform of the FM-1 community. The FM engine comes from msfa (Dexed, Apache-2.0). The breaks and the kits are fully synthesised. M-VAVE and FM-1 are trademarks of their owners; KAWA is not an M-VAVE product.</p>
     </footer>
   </main>
 </div>

@@ -61,13 +61,21 @@ STEPS = [
     ("55-effect", [("btn", 6), ("enc", 2, 1), ("enc", 3, -3)]),
     ("56-lfo", [("btn", 6), ("enc", 2, 3)]),
     ("57-mod", [("btn", 6), ("enc", 2, 6), ("enc", 3, 8)]),
-    ("58-kit", [("enc", 1, 3), ("enc", 2, 1)]),
+    ("58-kit", [("enc", 1, 3), ("btn", 6), ("btn", 6), ("enc", 2, 1)]),   # (MOD kept: on to TABLE, then SOUND)
     ("59-sample", [("enc", 1, 1)]),
     # live
     ("60-fx", [("btn", 8), ("btn", 12), ("press", 2), ("hold", WHITE[0]), ("wait", 600)]),
     ("61-fx-bank2", [("up",), ("btn", 1), ("hold", WHITE[2]), ("wait", 600)]),
-    ("62-options", [("up",), ("release", 2), ("btn", 12), ("btn", 7), ("btn", 7)]),
+    ("62-options", [("up",), ("release", 2), ("btn", 12), ("btn", 7), ("btn", 7), ("btn", 7)]),
     ("63-scale", [("btn", 3)]),
+    # 0.3: the groove, a table, a sample's edit, the second trick column
+    ("64-groove", [("btn", 7), ("btn", 7), ("enc", 4, 2), ("enc", 0, 1), ("btn", 12), ("wait", 900)]),
+    ("65-table", [("btn", 12), ("btn", 8), ("enc", 1, -10), ("btn", 6), ("btn", 6), ("btn", 6), ("btn", 6), ("btn", 6),
+                  ("btn", 6), ("enc", 5, 1), ("enc", 2, -4), ("enc", 3, -1), ("enc", 0, 2), ("enc", 2, 4), ("enc", 0, 1),
+                  ("enc", 2, 7), ("hold", WHITE[3]), ("wait", 300)]),
+    ("66-sample-edit", [("up",), ("enc", 1, 5), ("btn", 6), ("btn", 6), ("btn", 6), ("enc", 2, 12), ("enc", 0, 1),
+                        ("enc", 2, -10), ("enc", 0, 4), ("enc", 2, 3), ("enc", 4, 1), ("wait", 300)]),
+    ("67-fx2", [("btn", 8), ("enc", 1, -10), ("press", 10), ("enc", 4, 16), ("enc", 5, 8)]),
 ]
 
 
@@ -105,7 +113,7 @@ def main():
     build.mkdir(parents=True, exist_ok=True)
     exe = ROOT / "build" / "host" / "kawa"
     subprocess.run(["cc", "-O2", "-Wall", "-Wno-unused-function", "-Wno-unused-parameter", "-DDINGHY_HOST",
-                    '-DAPP_VER="0.2"', "-Ifirmware/src", "-Ifirmware/gen", "-o", str(exe), "firmware/src/kawa.c"],
+                    '-DAPP_VER="0.3"', "-Ifirmware/src", "-Ifirmware/gen", "-o", str(exe), "firmware/src/kawa.c"],
                    cwd=ROOT, check=True)
     for code, lang in (("fr", 0), ("en", 1), ("es", 2)):
         s = build / f"shots-{code}.txt"

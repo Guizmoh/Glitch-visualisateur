@@ -13,7 +13,7 @@ ta place. L'écran parle français, anglais ou espagnol.
 | ![Les pistes](docs/manual/img/fr/02-tracks.png) | ![La FM et ses opérateurs](docs/manual/img/fr/53-fm-operator.png) | ![Les effets live](docs/manual/img/fr/60-fx.png) |
 | ![La chaîne : chaque motif joué N fois](docs/manual/img/fr/34-song-play.png) | ![L'enveloppe](docs/manual/img/fr/50-envelope.png) | ![Le menu des projets](docs/manual/img/fr/10-projects-menu.png) |
 
-> **État : 0.2, bêta.** KAWA compile pour le FM-1 et passe toutes les vérifications de sa plateforme :
+> **État : 0.3, bêta.** KAWA compile pour le FM-1 et passe toutes les vérifications de sa plateforme :
 > taille, mémoire, accès au matériel, chemin d'installation testé avec des coupures de courant simulées.
 > Il tourne dans le simulateur et dans l'émulateur web. Il n'a **pas encore été essayé sur un vrai FM-1**.
 > Installer un firmware non officiel se fait à tes risques : lis [Installer](#installer) et
@@ -47,10 +47,14 @@ peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
 
 ## Ce qu'il y a dedans
 
-- **Un vrai tracker.** 32 motifs de 1 à 32 lignes, 15 effets de case (arpège, glissé, vibrato, roulé,
-  bend, chance, retard, coupe, envers, hauteur, forme, écrase, glissé de volume, pano, départ dans le
-  sample), un saut de lignes réglable (REC tenu + SELECT), l'insertion et la suppression de lignes, le
-  solo, annuler et refaire (SAVE tenu + OCT− / OCT+).
+- **Un vrai tracker.** 32 motifs de 1 à 32 lignes, deux effets dans chaque case, parmi 17 (arpège, glissé,
+  vibrato, roulé, bend, chance, retard, coupe, envers, hauteur, forme, écrase, glissé de volume, pano, départ
+  dans le sample, saut à une ligne, fin du motif), un saut de lignes réglable (REC tenu + SELECT),
+  l'insertion et la suppression de lignes, le solo, annuler et refaire (SAVE tenu + OCT− / OCT+).
+- **Des tables et un groove, comme sur le M8.** Chaque piste a une table : 16 pas joués dans chaque note
+  (hauteur, volume, un effet chacun : FRAPPE, COUPE, VIBRATO…), pour des arpèges chiptune, des roulements,
+  des chutes de hauteur. Le groove règle les ticks de chaque ligne tour à tour (7 5, 8 4, 4 4 4…), à la
+  place du swing.
 - **Une chaîne qui fait un morceau.** Chaque case de la chaîne joue un motif de 1 à 16 fois ; l'outil
   CLONER fait une variation en une touche et l'ajoute à la chaîne.
 - **Un vrai menu de projets.** Nouveau morceau, sauver, sauver sous (emplacement et nom), charger,
@@ -59,24 +63,27 @@ peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
   seule, pour garder de la marge au FM-1) règle ses 6 opérateurs un par un.
 - **Du sound design.** Chaque son a une ADSR dessinée dans les couleurs des potards, un effet rien qu'à
   lui (filtres, disto, écrase, décime, anneau, trémolo, wah), un LFO calé sur le tempo et une page
-  MODULATION. Le master a son effet, une réverb, un écho et un limiteur.
+  MODULATION. Le master a son effet, une réverb, un écho et un limiteur. Un éditeur de sample règle où un
+  sample commence et finit, place ses tranches à la main, le normalise et le joue à l'envers, sans toucher
+  au son.
 - **8 kits de batterie** synthétisés : acoustique, hip hop, techno, dub-reggae, lo-fi, Game Boy, SNES et
   percussions. S'y ajoutent **six breaks** originaux à découper en 16 tranches (SOLEIL, GRELOT, TENDU,
   ABYSSE, MAMBO, GRENIER : chacun son groove, sa batterie et son disque), et **tes propres samples**
   (4 emplacements).
 - **Un potard, une couleur.** KNOB 1 rouge, 2 jaune, 3 vert, 4 bleu, sur toutes les pages. La ligne du bas
   dit ce que fait chacun. HOME tenu ouvre l'aide de la page où tu es.
-- **Trois thèmes** (KAWA, GAME BOY, BONBON), l'**horloge MIDI** en sortie, et un indicateur CPU.
+- **Trois thèmes** (KAWA, GAME BOY, BONBON), l'**horloge MIDI** en sortie ou en entrée (KAWA suit le tempo
+  et le START / STOP d'une autre machine), et un indicateur CPU.
 - **Un chien** à casque qui t'accueille au démarrage et vit dans le coin de l'écran.
 
 ## Installer
 
-Il te faut le paquet `release/kawa-0.2.fwsc` (ou ta propre compilation), un câble USB de données, et Python
+Il te faut le paquet `release/kawa-0.3.fwsc` (ou ta propre compilation), un câble USB de données, et Python
 3 avec `pip3 install mido python-rtmidi`.
 
 ```sh
 python3 tools/fm1_install.py --info                 # ce que tourne le FM-1 branché
-python3 tools/fm1_install.py release/kawa-0.2.fwsc  # demande avant d'écrire, puis redémarre sur KAWA
+python3 tools/fm1_install.py release/kawa-0.3.fwsc  # demande avant d'écrire, puis redémarre sur KAWA
 ```
 
 Ce qui protège ton FM-1 :
@@ -122,8 +129,11 @@ choisis SOURCE = MON 1 à 4.
 - `tests/run_loader_tests.sh` teste le chemin d'installation : paquets abîmés, coupures de courant, puce
   inconnue.
 - `tests/run_kits_test.sh` et `tests/breaks_check.py` mesurent les kits de batterie et les breaks.
-- `tests/run_stress_test.sh` joue chaque son, effet et effet live aux bouts de leurs potards (16 minutes de son)
-  sous UBSan, et s'arrête au premier nombre qui déborde (un clic sur le FM-1).
+- `tests/run_features_test.sh` joue le saut, la fin de motif, deux effets dans une case, les tables, le groove,
+  l'édition de sample et l'horloge MIDI en entrée dans l'interruption audio ; `tests/run_format_test.sh`
+  charge des projets sauvés par la 0.2.
+- `tests/run_stress_test.sh` joue chaque son, effet, effet live, table et groove aux bouts de leurs potards
+  (17 minutes de son) sous UBSan, et s'arrête au premier nombre qui déborde (un clic sur le FM-1).
 
 ## Soutenir KAWA
 

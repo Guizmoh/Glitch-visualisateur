@@ -505,7 +505,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       power: "The firmware runs here as it is, compiled to WebAssembly. Turn the sound on and power up.",
       powerBtn: "POWER ON",
       err: "Sound could not start in this browser. Try a recent Chrome, Edge or Firefox.",
-      pages: ["TRACKS", "GRID", "SOUND", "ENVELOPE", "MIX", "MAGIC", "SCALE", "SONG", "PROJECTS", "OPTIONS", "EFFECTS", "HELP", "BOOT"],
+      pages: ["TRACKS", "GRID", "SOUND", "ENVELOPE", "MIX", "MAGIC", "SCALE", "SONG", "PROJECTS", "OPTIONS", "EFFECTS", "HELP", "BOOT", "GROOVE"],
       track: "TRACK {n}", master: "MASTER",
       "k.master": "VOLUME", "k.select": "ROW", "k.presets": "PATTERN / SOUND", "k.algo": "TRACK", "k.unused": "unused",
       "b.oct": "OCTAVE", "b.fx": "EFFECTS", "b.scl": "SCALE", "b.env": "ENV / MIX", "b.lfo": "MAGIC", "b.edit": "SOUND", "b.glo": "SONG / OPT.",
@@ -532,7 +532,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "tt.13": "REC turns recording on or off: the keys write at the cursor (on the beat while it plays); REC held + SELECT sets how many rows a note jumps.",
       "s.h": "Your samples",
       "s.how": "Drop a sound on a slot (WAV, MP3, OGG, FLAC…) or choose a file. It becomes what the FM-1 keeps: mono, 22 kHz, 8 bits, up to 1.66 s, without the silence before it. Then, on a track's SOUND page (<b>EDIT</b>): engine <b>SAMPLE</b>, <b>SOURCE</b> = <b>MY 1…4</b> (or the preset MY SAMPLE 1…4 with <b>PRESETS</b>). Your sounds stay in this browser.",
-      "s.fm1": "<b>Send to my FM-1</b> copies a slot onto your FM-1 running KAWA 0.2: a USB data cable, Chrome or Edge, and playback stopped.",
+      "s.fm1": "<b>Send to my FM-1</b> copies a slot onto your FM-1 running KAWA 0.2 or later: a USB data cable, Chrome or Edge, and playback stopped.",
       "s.slot": "MY {k}", "s.empty": "empty", "s.pick": "Choose a file", "s.send": "Send to my FM-1", "s.out": "MIDI output (to the FM-1)", "s.in": "MIDI input (from the FM-1)",
       "s.pickL": "Choose a sound for MY {k}", "s.sendL": "Send MY {k} to my FM-1",
       "s.reading": "Reading {f}…",
@@ -548,7 +548,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "m.search": "Looking for the FM-1…",
       "m.noports": "No MIDI device is connected. Plug the FM-1 in with a USB data cable and switch it on.",
       "m.choose": "No FM-1 found by its name: choose its MIDI ports below, then send again.",
-      "m.timeout": "No answer from the FM-1. Is it on, running KAWA 0.2, plugged in with a data cable?",
+      "m.timeout": "No answer from the FM-1. Is it on, running KAWA 0.2 or later, plugged in with a data cable?",
       "m.notkawa": "The FM-1 answered, but it does not run KAWA 0.2 or later.",
       "m.toobig": "The FM-1's slot is smaller than this sound.",
       "m.sending": "Sending to the FM-1… {p} %",
@@ -574,14 +574,15 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
            "<li><b>PLAY</b> plays the demo. Six tracks, each with its engine: PULSE, WAVE, NOISE, FM (one track, 6 operators), KIT (8 kits) or SAMPLE (the breaks or your own sounds).</li>" +
            "<li><b>ALGORITHM</b> picks the track, <b>SELECT</b> the row, <b>PRESETS</b> the pattern. <b>KNOB 1–4</b> (<span class=\"k1\">red</span>, <span class=\"k2\">yellow</span>, <span class=\"k3\">green</span>, <span class=\"k4\">blue</span> on every page) edit the cell: their labels say what they do.</li>" +
            "<li><b>REC</b>, then the keys: notes go in at the cursor (on the beat while it plays). REC held + SELECT: how many rows a note jumps. <b>ARP</b> clears the cell.</li>" +
-           "<li><b>HOME</b> tracks (held: the help of the page) · <b>SEQ</b> the grid · <b>EDIT</b> the sound, again for the next page (SELECT picks the engine) · <b>ENV</b> the envelope, again MIX · <b>GLO</b> the song, again the options.</li>" +
+           "<li><b>HOME</b> tracks (held: the help of the page) · <b>SEQ</b> the grid · <b>EDIT</b> the sound, again for the next page (SELECT picks the engine) · <b>ENV</b> the envelope, again MIX · <b>GLO</b> the song, again the groove, then the options.</li>" +
            "<li><b>SAVE</b>: new song, save, save as, load, rename, demo (<b>OCT+</b> OK, <b>OCT−</b> back). SAVE held + OCT−: undo, + OCT+: redo.</li>",
       g2: "Effects and magic",
       g2l: "<li>Hold <b>FX</b> and play the white keys: 32 live effects (<b>OCT+</b> the second bank), on the master or a track. A tap keeps the page open.</li>" +
            "<li><b>LFO</b> opens the magic: chop the break, write a beat, a melody or a bassline in the scale (<b>SCL</b>), Euclid, rolls…</li>" +
            "<li><b>MIX</b> (ENV twice): the levels and the master effect. The black keys mute; ARP held + a black key: solo.</li>" +
            "<li>ARP held + SELECT: a row in or out; + ALGORITHM: in the whole pattern.</li>" +
-           "<li><b>EDIT</b> again and again: SOUND, SOUND 2, (FM: OPERATOR, OP ENVELOPE), EFFECT, LFO, MODULATION.</li>",
+           "<li><b>EDIT</b> again and again: SOUND, SOUND 2, (FM: OPERATOR, OP ENVELOPE; SAMPLE: SAMPLE EDIT), EFFECT, LFO, MODULATION, TABLE.</li>" +
+           "<li>Two effects a cell: <b>ARP</b> held + KNOB 3 and 4 set the second. HOP jumps to a row, END ends the pattern.</li>",
       g3: "On the keyboard",
       g3l: "<li>Notes: the rows <kbd>Z X C V…</kbd> and <kbd>Q W E R…</kbd> (key positions: QWERTY and AZERTY alike).</li>" +
            "<li><kbd>Space</kbd> PLAY · <kbd>Enter</kbd> REC · <kbd>Shift</kbd> held FX · <kbd>Backspace</kbd> ARP · <kbd>Esc</kbd> HOME · <kbd>-</kbd> <kbd>=</kbd> OCT− OCT+.</li>" +
@@ -603,7 +604,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       power: "Le firmware tourne ici tel quel, compilé en WebAssembly. Mets le son et allume.",
       powerBtn: "ALLUMER",
       err: "Le son n'a pas pu démarrer dans ce navigateur. Essaie un Chrome, Edge ou Firefox récent.",
-      pages: ["PISTES", "GRILLE", "SON", "ENVELOPPE", "MIX", "MAGIE", "GAMME", "CHAÎNE", "PROJETS", "OPTIONS", "EFFETS", "AIDE", "DÉMARRAGE"],
+      pages: ["PISTES", "GRILLE", "SON", "ENVELOPPE", "MIX", "MAGIE", "GAMME", "CHAÎNE", "PROJETS", "OPTIONS", "EFFETS", "AIDE", "DÉMARRAGE", "GROOVE"],
       track: "PISTE {n}", master: "MASTER",
       "k.master": "VOLUME", "k.select": "LIGNE", "k.presets": "MOTIF / SON", "k.algo": "PISTE", "k.unused": "inutilisé",
       "b.oct": "OCTAVE", "b.fx": "EFFETS", "b.scl": "GAMME", "b.env": "ENV / MIX", "b.lfo": "MAGIE", "b.edit": "SON", "b.glo": "CHAÎNE / OPT.",
@@ -630,7 +631,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "tt.13": "REC active ou coupe l'enregistrement : les touches écrivent au curseur (sur le temps pendant la lecture) ; REC tenu + SELECT règle de combien de lignes saute une note.",
       "s.h": "Tes samples",
       "s.how": "Dépose un son sur un emplacement (WAV, MP3, OGG, FLAC…) ou choisis un fichier. Il devient ce que garde le FM-1 : mono, 22 kHz, 8 bits, 1,66 s au plus, sans le silence du début. Puis, page SON d'une piste (<b>EDIT</b>) : moteur <b>SAMPLE</b>, <b>SOURCE</b> = <b>MON 1…4</b> (ou le preset MON SAMPLE 1…4 avec <b>PRESETS</b>). Tes sons restent dans ce navigateur.",
-      "s.fm1": "<b>Envoyer au FM-1</b> copie un emplacement sur ton FM-1 sous KAWA 0.2 : un câble USB de données, Chrome ou Edge, et la lecture arrêtée.",
+      "s.fm1": "<b>Envoyer au FM-1</b> copie un emplacement sur ton FM-1 sous KAWA 0.2 ou plus récent : un câble USB de données, Chrome ou Edge, et la lecture arrêtée.",
       "s.slot": "MON {k}", "s.empty": "vide", "s.pick": "Choisir un fichier", "s.send": "Envoyer au FM-1", "s.out": "Sortie MIDI (vers le FM-1)", "s.in": "Entrée MIDI (depuis le FM-1)",
       "s.pickL": "Choisir un son pour MON {k}", "s.sendL": "Envoyer MON {k} au FM-1",
       "s.reading": "Lecture de {f}…",
@@ -646,7 +647,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "m.search": "Recherche du FM-1…",
       "m.noports": "Aucun appareil MIDI branché. Branche le FM-1 avec un câble USB de données et allume-le.",
       "m.choose": "Aucun FM-1 trouvé par son nom : choisis ses ports MIDI ci-dessous, puis renvoie.",
-      "m.timeout": "Pas de réponse du FM-1. Est-il allumé, sous KAWA 0.2, branché avec un câble de données ?",
+      "m.timeout": "Pas de réponse du FM-1. Est-il allumé, sous KAWA 0.2 ou plus récent, branché avec un câble de données ?",
       "m.notkawa": "Le FM-1 a répondu, mais il ne tourne pas sous KAWA 0.2 ou plus récent.",
       "m.toobig": "L'emplacement du FM-1 est plus petit que ce son.",
       "m.sending": "Envoi au FM-1… {p} %",
@@ -672,14 +673,15 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
            "<li><b>PLAY</b> lance la démo. Six pistes, chacune avec son moteur : PULSE, WAVE, NOISE, FM (une piste, 6 opérateurs), KIT (8 kits) ou SAMPLE (les breaks ou tes propres sons).</li>" +
            "<li><b>ALGORITHM</b> choisit la piste, <b>SELECT</b> la ligne, <b>PRESETS</b> le motif. <b>KNOB 1 à 4</b> (<span class=\"k1\">rouge</span>, <span class=\"k2\">jaune</span>, <span class=\"k3\">vert</span>, <span class=\"k4\">bleu</span> sur toutes les pages) changent la case : leurs étiquettes disent ce qu'ils font.</li>" +
            "<li><b>REC</b> puis les touches : les notes s'écrivent au curseur (sur le temps pendant la lecture). REC tenu + SELECT : de combien de lignes saute une note. <b>ARP</b> efface la case.</li>" +
-           "<li><b>HOME</b> les pistes (tenu : l'aide de la page) · <b>SEQ</b> la grille · <b>EDIT</b> le son, encore pour la page suivante (SELECT choisit le moteur) · <b>ENV</b> l'enveloppe, encore MIX · <b>GLO</b> la chaîne, encore les options.</li>" +
+           "<li><b>HOME</b> les pistes (tenu : l'aide de la page) · <b>SEQ</b> la grille · <b>EDIT</b> le son, encore pour la page suivante (SELECT choisit le moteur) · <b>ENV</b> l'enveloppe, encore MIX · <b>GLO</b> la chaîne, encore le groove, puis les options.</li>" +
            "<li><b>SAVE</b> : nouveau morceau, sauver, sauver sous, charger, renommer, démo (<b>OCT+</b> OK, <b>OCT−</b> retour). SAVE tenu + OCT− : annuler, + OCT+ : refaire.</li>",
       g2: "Effets et magie",
       g2l: "<li>Garde <b>FX</b> enfoncé et joue les touches blanches : 32 effets live (<b>OCT+</b> la deuxième banque), sur le master ou une piste. Un appui court garde la page ouverte.</li>" +
            "<li><b>LFO</b> ouvre la magie : découper le break, écrire un beat, une mélodie ou une basse dans la gamme (<b>SCL</b>), Euclide, roulements…</li>" +
            "<li><b>MIX</b> (ENV deux fois) : les niveaux et l'effet master. Les touches noires coupent ; ARP tenu + touche noire : solo.</li>" +
            "<li>ARP tenu + SELECT : une ligne en plus ou en moins ; + ALGORITHM : dans tout le motif.</li>" +
-           "<li><b>EDIT</b> encore et encore : SON, SON 2, (FM : OPÉRATEUR, ENV. OP), EFFET, LFO, MODULATION.</li>",
+           "<li><b>EDIT</b> encore et encore : SON, SON 2, (FM : OPÉRATEUR, ENV. OP ; SAMPLE : ÉDITER LE SAMPLE), EFFET, LFO, MODULATION, TABLE.</li>" +
+           "<li>Deux effets par case : <b>ARP</b> tenu + KNOB 3 et 4 règlent le second. SAU saute à une ligne, FIN termine le motif.</li>",
       g3: "Au clavier",
       g3l: "<li>Notes : rangées <kbd>W X C V…</kbd> et <kbd>A Z E R…</kbd> (positions des touches, AZERTY ou QWERTY).</li>" +
            "<li><kbd>Espace</kbd> PLAY · <kbd>Entrée</kbd> REC · <kbd>Maj</kbd> tenu FX · <kbd>Retour</kbd> ARP · <kbd>Échap</kbd> HOME · <kbd>)</kbd> <kbd>=</kbd> OCT− OCT+.</li>" +
@@ -701,7 +703,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       power: "El firmware funciona aquí tal cual, compilado a WebAssembly. Sube el sonido y enciende.",
       powerBtn: "ENCENDER",
       err: "El sonido no pudo arrancar en este navegador. Prueba un Chrome, Edge o Firefox reciente.",
-      pages: ["PISTAS", "REJILLA", "SONIDO", "ENVOLVENTE", "MEZCLA", "MAGIA", "ESCALA", "CANCIÓN", "PROYECTOS", "OPCIONES", "EFECTOS", "AYUDA", "ARRANQUE"],
+      pages: ["PISTAS", "REJILLA", "SONIDO", "ENVOLVENTE", "MEZCLA", "MAGIA", "ESCALA", "CANCIÓN", "PROYECTOS", "OPCIONES", "EFECTOS", "AYUDA", "ARRANQUE", "GROOVE"],
       track: "PISTA {n}", master: "MASTER",
       "k.master": "VOLUMEN", "k.select": "FILA", "k.presets": "PATRÓN / SONIDO", "k.algo": "PISTA", "k.unused": "sin uso",
       "b.oct": "OCTAVA", "b.fx": "EFECTOS", "b.scl": "ESCALA", "b.env": "ENV / MEZCLA", "b.lfo": "MAGIA", "b.edit": "SONIDO", "b.glo": "CANCIÓN / OPC.",
@@ -728,7 +730,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "tt.13": "REC activa o desactiva la grabación: las teclas escriben en el cursor (a tiempo mientras suena); REC mantenido + SELECT ajusta cuántas filas salta una nota.",
       "s.h": "Tus samples",
       "s.how": "Suelta un sonido en una ranura (WAV, MP3, OGG, FLAC…) o elige un archivo. Se convierte en lo que guarda el FM-1: mono, 22 kHz, 8 bits, 1,66 s como mucho, sin el silencio del principio. Luego, en la página SONIDO de una pista (<b>EDIT</b>): motor <b>SAMPLE</b>, <b>FUENTE</b> = <b>MI 1…4</b> (o el preset MI SAMPLE 1…4 con <b>PRESETS</b>). Tus sonidos se quedan en este navegador.",
-      "s.fm1": "<b>Enviar a mi FM-1</b> copia una ranura a tu FM-1 con KAWA 0.2: un cable USB de datos, Chrome o Edge, y la reproducción parada.",
+      "s.fm1": "<b>Enviar a mi FM-1</b> copia una ranura a tu FM-1 con KAWA 0.2 o posterior: un cable USB de datos, Chrome o Edge, y la reproducción parada.",
       "s.slot": "MI {k}", "s.empty": "vacía", "s.pick": "Elegir un archivo", "s.send": "Enviar a mi FM-1", "s.out": "Salida MIDI (al FM-1)", "s.in": "Entrada MIDI (del FM-1)",
       "s.pickL": "Elegir un sonido para MI {k}", "s.sendL": "Enviar MI {k} a mi FM-1",
       "s.reading": "Leyendo {f}…",
@@ -744,7 +746,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
       "m.search": "Buscando el FM-1…",
       "m.noports": "No hay ningún aparato MIDI conectado. Conecta el FM-1 con un cable USB de datos y enciéndelo.",
       "m.choose": "No se encontró ningún FM-1 por su nombre: elige sus puertos MIDI abajo y vuelve a enviar.",
-      "m.timeout": "El FM-1 no responde. ¿Está encendido, con KAWA 0.2, conectado con un cable de datos?",
+      "m.timeout": "El FM-1 no responde. ¿Está encendido, con KAWA 0.2 o posterior, conectado con un cable de datos?",
       "m.notkawa": "El FM-1 respondió, pero no lleva KAWA 0.2 o posterior.",
       "m.toobig": "La ranura del FM-1 es más pequeña que este sonido.",
       "m.sending": "Enviando al FM-1… {p} %",
@@ -770,14 +772,15 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
            "<li><b>PLAY</b> arranca la demo. Seis pistas, cada una con su motor: PULSE, WAVE, NOISE, FM (una pista, 6 operadores), KIT (8 kits) o SAMPLE (los breaks o tus propios sonidos).</li>" +
            "<li><b>ALGORITHM</b> elige la pista, <b>SELECT</b> la fila, <b>PRESETS</b> el patrón. <b>KNOB 1 a 4</b> (<span class=\"k1\">rojo</span>, <span class=\"k2\">amarillo</span>, <span class=\"k3\">verde</span>, <span class=\"k4\">azul</span> en todas las páginas) cambian la celda: sus etiquetas dicen lo que hacen.</li>" +
            "<li><b>REC</b> y luego las teclas: las notas se escriben en el cursor (a tiempo mientras suena). REC mantenido + SELECT: cuántas filas salta una nota. <b>ARP</b> borra la celda.</li>" +
-           "<li><b>HOME</b> las pistas (mantenido: la ayuda de la página) · <b>SEQ</b> la rejilla · <b>EDIT</b> el sonido, otra vez para la página siguiente (SELECT elige el motor) · <b>ENV</b> la envolvente, otra vez MEZCLA · <b>GLO</b> la canción, otra vez las opciones.</li>" +
+           "<li><b>HOME</b> las pistas (mantenido: la ayuda de la página) · <b>SEQ</b> la rejilla · <b>EDIT</b> el sonido, otra vez para la página siguiente (SELECT elige el motor) · <b>ENV</b> la envolvente, otra vez MEZCLA · <b>GLO</b> la canción, otra vez el groove, luego las opciones.</li>" +
            "<li><b>SAVE</b>: canción nueva, guardar, guardar como, cargar, renombrar, demo (<b>OCT+</b> OK, <b>OCT−</b> atrás). SAVE mantenido + OCT−: deshacer, + OCT+: rehacer.</li>",
       g2: "Efectos y magia",
       g2l: "<li>Mantén <b>FX</b> y toca las teclas blancas: 32 efectos en vivo (<b>OCT+</b> el segundo banco), en el master o en una pista. Un toque corto deja la página abierta.</li>" +
            "<li><b>LFO</b> abre la magia: trocear el break, escribir un ritmo, una melodía o un bajo en la escala (<b>SCL</b>), Euclides, redobles…</li>" +
            "<li><b>MEZCLA</b> (ENV dos veces): los niveles y el efecto master. Las teclas negras silencian; ARP mantenido + tecla negra: solo.</li>" +
            "<li>ARP mantenido + SELECT: una fila más o menos; + ALGORITHM: en todo el patrón.</li>" +
-           "<li><b>EDIT</b> una y otra vez: SONIDO, SONIDO 2, (FM: OPERADOR, ENV. OP), EFECTO, LFO, MODULACIÓN.</li>",
+           "<li><b>EDIT</b> una y otra vez: SONIDO, SONIDO 2, (FM: OPERADOR, ENV. OP; SAMPLE: EDITAR SAMPLE), EFECTO, LFO, MODULACIÓN, TABLA.</li>" +
+           "<li>Dos efectos por celda: <b>ARP</b> mantenido + KNOB 3 y 4 ajustan el segundo. SAL salta a una fila, FIN termina el patrón.</li>",
       g3: "Con el teclado",
       g3l: "<li>Notas: las filas <kbd>Z X C V…</kbd> y <kbd>Q W E R…</kbd> (posiciones de las teclas, QWERTY o AZERTY).</li>" +
            "<li><kbd>Espacio</kbd> PLAY · <kbd>Intro</kbd> REC · <kbd>Mayús</kbd> mantenido FX · <kbd>Retroceso</kbd> ARP · <kbd>Esc</kbd> HOME · <kbd>-</kbd> <kbd>=</kbd> OCT− OCT+.</li>" +

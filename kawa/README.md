@@ -100,6 +100,8 @@ SOURCE = MY 1 to 4.
   files of the JieLi AC79 SDK. See [BUILDING.md](BUILDING.md).
 - `tests/run_loader_tests.sh` tests the install path: damaged packages, power cuts, an unknown chip.
 - `tests/run_kits_test.sh` and `tests/breaks_check.py` measure the drum kits and the breaks.
+- `tests/run_stress_test.sh` plays every sound, effect and live effect at the ends of their knobs (16 minutes of
+  sound) under UBSan, and stops at the first number that wraps (a click on the FM-1).
 
 ## Support KAWA
 

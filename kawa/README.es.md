@@ -104,6 +104,8 @@ FUENTE = MI 1 a 4.
 - `tests/run_loader_tests.sh` prueba la instalación: paquetes dañados, cortes de corriente, un chip
   desconocido.
 - `tests/run_kits_test.sh` y `tests/breaks_check.py` miden los kits de batería y los breaks.
+- `tests/run_stress_test.sh` toca cada sonido, efecto y efecto en directo en los extremos de sus potenciómetros
+  (16 minutos de sonido) bajo UBSan, y se detiene en el primer número que desborda (un clic en el FM-1).
 
 ## Apoyar KAWA
 

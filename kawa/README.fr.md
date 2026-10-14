@@ -105,6 +105,9 @@ choisis SOURCE = MON 1 à 4.
   fichiers du SDK JieLi AC79. Voir [BUILDING.md](BUILDING.md).
 - `tests/run_loader_tests.sh` teste le chemin d'installation : paquets abîmés, coupures de courant, puce
   inconnue.
+- `tests/run_kits_test.sh` et `tests/breaks_check.py` mesurent les kits de batterie et les breaks.
+- `tests/run_stress_test.sh` joue chaque son, effet et effet live aux bouts de leurs potards (16 minutes de son)
+  sous UBSan, et s'arrête au premier nombre qui déborde (un clic sur le FM-1).
 
 ## Soutenir KAWA
 

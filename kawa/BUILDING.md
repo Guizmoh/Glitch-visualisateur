@@ -65,6 +65,14 @@ On an unknown flash chip it writes nothing and the old firmware starts again. Af
 `tests/run_loader_tests.sh` runs both steps of an update on a computer against the package (it needs
 `AC79_SDK` too).
 
+The audio interrupt works in integers, and a number that wraps is a full-scale click on the FM-1.
+`tests/run_stress_test.sh` builds KAWA on the computer under UBSan and plays every factory sound with every
+track effect, every master effect and every live effect at the ends of their knobs, the kits at DECAY +8 and
+DRIVE 15, and FM loud and panned (about 16 minutes of sound): it stops at the first integer that wraps and
+names the line. The products that can go past 32 bits are done in 64 (one `smul` on the pi32v2; only a 64-bit
+division is not allowed). `tests/run_kits_test.sh` measures the drums (clipping, DC, the hits ending, how far
+apart the kits are), and `tests/breaks_check.py` the breaks.
+
 ## Safety: rescue, and back to the official firmware
 
 - **Rescue.** Hold OCT- while switching on, or let KAWA fail to start twice within 30 s: the screen shows

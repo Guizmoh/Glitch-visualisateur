@@ -8,6 +8,7 @@
 tests/run_host.sh                    # tests/tour.txt: the demo, every page, live effects
 tests/run_host.sh tests/edit.txt     # step entry, the chopper, undo, the grid, saving
 tests/run_host.sh tests/docs-en.txt  # the screens of the docs (docs-fr.txt, docs-es.txt)
+tests/run_host.sh tests/new03.txt    # 0.3's pages: TABLE, SAMPLE EDIT, GROOVE, the clock, the second column
 ```
 
 It compiles `firmware/src/kawa.c` with `tests/host.c` (a fake FM-1) using the system C compiler. It writes
@@ -42,7 +43,7 @@ embedded in the page, so `emulateur/index.html` stands alone.
 
 ```sh
 ./build.sh                  # -> build/kawa.fwsc, identity FM-1_950
-./build.sh --release 0.2    # -> build/kawa-0.2.fwsc, identity FM-1_952, version "0.2" on the screen
+./build.sh --release 0.3    # -> build/kawa-0.3.fwsc, identity FM-1_953, version "0.3" on the screen
 ```
 
 `JIELI_TOOLCHAIN` and `AC79_SDK` override the default locations. The build fails on what would brick or
@@ -68,8 +69,14 @@ On an unknown flash chip it writes nothing and the old firmware starts again. Af
 The audio interrupt works in integers, and a number that wraps is a full-scale click on the FM-1.
 `tests/run_stress_test.sh` builds KAWA on the computer under UBSan and plays every factory sound with every
 track effect, every master effect and every live effect at the ends of their knobs, the kits at DECAY +8 and
-DRIVE 15, and FM loud and panned (about 16 minutes of sound): it stops at the first integer that wraps and
-names the line. The products that can go past 32 bits are done in 64 (one `smul` on the pi32v2; only a 64-bit
+DRIVE 15, FM loud and panned, then 0.3's features at theirs: two tricks in every cell, HOP and END on every
+row, tables a tick a step with HITs, the groove at 1 and 12 ticks at 40 and 300 BPM, sample edits of no width
+and x16 on a full-scale sound, the MIDI clock in at 40 and 300 BPM with bursts and gaps (about 17 minutes of
+sound): it stops at the first integer that wraps and names the line, and checks every voice and table ends.
+`tests/run_features_test.sh` plays the new features through the audio interrupt and checks what comes out
+(HOP, END, the two columns, a table's steps and HITs, the groove's row lengths and clock ticks, the sample
+edit's positions and gain, the clock in: rows within a tick of the clock, 3 to 5 ms after it in blocks of
+256 frames with 0..3 ms of jitter, and a PLAY that waits for a clock that does not come). The products that can go past 32 bits are done in 64 (one `smul` on the pi32v2; only a 64-bit
 division is not allowed). `tests/run_kits_test.sh` measures the drums (clipping, DC, the hits ending, how far
 apart the kits are), and `tests/breaks_check.py` the breaks.
 
@@ -99,6 +106,18 @@ apart the kits are), and `tests/breaks_check.py` the breaks.
 | `firmware/gen/kawa_breaks.h` | `tools/gen_breaks.py` | six breaks, synthesised, 22050 Hz, 8-bit mu-law (needs numpy; `--wav DIR` to listen; `tests/breaks_check.py` checks them) |
 | `firmware/gen/kawa_tables.h` | `tools/gen_tables.py` | fixed-point tables: pitch, envelopes, filters, the 4-bit waves |
 | `firmware/gen/felucca_font.h` | Dinghy | Terminus 8 x 16 (SIL OFL 1.1) |
+
+## The project format
+
+A project is format 5 (KAWA 0.3): 32 patterns of 32 rows of six cells of 5 bytes (the note; the volume on 4
+bits and two tricks on 6 bits each; their two values) and the LIVE lane, the six sounds and the FM patch, the
+song, then a table per track (16 steps of 4 bytes, its speed, length, loop), a sample edit per track (start,
+end, 16 slices in 65536ths of the sound, the gain, reverse) and the groove: 33,072 bytes with its CRC-32, in a
+36 KB slot. A format-4 project (KAWA 0.2: cells of 4 bytes, none of the rest) is converted in place when it
+loads (`prj_from_v4` in `kawa_edit.c`: from the last pattern and the last cell, so nothing not yet read is
+written over) and keeps playing as it did; `tests/run_format_test.sh` checks it with projects written by
+0.2's own code (`tests/fixtures/`), a damaged one, and a format-5 one with every field, byte for byte.
+Everything that comes from a slot goes through `prj_sanitize` before the audio interrupt sees it.
 
 ## Memory and flash
 

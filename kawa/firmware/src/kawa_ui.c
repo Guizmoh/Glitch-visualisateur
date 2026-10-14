@@ -197,8 +197,9 @@ static void leds_flush(void)
 static int quiet(void)                          /* nothing sounds (the flash can be erased) */
 {
     uint32_t t;
-    for (t = 0; t < NTRK; t++)
-        if (tk[t].stage || tk[t].amp || drum[t][0].on || drum[t][1].on || smp[t][0].on || smp[t][1].on)
+    for (t = 0; t < NTRK; t++)                  /* (a KIT or slice track sounds through its drum or sample voices: its */
+        if ((note_mode(t) == NM_NOTE && (tk[t].stage || tk[t].amp)) ||   /* envelope may hold, nothing is heard) */
+            drum[t][0].on || drum[t][1].on || smp[t][0].on || smp[t][1].on)
             return 0;
     return !fmn[0].live && !fmn[1].live;
 }
@@ -1585,6 +1586,37 @@ static void write_cell(uint32_t pi, uint32_t r, uint32_t t, uint32_t note, uint3
     c->fxv = (uint8_t)fxv;
 }
 
+/* a note heard to try something (a step, a cell, a sound): it ends by itself after a moment (app_step) */
+static uint8_t pv_note[NTRK];
+static uint32_t pv_ms[NTRK];
+static void try_note(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint32_t fxv)
+{
+    ev_push(EV_ON, t, note, vol, fx, fxv);
+    pv_note[t] = (uint8_t)note;
+    pv_ms[t] = fm1_ms | 1u;
+}
+static void try_note_ends(void)
+{
+    uint32_t t;
+    for (t = 0; t < NTRK; t++)
+        if (pv_ms[t] && fm1_ms - pv_ms[t] > 300u) {
+            ev_push(EV_OFF, t, pv_note[t], 0, 0, 0);
+            pv_ms[t] = 0;
+        }
+}
+
+/* the pattern that plays after this one ends (a live take on its first row) */
+static uint32_t next_pat(void)
+{
+    if (prj.mode && prj.song_len) {
+        uint32_t pos = sq_songpos;
+        if (pos >= prj.song_len) pos = 0;
+        else if (sq_rep + 1u >= song_rep(pos)) pos = (pos + 1u) % prj.song_len;
+        return prj.song[pos].pat < NPAT ? prj.song[pos].pat : 0u;
+    }
+    return sq_next < NPAT ? sq_next : sq_pat;
+}
+
 static void key_down(uint32_t k)
 {
     uint8_t fx, fxv;
@@ -1596,13 +1628,17 @@ static void key_down(uint32_t k)
     key_note[k] = (uint8_t)note;
     key_trk[k] = (uint8_t)t;
     brush_note[t] = note;
+    pv_ms[t] = 0;                               /* (the key has the voice now: no preview's end cuts it) */
     ev_push(EV_ON, t, note, vol, fx, fxv);
     if (!rec || (page != PG_TRACK && page != PG_GRID && page != PG_SOUND && page != PG_ENV))
         return;
     if (sq_play && sq_pat == ui_pat) {          /* live take: on the nearest row */
         uint32_t pi = sq_pat, r = sq_row, len = prj.pat[pi].len ? prj.pat[pi].len : 16u;
-        if (sq_frac > 0x80000000u) {
-            r = (r + 1u) % len;
+        if (sq_frac > 0x80000000u) {            /* the second half of the row: the next one */
+            if (++r >= len) {
+                r = 0;
+                pi = next_pat();                /* (the first row of the pattern that comes next) */
+            }
             sq_suppress[t] = 1;
         }
         write_cell(pi, r, t, note, vol, fx, fxv, 1);
@@ -1663,7 +1699,7 @@ static void cell_turn(cell_t *c, uint32_t pi, uint32_t t, uint32_t knob, int32_t
         if (c->note && c->note != NOTE_OFF) {
             if (!c->vol) c->vol = brush_vol[t];
             brush_note[t] = c->note;
-            if (preview && !sq_play) ev_push(EV_ON, t, c->note, c->vol, c->fx, c->fxv);
+            if (preview && !sq_play) try_note(t, c->note, c->vol, c->fx, c->fxv);
         }
         break;
     }
@@ -1750,14 +1786,14 @@ static void knob(uint32_t i, int32_t d)
         if (i == 0u) prj.root = (uint8_t)((prj.root + 12 + d % 12 + 12) % 12);
         else if (i == 1u) prj.scale = (uint8_t)clampi(prj.scale + d, 0, 11);
         else if (i == 2u) prj.lock = (uint8_t)clampi(prj.lock + d, 0, 1);
-        else prj.step = (uint8_t)clampi(prj.step + d, 0, 8);
+        else prj.step = (uint8_t)clampi(prj.step + d, 0, 16);
         touched();
         break;
     case PG_SONG:
         if (i == 0u) prj.bpm = (uint16_t)clampi(prj.bpm + d, 40, 300);
         else if (i == 1u) prj.swing = (uint8_t)clampi(prj.swing + d, 50, 75);
-        else if (i == 2u) { if (song_cur < prj.song_len) prj.song[song_cur].rep = (uint8_t)clampi(prj.song[song_cur].rep + d, 1, 16); }
-        else { undo_push_merge(ui_pat, 1); P()->len = (uint8_t)clampi((int32_t)plen() + d, 1, NROW); }
+        else if (i == 2u) { follow = 0; if (song_cur < prj.song_len) prj.song[song_cur].rep = (uint8_t)clampi(prj.song[song_cur].rep + d, 1, 16); }
+        else { follow = 0; undo_push_merge(ui_pat, 1); P()->len = (uint8_t)clampi((int32_t)plen() + d, 1, NROW); }
         touched();
         break;
     case PG_PROJ:
@@ -1800,11 +1836,18 @@ static void pm_do(uint32_t act)                 /* the action, its questions ans
 {
     if (sq_play) sq_req = 2;
     switch (act) {
-    case PM_NEW: prj_new(); proj_cur = 0xFF; song_fresh(prj.name); break;
-    case PM_DEMO: prj_demo(); proj_cur = 0xFF; song_fresh("DEMO !"); break;
+    case PM_NEW: case PM_DEMO:
+        ev_push(EV_KILL, NTRK, 0, 0, 0, 0);     /* (every voice of the old song goes) */
+        if (act == PM_NEW) prj_new(); else prj_demo();
+        proj_cur = 0xFF;
+        dirty = 0;                              /* nothing to lose yet; the autosave takes it */
+        auto_due = 1;
+        song_fresh(act == PM_NEW ? prj.name : "DEMO !");
+        break;
     case PM_LOAD:
         if (prj_load(pm_slot)) { toast(TR("RIEN ICI", "NOTHING HERE", "NADA AQUI")); pm_state = PMS_SLOT; break; }
-        proj_cur = pm_slot ? pm_slot : 0xFF;
+        ev_push(EV_KILL, NTRK, 0, 0, 0, 0);     /* (every voice of the old song goes) */
+        proj_cur = prj.home >= 1u && prj.home < NSLOT ? prj.home : 0xFF;
         song_fresh(TR("CHARGE !", "LOADED !", "CARGADO !"));
         break;
     case PM_SAVE: case PM_SAVEAS:
@@ -1932,6 +1975,7 @@ static void button_down(uint32_t b)
         } else if (page == PG_FX) { fx_bank = d > 0; lfx_keys = 0; }
         else if (page == PG_PROJ) { if (d > 0) pm_ok(); else pm_back(); }
         else if (page == PG_SONG) {
+            follow = 0;
             if (d > 0) {                        /* a copy of the entry after it (or the pattern on screen) */
                 uint32_t at = song_cur < prj.song_len ? song_cur + 1u : prj.song_len;
                 uint32_t pn = song_cur < prj.song_len ? prj.song[song_cur].pat : ui_pat;
@@ -2003,7 +2047,7 @@ static void grid_key(uint32_t i, int down)
         if (c->note) write_cell(ui_pat, r, t, 0, 0, 0, 0, 0);
         else {
             write_cell(ui_pat, r, t, brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t], 0);
-            if (!sq_play) ev_push(EV_ON, t, brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t]);
+            if (!sq_play) try_note(t, brush_note[t], brush_vol[t], brush_fx[t], brush_fxv[t]);
         }
     }
     if (grid_held == (int8_t)i) grid_held = -1;
@@ -2011,13 +2055,21 @@ static void grid_key(uint32_t i, int down)
 
 static void keys_input(void)
 {
-    uint32_t keys = fm1_in.notes | fm1_input_note_edges(), down = keys & ~prev_keys, up = prev_keys & ~fm1_in.notes, k;
-    prev_keys = fm1_in.notes;
+    static uint32_t keys_played;                /* keys that played a note (key_down): their release ends it, */
+    uint32_t edges = fm1_input_note_edges(), keys = fm1_in.notes | edges, k, pass;   /* whatever the page then */
+    uint32_t down = keys & ~prev_keys, up = (prev_keys | edges) & ~fm1_in.notes;   /* (a tap quicker than a pass: */
+    prev_keys = fm1_in.notes;                                                     /* down and up both) */
     if (down | up) last_input_ms = fm1_ms;
+    for (pass = 0; pass < 2u; pass++)           /* the presses, then the releases */
     for (k = 0; k < 27u; k++) {
         int32_t w = WHITE_OF_KEY[k], bl = BLACK_OF_KEY[k];
-        uint32_t dn = down >> k & 1u, u = up >> k & 1u;
+        uint32_t dn = pass == 0u ? down >> k & 1u : 0u, u = pass == 1u ? up >> k & 1u : 0u;
         if (!dn && !u) continue;
+        if (u && (keys_played >> k & 1u)) {    /* a note played: it ends, on whatever page */
+            keys_played &= ~(1u << k);
+            key_up(k);
+            continue;
+        }
         switch (page) {
         case PG_FX:
             if (w >= 0) {
@@ -2025,6 +2077,7 @@ static void keys_input(void)
                 if (dn) lfx_keys |= 1u << id;
                 else lfx_keys &= ~(1u << id);
                 rec_live = (uint8_t)(rec && sq_play);
+                if (dn && rec_live) undo_push_merge(sq_pat, 1);   /* a take into the LIVE lane: an edit */
             } else if (dn && bl < (int32_t)NTRK)
                 live_mute ^= (uint8_t)(1u << bl);
             break;
@@ -2040,10 +2093,12 @@ static void keys_input(void)
                 str_cat(str_cat(str_cat(s, MAGIC[w].name[lang]), " "), r);
                 toast(s);
                 mg_seed = (uint8_t)((mg_seed + 1u) % 100u);
-                if (mg_clone_to < NPAT) {       /* CLONE: here is the new one */
-                    ui_pat = mg_clone_to;
+                if (mg_clone_to < NPAT) {       /* CLONE: here is the new one (and it stays here: no follow; */
+                    ui_pat = mg_clone_to;       /* in loop mode it plays next) */
                     mg_clone_to = 0xFF;
                     if (cur_row >= plen()) cur_row = 0;
+                    follow = (uint8_t)(sq_play && ui_pat == sq_pat);
+                    if (sq_play && !prj.mode) sq_next = ui_pat;
                 }
             } else if (dn && bl < (int32_t)NTRK)
                 cur_trk = (uint8_t)bl;
@@ -2057,10 +2112,11 @@ static void keys_input(void)
                     touched();
                 }
             }
-            else if (cur_trk < NTRK) { if (dn) key_down(k); else key_up(k); }
+            else if (cur_trk < NTRK && dn) { key_down(k); keys_played |= 1u << k; }
             break;
         case PG_SONG:
             if (dn && w >= 0 && song_cur <= prj.song_len && song_cur < NSONG) {
+                follow = 0;                     /* (an edit: the cursor stops following the song) */
                 if (song_cur == prj.song_len) song_insert(song_cur, (uint32_t)w, 1);
                 else { prj.song[song_cur].pat = (uint8_t)w; touched(); }
                 ui_pat = (uint8_t)w;
@@ -2073,8 +2129,7 @@ static void keys_input(void)
         case PG_OPT: case PG_HELP:
             break;
         default:
-            if (dn) key_down(k);
-            else key_up(k);
+            if (dn) { key_down(k); keys_played |= 1u << k; }
             break;
         }
     }
@@ -2115,7 +2170,7 @@ static void ui_input(void)
     if (d != 0) {
         last_input_ms = fm1_ms;
         switch (page) {
-        case PG_GRID: if (plen() > 16u) grid_page = (uint8_t)(d > 0 ? 1u : 0u); break;
+        case PG_GRID: grid_page = (uint8_t)(d > 0 && plen() > 16u ? 1u : 0u); break;
         case PG_SONG:
             song_cur = (uint8_t)clampi(song_cur + d, 0, prj.song_len < NSONG ? prj.song_len : NSONG - 1);
             if (song_cur < prj.song_len) { ui_pat = prj.song[song_cur].pat; follow = 0; }
@@ -2137,7 +2192,7 @@ static void ui_input(void)
                 sound_preset(t, preset_first(e));
                 brush_note[t] = lane_base(t);
                 touched();
-                if (!sq_play) ev_push(EV_ON, t, brush_note[t], 12, 0, 0);
+                if (!sq_play) try_note(t, brush_note[t], 12, 0, 0);
             }
             break;
         }
@@ -2172,7 +2227,7 @@ static void ui_input(void)
             sound_preset(t, k);
             brush_note[t] = lane_base(t);
             touched();
-            if (!sq_play) ev_push(EV_ON, t, brush_note[t], 12, 0, 0);
+            if (!sq_play) try_note(t, brush_note[t], 12, 0, 0);
         } else if (page == PG_SONG) {
             if (song_cur < prj.song_len) {
                 prj.song[song_cur].pat = (uint8_t)clampi(prj.song[song_cur].pat + d, 0, NPAT - 1);
@@ -2190,11 +2245,17 @@ static void ui_input(void)
         }
     keys_input();
     while (1) {                                 /* USB-MIDI in plays the track under the cursor */
+        static uint8_t midi_trk[128];           /* (the note-off goes where the note-on went) */
         uint8_t st, d1, d2;
         uint32_t t = trk();
         if (!midi_get(&st, &d1, &d2)) break;
-        if ((st & 0xF0u) == 0x90u && d2) ev_push(EV_ON, t, IS_TONAL(t) ? d1 : 1u + d1 % 16u, 1u + d2 / 9u, 0, 0);
-        else if ((st & 0xF0u) == 0x80u || (st & 0xF0u) == 0x90u) ev_push(EV_OFF, t, d1, 0, 0, 0);
+        d1 &= 127u;
+        if ((st & 0xF0u) == 0x90u && d2) {
+            midi_trk[d1] = (uint8_t)t;
+            pv_ms[t] = 0;
+            ev_push(EV_ON, t, IS_TONAL(t) ? d1 : 1u + d1 % 16u, 1u + d2 / 9u, 0, 0);
+        } else if ((st & 0xF0u) == 0x80u || (st & 0xF0u) == 0x90u)
+            ev_push(EV_OFF, midi_trk[d1] < NTRK ? midi_trk[d1] : t, d1, 0, 0, 0);
     }
 }
 
@@ -2292,6 +2353,7 @@ static void app_init(void)
     usr_boot();                                 /* the user's samples (kawa_sysex.c) */
     if (prj_load(0))
         prj_demo();                             /* nothing saved: the demo, ready to play */
+    proj_cur = prj.home >= 1u && prj.home < NSLOT ? prj.home : 0xFF;   /* (SAVE goes back into its slot) */
     boot_ms = fm1_ms;
     last_input_ms = fm1_ms;
     g_force = 1;
@@ -2305,10 +2367,15 @@ static void app_step(void)
         ui_pat = sq_pat;                        /* playing: the screen follows (until the pattern is changed by hand) */
         if (cur_row >= plen()) cur_row = 0;
     }
-    if (sq_play && follow && prj.mode && page == PG_SONG)
-        song_cur = sq_songpos;
+    if (sq_play && follow && prj.mode && page == PG_SONG) {
+        song_cur = sq_songpos;                  /* (and the pattern the knobs act on is the one playing) */
+        if (song_cur < prj.song_len) ui_pat = prj.song[song_cur].pat;
+    }
     if (cur_row >= plen())
         cur_row = 0;
+    if (grid_page && plen() <= 16u)
+        grid_page = 0;
+    try_note_ends();
     if (fm1_ms - ui_frame_ms >= 33u) {          /* ~30 frames a second, only what changed is sent */
         ui_frame_ms = fm1_ms;
         ui_leds();
@@ -2318,9 +2385,10 @@ static void app_step(void)
         set_dirty = 0;                          /* the settings (erasing stalls the sound: only when silent) */
         settings_save(&set, sizeof set);
     }
-    if (dirty && !sq_play && quiet() && fm1_ms - dirty_ms > 8000u && fm1_ms - last_input_ms > 8000u) {
-        prj_save(0);                            /* the autosave (erasing stalls the sound: only when silent) */
-        toast("AUTO");
+    if (auto_due && !sq_play && quiet() && fm1_ms - dirty_ms > 8000u && fm1_ms - last_input_ms > 8000u) {
+        uint32_t d = dirty;                     /* the autosave (erasing stalls the sound: only when silent) */
+        if (prj_save(0)) dirty_ms = fm1_ms;     /* (a flash error: again in 8 s, not at every pass) */
+        else if (d) toast("AUTO");
     }
 }
 

@@ -37,7 +37,8 @@ typedef struct {
     sound_t snd[NTRK];
     uint8_t mute, step;
     int8_t mfx[4];                              /* the master's effect: type, A, B, mix */
-    uint8_t pad[2];
+    uint8_t home, unsaved;                      /* the user's slot it was saved to or loaded from (0: none); changes
+                                                 * not saved into it (the autosave keeps both: they come back at boot) */
     uint8_t fmp[156];                           /* the FM track's patch (its operators, edited in EDIT) */
     pat_t pat[NPAT];
     uint32_t crc;
@@ -76,6 +77,10 @@ static volatile uint8_t sq_play;                /* the sequencer runs (ISR) */
 static volatile uint8_t sq_req;                 /* main -> ISR: 1 start, 2 stop */
 static volatile uint8_t sq_pat, sq_row;         /* ISR: what plays now */
 static volatile uint8_t sq_next = 0xFF;         /* main: the pattern to go to at the end of this one (loop mode) */
+static volatile int32_t sq_adj;                 /* main: song entries inserted (+1) or deleted (-1) before the one
+                                                 * playing, all told (the ISR moves its position as much) */
+static volatile uint8_t sq_goto = 0xFF;         /* main: the entry to go to at the end of this pattern (the one playing
+                                                 * was deleted); the ISR takes it */
 static volatile uint8_t sq_songpos, sq_rep;     /* ISR: the song position playing, and its repeat so far */
 static volatile uint8_t sq_start_pat, sq_start_pos;   /* main: where a start begins */
 static volatile uint32_t sq_rowtick;            /* ISR: counts rows played (the screen follows it) */
@@ -105,7 +110,7 @@ static uint32_t g_beatpos;                      /* ISR: frames since the last be
 typedef struct {
     uint8_t type, trk, note, vol, fx, fxv;
 } ev_t;
-enum { EV_ON = 1, EV_OFF, EV_ALLOFF };
+enum { EV_ON = 1, EV_OFF, EV_ALLOFF, EV_KILL };   /* EV_KILL: a track's voices go now (its engine changed; trk NTRK: all) */
 #define EVQ 32u
 static ev_t evq[EVQ];
 static volatile uint32_t evq_w, evq_r;

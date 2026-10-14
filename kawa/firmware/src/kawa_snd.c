@@ -433,6 +433,20 @@ static void voices_silence(void)
         voice_off(t);
 }
 
+static void voice_kill(uint32_t t)               /* the engine changed (t NTRK: all tracks): the old voices go now, */
+{                                                /* nothing would play them out (the gain fades in a chunk) */
+    uint32_t a = t < NTRK ? t : 0u, b = t < NTRK ? t + 1u : NTRK;
+    for (t = a; t < b; t++) {
+        tk[t].gate = 0;
+        tk[t].stage = 0;
+        tk[t].env = 0;
+        drum[t][0].on = drum[t][1].on = 0;
+        smp[t][0].on = smp[t][1].on = 0;
+        if (t == fm_trk)
+            fmn[0].live = fmn[1].live = 0;
+    }
+}
+
 /* ---- the LFO of a track, once a chunk: -32767..32767 x depth / 15 */
 static void lfo_chunk(trk_t *v, const int8_t *p)
 {

@@ -12,6 +12,7 @@ static uint32_t s_phase, s_inc_even = 1117000u, s_inc_odd = 1117000u, s_len_even
 static uint8_t s_pat, s_row, s_pos, s_rep, s_again_row;
 static uint16_t s_bpm;
 static uint8_t s_swing, s_trip, s_again, s_tick6;
+static int32_t s_adj;                           /* sq_adj as last applied */
 static struct {
     uint8_t note, vol, fx, fxv, pending, roll_n, roll_k, cut;
     uint16_t delay16;
@@ -55,6 +56,8 @@ static void seq_row_start(void)
     uint32_t t;
     for (t = 0; t < NTRK; t++) {
         const cell_t *c = &pt->c[s_row][t];
+        uint32_t sup = sq_suppress[t];          /* (taken at every row: it is about this row only) */
+        sq_suppress[t] = 0;
         st[t].note = c->note;
         st[t].vol = c->vol;
         st[t].fx = c->fx;
@@ -77,10 +80,8 @@ static void seq_row_start(void)
             }
             continue;
         }
-        if (sq_suppress[t]) {                   /* played live a moment ago: do not play it twice */
-            sq_suppress[t] = 0;
+        if (sup)                                /* played live a moment ago: do not play it twice */
             continue;
-        }
         if (c->fx == FX_CHANCE && (xr(&rnd_isr) >> 8) % 10u >= c->fxv)
             continue;
         if (c->fx == FX_DELAY) {
@@ -111,6 +112,8 @@ static void seq_start(void)
     s_row = 0;
     s_phase = 0;
     s_again = 0;
+    s_adj = sq_adj;                             /* (a fresh start: earlier song edits are already in place) */
+    sq_goto = 0xFF;
     seq_tempo();
     sq_pat = s_pat;
     sq_row = 0;
@@ -134,7 +137,11 @@ static void seq_next_row(void)
     if (s_row >= len) {                         /* the end of the pattern */
         s_row = 0;
         if (prj.mode && prj.song_len) {
-            if (s_pos >= prj.song_len)
+            if (sq_goto < NSONG) {              /* the entry playing was deleted: the one after it */
+                s_pos = sq_goto < prj.song_len ? sq_goto : 0u;
+                s_rep = 0;
+                sq_goto = 0xFF;
+            } else if (s_pos >= prj.song_len)
                 s_pos = 0, s_rep = 0;
             else if (++s_rep >= song_rep(s_pos)) {   /* played its times: the next entry */
                 s_rep = 0;
@@ -231,6 +238,12 @@ static void app_audio(int32_t *out, uint32_t n)
     }
     if (audio_hold)                             /* the flash is being written (kawa_sysex.c): silence */
         return;
+    if (sq_adj != s_adj) {                      /* song entries inserted or deleted before the one playing */
+        int32_t p = (int32_t)s_pos + (sq_adj - s_adj);
+        s_adj = sq_adj;
+        s_pos = (uint8_t)(p < 0 ? 0 : p);
+        sq_songpos = s_pos;
+    }
     while (evq_r != evq_w) {                    /* the keys */
         const ev_t *e = &evq[evq_r % EVQ];
         if (e->type == EV_ON)
@@ -240,6 +253,8 @@ static void app_audio(int32_t *out, uint32_t n)
                 voice_off(e->trk);
         } else if (e->type == EV_ALLOFF)
             voices_silence();
+        else if (e->type == EV_KILL)
+            voice_kill(e->trk);
         evq_r++;
     }
     if (sq_req == 1u) {

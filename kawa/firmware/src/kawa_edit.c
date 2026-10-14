@@ -77,6 +77,8 @@ static void sound_preset(uint32_t t, uint32_t k)   /* a factory sound: SOUND and
 {
     const preset_t *pr = &PRESETS[k % NPRESET];
     uint32_t i;
+    if (pr->engine != prj.snd[t].engine)
+        ev_push(EV_KILL, t, 0, 0, 0, 0);        /* another engine: the old one's voices would never end */
     prj.snd[t].engine = pr->engine;
     prj.snd[t].preset = (uint8_t)(k % NPRESET);
     for (i = 0; i < 8u; i++)
@@ -372,34 +374,51 @@ static void prj_demo(void)
 typedef struct {
     pat_t pat[NUNDO];
     uint8_t idx[NUNDO], n, top;
+    uint8_t sop[NUNDO], sat[NUNDO];             /* and the song with it (CLONE): 1 take entry sat out, 2 put it back */
 } hist_t;
 static hist_t undo_h, redo_h;
 static uint32_t undo_pat_last = 0xFFu, undo_ms_last;
-static uint8_t dirty;                           /* changed since the last save */
+static uint8_t dirty;                           /* changed since the last save into a slot of the user's (the '*') */
+static uint8_t auto_due;                        /* changed since the autosave */
 static uint32_t dirty_ms;
+static int song_insert(uint32_t at, uint32_t pat, uint32_t rep);
+static void song_delete(uint32_t at);
 static void touched(void)
 {
     dirty = 1;
+    auto_due = 1;
     dirty_ms = fm1_ms;
 }
 static void hist_push(hist_t *h, uint32_t p)
 {
     h->pat[h->top] = prj.pat[p];
     h->idx[h->top] = (uint8_t)p;
+    h->sop[h->top] = 0;
     h->top = (uint8_t)((h->top + 1u) % NUNDO);
     if (h->n < NUNDO)
         h->n++;
 }
 static int hist_pop(hist_t *h, hist_t *other)   /* put the last state back, keep the present in other */
 {
-    uint32_t p;
+    uint32_t p, op, at, o;
     if (!h->n)
         return -1;
     h->top = (uint8_t)((h->top + NUNDO - 1u) % NUNDO);
     h->n--;
     p = h->idx[h->top];
+    op = h->sop[h->top];
+    at = h->sat[h->top];
     hist_push(other, p);
+    o = (other->top + NUNDO - 1u) % NUNDO;
     prj.pat[p] = h->pat[h->top];
+    if (op == 1u && at < prj.song_len && prj.song[at].pat == p && prj.song_len > 1u) {
+        song_delete(at);                        /* CLONE undone: its song entry goes too */
+        other->sop[o] = 2;
+        other->sat[o] = (uint8_t)at;
+    } else if (op == 2u && song_insert(at, p, 1)) {
+        other->sop[o] = 1;                      /* redone: and back into the song */
+        other->sat[o] = (uint8_t)at;
+    }
     undo_pat_last = 0xFFu;
     touched();
     return (int)p;
@@ -447,6 +466,8 @@ static int song_insert(uint32_t at, uint32_t pat, uint32_t rep)   /* an entry at
     prj.song[at].pat = (uint8_t)pat;
     prj.song[at].rep = (uint8_t)(rep ? rep : 1u);
     prj.song_len++;
+    if (sq_play && prj.mode && at <= sq_songpos)
+        sq_adj += 1;                            /* the entry playing moved one on: so does the sequencer */
     touched();
     return 1;
 }
@@ -458,6 +479,12 @@ static void song_delete(uint32_t at)
     for (k = at; k + 1u < prj.song_len; k++)
         prj.song[k] = prj.song[k + 1u];
     prj.song_len--;
+    if (sq_play && prj.mode) {
+        if (at < sq_songpos)
+            sq_adj -= 1;                        /* one before it went: the sequencer moves back one */
+        else if (at == sq_songpos)
+            sq_goto = (uint8_t)(at < prj.song_len ? at : 0u);   /* this one went: after it, the one that followed */
+    }
     touched();
 }
 static int song_find(uint32_t pat)              /* the first entry that plays pattern pat, or -1 */
@@ -723,7 +750,11 @@ static const char *mg_clone(uint32_t pi, uint32_t song_at)
         int f = song_find(pi);
         song_at = f < 0 ? prj.song_len : (uint32_t)f;
     }
-    song_insert(song_at + 1u, q, 1);
+    if (song_insert(song_at + 1u, q, 1)) {      /* (undone with the pattern) */
+        uint32_t o = (undo_h.top + NUNDO - 1u) % NUNDO;
+        undo_h.sop[o] = 1;
+        undo_h.sat[o] = (uint8_t)(song_at + 1u);
+    }
     mg_clone_to = (uint8_t)q;
     return "OK";
 }
@@ -749,17 +780,19 @@ static const char *magic_run(uint32_t tool, uint32_t pi, uint32_t t, uint32_t sc
     }
     if (tool == MG_CLONE)
         return mg_clone(pi, song_at);
+    if (tool == MG_PASTE && !clip_kind)
+        return TR("VIDE", "EMPTY", "VACIO");    /* (refused: no undo step, the redo stays) */
+    if (tool == MG_DOUBLE && p->len > 16u)
+        return "MAX 32";
     undo_push(pi);                              /* each tool its own undo step */
     if (tool == MG_PASTE) {
         if (clip_kind == 2) *p = clip_pat;
-        else if (clip_kind == 1)
+        else
             for (k = 0; k < NROW; k++) p->c[k][t] = clip_lane[k];
-        else return TR("VIDE", "EMPTY", "VACIO");
         return TR("COLLE", "PASTED", "PEGADO");
     }
     if (tool == MG_DOUBLE) {
         uint32_t len = p->len, r, tt;
-        if (len > 16u) return "MAX 32";
         for (r = 0; r < len; r++)
             for (tt = 0; tt < NTRK; tt++)
                 if (scope_all || tt == t) p->c[r + len][tt] = p->c[r][tt];
@@ -837,10 +870,17 @@ static int prj_save(uint32_t k)
 {
     prj.magic = PRJ_MAGIC;
     prj.version = PRJ_VERSION;
+    if (k && k < NSLOT)
+        prj.home = (uint8_t)k;
+    prj.unsaved = k ? 0u : dirty;               /* the autosave keeps the '*': it comes back at boot */
     prj.crc = prj_crc(&prj);
     if (store_write(k, &prj, sizeof prj))
         return -1;
-    dirty = 0;
+    if (k) {
+        dirty = 0;                              /* saved into a slot of the user's: the '*' goes, */
+        auto_due = 1;                           /* and the autosave follows (it is what the FM-1 starts with) */
+    } else
+        auto_due = 0;                           /* the autosave leaves the '*' alone */
     return 0;
 }
 
@@ -896,7 +936,12 @@ static int prj_load(uint32_t k)
     if (store_read(k, 0, &prj, sizeof prj))
         return -1;
     prj_sanitize();
-    dirty = 0;
+    if (prj.home >= NSLOT)
+        prj.home = 0;
+    if (k)
+        prj.home = (uint8_t)k;
+    dirty = k ? 0u : (prj.unsaved != 0u);       /* the autosave: what was not saved still is not */
+    auto_due = 0;
     hist_clear();
     brushes_reset();
     return 0;

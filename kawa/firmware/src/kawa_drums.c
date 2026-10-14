@@ -309,9 +309,10 @@ static void drum_chunk(drum_t *v, int32_t *out)
         if (fmode && (non || tf)) {             /* the state-variable filter, Q13 (rounded: no drift) */
             int32_t hp;
             x = (x * qn) >> 13;
-            lp += (f * bp + 4096) >> 13;
-            hp = x - lp - ((q * bp) >> 13);
-            bp += (f * hp + 4096) >> 13;
+            lp += (int32_t)(((int64_t)f * bp + 4096) >> 13);   /* (64 bits: a long noise body, DECAY up, */
+            lp = lp > 131071 ? 131071 : lp < -131071 ? -131071 : lp;   /* went past 32) */
+            hp = x - lp - (int32_t)(((int64_t)q * bp) >> 13);
+            bp += (int32_t)(((int64_t)f * hp + 4096) >> 13);
             bp = bp > 131071 ? 131071 : bp < -131071 ? -131071 : bp;
             x = fmode == F_LP ? lp : fmode == F_BP ? bp : hp;
         }

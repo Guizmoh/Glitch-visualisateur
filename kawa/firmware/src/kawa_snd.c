@@ -116,9 +116,10 @@ static void fx_insert(fxs_t *s, int32_t type, int32_t a, int32_t b, int32_t mix,
         switch (type) {
         case FXT_LPF: case FXT_HPF: case FXT_BPF: case FXT_WAH: {
             int32_t hp;
-            s->lp += (f * s->bp) >> 15;
-            hp = d - s->lp - ((q * s->bp) >> 15);
-            s->bp += (f * hp) >> 15;
+            s->lp += (int32_t)(((int64_t)f * s->bp) >> 15);   /* (64-bit products: a loud KIT or SAMPLE track */
+            s->lp = clampi(s->lp, -400000, 400000);            /* would wrap in 32 and lock the filter) */
+            hp = d - s->lp - (int32_t)(((int64_t)q * s->bp) >> 15);
+            s->bp += (int32_t)(((int64_t)f * hp) >> 15);
             s->bp = clampi(s->bp, -400000, 400000);
             y = type == FXT_LPF ? s->lp : type == FXT_HPF ? hp : s->bp;
             break;
@@ -137,18 +138,18 @@ static void fx_insert(fxs_t *s, int32_t type, int32_t a, int32_t b, int32_t mix,
             break;
         case FXT_RING:
             s->ph += rinc;
-            y = (d * sine(s->ph)) >> 15;
+            y = (int32_t)(((int64_t)d * sine(s->ph)) >> 15);
             break;
         case FXT_TREM:
             if ((i & 15u) == 0u) s->ph += lfo_inc[clampi(4 + a / 4, 0, 10)] ;
-            y = (d * (32767 - ((((32767 - sine(s->ph)) >> 1) * bq) >> 15))) >> 15;
+            y = (int32_t)(((int64_t)d * (32767 - ((((32767 - sine(s->ph)) >> 1) * bq) >> 15))) >> 15);
             break;
         default:
             y = d;
             break;
         }
         wet = y;
-        x[i] = d + (((wet - d) * m) >> 15);
+        x[i] = d + (int32_t)(((int64_t)(wet - d) * m) >> 15);
     }
 }
 
@@ -175,6 +176,7 @@ static trk_t tk[NTRK];
  * project's (prj.fmp: its operators, edited in EDIT) through the track's knobs; the main loop builds it */
 static fm6_note_t fmn[2];
 static uint8_t fm_cur, fm_pos, fm_seen;
+static int32_t fm_vpit[2];                     /* a voice's pitch once it releases (Q8 semitones) */
 static int32_t fm_buf[CTL];
 static uint8_t fm_patch[156];
 static volatile uint8_t fm_gen;
@@ -332,7 +334,7 @@ static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
     trk_t *v = &tk[t];
     const int8_t *p = prj.snd[t].p;
     uint32_t e = prj.snd[t].engine, nm = note_mode(t), i;
-    int32_t sv = (int8_t)fxv, pt = (int32_t)note << 8;
+    int32_t sv = (int8_t)fxv, pt = (int32_t)note << 8, old_pit = v->pitch;   /* (old_pit: an FM release's note) */
     if (note == NOTE_OFF) {
         v->gate = 0;
         if (v->stage && v->stage < 4u) v->stage = 4;
@@ -386,6 +388,7 @@ static void voice_on(uint32_t t, uint32_t note, uint32_t vol, uint32_t fx, uint3
             fm6_note_t *old = &fmn[fm_cur], *n;
             const uint8_t *fp = fm_patch;
             if (old->live && old->down) fm6_note_key(old, fp, 0);
+            fm_vpit[fm_cur] = old_pit;          /* the note it was playing (before this one) */
             fm_cur ^= 1u;
             n = &fmn[fm_cur];
             fm6_note_init(n, fp, (int32_t)note + fp[FP_TRNSP] - 24, (int32_t)(vol * 8u + 7u), 1);
@@ -557,7 +560,7 @@ static void track_chunk(uint32_t t, int32_t *out)
                 ph += inc;
                 if (inc2) {
                     s += (ph2 < duty ? 32767 : -32767) + blep(ph2, inc2) - blep(ph2 - duty, inc2);
-                    s = (s * 23170) >> 15;
+                    s = (int32_t)(((int64_t)s * 23170) >> 15);
                     ph2 += inc2;
                 }
             } else if (e == E_WAVE) {
@@ -578,7 +581,7 @@ static void track_chunk(uint32_t t, int32_t *out)
                 s = (v->lfsr & 1u) ? 26000 : -26000;
             }
             s &= m;
-            lp += ((s - lp) * ton) >> 15;
+            lp += (int32_t)(((int64_t)(s - lp) * ton) >> 15);
             v->dc += (lp * 256 - v->dc) >> 11;  /* ~3 Hz high-pass, as the chips' output capacitors */
             raw[i] = (lp - (v->dc >> 8)) >> 1;
         }
@@ -602,10 +605,10 @@ static void track_chunk(uint32_t t, int32_t *out)
                     fm_buf[j] = 0;
                 lv = fm6_lfo_sample(&fm_lfo);
                 ld = fm6_lfo_delay(&fm_lfo);
-                lf = fm6_note_logfreq((pit >> 4) + (fp[FP_TRNSP] - 24) * 16, 0);
                 for (k = 0; k < 2; k++) {
                     fm6_note_t *n = &fmn[k];
-                    int32_t bus[CTL];
+                    int32_t bus[CTL], vp = k == (int32_t)fm_cur ? pit : pit - v->pitch + fm_vpit[k];
+                    lf = fm6_note_logfreq((vp >> 4) + (fp[FP_TRNSP] - 24) * 16, 0);   /* (the release: its own note) */
                     if (cpu_shed && k != fm_cur)
                         n->live = 0;            /* (the governor: no release voice) */
                     if (!n->live)
@@ -632,14 +635,14 @@ static void track_chunk(uint32_t t, int32_t *out)
         drum_chunk(&drum[t][0], raw);
         drum_chunk(&drum[t][1], raw);
         if (ton < 32767)
-            for (i = 0; i < CHUNK; i++) { v->lp += ((raw[i] - v->lp) * ton) >> 15; raw[i] = v->lp; }
+            for (i = 0; i < CHUNK; i++) { v->lp += (int32_t)(((int64_t)(raw[i] - v->lp) * ton) >> 15); raw[i] = v->lp; }
         active = 1;
     } else {
         if (cpu_shed >= 3u) smp[t][smp_next[t]].on = 0;
         smp_chunk(&smp[t][0], raw);
         smp_chunk(&smp[t][1], raw);
         if (ton < 32767)
-            for (i = 0; i < CHUNK; i++) { v->lp += ((raw[i] - v->lp) * ton) >> 15; raw[i] = v->lp; }
+            for (i = 0; i < CHUNK; i++) { v->lp += (int32_t)(((int64_t)(raw[i] - v->lp) * ton) >> 15); raw[i] = v->lp; }
         active = 1;
     }
     if (!active && !v->amp)
@@ -647,6 +650,7 @@ static void track_chunk(uint32_t t, int32_t *out)
     /* the envelope and the note's volume, ramped over the chunk */
     gain = (int32_t)(((uint32_t)v->env * (uint32_t)v->env) >> 17);
     tgt = (int32_t)(((int64_t)gain * ((v->volq * 18) >> 16)) >> 8);   /* vol 15 -> ~1.05 x gain */
+    tgt = (int32_t)(((int64_t)tgt * ((p[P_VOL] & 15) * 5461)) >> 16);   /* MIX VOLUME: 12 = x 1 (no division) */
     if (dest == LFD_VOL)
         tgt = (int32_t)(((int64_t)tgt * (32767 - ((32767 - v->lfo) >> 1) * 1)) >> 15);
     if (lv_mute >> t & 1u)

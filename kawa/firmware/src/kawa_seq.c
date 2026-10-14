@@ -13,6 +13,8 @@ static uint8_t s_pat, s_row, s_pos, s_rep, s_again_row;
 static uint16_t s_bpm;
 static uint8_t s_swing, s_trip, s_again, s_tick6;
 static int32_t s_adj;                           /* sq_adj as last applied */
+static uint32_t s_step;                         /* rows played since PLAY (the swing's long and short rows) */
+static uint8_t s_lane_skip;                     /* this beat is a RETRIG's repeat: the LIVE lane's RETRIG waits */
 static struct {
     uint8_t note, vol, fx, fxv, pending, roll_n, roll_k, cut;
     uint16_t delay16;
@@ -110,6 +112,8 @@ static void seq_start(void)
         s_pat = prj.song[s_pos].pat < NPAT ? prj.song[s_pos].pat : 0u;
     }
     s_row = 0;
+    s_step = 0;
+    s_lane_skip = 0;
     s_phase = 0;
     s_again = 0;
     s_adj = sq_adj;                             /* (a fresh start: earlier song edits are already in place) */
@@ -132,8 +136,12 @@ static void seq_next_row(void)
     if (!len || len > NROW)
         len = 16u;
     s_row++;
-    if (s_again && (s_row & 3u) == 0u)          /* RETRIG: the same beat again */
+    s_step++;
+    if (s_again && (s_row & 3u) == 0u) {        /* RETRIG: the same beat again */
         s_row = s_again_row;
+        s_lane_skip = 1;                        /* (a RETRIG of the LIVE lane: once, not for ever) */
+    } else if ((s_row & 3u) == 0u)
+        s_lane_skip = 0;
     if (s_row >= len) {                         /* the end of the pattern */
         s_row = 0;
         if (prj.mode && prj.song_len) {
@@ -173,7 +181,8 @@ static void seq_next_row(void)
 static void seq_chunk(void)
 {
     uint32_t t, old = s_phase, f16, cur_len;
-    s_phase += (s_row & 1u ? s_inc_odd : s_inc_even) * CHUNK;
+    s_phase += (s_step & 1u ? s_inc_odd : s_inc_even) * CHUNK;   /* (the swing: every other row played, whatever
+                                                                  * the length: an odd one keeps the tempo) */
     if (s_phase < old)
         seq_next_row();
     sq_frac = s_phase;
@@ -196,7 +205,7 @@ static void seq_chunk(void)
             voice_cut(t);
         }
     }
-    cur_len = s_row & 1u ? s_len_odd : s_len_even;
+    cur_len = s_step & 1u ? s_len_odd : s_len_even;
     g_beatpos = (s_row & 3u) * g_rowlen + ((f16 * cur_len) >> 16);
 }
 
@@ -272,7 +281,8 @@ static void app_audio(int32_t *out, uint32_t n)
         seq_tempo();
     }
     on = lfx_keys;
-    if (sq_play && prj.pat[s_pat].live[s_row] && prj.pat[s_pat].live[s_row] <= LF_N)
+    if (sq_play && prj.pat[s_pat].live[s_row] && prj.pat[s_pat].live[s_row] <= LF_N &&
+        !(s_lane_skip && prj.pat[s_pat].live[s_row] == LF_AGAIN + 1u))
         on |= 1u << (prj.pat[s_pat].live[s_row] - 1u);
     if ((on >> LF_AGAIN & 1u) && !s_again && sq_play) {
         s_again = 1;
@@ -310,10 +320,10 @@ static void app_audio(int32_t *out, uint32_t n)
                 int32_t m = mono[i], a = m < 0 ? -m : m;
                 if ((uint32_t)a > pk)
                     pk = (uint32_t)a;
-                dl[i] += (m * gl * 5) >> 16;    /* x 0.707 at the centre, x 5/8: six tracks keep headroom */
-                dr[i] += (m * gr * 5) >> 16;
-                E[i] += (m * es) >> 15;
-                V[i] += (m * vs) >> 15;
+                dl[i] += (int32_t)(((int64_t)m * (gl * 5)) >> 16);   /* x 0.707 at the centre, x 5/8: six */
+                dr[i] += (int32_t)(((int64_t)m * (gr * 5)) >> 16);   /* tracks keep headroom (64-bit products: */
+                E[i] += (int32_t)(((int64_t)m * es) >> 15);          /* the FM track goes past 100000) */
+                V[i] += (int32_t)(((int64_t)m * vs) >> 15);
             }
             peak[t] = (uint16_t)(pk > 65535u ? 65535u : pk);
         }

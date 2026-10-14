@@ -2,6 +2,7 @@
  * Copyright 2012 Google Inc.
  * Copyright 2016-2025 Pascal Gauthier.
  * C port for Felucca (integer only, no float), 2026: Leo Kuroshita (@kurogedelic), Hügelton Instruments
+ * Changed for KAWA, 2026 (Omnipotard): the modulated phase is summed unsigned (it wraps, as the phase update)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -337,10 +338,10 @@ static __attribute__((noinline)) void fm6_op_run(int32_t *out, const int32_t *in
 {
     int32_t dg = (g2 - g1 + (FM6_N >> 1)) >> FM6_LG_N, g = g1;
     uint32_t i;
-    if (in && add)
-        FM6_OP_LOOP(phase + in[i], +=)
+    if (in && add)                              /* (the phase wraps: an unsigned sum, as the update) */
+        FM6_OP_LOOP((int32_t)((uint32_t)phase + (uint32_t)in[i]), +=)
     else if (in)
-        FM6_OP_LOOP(phase + in[i], =)
+        FM6_OP_LOOP((int32_t)((uint32_t)phase + (uint32_t)in[i]), =)
     else if (add)
         FM6_OP_LOOP(phase, +=)
     else

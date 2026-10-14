@@ -77,7 +77,7 @@ static void bf_engage(uint32_t id)
         bf.S = afr - L;                         /* what just played */
         bf.frozen = 1;
     } else if (id == LF_TAPE)
-        bf.S = afr;
+        bf.S = afr - 1u;                        /* (one frame behind: the next one is not captured yet) */
     else
         bf.S = afr - since_grid(L);             /* the last grid line: the first pass is the live sound */
     bf.mix_to = 32767;
@@ -232,8 +232,9 @@ static void fx_live(int32_t *L, int32_t *R, int32_t *E)
     else if (on >> LF_WOB & 1u) { mode = 1; f = SVF_F[64 + (sine(lfo_ph) * 28 >> 15)]; q = 7000; }
     else if (on >> LF_VINYL & 1u) { mode = 1; f = SVF_F[98]; q = 20000; }
     for (i = 0; i < CHUNK; i++) {
-        int32_t l = L[i], r = R[i];
-        if (!(bf.act && bf.frozen))
+        int32_t l = clampi(L[i], -65535, 65535), r = clampi(R[i], -65535, 65535);   /* (two full scales: the
+                                                 * products below stay inside 32 bits) */
+        if (!(bf.act && bf.frozen) || ((afr - (bf.S - 64u)) & CAPM) >= bf.L + 128u)   /* (frozen: all but the */
             cap[afr & CAPM] = (uint32_t)(uint16_t)clampi(l, -32767, 32767) | (uint32_t)clampi(r, -32767, 32767) << 16;
         if (bf.act) {
             int32_t fl = l, fr = r;
@@ -245,8 +246,8 @@ static void fx_live(int32_t *L, int32_t *R, int32_t *E)
                 bf.mix -= 512;
                 if (bf.mix < bf.mix_to) bf.mix = bf.mix_to;
             }
-            l += ((fl - l) * bf.mix) >> 15;
-            r += ((fr - r) * bf.mix) >> 15;
+            l += (int32_t)(((int64_t)(fl - l) * bf.mix) >> 15);
+            r += (int32_t)(((int64_t)(fr - r) * bf.mix) >> 15);
             bf.t++;
             if (!bf.mix && !bf.mix_to)
                 bf.act = 0;
@@ -258,16 +259,20 @@ static void fx_live(int32_t *L, int32_t *R, int32_t *E)
         }
         if (mode) {                             /* Chamberlin state variable filter, stereo */
             int32_t hp;
-            svf_lp[0] += (f * svf_bp[0]) >> 15;
-            hp = l - svf_lp[0] - ((q * svf_bp[0]) >> 15);
-            svf_bp[0] += (f * hp) >> 15;
+            svf_lp[0] += (int32_t)(((int64_t)f * svf_bp[0]) >> 15);   /* (64-bit products, the state bounded) */
+            hp = l - svf_lp[0] - (int32_t)(((int64_t)q * svf_bp[0]) >> 15);
+            svf_bp[0] += (int32_t)(((int64_t)f * hp) >> 15);
             l = mode == 1 ? svf_lp[0] : hp;
-            svf_lp[1] += (f * svf_bp[1]) >> 15;
-            hp = r - svf_lp[1] - ((q * svf_bp[1]) >> 15);
-            svf_bp[1] += (f * hp) >> 15;
+            svf_lp[1] += (int32_t)(((int64_t)f * svf_bp[1]) >> 15);
+            hp = r - svf_lp[1] - (int32_t)(((int64_t)q * svf_bp[1]) >> 15);
+            svf_bp[1] += (int32_t)(((int64_t)f * hp) >> 15);
             r = mode == 1 ? svf_lp[1] : hp;
             svf_bp[0] = clampi(svf_bp[0], -200000, 200000);
             svf_bp[1] = clampi(svf_bp[1], -200000, 200000);
+            svf_lp[0] = clampi(svf_lp[0], -200000, 200000);
+            svf_lp[1] = clampi(svf_lp[1], -200000, 200000);
+            l = clampi(l, -65535, 65535);       /* (the ring, the gate and the drive after it stay in 32 bits) */
+            r = clampi(r, -65535, 65535);
         } else
             svf_lp[0] = svf_lp[1] = svf_bp[0] = svf_bp[1] = 0;
         if (on >> LF_RING & 1u) {

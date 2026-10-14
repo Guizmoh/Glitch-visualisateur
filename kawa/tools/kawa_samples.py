@@ -18,7 +18,6 @@ import argparse
 import struct
 import sys
 import time
-import wave
 import zlib
 from pathlib import Path
 
@@ -73,28 +72,59 @@ def mulaw(x):                                   # as tools/gen_breaks.py (KAWA d
     return np.clip(np.round((y + 1) * 127.5), 0, 255).astype(np.uint8)
 
 
+def riff_wav(path):
+    """a WAV file read here: PCM 8/16/24/32 bits, float 32/64 bits (a DAW's export), WAVE_FORMAT_EXTENSIBLE"""
+    import struct
+    d = Path(path).read_bytes()
+    if len(d) < 12 or d[:4] != b"RIFF" or d[8:12] != b"WAVE":
+        raise ValueError("not a RIFF WAVE file")
+    fmt = data = None
+    i = 12
+    while i + 8 <= len(d):
+        cid, size = d[i:i + 4], struct.unpack("<I", d[i + 4:i + 8])[0]
+        body = d[i + 8:i + 8 + size]
+        if cid == b"fmt ":
+            fmt = body
+        elif cid == b"data":
+            data = body
+        i += 8 + size + (size & 1)
+    if fmt is None or data is None or len(fmt) < 16:
+        raise ValueError("no fmt or data chunk")
+    tag, ch, sr, _, _, bits = struct.unpack("<HHIIHH", fmt[:16])
+    if tag == 0xFFFE and len(fmt) >= 26:            # extensible: the sub-format's first two bytes
+        tag = struct.unpack("<H", fmt[24:26])[0]
+    if ch < 1:
+        raise ValueError("no channel")
+    if tag == 3 and bits in (32, 64):
+        a = np.frombuffer(data[:len(data) // (bits // 8) * (bits // 8)], "<f4" if bits == 32 else "<f8").astype(np.float64)
+    elif tag == 1 and bits == 8:
+        a = (np.frombuffer(data, np.uint8).astype(np.float64) - 128) / 128
+    elif tag == 1 and bits == 16:
+        a = np.frombuffer(data[:len(data) // 2 * 2], "<i2").astype(np.float64) / 32768
+    elif tag == 1 and bits == 24:
+        b = np.frombuffer(data[:len(data) // 3 * 3], np.uint8).reshape(-1, 3).astype(np.int32)
+        a = ((b[:, 0] | b[:, 1] << 8 | b[:, 2] << 16) << 8 >> 8).astype(np.float64) / 8388608
+    elif tag == 1 and bits == 32:
+        a = np.frombuffer(data[:len(data) // 4 * 4], "<i4").astype(np.float64) / 2147483648
+    else:
+        raise ValueError(f"WAV format {tag}, {bits} bits")
+    a = a[:len(a) // ch * ch]
+    return np.nan_to_num(a.reshape(-1, ch).mean(axis=1)), sr
+
+
 def load(path):
     path = Path(path)
+    err = None
     if path.suffix.lower() in (".wav", ".wave"):
-        with wave.open(str(path)) as w:
-            n, ch, sw, sr = w.getnframes(), w.getnchannels(), w.getsampwidth(), w.getframerate()
-            raw = w.readframes(n)
-        if sw == 1:
-            a = (np.frombuffer(raw, np.uint8).astype(np.float64) - 128) / 128
-        elif sw == 2:
-            a = np.frombuffer(raw, "<i2").astype(np.float64) / 32768
-        elif sw == 3:
-            b = np.frombuffer(raw, np.uint8).reshape(-1, 3).astype(np.int32)
-            a = ((b[:, 0] | b[:, 1] << 8 | b[:, 2] << 16) << 8 >> 8).astype(np.float64) / 8388608
-        elif sw == 4:
-            a = np.frombuffer(raw, "<i4").astype(np.float64) / 2147483648
-        else:
-            raise SystemExit(f"{path}: {sw * 8}-bit WAV not supported")
-        return a.reshape(-1, ch).mean(axis=1), sr
+        try:
+            return riff_wav(path)
+        except (ValueError, OSError) as e:          # (then soundfile, if it is there)
+            err = e
     try:
         import soundfile
     except ImportError:
-        raise SystemExit(f"{path}: not a WAV; convert it, or pip install soundfile")
+        why = f" ({err})" if err else ""
+        raise SystemExit(f"{path}: cannot read it{why}; convert it to a WAV, or pip install soundfile")
     a, sr = soundfile.read(str(path), always_2d=True)
     return a.mean(axis=1), sr
 

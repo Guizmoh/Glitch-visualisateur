@@ -101,6 +101,10 @@ static int sound_is_preset(uint32_t t)          /* the sound is still its preset
     for (i = 0; i < 4u; i++)
         if (prj.snd[t].p[P_ATT + i] != pr->env[i])
             return 0;
+    if (pr->engine == E_FM)                     /* FM: its operators too (OPERATOR, OP ENV) */
+        for (i = 0; i < 156u; i++)
+            if (prj.fmp[i] != FM_PATCH[clampi(prj.snd[t].p[P_FMPAT], 0, FM_NPATCH - 1)][i])
+                return 0;
     return 1;
 }
 static uint32_t preset_first(uint32_t e)        /* the first factory sound of an engine */

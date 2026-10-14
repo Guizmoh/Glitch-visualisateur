@@ -92,7 +92,7 @@ static void note_text(uint32_t t, uint32_t note, char *s, int wide)
     if (note == NOTE_NONE) { str_cat(s, wide ? " . " : " ."); return; }
     if (note == NOTE_OFF) { str_cat(s, wide ? "OFF" : "--"); return; }
     if (nm == NM_DRUM) { str_cat(s, drum_code(t, cell_idx(note), wide)); return; }
-    if (nm == NM_SLICE) { char *p = s; while (*p) p++; if (wide) *p++ = 'S'; fmt_u(p, cell_idx(note) + 1u, 2); return; }
+    if (nm == NM_SLICE) { char *p = s; while (*p) p++; if (wide) *p++ = 'S'; fmt_u(p, (cell_idx(note) & 15u) + 1u, 2); return; }
     if (wide) {
         s = str_cat(s, NOTE_NAME[note % 12u]);
         fmt_u(s, note / 12u ? note / 12u - 1u : 0u, 1);
@@ -120,7 +120,8 @@ static void fxv_text(uint32_t t, const cell_t *c, char *s)
         const char *const *l = e == E_PULSE ? L_DUTY : e == E_WAVE ? L_WAVE : L_NOISE;
         const char *w;
         if (!n) { fmt_u(s, c->fxv, 0); break; }
-        w = l[lang * n + c->fxv % n];
+        w = l[lang * n + (e == E_PULSE ? (c->fxv < 4u ? c->fxv : 4u) : e == E_NOISE ? (c->fxv ? 1u : 0u) : c->fxv % n)];
+                                                /* (what plays: PULSE 4 and over is PWM, NOISE any but 0 the metal) */
         for (i = 0; i < 3u && w[i]; i++) s[i] = w[i];
         s[i] = 0;
         break;
@@ -301,20 +302,23 @@ static void draw_top(void)
         if (sq_play && sq_pat != ui_pat) {      /* another one plays */
             s[0] = '>';
             fmt_u(s + 1, sq_pat + 1u, 2);
-            g_text(x + 4, 4, s, C_FAINT, T_CROP);
+            x = g_text(x + 4, 4, s, C_FAINT, T_CROP);
         } else if (sq_next < NPAT && sq_play) { /* the next one, at the end of this one */
             s[0] = '>';
             fmt_u(s + 1, sq_next + 1u, 2);
-            g_text(x + 4, 4, s, C_GOLD, T_CROP);
+            x = g_text(x + 4, 4, s, C_GOLD, T_CROP);
         }
     }
     if (prj.mode && !(on && page != PG_FX)) {
+        int32_t cx;
         s[0] = 0;
         str_cat(fmt_u(s, (uint32_t)sq_songpos + 1u, 0), "/");
         fmt_u(s + str_len(s), prj.song_len, 0);
-        x = 172 - g_text_w(s);
-        g_icon(x - 10, 6, ICO_CHAIN, C_MID, 1);
-        g_text(x, 4, s, C_MID, T_CROP);
+        cx = 172 - g_text_w(s);
+        if (cx - 10 >= x + 4) {                 /* (only where it fits: never over the pattern's label) */
+            g_icon(cx - 10, 6, ICO_CHAIN, C_MID, 1);
+            g_text(cx, 4, s, C_MID, T_CROP);
+        }
     }
     fmt_u(s, prj.bpm, 0);
     g_text(203 - g_text_w(s), 4, s, C_TXT, T_CROP | T_BOLD);
@@ -353,8 +357,14 @@ static void hint(uint32_t k, const char *name, const char *label, const char *va
     x += 5;
     if (label && label[0])
         x = g_text(x, 226, label, hot ? C_WHITE : c, T_CROP) + 2;
-    if (val)
-        g_text(x, 226, val, hot ? C_WHITE : C_TXT, T_CROP | (label && label[0] ? 0 : T_BOLD));
+    if (val) {                                  /* (cut to its tile: the next one, or BETA, stays clear) */
+        char v[12];
+        int32_t room = ((int32_t)k + 1) * HINT_W - 2 - x;
+        uint32_t n = room > 0 ? (uint32_t)room / 8u : 0u;
+        for (i = 0; i < n && i < 11u && val[i]; i++) v[i] = val[i];
+        v[i] = 0;
+        g_text(x, 226, v, hot ? C_WHITE : C_TXT, T_CROP | (label && label[0] ? 0 : T_BOLD));
+    }
 }
 static void hint_none(uint32_t k) { hint(k, "", "", ""); }
 
@@ -715,11 +725,11 @@ static void draw_sound(void)
         g_text(16, 22, s, C_INK, T_CROP | T_BOLD);
         s[0] = 0;
         str_cat(str_cat(s, PRESETS[prj.snd[t].preset % NPRESET].name[lang]), sound_is_preset(t) ? "" : "*");
-        s[14] = 0;
+        s[15] = 0;                              /* (14 letters and the '*': up to x = 210) */
         g_text(90, 22, s, C_TXT, T_CROP);
     }
     if (g_vis(40, 102)) {
-        g_rect(0, 40, 240, 102, C_BG);
+        g_rect(0, 40, 240, 104, C_BG);           /* (to the cards at 144: no row left unpainted) */
         if (sp == SP_SON1) {                    /* the engines: SELECT picks one (FM: one track only) */
             static const char *const E3[LANG_N][E_N] = {{"CAR", "OND", "BRU", "FM", "KIT", "SMP"},
                                                          {"PUL", "WAV", "NOI", "FM", "KIT", "SMP"},
@@ -1329,7 +1339,7 @@ static void draw_proj(void)
     }
 }
 
-/* ---- OPTIONS (SAVE twice): the theme, the language */
+/* ---- OPTIONS (GLO twice): the theme, the language */
 static void draw_opt(void)
 {
     uint32_t k, i;
@@ -1428,7 +1438,19 @@ static void draw_help(void)
         g_rrect(x, y, 114, 27, C_BG2);
         g_rect(x, y, 4, 27, KNOB_COL[i]);
         g_text(x + 7, y + 1, n, KNOB_COL[i], T_CROP | T_BOLD);
-        g_text(x + 7, y + 13, help_lab[i][0] ? help_lab[i] : "-", help_lab[i][0] ? C_TXT : C_FAINT, T_CROP);
+        if (!help_lab[i][0]) { g_text(x + 7, y + 13, "-", C_FAINT, T_CROP); continue; }
+        {                                       /* its name after K1, its value under it (each cut to the box) */
+            char a[12], b[14];
+            const char *q = help_lab[i];
+            uint32_t j = 0, m = 0;
+            while (*q && *q != '\n') { if (j < 10u) a[j++] = *q; q++; }
+            a[j] = 0;
+            if (*q == '\n') q++;
+            while (*q) { if (m < 13u) b[m++] = *q; q++; }
+            b[m] = 0;
+            g_text(x + 27, y + 1, a, C_TXT, T_CROP | T_BOLD);
+            g_text(x + 7, y + 13, b, C_GOLD, T_CROP);
+        }
     }
     for (i = 0; i < 3u; i++) {
         int32_t y = 102 + (int32_t)i * 13;
@@ -1520,13 +1542,8 @@ static void set_page(uint32_t p)
         grid_page = 0;
     if (p != PG_MIX && cur_trk >= NTRK)
         cur_trk = NTRK - 1u;
-    if (p == PG_HELP) {                         /* the knobs of the page asked about (one line each) */
-        uint32_t q, c;
+    if (p == PG_HELP)                           /* the knobs of the page asked about */
         memcpy(help_lab, knob_lab, sizeof help_lab);
-        for (q = 0; q < 4u; q++)
-            for (c = 0; c < 24u; c++)
-                if (help_lab[q][c] == '\n') help_lab[q][c] = ' ';
-    }
     if (p == PG_SONG) {
         int f = song_find(ui_pat);
         if (song_cur >= prj.song_len || prj.song[song_cur].pat != ui_pat) song_cur = (uint8_t)(f < 0 ? 0 : f);
@@ -1832,6 +1849,7 @@ static void song_fresh(const char *msg)       /* after a new song, a load, the d
     toast(msg);
     set_page(PG_TRACK);
 }
+static void kw_hold_wait(void);
 static void pm_do(uint32_t act)                 /* the action, its questions answered */
 {
     if (sq_play) sq_req = 2;
@@ -1850,13 +1868,19 @@ static void pm_do(uint32_t act)                 /* the action, its questions ans
         proj_cur = prj.home >= 1u && prj.home < NSLOT ? prj.home : 0xFF;
         song_fresh(TR("CHARGE !", "LOADED !", "CARGADO !"));
         break;
-    case PM_SAVE: case PM_SAVEAS:
+    case PM_SAVE: case PM_SAVEAS: {
+        int rc;
         if (act == PM_SAVEAS) { memcpy(prj.name, nm_buf, 16); prj.name[15] = 0; }
-        if (prj_save(pm_slot)) { toast(TR("ERREUR !", "ERROR !", "ERROR !")); break; }
+        audio_hold = 1;                         /* erasing stalls the bus: the sound is held silent first (the DMA */
+        kw_hold_wait();                         /* would loop the last block), as for a sample (kawa_sysex.c) */
+        rc = prj_save(pm_slot);
+        audio_hold = 0;
+        if (rc) { toast(TR("ERREUR !", "ERROR !", "ERROR !")); break; }
         proj_cur = pm_slot;
         pm_state = PMS_MENU;
         toast(TR("SAUVE !", "SAVED !", "GUARDADO !"));
         break;
+    }
     case PM_RENAME:
         memcpy(prj.name, nm_buf, 16);
         prj.name[15] = 0;
@@ -2211,9 +2235,12 @@ static void ui_input(void)
         d = 0;
     }
     if (d != 0) {
+        uint32_t sp_was = sp_at(trk(), snd_page), k;
         last_input_ms = fm1_ms;
         cur_trk = (uint8_t)clampi(cur_trk + d, 0, page == PG_MIX ? NTRK : NTRK - 1);
-        if (snd_page >= sp_n(trk())) snd_page = 0;
+        snd_page = 0;                           /* the same page on the new track, if it has it (FM has seven) */
+        for (k = 0; k < sp_n(trk()); k++)
+            if (sp_at(trk(), k) == sp_was) { snd_page = (uint8_t)k; break; }
         grid_held = -1;
     }
     if ((d = fm1_enc_take(ENC_PRESETS)) != 0) {
@@ -2263,7 +2290,7 @@ static void ui_leds(void)
 {
     uint32_t i, k, t = trk();
     static const uint8_t PAGE_BTN[PG_N] = {BTN_HOME, BTN_SEQ, BTN_EDIT, BTN_ENV, BTN_ENV, BTN_LFO, BTN_SEL, BTN_GLO,
-                                           BTN_SAVE, BTN_SAVE, BTN_FX, BTN_HOME, 255};
+                                           BTN_SAVE, BTN_GLO, BTN_FX, BTN_HOME, 255};   /* (OPTIONS: GLO twice) */
     for (i = 0; i < 41u; i++) led_want[i] = 0;
     for (i = 2; i < 12u; i++) led_want[i] = 1;   /* the page buttons glow, the one open is lit */
     if (page < PG_N && PAGE_BTN[page] < 14u) led(PAGE_BTN[page], 2);

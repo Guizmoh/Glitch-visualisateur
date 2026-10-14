@@ -2,8 +2,8 @@
 
 [English](README.md) · [Français](README.fr.md) · **Español**
 
-KAWA es un firmware tracker para el **M-VAVE FM-1**, pensado para chiptune, breakcore y breakbeat. Tiene seis
-pistas, cada una con su motor: pulso, onda de 4 bits, ruido, FM de 6 operadores, kit de batería o sample.
+KAWA es un firmware tracker para el **M-VAVE FM-1**, para componer en cualquier estilo: pop, techno, hip hop,
+ambient, jazz, rock, música de videojuegos, chiptune, breakcore… Tiene seis pistas, cada una con su motor: pulso, onda de 4 bits, ruido, FM de 6 operadores, kit de batería o sample.
 Escribes patrones, los encadenas en una canción y tocas 32 efectos en directo al estilo de un Pocket
 Operator. Unas herramientas «mágicas» escriben ritmos, melodías y cortes de break por ti. La pantalla habla
 español, inglés o francés.
@@ -22,6 +22,23 @@ español, inglés o francés.
 **El manual**, con tutoriales ilustrados (una canción nueva, escribir un patrón, encadenar patrones,
 guardar): [docs/manual/es.html](docs/manual/es.html) ([EN](docs/manual/en.html),
 [FR](docs/manual/index.html)).
+
+## Componer con un tracker
+
+Un tracker es una forma de componer muy distinta de un programa de música habitual (un DAW):
+
+- **El tiempo baja.** Cada fila es un paso (una semicorchea), cada columna una pista, y cada celda dice qué
+  tocar en ese paso exacto: una nota, su volumen y un efecto. Lees la canción como una partitura que se
+  desplaza.
+- **Escribes con el teclado,** nota a nota, en el sitio exacto, sin ratón ni piano roll: la rejilla es siempre
+  la misma.
+- **Los efectos se escriben en la celda,** al paso (arpegio, glissando, redoble, volumen…), en lugar de curvas
+  de automatización.
+- **La canción es una lista de patrones cortos,** cada uno tocado N veces, en lugar de clips en una línea de
+  tiempo.
+
+El manual lo explica con la pantalla delante, y luego recorre todo el camino, de una canción vacía a una
+terminada.
 
 ## Pruébalo en el navegador
 

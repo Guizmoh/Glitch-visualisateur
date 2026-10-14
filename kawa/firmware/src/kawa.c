@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* KAWA: a pocket tracker for the M-VAVE FM-1, for chiptune and breakcore.
+/* KAWA: a pocket tracker for the M-VAVE FM-1, for composing in any style (a tracker: time runs down the rows).
  *
- * Six tracks (two pulses, a 4-bit wave, noise, a synthesised drum kit, a breakbeat cut in 16 slices),
+ * Six tracks, each with its engine (pulse, 4-bit wave, noise, 6-operator FM on one track, a synthesised drum
+ * kit, a sample cut in 16 slices or played as notes),
  * patterns of up to 32 rows with tricks per cell (arpeggio, glide, vibrato, rolls, bend, chance, delay,
  * cut, reverse, pitch, shape, crush), a song list, 32 live effects as on a Pocket Operator, and magic
  * tools that write beats, melodies and break chops in the scale.

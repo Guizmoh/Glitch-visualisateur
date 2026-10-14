@@ -69,6 +69,8 @@ kbd { font-family: var(--mono); font-weight: 600; font-size: 0.82em; background:
 .note.warn { border-left-color: var(--rec); }
 .note h3 { margin: 0; }
 
+.anatomy { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 26px; align-items: start; }
+.anatomy > div { min-width: 0; display: grid; gap: 8px; }
 figure.screen { margin: 0; width: 240px; max-width: 100%; }
 figure.screen img { width: 240px; max-width: 100%; height: auto; aspect-ratio: 1; display: block; image-rendering: pixelated; border-radius: 6px; box-shadow: 0 0 0 6px #08060f, 0 0 0 7px var(--rule); background: var(--night); }
 figure.screen figcaption { font-size: 13px; color: var(--muted); margin-top: 12px; }
@@ -115,6 +117,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
   body { font-size: 16px; }
   header.hero { grid-template-columns: minmax(0, 1fr); }
   .steps > li { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .anatomy { grid-template-columns: minmax(0, 1fr); gap: 14px; }
   .panel { grid-template-columns: minmax(0, 1fr); }
   .panel .btns { grid-template-columns: repeat(4, auto); }
   .support { grid-template-columns: minmax(0, 1fr); }
@@ -133,6 +136,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     </div>
     <ol>
       <li><a href="#beta">Beta version</a></li>
+      <li><a href="#tracker">Composing with a tracker</a></li>
       <li><a href="#installer">Install KAWA</a></li>
       <li><a href="#revenir">Back to the official firmware</a></li>
       <li><a href="#panneau">A tour of the FM-1</a></li>
@@ -158,7 +162,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     <header class="hero">
       <div>
         <h1>The KAWA manual <span class="beta">BETA</span></h1>
-        <p>KAWA turns the <strong>M-VAVE FM-1</strong> into a pocket tracker for chiptune, breakcore and breakbeat. You get six tracks, each with its own engine: pulse, wave, noise, FM, drum kit or sample. On top of that come patterns that you chain into a song, 32 effects to play live, and tools that write beats for you.</p>
+        <p>KAWA turns the <strong>M-VAVE FM-1</strong> into a pocket tracker for composing in any style. You get six tracks, each with its own engine: pulse, wave, noise, FM, drum kit or sample. On top of that come patterns that you chain into a song, 32 effects to play live, and tools that write beats for you.</p>
         <p>This manual gets straight to the point: install KAWA, then five tutorials to make a real song, then the details of the sound and the effects. Version <strong>0.2 beta</strong>.</p>
       </div>
       <figure class="screen"><img src="img/en/01-boot.png" alt="The start-up screen: KAWA's dog, wearing headphones" width="480" height="480"><figcaption>At power-on, KAWA's dog and the demo, ready to play.</figcaption></figure>
@@ -171,6 +175,30 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
         <p>Installing an unofficial firmware is at your own risk. The install path is the one used by Dinghy and Felucca, which already run on real FM-1s, and it has several safety nets (see below). Plug the FM-1 into a stable power supply and never unplug it during an install.</p>
         <p>Projects cannot be moved to a computer yet. If something seems odd, say so: that is what a beta is for.</p>
       </div>
+    </section>
+
+    <section id="tracker">
+      <h2>Composing with a tracker</h2>
+      <p>KAWA is not made for one style. Pop, techno, hip hop, ambient, jazz, rock, video game music, chiptune, breakcore: all of it can be written in a tracker. What changes is the way you compose, which is very different from the usual music software (a DAW).</p>
+      <div class="anatomy">
+        <figure class="screen"><img src="img/en/02-tracks.png" alt="The TRACKS page: time runs down, one column per track" width="480" height="480"></figure>
+        <div>
+          <b>Music is written from top to bottom</b>
+          <p>Time runs down: each row is a step, a sixteenth note (four rows to a beat). Each column is a track. Each cell says what to play at that exact step: a note, its volume and an effect.</p>
+          <p>You read the song like a scrolling score, and you write it with the keys, note by note, at the exact spot. No mouse, no zoom: the grid is always the same.</p>
+        </div>
+      </div>
+      <div class="table"><table>
+        <thead><tr><th></th><th>In a DAW</th><th>In KAWA</th></tr></thead>
+        <tbody>
+          <tr><td>Time</td><td>Runs left to right, on a timeline</td><td>Runs down row by row; a row is a step</td></tr>
+          <tr><td>Writing a note</td><td>Draw it in a piano roll</td><td>Play it on the keys on the row you want (REC)</td></tr>
+          <tr><td>Dynamics and effects</td><td>Automation curves</td><td>Written in the cell, to the step: arpeggio, glide, roll, volume…</td></tr>
+          <tr><td>The song</td><td>Clips laid on a timeline</td><td>Short patterns chained in the SONG, each played N times</td></tr>
+          <tr><td>The sounds</td><td>Audio tracks and plugins</td><td>Six tracks, each with its engine (FM, kit, sample…), all inside the machine</td></tr>
+        </tbody>
+      </table></div>
+      <p>What you gain: the whole song reads at a glance, to the step; your hands stay on the keys and knobs; you write a pattern quickly, vary it (CLONE, MAGIC) and chain it. The tutorials below walk the whole way, from an empty song to a finished one.</p>
     </section>
 
     <section id="installer">

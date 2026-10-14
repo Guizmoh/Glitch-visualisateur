@@ -21,6 +21,8 @@ static uint8_t s_kt = 6;                        /* the ticks of the row playing 
 static uint8_t s_gi;                            /* the groove's step */
 static uint8_t s_kt_even = 6, s_kt_odd = 6;     /* the swing in ticks (the clock in counts them) */
 static uint32_t s_tick_in;                      /* clk_in_tick as last applied (0: the project's tempo) */
+static uint32_t s_inc_p;                        /* the clock in: the row's phase step, nudged to the ticks (s_pll) */
+static int32_t s_pll;                           /* +-1/64 (Q16): the next tick comes a little sooner / later */
 static uint32_t s_tickbase, s_tick0;            /* the clock in: ticks of the rows before this one; ticks before PLAY */
 static int32_t s_adj;                           /* sq_adj as last applied */
 static uint32_t s_step;                         /* rows played since PLAY (the swing's long and short rows) */
@@ -33,6 +35,7 @@ static struct {
 static uint8_t last_note[NTRK];                 /* the note each track played last (ROLL on an empty cell) */
 static volatile uint8_t sq_suppress[NTRK];      /* main: the note of the next row is already sounding (live take) */
 static volatile uint32_t sq_tick0;              /* main: the clock in's ticks before a start (kept from PLAY) */
+static volatile uint8_t sq_gstep;               /* ISR: the groove's step playing (GROOVE) */
 
 static void seq_row_len(void)                   /* the row's ticks and length: the groove's, the swing's */
 {
@@ -52,6 +55,7 @@ static void seq_row_len(void)                   /* the row's ticks and length: t
         s_inc = s_step & 1u ? s_inc_odd : s_inc_even;   /* length: an odd one keeps the tempo) */
         s_len = s_step & 1u ? s_len_odd : s_len_even;
     }
+    s_inc_p = s_inc + (uint32_t)(((int64_t)s_inc * s_pll) >> 16);
 }
 
 static void seq_tempo(void)                     /* row lengths from the tempo and the swing; the LFO's rates */
@@ -65,7 +69,7 @@ static void seq_tempo(void)                     /* row lengths from the tempo an
     sw = s_swing < 50u ? 50u : s_swing > 75u ? 75u : s_swing;
     if (s_trip && sw < 67u)
         sw = 67u;                               /* 6/8: the second 16th of each pair comes late, as a triplet */
-    base = s_tick_in ? (uint32_t)clampi((int32_t)(s_tick_in * 6u), 2205, 16537) : 661500u / s_bpm;   /* 44100*60/4 */
+    base = s_tick_in ? (uint32_t)clampi((int32_t)((s_tick_in * 6u) >> 4), 2205, 16537) : 661500u / s_bpm;   /* 44100*60/4 */
     s_len_even = 2u * base * sw / 100u;
     s_len_odd = 2u * base - s_len_even;
     s_inc_even = 0xFFFFFFFFu / s_len_even;
@@ -73,8 +77,13 @@ static void seq_tempo(void)                     /* row lengths from the tempo an
     s_kt_even = (uint8_t)((12u * sw + 50u) / 100u);
     s_kt_odd = (uint8_t)(12u - s_kt_even);
     for (k = 1; k <= 12u; k++) {
-        s_len_k[k] = base * k / 6u;
-        s_inc_k[k] = 0xFFFFFFFFu / s_len_k[k];
+        if (s_tick_in) {                        /* the clock in's tick, to a 16th of a frame (no drift) */
+            s_len_k[k] = (s_tick_in * k) >> 4;
+            s_inc_k[k] = (0xFFFFFFFFu / (s_tick_in * k)) << 4;
+        } else {
+            s_len_k[k] = base * k / 6u;
+            s_inc_k[k] = 0xFFFFFFFFu / s_len_k[k];
+        }
     }
     g_rowlen = base;
     g_ticklen = base / 6u;
@@ -160,8 +169,10 @@ static void seq_start(void)
     s_row = 0;
     s_step = 0;
     s_gi = 0;
+    sq_gstep = 0;
     s_tickbase = 0;
     s_tick0 = sq_tick0;
+    s_pll = 0;
     s_lane_skip = 0;
     s_phase = 0;
     s_again = 0;
@@ -194,6 +205,7 @@ static void seq_next_row(void)
     s_step++;
     if (++s_gi >= glen)
         s_gi = 0;
+    sq_gstep = s_gi;
     if (end)
         s_row = (uint8_t)len;                   /* END: the pattern ends here */
     else if (hop < len)
@@ -244,7 +256,7 @@ static void seq_next_row(void)
 
 static void seq_chunk(void)
 {
-    uint32_t t, old, f16, inc = s_inc * CHUNK;
+    uint32_t t, old, f16, inc = (clk_in ? s_inc_p : s_inc) * CHUNK;
     if (clk_in) {                               /* the MIDI clock in leads: two ticks ahead the row waits for it, */
         uint32_t got = clk_in_ticks - s_tick0, have = s_tickbase + s_tick6;   /* two behind it catches up */
         if (have >= got + 2u)
@@ -254,8 +266,9 @@ static void seq_chunk(void)
             if (s_tick6 >= s_kt) {
                 s_phase = 0;
                 seq_next_row();
-            } else
-                s_phase = (((uint32_t)s_tick6 << 16) / s_kt) << 16;   /* (only when it lags: not a frame's work) */
+            } else                              /* to the start of the next tick, rounded up (down, it would never get
+                                                 * there: the same jump again and again); only when it lags */
+                s_phase = ((((uint32_t)s_tick6 << 16) + s_kt - 1u) / s_kt) << 16;
         }
     }
     old = s_phase;
@@ -268,6 +281,11 @@ static void seq_chunk(void)
         s_tick6++;
         if (!clk_in)
             clk_ticks++;
+        else {                                  /* the clock in: its tick already here, the next one sooner; not yet, */
+            uint32_t got = clk_in_ticks - s_tick0, j = s_tickbase + s_tick6;   /* later (a 1/64 nudge, tick by tick) */
+            s_pll = got >= j ? 1024 : -1024;
+            s_inc_p = s_inc + (uint32_t)(((int64_t)s_inc * s_pll) >> 16);
+        }
     }
     for (t = 0; t < NTRK; t++) {                /* inside the row: late notes, rolls, cuts */
         if (st[t].pending && f16 >= st[t].delay16) {

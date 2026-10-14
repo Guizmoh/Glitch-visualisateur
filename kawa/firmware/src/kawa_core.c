@@ -34,7 +34,7 @@ typedef struct {
 #define NTSTEP 16u
 typedef struct {
     int8_t tr;                                  /* semitones over the note (KIT, slices: drums / slices over it) */
-    uint8_t vol;                                /* 0: the note's, else 1..15 */
+    uint8_t vol;                                /* 1..15; 0 ("--"): as it is */
     uint8_t fx;                                 /* a trick of the table (TB_...) */
     int8_t fxv;
 } tstep_t;
@@ -138,7 +138,8 @@ static volatile uint32_t scope_w;
 static volatile uint8_t tb_now[NTRK];           /* ISR: the step each track's table plays (TABLE), NTSTEP: none */
 static volatile uint8_t clk_in;                 /* main: the tempo comes from the MIDI clock in (OPTIONS CLOCK IN) */
 static volatile uint32_t clk_in_ticks;          /* main: MIDI clock ticks received since the start (FA) */
-static volatile uint32_t clk_in_tick;           /* main: frames a tick, measured over the last beat (0: none yet) */
+static volatile uint32_t clk_in_tick;           /* main: frames a tick in 16ths of a frame, measured over the last
+                                                 * four beats (0: none yet) */
 static uint32_t g_rowlen = 3845u;               /* ISR: frames per row (16th) at the tempo, without swing */
 static uint32_t g_ticklen = 640u;               /* ISR: frames per tick (a row is 6): the tables' and the groove's */
 static uint32_t g_beatpos;                      /* ISR: frames since the last beat (the live effects lock to it) */

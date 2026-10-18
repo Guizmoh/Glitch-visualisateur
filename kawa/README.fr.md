@@ -20,7 +20,7 @@ ta place. L'écran parle français, anglais ou espagnol.
 > [Revenir au firmware officiel](#revenir-au-firmware-officiel) avant de commencer.
 
 **Le manuel**, avec des tutoriels illustrés (un nouveau morceau, écrire un motif, enchaîner les motifs,
-sauvegarder) : [docs/manual/index.html](docs/manual/index.html) ([EN](docs/manual/en.html),
+sauvegarder) : [docs/manual/fr.html](docs/manual/fr.html) ([EN](docs/manual/index.html),
 [ES](docs/manual/es.html)).
 
 ## Composer avec un tracker
@@ -72,7 +72,7 @@ peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
   (4 emplacements).
 - **Un potard, une couleur.** KNOB 1 rouge, 2 jaune, 3 vert, 4 bleu, sur toutes les pages. La ligne du bas
   dit ce que fait chacun. HOME tenu ouvre l'aide de la page où tu es.
-- **Trois thèmes** (KAWA, GAME BOY, BONBON), l'**horloge MIDI** en sortie ou en entrée (KAWA suit le tempo
+- **Trois thèmes** (KAWA, GAME BOY, BONBON), **quatre polices d'écran** (DOUCE, BASE, CLAIRE, 8-BIT), l'**horloge MIDI** en sortie ou en entrée (KAWA suit le tempo
   et le START / STOP d'une autre machine), et un indicateur CPU.
 - **Un chien** à casque qui t'accueille au démarrage et vit dans le coin de l'écran.
 

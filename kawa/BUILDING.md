@@ -105,7 +105,8 @@ apart the kits are), and `tests/breaks_check.py` the breaks.
 | `firmware/gen/kawa_photo.h` | `tools/gen_art.py` | the boot picture, from `art/boot-dog.png`: 240 x 240, 192 colours, a byte a pixel (needs Pillow) |
 | `firmware/gen/kawa_breaks.h` | `tools/gen_breaks.py` | six breaks, synthesised, 22050 Hz, 8-bit mu-law (needs numpy; `--wav DIR` to listen; `tests/breaks_check.py` checks them) |
 | `firmware/gen/kawa_tables.h` | `tools/gen_tables.py` | fixed-point tables: pitch, envelopes, filters, the 4-bit waves |
-| `firmware/gen/felucca_font.h` | Dinghy | Terminus 8 x 16 (SIL OFL 1.1) |
+| `firmware/gen/felucca_font.h` | Dinghy | Terminus 8 x 16 (SIL OFL 1.1): the screen font BASE |
+| `firmware/gen/kawa_fonts.h` | `tools/gen_fonts.py` | the screen fonts DOUCE, CLAIRE and 8-BIT, from `assets/fonts/` (SIL OFL 1.1; needs Pillow) |
 
 ## The project format
 

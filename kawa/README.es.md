@@ -20,8 +20,8 @@ español, inglés o francés.
 > [Volver al firmware oficial](#volver-al-firmware-oficial) antes de empezar.
 
 **El manual**, con tutoriales ilustrados (una canción nueva, escribir un patrón, encadenar patrones,
-guardar): [docs/manual/es.html](docs/manual/es.html) ([EN](docs/manual/en.html),
-[FR](docs/manual/index.html)).
+guardar): [docs/manual/es.html](docs/manual/es.html) ([EN](docs/manual/index.html),
+[FR](docs/manual/fr.html)).
 
 ## Componer con un tracker
 
@@ -71,7 +71,7 @@ tus propios sonidos en él y enviarlos a tu FM-1 por USB.
   MAMBO, GRENIER: cada uno con su groove, su batería y su disco), y **tus propios samples** (4 ranuras).
 - **Un potenciómetro, un color.** KNOB 1 rojo, 2 amarillo, 3 verde, 4 azul, en todas las páginas. La línea de
   abajo dice qué hace cada uno. HOME mantenido abre la ayuda de la página en la que estás.
-- **Tres temas** (KAWA, GAME BOY, BONBON), el **reloj MIDI** de salida o de entrada (KAWA sigue el tempo y el
+- **Tres temas** (KAWA, GAME BOY, BONBON), **cuatro fuentes de pantalla** (SUAVE, BASE, CLARA, 8-BIT), el **reloj MIDI** de salida o de entrada (KAWA sigue el tempo y el
   START / STOP de otra máquina) y un indicador de CPU.
 - **Un perro** con cascos que te recibe al encender y vive en la esquina de la pantalla.
 

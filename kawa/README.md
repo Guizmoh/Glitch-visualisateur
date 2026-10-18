@@ -19,7 +19,7 @@ write beats, melodies and break chops for you. The screen speaks English, French
 > before you start.
 
 **The manual**, with illustrated tutorials (a new song, writing a pattern, chaining patterns, saving):
-[docs/manual/en.html](docs/manual/en.html) ([FR](docs/manual/index.html), [ES](docs/manual/es.html)).
+[docs/manual/index.html](docs/manual/index.html) ([FR](docs/manual/fr.html), [ES](docs/manual/es.html)).
 
 ## Composing with a tracker
 
@@ -66,7 +66,7 @@ your own sounds on it and send them to your FM-1 over USB.
   own groove, kit and record), and **your own samples** (4 slots).
 - **One knob, one colour.** KNOB 1 red, 2 yellow, 3 green, 4 blue, on every page. The bottom line says what
   each one does. HOME held opens the help of the page you are on.
-- **Three themes** (KAWA, GAME BOY, BONBON), the **MIDI clock** out or in (KAWA follows another machine's
+- **Three themes** (KAWA, GAME BOY, BONBON), **four screen fonts** (SMOOTH, BASIC, CLEAR, 8-BIT), the **MIDI clock** out or in (KAWA follows another machine's
   tempo and START / STOP), and a CPU meter.
 - **A dog** with headphones who greets you at power-on and lives in the corner of the screen.
 

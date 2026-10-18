@@ -32,7 +32,8 @@ noise are generated live by the firmware. The sounds you put in the four user sl
 
 | What | Licence | Where |
 | --- | --- | --- |
-| Terminus font 8x16 (ter-u16n), rendered into `firmware/gen/felucca_font.h` | SIL OFL 1.1 | `assets/fonts/Terminus-LICENSE.txt` |
+| Terminus font 8x16 (ter-u16n), rendered into `firmware/gen/felucca_font.h`: the screen font BASE | SIL OFL 1.1 | `assets/fonts/Terminus-LICENSE.txt` |
+| The screen fonts DOUCE, CLAIRE and 8-BIT (OPTIONS, KNOB 4), rendered into `firmware/gen/kawa_fonts.h` by `tools/gen_fonts.py`: derived from IBM Plex Mono SemiBold (Copyright © 2017 IBM Corp., Reserved Font Name "Plex"), Atkinson Hyperlegible Mono (Copyright 2020-2024 The Atkinson Hyperlegible Mono Project Authors) and Press Start 2P (Copyright 2012 The Press Start 2P Project Authors, Reserved Font Name "Press Start 2P"). As Modified Versions under the OFL, they do not carry the Reserved Font Names | SIL OFL 1.1 | `assets/fonts/` (the fonts and their licences) |
 | msfa by Google Inc. and Pascal Gauthier, from Dexed (<https://github.com/asb2m10/dexed>), in Felucca's integer C port (Leo Kuroshita, Hügelton Instruments): the FM track's synthesis. Only msfa is used. Eight of the twelve FM factory sounds (`tools/gen_fm_patches.py`) are Felucca's (GPL-3.0); the other four are KAWA's | Apache-2.0 | `firmware/src/fm6_core.c`, `LICENSES/Apache-2.0-msfa.txt` |
 | JieLi AC79 SDK: `uboot.boot`, `cfg_tool.bin`, `eq_cfg_hw.bin` are read from your SDK checkout at build time and placed in the package; no SDK files are in this tree | Apache-2.0 | <https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK> |
 | Fonts of the emulator page (Silkscreen, Atkinson Hyperlegible, IBM Plex Mono), loaded from Google Fonts | SIL OFL 1.1 | not in this tree |

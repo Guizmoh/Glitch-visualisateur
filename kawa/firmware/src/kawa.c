@@ -38,6 +38,7 @@
 #include "kawa_photo.h"
 #include "kawa_fm.h"
 #include "kawa_kits.h"
+#include "kawa_fonts.h"
 #include "kawa_data.c"
 #include "kawa_core.c"
 #include "kawa_snd.c"

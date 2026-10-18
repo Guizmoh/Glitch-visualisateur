@@ -69,8 +69,13 @@ static int midi_get(uint8_t *st, uint8_t *d1, uint8_t *d2)
 }
 static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { (void)st; (void)d1; (void)d2; }
 static uint8_t w_settings[260];
-static int settings_load(void *p, uint32_t n) { if (!w_settings[0] || n > 256u) return -1; memcpy(p, w_settings + 4, n); return 0; }
-static int settings_save(const void *p, uint32_t n) { w_settings[0] = 1; memcpy(w_settings + 4, p, n); return 0; }
+static int settings_load(void *p, uint32_t n)   /* (as platform.c: the length saved must be n) */
+{
+    if (!w_settings[0] || n > 256u || w_settings[1] != n) return -1;
+    memcpy(p, w_settings + 4, n);
+    return 0;
+}
+static int settings_save(const void *p, uint32_t n) { w_settings[0] = 1; w_settings[1] = (uint8_t)n; memcpy(w_settings + 4, p, n); return 0; }
 static void set_lang(uint32_t l);
 static void app_poll(void);
 static void platform_poll(void) { app_poll(); }

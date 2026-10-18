@@ -91,12 +91,27 @@ static void g_line(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint16_t c)
     }
 }
 
-/* text in FONT_S (8 x 16): T_CROP draws rows 2..13 only (12 px: capitals, digits), T_BOLD doubles the
+/* the screen's font (OPTIONS, KNOB 4): BASE (Terminus), DOUCE, CLAIRE, 8-BIT (tools/gen_fonts.py), each a small
+ * one (8 x 16) and a large one (16 x 32), the capitals where Terminus has them */
+#define NFONT 4u
+enum { FN_BASE, FN_DOUCE, FN_CLAIRE, FN_8BIT };   /* (DOUCE: a new FM-1's, and an FM-1 coming from 0.2) */
+static const felucca_font_t *const FONTS_S[NFONT] = {&FONT_S, &FONT_S_DOUCE, &FONT_S_CLAIRE, &FONT_S_8BIT};
+static const felucca_font_t *const FONTS_L[NFONT] = {&FONT_L, &FONT_L_DOUCE, &FONT_L_CLAIRE, &FONT_L_8BIT};
+static const felucca_font_t *g_fs = &FONT_S, *g_fl = &FONT_L;
+static uint8_t g_font;
+static void g_font_set(uint32_t k)
+{
+    g_font = (uint8_t)(k < NFONT ? k : 0u);
+    g_fs = FONTS_S[g_font];
+    g_fl = FONTS_L[g_font];
+}
+
+/* text in the small font (8 x 16): T_CROP draws rows 2..13 only (12 px: capitals, digits), T_BOLD doubles the
  * strokes; the glyph's grey levels blend into what is under it. Returns the x after the text. */
 enum { T_CROP = 1, T_BOLD = 2 };
 static int32_t g_text(int32_t x, int32_t y, const char *s, uint16_t c, uint32_t mode)
 {
-    const felucca_font_t *f = &FONT_S;
+    const felucca_font_t *f = g_fs;
     int32_t r0 = mode & T_CROP ? 2 : 0, r1 = mode & T_CROP ? 14 : 16;
     if (!g_vis(y, r1 - r0)) {
         while (*s) { x += 8; s++; }
@@ -134,10 +149,10 @@ static void g_text_c(int32_t cx, int32_t y, const char *s, uint16_t c, uint32_t 
     g_text(cx - g_text_w(s) / 2, y, s, c, mode);
 }
 
-/* FONT_L: 16 x 32 (capitals, digits) */
+/* the large font: 16 x 32 (capitals, digits) */
 static int32_t g_text_l(int32_t x, int32_t y, const char *s, uint16_t c)
 {
-    const felucca_font_t *f = &FONT_L;
+    const felucca_font_t *f = g_fl;
     if (!g_vis(y, 32)) {
         while (*s) { x += 16; s++; }
         return x;

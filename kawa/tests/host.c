@@ -62,8 +62,13 @@ static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint1
 #include "gfx.c"
 
 static uint8_t host_settings[260];
-static int settings_load(void *p, uint32_t n) { if (!host_settings[0] || n > 256u) return -1; memcpy(p, host_settings + 4, n); return 0; }
-static int settings_save(const void *p, uint32_t n) { host_settings[0] = 1; memcpy(host_settings + 4, p, n); return 0; }
+static int settings_load(void *p, uint32_t n)   /* (as platform.c: the length saved must be n) */
+{
+    if (!host_settings[0] || n > 256u || host_settings[1] != n) return -1;
+    memcpy(p, host_settings + 4, n);
+    return 0;
+}
+static int settings_save(const void *p, uint32_t n) { host_settings[0] = 1; host_settings[1] = (uint8_t)n; memcpy(host_settings + 4, p, n); return 0; }
 static int midi_get(uint8_t *st, uint8_t *d1, uint8_t *d2) { (void)st; (void)d1; (void)d2; return 0; }
 static uint32_t host_midi_out[3];               /* MIDI out: counts of clock ticks, starts, stops (tests) */
 static void midi_send(uint32_t st, uint32_t d1, uint32_t d2)

@@ -50,7 +50,8 @@ static char knob_lab[4][24];                    /* what each knob does on this p
 static char help_lab[4][24];
 #define MASTER NTRK                             /* MIX: the strip after the tracks */
 
-static struct { uint8_t lang, theme; int8_t oct; uint8_t clock; } set;   /* kept in the settings sector */
+static struct { uint8_t lang, theme; int8_t oct; uint8_t clock, font; } set;   /* kept in the settings sector (0.2 kept
+                                                                              * the first four bytes only) */
 static uint8_t set_dirty;
 static uint32_t set_ms;
 static void set_changed(void)
@@ -58,6 +59,7 @@ static void set_changed(void)
     set.lang = lang;
     set.theme = theme;
     set.oct = oct_ofs;
+    set.font = g_font;
     set_dirty = 1;
     set_ms = fm1_ms;
     g_force = 1;
@@ -1625,28 +1627,44 @@ static const char *clock_name(void)
 {
     return set.clock == 2u ? TR("ENTREE", "IN", "ENTRADA") : set.clock ? TR("SORTIE", "OUT", "SALIDA") : TR("NON", "OFF", "NO");
 }
+static const char *const FONT_NAMES[LANG_N][NFONT] = {{"BASE", "DOUCE", "CLAIRE", "8-BIT"},
+                                                       {"BASIC", "SMOOTH", "CLEAR", "8-BIT"},
+                                                       {"BASE", "SUAVE", "CLARA", "8-BIT"}};
 static void draw_opt(void)
 {
     uint32_t k, i;
+    char s[24];
     if (g_vis(20, 204)) g_rect(0, 20, 240, 204, C_BG);
-    g_text(8, 26, TR("THEME", "THEME", "TEMA"), KNOB_COL[0], T_CROP | T_BOLD);
+    g_text(8, 22, TR("THEME", "THEME", "TEMA"), KNOB_COL[0], T_CROP | T_BOLD);
     for (k = 0; k < NTHEME; k++) {              /* each theme as a little screen */
         const theme_t *th = &THEMES[k];
-        int32_t x = 8 + (int32_t)k * 76, y = 44;
-        if (!g_vis(y, 72)) continue;
-        if (k == theme) { g_frame(x - 2, y - 2, 72, 66, C_WHITE); g_frame(x - 3, y - 3, 74, 68, KNOB_COL[0]); }
-        g_rect(x, y, 68, 62, th->bg);
-        g_rect(x, y, 68, 10, th->bg2);
+        int32_t x = 8 + (int32_t)k * 76, y = 37;
+        if (!g_vis(y - 3, 50)) continue;
+        if (k == theme) { g_frame(x - 2, y - 2, 72, 48, C_WHITE); g_frame(x - 3, y - 3, 74, 50, KNOB_COL[0]); }
+        g_rect(x, y, 68, 44, th->bg);
+        g_rect(x, y, 68, 7, th->bg2);
         for (i = 0; i < NTRK; i++)
-            g_rect(x + 2 + (int32_t)i * 8, y + 14, 6, 30 - (int32_t)((i * 7u) % 20u), th->trk[i]);
-        g_rect(x + 2, y + 48, 40, 2, th->gold);
-        g_text_c(x + 34, y + 50, th->name, th->txt, T_CROP);
+            g_rect(x + 2 + (int32_t)i * 8, y + 9, 6, 18 - (int32_t)((i * 5u) % 12u), th->trk[i]);
+        g_rect(x + 2, y + 29, 40, 2, th->gold);
+        g_text_c(x + 34, y + 31, th->name, th->txt, T_CROP);
     }
-    g_text(8, 124, TR("LANGUE", "LANGUAGE", "IDIOMA"), KNOB_COL[1], T_CROP | T_BOLD);
+    g_text(8, 86, TR("LANGUE", "LANGUAGE", "IDIOMA"), KNOB_COL[1], T_CROP | T_BOLD);
     for (k = 0; k < LANG_N; k++) {
         int32_t x = 8 + (int32_t)k * 76;
-        g_rrect(x, 142, 68, 22, k == lang ? KNOB_COL[1] : C_BG2);
-        g_text_c(x + 34, 146, k == 0u ? "FRANCAIS" : k == 1u ? "ENGLISH" : "ESPANOL", k == lang ? C_INK : C_TXT, T_CROP | T_BOLD);
+        g_rrect(x, 100, 68, 18, k == lang ? KNOB_COL[1] : C_BG2);
+        g_text_c(x + 34, 101, k == 0u ? "FRANCAIS" : k == 1u ? "ENGLISH" : "ESPANOL", k == lang ? C_INK : C_TXT, T_CROP | T_BOLD);
+    }
+    s[0] = 0;                                   /* the fonts, each written in itself */
+    str_cat(str_cat(s, TR("POLICE: ", "FONT: ", "FUENTE: ")), FONT_NAMES[lang][g_font]);
+    g_text(8, 122, s, KNOB_COL[3], T_CROP | T_BOLD);
+    for (k = 0; k < NFONT; k++) {
+        const felucca_font_t *keep = g_fs;
+        int32_t x = 6 + (int32_t)k * 58;
+        int on = k == g_font;
+        g_rrect(x, 136, 54, 20, on ? KNOB_COL[3] : C_BG2);
+        g_fs = FONTS_S[k];
+        g_text_c(x + 27, 138, "Aa 12", on ? C_INK : C_TXT, T_CROP);
+        g_fs = keep;
     }
     {                                           /* the MIDI clock: out, or in (its tempo leads) */
         char c[32];
@@ -1654,10 +1672,10 @@ static void draw_opt(void)
         str_cat(c, TR("HORLOGE MIDI: ", "MIDI CLOCK: ", "RELOJ MIDI: "));
         str_cat(c, clock_name());
         if (clk_in && clk_in_tick) { str_cat(c, " "); fmt_u(c + str_len(c), bpm_now(), 0); }
-        g_text_c(120, 166, c, set.clock ? KNOB_COL[2] : C_FAINT, T_CROP);
+        g_text_c(120, 160, c, set.clock ? KNOB_COL[2] : C_FAINT, T_CROP);
     }
-    g_text_c(120, 180, "KAWA " APP_VER " BETA - Pocket Tracker", C_MID, T_CROP);
-    g_text_c(120, 193, "by Omnipotard", C_FAINT, T_CROP);
+    g_text_c(120, 175, "KAWA " APP_VER " BETA - Pocket Tracker", C_MID, T_CROP);
+    g_text_c(120, 188, "by Omnipotard", C_FAINT, T_CROP);
     {                                           /* the audio interrupt's load (for the beta's testers) */
         char c[32];
         c[0] = 0;
@@ -1665,12 +1683,12 @@ static void draw_opt(void)
         str_cat(fmt_u(c + str_len(c), cpu_max, 0), "%");
         if (cpu_shed) { str_cat(c, "  ECO "); fmt_u(c + str_len(c), cpu_shed, 0); }
         if (audio_late) { str_cat(c, " !"); fmt_u(c + str_len(c), audio_late > 99u ? 99u : audio_late, 0); }
-        g_text_c(120, 207, c, cpu_max > 70u ? C_REC : cpu_max > 45u ? C_GOLD : C_GO, T_CROP);
+        g_text_c(120, 204, c, cpu_max > 70u ? C_REC : cpu_max > 45u ? C_GOLD : C_GO, T_CROP);
     }
     hint(0, TR("THEME", "THEME", "TEMA"), "", THEMES[theme].name);
     hint(1, TR("LANGUE", "LANGUAGE", "IDIOMA"), "", LANG_CODE[lang]);
     hint(2, TR("HORLOGE MIDI", "MIDI CLOCK", "RELOJ MIDI"), "", clock_name());
-    hint_none(3);
+    hint(3, TR("POLICE", "FONT", "FUENTE"), "", FONT_NAMES[lang][g_font]);
 }
 
 /* ---- HELP (HOME held): what the knobs, the encoders and the keys do on the page it was held on */
@@ -1685,7 +1703,7 @@ static const help_t HELP[LANG_N][PG_HELP] = {
      {{"-", "PISTE", "MOTIF"}, {"UNE TOUCHE: LA TONIQUE", "VERROU: NOTES DE LA GAMME"}},
      {{"ENTREE", "-", "SON MOTIF"}, {"BLANCHE: MOTIF  K3: X FOIS", "OCT+ AJOUTE  OCT- ENLEVE", "GLO: LE GROOVE, LES OPTIONS"}},
      {{"CHOIX", "-", "-"}, {"OCT+: OK   OCT-: RETOUR", "SAVE PUIS OCT+: SAUVER VITE"}},
-     {{"-", "-", "-"}, {"THEME ET LANGUE, GARDES", "GLO: RETOUR A LA CHAINE", "K3: HORLOGE MIDI SORT/ENTREE"}},
+     {{"-", "-", "-"}, {"THEME LANGUE POLICE: GARDES", "GLO: RETOUR A LA CHAINE", "K3: HORLOGE MIDI SORT/ENTREE"}},
      {{"-", "PISTE", "MOTIF"}, {"FX TENU + BLANCHES", "OCT: BANQUE  NOIRES: MUETS"}}},
     {{{"ROW", "TRACK", "PATTERN"}, {"REC+SEL: STEP  ARP+SEL: ROW", "SAVE+OCT- UNDO, OCT+ REDO", "ARP + K3 K4: THE 2ND FX"}},
      {{"STEPS 1-16/17-32", "TRACK", "PATTERN"}, {"WHITE KEYS: STEPS ON/OFF", "BLACK KEYS: THE TRACK"}},
@@ -1696,7 +1714,7 @@ static const help_t HELP[LANG_N][PG_HELP] = {
      {{"-", "TRACK", "PATTERN"}, {"A KEY: THE ROOT", "LOCK: NOTES OF THE SCALE"}},
      {{"ENTRY", "-", "ITS PATTERN"}, {"WHITE KEY: PATTERN K3: TIMES", "OCT+ ADD  OCT- DELETE", "GLO: THE GROOVE, THE OPTIONS"}},
      {{"CHOICE", "-", "-"}, {"OCT+: OK   OCT-: BACK", "SAVE THEN OCT+: QUICK SAVE"}},
-     {{"-", "-", "-"}, {"THEME AND LANGUAGE, KEPT", "GLO: BACK TO THE SONG", "K3: MIDI CLOCK OUT / IN"}},
+     {{"-", "-", "-"}, {"THEME LANGUAGE FONT: KEPT", "GLO: BACK TO THE SONG", "K3: MIDI CLOCK OUT / IN"}},
      {{"-", "TRACK", "PATTERN"}, {"HOLD FX + WHITE KEYS", "OCT: BANK  BLACK: MUTES"}}},
     {{{"FILA", "PISTA", "PATRON"}, {"REC+SEL: SALTO  ARP+SEL: FILA", "SAVE+OCT- DESHACE OCT+ REHACE", "ARP + K3 K4: EL 2O EFECTO"}},
      {{"PASOS 1-16/17-32", "PISTA", "PATRON"}, {"BLANCAS: PASOS SI/NO", "NEGRAS: LA PISTA"}},
@@ -1707,7 +1725,7 @@ static const help_t HELP[LANG_N][PG_HELP] = {
      {{"-", "PISTA", "PATRON"}, {"UNA TECLA: LA TONICA", "FIJA: NOTAS DE LA ESCALA"}},
      {{"ENTRADA", "-", "SU PATRON"}, {"BLANCA: PATRON  K3: VECES", "OCT+ ANADE  OCT- QUITA", "GLO: EL GROOVE, LAS OPCIONES"}},
      {{"ELECCION", "-", "-"}, {"OCT+: OK   OCT-: VOLVER", "SAVE Y OCT+: GUARDAR RAPIDO"}},
-     {{"-", "-", "-"}, {"TEMA E IDIOMA, GUARDADOS", "GLO: VOLVER A LA CANCION", "K3: RELOJ MIDI SALIDA/ENTRADA"}},
+     {{"-", "-", "-"}, {"TEMA IDIOMA FUENTE: GUARDADO", "GLO: VOLVER A LA CANCION", "K3: RELOJ MIDI SALIDA/ENTRADA"}},
      {{"-", "PISTA", "PATRON"}, {"FX PULSADO + BLANCAS", "OCT: BANCO  NEGRAS: MUTE"}}}};
 static const help_t HELP_GROOVE[LANG_N] = {   /* GROOVE, and two pages of SOUND (EDIT): TABLE, SAMPLE EDIT */
     {{"PAS DU GROOVE", "-", "-"}, {"BLANCHE: UN PAS  K1: TICKS", "6 TICKS: UNE LIGNE DROITE", "GLO: LES OPTIONS"}},
@@ -2223,6 +2241,7 @@ static void knob(uint32_t i, int32_t d)
     case PG_OPT:
         if (i == 0u) { theme_set((uint32_t)clampi(theme + d, 0, NTHEME - 1)); set_changed(); }
         else if (i == 1u) set_lang((uint32_t)clampi(lang + d, 0, LANG_N - 1));
+        else if (i == 3u) { g_font_set((uint32_t)clampi(g_font + d, 0, NFONT - 1)); set_changed(); }
         else if (i == 2u) {                     /* OFF, OUT, IN */
             uint32_t c = (uint32_t)clampi(set.clock + d, 0, 2);
             if (c != set.clock) {
@@ -2881,15 +2900,20 @@ static void app_init(void)
         arc_x[i] = (int8_t)((sine(ph + 0x40000000u) * 13) >> 15);
         arc_y[i] = (int8_t)(-(sine(ph) * 13) >> 15);
     }
-    if (settings_load(&set, sizeof set) == 0 && set.lang < LANG_N && set.theme < NTHEME) {
+    set.font = FN_DOUCE;                        /* (what the settings of 0.2, four bytes, leave as it is) */
+    if ((settings_load(&set, sizeof set) == 0 || settings_load(&set, 4u) == 0) && set.lang < LANG_N &&
+        set.theme < NTHEME) {                   /* (4 bytes: the settings of 0.2, before the font) */
         lang = set.lang;
         oct_ofs = (int8_t)clampi(set.oct, -3, 3);
         theme_set(set.theme);
+        g_font_set(set.font);
         if (set.clock > 2u) set.clock = 0;
         clk_in = (uint8_t)(set.clock == 2u);
     } else {
         theme_set(0);
+        g_font_set(FN_DOUCE);
         set.lang = lang;
+        set.font = g_font;
     }
     usr_boot();                                 /* the user's samples (kawa_sysex.c) */
     if (prj_load(0))

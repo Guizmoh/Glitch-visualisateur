@@ -1480,8 +1480,7 @@ kbd { font-family: var(--mono); font-size: 12px; background: #2f2a3b; border-rad
     if (I18N[h]) return h;
     const s = ls.get(LS_LANG);
     if (I18N[s]) return s;
-    const n = ((navigator.languages && navigator.languages[0]) || navigator.language || "en").slice(0, 2).toLowerCase();
-    return I18N[n] ? n : (window.KAWA_LANG || "en");
+    return "en";                                /* English first, whatever the browser's language */
   }
   buildSlots();
   loadSamples();

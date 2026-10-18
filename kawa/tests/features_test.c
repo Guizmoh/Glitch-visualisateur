@@ -336,6 +336,31 @@ int main(void)
         clk_in = 0;
         set.clock = 0;
     }
+    /* 9. the settings: those of 0.2 (four bytes) keep the language and the theme, and take the smooth font; a new
+     * FM-1 starts in English with it; a font chosen comes back */
+    {
+        static const uint8_t OLD[4] = {LANG_FR, 1, 0, 0};
+        memset(host_settings, 0, sizeof host_settings);
+        settings_save(OLD, 4);
+        memset(&set, 0, sizeof set);
+        lang = LANG_EN;
+        app_init();
+        CHECK(lang == LANG_FR && theme == 1u && g_font == FN_DOUCE, "9. settings of 0.2: language %u theme %u font %u (want FR, 1, "
+              "DOUCE)", lang, theme, g_font);
+        memset(host_settings, 0, sizeof host_settings);
+        memset(&set, 0, sizeof set);
+        lang = LANG_EN;
+        app_init();
+        CHECK(lang == LANG_EN && theme == 0u && g_font == FN_DOUCE, "9. a new FM-1: language %u theme %u font %u", lang, theme,
+              g_font);
+        g_font_set(FN_8BIT);
+        set_changed();
+        settings_save(&set, sizeof set);
+        g_font_set(FN_BASE);
+        app_init();
+        CHECK(g_font == FN_8BIT, "9. the font chosen did not come back (%u)", g_font);
+        printf("9. settings: 0.2's keep FR and the theme, font DOUCE; new: EN, DOUCE; a choice is kept\n");
+    }
     if (fails) { printf("features_test: %d failures\n", fails); return 1; }
     printf("features_test: passed\n");
     return 0;

@@ -95,7 +95,7 @@ démo « KAWA QUEST », appuie sur **SAVE**, choisis DEMO dans le menu PROJETS (
   jaune dit où tu es (« 49-64/64 »).
 - **Une barre jaune** se remplit en bas de l'écran quand tenir un bouton va ouvrir quelque chose (HOME : l'aide,
   FX : LIVE, SAVE : les outils). Un appui court n'affiche rien.
-- **Les pages par bouton.** LFO ouvre les pages LFO et MODULATION, **MAGIE passe sur SCL** (GAMME, MAGIE,
+- **Les pages par bouton.** Le bouton LFO a les pages LFO et MODULATION, **MAGIE passe sur SCL** (GAMME, MAGIE,
   PISTES), et SELECT tourne les pages de EDIT, LFO, ENV, FX et GLO.
 - **Pas de son changé par erreur.** Un son modifié porte une `*` après son nom : tourner PRESETS dessus affiche
   seulement « MODIFIE: ENCORE UN CRAN », et un cran de plus dans les 2,5 secondes le remplace.

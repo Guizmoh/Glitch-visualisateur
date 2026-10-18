@@ -78,8 +78,8 @@ STEPS = [
     ("67-fx2", [("btn", 8), ("enc", 1, -10), ("press", 10), ("enc", 4, 16), ("enc", 5, 8)]),
     # 0.5: SENDS (the first FX page), the yellow bar of a hold, the tools of SAVE, 64 steps
     ("70-sends", [("release", 10), ("btn", 8), ("btn", 2), ("enc", 2, 5), ("enc", 3, 4), ("enc", 4, 3), ("enc", 1, 1),
-                  ("enc", 2, 9), ("enc", 3, 2), ("btn", 8)]),
-    ("71-hold-bar", [("press", 9)]),
+                  ("enc", 2, 9), ("enc", 3, 2)]),
+    ("71-hold-bar", [("btn", 8), ("press", 9)]),
     ("72-tools", [("wait", 300), ("enc", 0, 3)]),
     ("73-tools-options", [("enc", 0, -3), ("release", 9)]),
     ("74-grid-64", [("btn", 8), ("btn", 11), ("btn", 1), ("btn", 1), ("wait", 100), ("enc", 0, 3)]),

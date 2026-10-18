@@ -532,7 +532,9 @@ test(hasPython ? "parity with install/fm1_install.py: constants, delays, wire fo
     for (const i of [0, 7, 0x3F, 0x45, 0x3FF, 0x401, 123456, 0x93500]) variants["flip_" + i] = mutate(PKG, r => { r[rawIndex(Math.min(i, 610245))] ^= 0x10; });
     variants.empty = new Uint8Array(0); variants.header_only = PKG.subarray(0, 600); variants.short_body = PKG.subarray(0, 1000);
     const files = Object.keys(variants).map(k => { const p = path.join(dir, k + ".fwsc"); fs.writeFileSync(p, variants[k]); return [k, p]; });
-    const py = python({ hex: hexes, resp, req: reqs, ident: idents, crc: crcs, pair, model, pkgs: files.map(f => f[1]) });
+    let py;
+    try { py = python({ hex: hexes, resp, req: reqs, ident: idents, crc: crcs, pair, model, pkgs: files.map(f => f[1]) }); }
+    finally { fs.rmSync(dir, { recursive: true, force: true }); }
     // constants and delays (JS in ms = Python's seconds x 1000)
     for (const [k, v] of Object.entries(py.delay)) assert.equal(REAL[k], Math.round(v * 1000), "DELAY." + k);
     assert.deepEqual(Object.keys(REAL).filter(k => !(k in py.delay)).sort(), ["portopen", "refresh"], "delays the Python tool does not have");
@@ -553,7 +555,7 @@ test(hasPython ? "parity with install/fm1_install.py: constants, delays, wire fo
     // packages: same verdict, same message (the Python one adds " (--force overrides)", an option the page does not have)
     let refusedN = 0;
     files.forEach(([k, p], i) => {
-        const raw = Uint8Array.from(fs.readFileSync(p)), want = py.pkgs[i];
+        const raw = Uint8Array.from(variants[k]), want = py.pkgs[i];
         let got;
         try { const r = W.loadPackage(raw, p, false); got = { ok: true, product: r.product, image: require("node:crypto").createHash("sha256").update(r.image).digest("hex") }; }
         catch (e) { assert.ok(e instanceof W.InstallError, k + ": " + e); got = { ok: false, msg: e.message }; }
@@ -561,7 +563,6 @@ test(hasPython ? "parity with install/fm1_install.py: constants, delays, wire fo
         if (want.ok) assert.deepEqual(got, want, "package " + k);
         else assert.equal(got.msg, want.msg, "package " + k);
     });
-    fs.rmSync(dir, { recursive: true, force: true });
     assert.ok(py.pkgs[0].ok && py.pkgs[0].product === PRODUCT, "the real package is accepted by both");
     assert.ok(refusedN >= 15, "only " + refusedN + " variants were refused");
 });

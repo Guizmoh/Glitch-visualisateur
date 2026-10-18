@@ -148,7 +148,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
       <li><a href="#tuto-chaine">Tutorial 4 · Chain the patterns</a></li>
       <li><a href="#tuto-sauver">Tutorial 5 · Save</a></li>
       <li><a href="#son">The sound</a></li>
-      <li><a href="#live">Live effects</a></li>
+      <li><a href="#live">Sends and live effects</a></li>
       <li><a href="#magie">Magic</a></li>
       <li><a href="#cases">Cell effects</a></li>
       <li><a href="#tables">Tables</a></li>
@@ -383,15 +383,15 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
         <li><figure class="screen"><img src="img/en/21-step-jump.png" alt="STEP 2" width="480" height="480"></figure><div><b>The cursor step</b><p>Hold <kbd>REC</kbd> and turn <strong>SELECT</strong>: you set how many rows the cursor jumps after each note (0 to 16). With 2, you write eighth notes; with 4, quarter notes. The value shows at the top left of the tracker.</p></div></li>
         <li><figure class="screen"><img src="img/en/22-cell-knobs.png" alt="A cell with an arpeggio" width="480" height="480"></figure><div><b>Edit a cell</b><p>Place the cursor with <strong>SELECT</strong>. <span class="k k1">K1</span> changes the note, <span class="k k2">K2</span> its volume, <span class="k k3">K3</span> the cell's effect and <span class="k k4">K4</span> the effect's value (here a minor arpeggio). <kbd>ARP</kbd> clears the cell. Hold <kbd>ARP</kbd> and turn <strong>SELECT</strong> to insert or remove a row.</p></div></li>
         <li><figure class="screen"><img src="img/en/23-grid-kit.png" alt="The kit's grid" width="480" height="480"></figure><div><b>Drums on the grid</b><p>Pick the kit's track with <strong>ALGORITHM</strong> and press <kbd>SEQ</kbd>. The 16 white keys are the 16 steps, as on a Pocket Operator: press a key to place the sound, press it again to remove it. <span class="k k1">K1</span> picks the drum that will be placed. Hold a step to edit it with the knobs; hold a step and press <kbd>ARP</kbd> to clear it. The black keys change the track.</p></div></li>
-        <li><figure class="screen"><img src="img/en/74-grid-64.png" alt="The grid on its last page, steps 49 to 64 of 64, with P01+ in the top bar" width="480" height="480"></figure><div><b>16, 32 or 64 steps</b><p>On the grid, <kbd>OCT+</kbd> makes the pattern 32 steps, then 64; <kbd>OCT−</kbd> takes it back. The grid always shows 16 steps at a time, and <strong>SELECT</strong> turns the pages (1-16, 17-32, 33-48, 49-64). The yellow header tells you where you are: “49-64/64”.</p><p>64 steps is this pattern (32 rows) <strong>linked to the next one</strong> (32 rows): they play as one, in the loop and in the song, and the top bar shows “P01+” and “+P02”. The pages 33-64 edit the next pattern. <kbd>OCT−</kbd> from 64 unlinks them: the second half stays as a pattern of its own, nothing is lost. KAWA refuses (a message appears) on the last pattern, or if the next pattern is already linked. In the SONG page, <span class="k k4">K4</span> still sets any length from 1 to 32 rows.</p></div></li>
+        <li><figure class="screen"><img src="img/en/74-grid-64.png" alt="The grid on its last page, steps 49 to 64 of 64, with P01+ in the top bar" width="480" height="480"></figure><div><b>16, 32 or 64 steps</b><p>On the grid, <kbd>OCT+</kbd> makes the pattern 32 steps, then 64; <kbd>OCT−</kbd> takes it back. The grid always shows 16 steps at a time, and <strong>SELECT</strong> turns the pages (1-16, 17-32, 33-48, 49-64). The yellow header tells you where you are: “49-64/64”.</p><p>64 steps is this pattern (32 rows) <strong>linked to the next one</strong> (32 rows): they play as one, in the loop and in the song, and the top bar shows “P01+” and “+P02”. The pages 33-64 edit the next pattern. <kbd>OCT−</kbd> from 64 unlinks them: the second half stays as a pattern of its own, nothing is lost. KAWA refuses (a message appears) on the last pattern, when the next pattern is already linked, or when this one is already the second half of another. In the SONG page, <span class="k k4">K4</span> still sets any length from 1 to 32 rows.</p></div></li>
       </ol>
     </section>
 
     <section id="tuto-motifs">
       <h2><span class="n">07</span>Tutorial 3 · More patterns</h2>
       <ol class="steps">
-        <li><figure class="screen"><img src="img/en/24-magic.png" alt="The MAGIC page" width="480" height="480"></figure><div><b>Magic</b><p><kbd>LFO</kbd> opens the 16 magic tools, one per white key. <span class="k k1">K1</span> sets their amount, <span class="k k2">K2</span> the die, <span class="k k3">K3</span> the scope: the track alone or the whole pattern.</p></div></li>
-        <li><figure class="screen"><img src="img/en/25-magic-beat.png" alt="BEAT applied" width="480" height="480"></figure><div><b>A beat in one key</b><p>Key 2: <strong>BEAT</strong> writes a rhythm on the track. Press it again for another one. Every tool can be undone: <kbd>SAVE</kbd> held + <kbd>OCT−</kbd>.</p></div></li>
+        <li><figure class="screen"><img src="img/en/24-magic.png" alt="The MAGIC page" width="480" height="480"></figure><div><b>Magic</b><p>Press <kbd>SCL</kbd> twice: the first press opens SCALE, the second the 16 magic tools, one per white key (a third press goes back to the tracks). <span class="k k1">K1</span> sets their amount, <span class="k k2">K2</span> the die, <span class="k k3">K3</span> the scope: the track alone or the whole pattern.</p></div></li>
+        <li><figure class="screen"><img src="img/en/25-magic-beat.png" alt="BEAT applied" width="480" height="480"></figure><div><b>A beat in one key</b><p>Key 2: <strong>BEAT</strong> writes a rhythm on the track. Press it again for another one. Every tool can be undone: <kbd>SAVE</kbd> held + <kbd>OCT−</kbd>, or hold <kbd>SAVE</kbd> and pick UNDO (<a href="#tuto-sauver">see Tutorial 5</a>).</p></div></li>
         <li><figure class="screen"><img src="img/en/26-clone.png" alt="CLONE" width="480" height="480"></figure><div><b>Clone the pattern</b><p>Key 12: <strong>CLONE</strong> copies the pattern into the next empty pattern, adds it to the chain right after, and takes you there. It is the fastest way to make a variation.</p></div></li>
         <li><figure class="screen"><img src="img/en/27-tracks-p02.png" alt="Pattern P02" width="480" height="480"></figure><div><b>Change pattern</b><p>You are now on <strong>P02</strong>, which you can change without touching P01. <strong>PRESETS</strong> moves from one pattern to another (32 patterns of 1 to 32 rows). During playback, if you change pattern, the screen stays on the one you are editing and shows “&gt;P01” for the one that plays.</p></div></li>
       </ol>
@@ -400,9 +400,9 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     <section id="tuto-chaine">
       <h2><span class="n">08</span>Tutorial 4 · Chain patterns into a song</h2>
       <ol class="steps">
-        <li><figure class="screen"><img src="img/en/30-song.png" alt="The SONG page" width="480" height="480"></figure><div><b>The chain</b><p><kbd>GLO</kbd> opens SONG: the list of patterns in the order of the song. Each entry shows a pattern and how many times it plays. <strong>SELECT</strong> picks an entry, <strong>PRESETS</strong> changes its pattern.</p></div></li>
+        <li><figure class="screen"><img src="img/en/30-song.png" alt="The SONG page" width="480" height="480"></figure><div><b>The chain</b><p><kbd>GLO</kbd> opens SONG: the list of patterns in the order of the song. Each entry shows a pattern and how many times it plays. <strong>ALGORITHM</strong> picks an entry, <strong>PRESETS</strong> changes its pattern. (<strong>SELECT</strong> turns the pages of <kbd>GLO</kbd>: SONG, GROOVE, OPTIONS.)</p></div></li>
         <li><figure class="screen"><img src="img/en/31-song-repeat.png" alt="A pattern played twice" width="480" height="480"></figure><div><b>Repeat a pattern</b><p><span class="k k3">K3</span> sets how many times the entry plays its pattern: from ×1 to ×16. A four-bar verse made of two patterns? Set each one to ×2.</p></div></li>
-        <li><figure class="screen"><img src="img/en/32-song-add.png" alt="An added entry" width="480" height="480"></figure><div><b>Add entries</b><p>Go to the “+” at the end and press a white key: key 1 adds pattern 1, key 2 pattern 2… <kbd>OCT+</kbd> copies the entry under the cursor right after it, <kbd>OCT−</kbd> removes it.</p></div></li>
+        <li><figure class="screen"><img src="img/en/32-song-add.png" alt="An added entry" width="480" height="480"></figure><div><b>Add entries</b><p>Go to the “+” at the end with <strong>ALGORITHM</strong> and press a white key: key 1 adds pattern 1, key 2 pattern 2… <kbd>OCT+</kbd> copies the entry under the cursor right after it, <kbd>OCT−</kbd> removes it.</p></div></li>
         <li><figure class="screen"><img src="img/en/33-song-mode.png" alt="SONG mode" width="480" height="480"></figure><div><b>Loop or song</b><p><kbd>ARP</kbd> switches from LOOP (the pattern on the screen loops, handy for composing) to SONG (the whole song, entry after entry). <span class="k k1">K1</span> sets the tempo, <span class="k k2">K2</span> the swing and <span class="k k4">K4</span> the pattern's length.</p></div></li>
         <li><figure class="screen"><img src="img/en/34-song-play.png" alt="The chain playing" width="480" height="480"></figure><div><b>Listen to the song</b><p>On the starting entry, press <kbd>PLAY</kbd>. The entry that plays lights up, and dots count its repeats. At the end of the chain, the song starts again from the beginning.</p></div></li>
       </ol>
@@ -414,8 +414,9 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
         <li><figure class="screen"><img src="img/en/41-save-slot.png" alt="Choosing a slot" width="480" height="480"></figure><div><b>Save as</b><p><kbd>SAVE</kbd>, then <strong>SAVE</strong> or <strong>SAVE AS…</strong> and <kbd>OCT+</kbd>. Choose one of the three slots with <strong>SELECT</strong> (or a white key, 2 to 4). If the slot is already taken, KAWA asks before writing over it.</p></div></li>
         <li><figure class="screen"><img src="img/en/42-save-name.png" alt="The song's name" width="480" height="480"></figure><div><b>Give it a name</b><p><strong>SELECT</strong> picks the letter to change, <span class="k k1">K1</span> changes it, <span class="k k2">K2</span> picks a random name, <span class="k k3">K3</span> clears it all. <kbd>OCT+</kbd> saves.</p></div></li>
         <li><figure class="screen"><img src="img/en/43-saved.png" alt="SAVED !" width="480" height="480"></figure><div><b>After that, in two presses</b><p>The song keeps its slot: <kbd>SAVE</kbd> then <kbd>OCT+</kbd> saves it again in the same place. <strong>LOAD…</strong> opens a song, <strong>RENAME…</strong> changes its name. On top of that, KAWA saves by itself into the AUTO slot when you are not playing.</p></div></li>
+        <li><figure class="screen"><img src="img/en/72-tools.png" alt="The tools panel over the tracks: OPTIONS, UNDO, REDO, CLEAR (selected), COPY, PASTE, RANDOM, and the line ON 2 FM" width="480" height="480"></figure><div><b>Hold SAVE: the tools</b><p>Hold <kbd>SAVE</kbd> for about half a second (the yellow bar fills): the tools open over the page. <strong>SELECT</strong> picks one (the first, OPTIONS, is already selected), and it <strong>runs when you let go of <kbd>SAVE</kbd></strong>. Here CLEAR is selected.</p><p>The tools: OPTIONS, UNDO, REDO, CLEAR, COPY, PASTE and RANDOM. <span class="k k3">K3</span>, while the panel is open, sets the scope: the current track or the whole pattern. The last line of the panel says which: “ON 2 FM” or “ON PATTERN”. CLEAR, COPY, PASTE and RANDOM act on that scope (CLEAR, COPY and PASTE are the same as in MAGIC; RANDOM writes a melody, a bass, a beat or a break chop that suits the track).</p></div></li>
       </ol>
-      <div class="note"><h3>Undo and redo</h3><p>Hold <kbd>SAVE</kbd>: <kbd>OCT−</kbd> undoes the last change to a pattern, <kbd>OCT+</kbd> redoes it. Releasing <kbd>SAVE</kbd> after holding it, with nothing else, undoes once. KAWA keeps the last six steps.</p></div>
+      <div class="note"><h3>Undo and redo</h3><p>The quick way: hold <kbd>SAVE</kbd>, then <kbd>OCT−</kbd> undoes the last change to a pattern and <kbd>OCT+</kbd> redoes it, at once (nothing else runs when you let go of <kbd>SAVE</kbd>). Or pick UNDO / REDO in the tools. Letting go of <kbd>SAVE</kbd> with the tools open and nothing else done no longer undoes: it opens OPTIONS. KAWA keeps the last six steps.</p></div>
     </section>
 
     <section id="son">
@@ -434,17 +435,21 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
       </table></div>
       <div class="gallery">
         <figure class="screen"><img src="img/en/52-fm-sound.png" alt="FM: algorithm and operators" width="480" height="480"><figcaption>FM: its operators as bars, the carriers in the track's colour.</figcaption></figure>
-        <figure class="screen"><img src="img/en/53-fm-operator.png" alt="An FM operator" width="480" height="480"><figcaption>OPERATOR: SELECT picks the operator; level, ratio, fine, detune.</figcaption></figure>
+        <figure class="screen"><img src="img/en/53-fm-operator.png" alt="An FM operator" width="480" height="480"><figcaption>OPERATOR: PRESETS picks the operator (1 to 6); level, ratio, fine, detune.</figcaption></figure>
         <figure class="screen"><img src="img/en/54-fm-openv.png" alt="An operator's envelope" width="480" height="480"><figcaption>OP ENVELOPE: the operator's envelope, as an ADSR.</figcaption></figure>
         <figure class="screen"><img src="img/en/58-kit.png" alt="A drum kit" width="480" height="480"><figcaption>KIT: <span class="k k1">K1</span> picks the kit; the pads light up when they play.</figcaption></figure>
         <figure class="screen"><img src="img/en/59-sample.png" alt="A sliced break" width="480" height="480"><figcaption>SAMPLE: the break and its 16 slices, with the kicks and snares marked.</figcaption></figure>
       </div>
+      <h3>Engine and factory sound</h3>
+      <p>On the first SOUND page, <strong>PRESETS</strong> browses the factory sounds. The list is grouped by engine, so turning far enough crosses from one engine to the next. To jump straight to another engine, hold <kbd>ARP</kbd> and turn <strong>PRESETS</strong>: next or previous engine, with its first factory sound.</p>
+      <p>A sound you edited shows a star after its name. Turning <strong>PRESETS</strong> on it only shows “EDITED: TURN AGAIN”; one more turn within 2.5 seconds replaces it. A sound you did not touch changes at once. On the other pages of EDIT, PRESETS never changes the sound: it moves the page's cursor (the operator, the table row, the slice).</p>
       <h3>The pages of a sound</h3>
-      <p><kbd>EDIT</kbd> goes from one page to the next: <strong>SOUND</strong> and <strong>SOUND 2</strong> (the engine's settings), for FM <strong>OPERATOR</strong> and <strong>OP ENVELOPE</strong>, for SAMPLE <strong>SAMPLE EDIT</strong> (<a href="#edit-sample">below</a>), then <strong>EFFECT</strong>, <strong>LFO</strong>, <strong>MODULATION</strong> and the track's <strong>TABLE</strong> (<a href="#tables">its own section</a>). The small squares at the top right show where you are.</p>
+      <p><kbd>EDIT</kbd> goes from one page to the next, then round again: <strong>SOUND</strong> and <strong>SOUND 2</strong> (the engine's settings), for FM <strong>OPERATOR</strong> and <strong>OP ENVELOPE</strong>, for SAMPLE <strong>SAMPLE EDIT</strong> (<a href="#edit-sample">below</a>), then <strong>EFFECT</strong> and the track's <strong>TABLE</strong> (<a href="#tables">its own section</a>). <strong>SELECT</strong> turns the same pages (it stops at the first and the last). The small squares at the top right show where you are.</p>
+      <p>The LFO has its own button: <kbd>LFO</kbd> opens <strong>LFO</strong>, <kbd>LFO</kbd> again <strong>MODULATION</strong>, and again goes back. They are no longer on EDIT.</p>
       <div class="gallery">
         <figure class="screen"><img src="img/en/55-effect.png" alt="The track's effect" width="480" height="480"><figcaption>EFFECT: an effect for this track only (filters, drive, crush, lo-fi, ring, tremolo, wah), with its mix.</figcaption></figure>
-        <figure class="screen"><img src="img/en/56-lfo.png" alt="The LFO" width="480" height="480"><figcaption>LFO: to the pitch, the volume, the effect, the pan or the shape; locked to the tempo or free.</figcaption></figure>
-        <figure class="screen"><img src="img/en/57-mod.png" alt="The modulation" width="480" height="480"><figcaption>MODULATION: the envelope and the velocity open the effect, the envelope bends the pitch, the LFO restarts on each note.</figcaption></figure>
+        <figure class="screen"><img src="img/en/56-lfo.png" alt="The LFO" width="480" height="480"><figcaption>LFO (<kbd>LFO</kbd> button): to the pitch, the volume, the effect, the pan or the shape; locked to the tempo or free.</figcaption></figure>
+        <figure class="screen"><img src="img/en/57-mod.png" alt="The modulation" width="480" height="480"><figcaption>MODULATION (<kbd>LFO</kbd> twice): the envelope and the velocity open the effect, the envelope bends the pitch, the LFO restarts on each note.</figcaption></figure>
         <figure class="screen"><img src="img/en/50-envelope.png" alt="The ADSR envelope" width="480" height="480"><figcaption>ENVELOPE (<kbd>ENV</kbd>): the ADSR, each segment in the colour of its knob; a dot follows the note.</figcaption></figure>
         <figure class="screen"><img src="img/en/51-mix.png" alt="The mix" width="480" height="480"><figcaption>MIX (<kbd>ENV</kbd> twice): volume, pan, echo, reverb. After track 6, column M sets the master effect.</figcaption></figure>
       </div>
@@ -452,15 +457,18 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     </section>
 
     <section id="live">
-      <h2><span class="n">11</span>Live effects</h2>
+      <h2><span class="n">11</span>Sends and live effects</h2>
+      <p>The <kbd>FX</kbd> button has two pages. A tap opens <strong>SENDS</strong>, a second tap opens <strong>LIVE</strong>, a third tap goes back to the page you came from. <strong>SELECT</strong> also goes from SENDS to LIVE and back. Held from another page, <kbd>FX</kbd> opens LIVE for as long as you hold it (a yellow bar fills first), and the page you came from comes back when you let go.</p>
       <ol class="steps">
-        <li><figure class="screen"><img src="img/en/60-fx.png" alt="The live effects" width="480" height="480"></figure><div><b>Hold FX, play the keys</b><p>Hold <kbd>FX</kbd> and press white keys: loops, stutters, scratch, reverse… Let go, and the sound comes back. A short press on <kbd>FX</kbd> keeps the page open. The wave at the top shows the sound, and the tile of an active effect has a bar that follows its cycle. On the other pages, a banner at the top tells you which effect is playing.</p></div></li>
+        <li><figure class="screen"><img src="img/en/70-sends.png" alt="The SENDS page: one row per track, with its DRIVE, ECHO and REVERB levels" width="480" height="480"></figure><div><b>Sends</b><p>One row per track, three columns: <span class="k k1">DRIVE</span>, <span class="k k2">ECHO</span> and <span class="k k3">REVERB</span>, from 0 to 15 (0 is off and shows “-”). <strong>ALGORITHM</strong> picks the track, <span class="k k1">K1</span> sets its DRIVE, <span class="k k2">K2</span> its ECHO, <span class="k k3">K3</span> its REVERB. The keys play the track, so you hear what you do.</p><p><strong>DRIVE</strong> is a soft saturation of that track, applied before its pan and its sends: the louder the track, the more it saturates, and its level is compensated. ECHO and REVERB are the same sends as on MIX.</p></div></li>
+        <li><figure class="screen"><img src="img/en/60-fx.png" alt="The live effects" width="480" height="480"></figure><div><b>Live: hold FX, play the keys</b><p>On LIVE, press white keys: loops, stutters, scratch, reverse… Let go of the key, and the sound comes back. If you got there by holding <kbd>FX</kbd>, letting go of <kbd>FX</kbd> closes the page; if you got there with taps, the page stays open. The wave at the top shows the sound, and the tile of an active effect has a bar that follows its cycle. On the other pages, a banner at the top tells you which effect is playing. <kbd>ARP</kbd> clears the LIVE lane.</p></div></li>
         <li><figure class="screen"><img src="img/en/61-fx-bank2.png" alt="The second bank" width="480" height="480"></figure><div><b>Two banks, one target</b><p><kbd>OCT+</kbd> switches to the WRECK bank: filters, freeze, distort, vinyl… <span class="k k4">K4</span> picks the <strong>target</strong>: the MASTER, or a single track (for example, loop only the break). The black keys mute tracks. With <kbd>REC</kbd> on and playback running, the effects you play are recorded in the thin LIVE lane on the right of the tracker.</p></div></li>
       </ol>
     </section>
 
     <section id="magie">
       <h2><span class="n">12</span>Magic</h2>
+      <p>Press <kbd>SCL</kbd> twice: SCALE first, then MAGIC (a third press goes back to the tracks). One tool per white key, the black keys pick the track. <span class="k k1">K1</span> sets the amount, <span class="k k2">K2</span> the die, <span class="k k3">K3</span> the scope: the track alone or the whole pattern. The CLEAR, COPY and PASTE tools are also in the tools of <kbd>SAVE</kbd> held, with RANDOM.</p>
       <div class="table"><table>
         <thead><tr><th>Key</th><th>Tool</th><th>What it does</th></tr></thead>
         <tbody>
@@ -511,7 +519,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
       <h2><span class="n">14</span>Tables</h2>
       <p>A table is a small sequence played inside every note of a track, as on the M8. Its 16 steps come one after the other, every SPEED ticks (6 ticks make a row). Each step can move the pitch over the note, set the volume and play a trick. You write a single note in the tracker, and the table plays a chip arpeggio, a drum roll that grows, a kick that drops in pitch, a slice that stutters.</p>
       <ol class="steps">
-        <li><figure class="screen"><img src="img/en/65-table.png" alt="The TABLE page" width="480" height="480"></figure><div><b>EDIT until TABLE</b><p>The table is the last page of a sound. Row 0 holds its settings: <span class="k k1">K1</span> the speed (in ticks, 6 = a row), <span class="k k2">K2</span> the length, <span class="k k3">K3</span> the step it loops back to after the last one (or none: the last step stays), <span class="k k4">K4</span> on or off. SELECT goes down the steps. On a step: <span class="k k1">K1</span> the pitch over the note (±24 semitones; on a KIT, the drum's tuning), <span class="k k2">K2</span> the volume (<code>--</code> leaves it as it is), <span class="k k3">K3</span> the trick, <span class="k k4">K4</span> its value. <kbd>ARP</kbd> clears the step. The step playing lights up in the track's colour, and the bars at the bottom draw the pitch of each step.</p></div></li>
+        <li><figure class="screen"><img src="img/en/65-table.png" alt="The TABLE page" width="480" height="480"></figure><div><b>EDIT until TABLE</b><p>The table is the last page of EDIT. <strong>PRESETS</strong> goes down its rows. Row 0 holds its settings: <span class="k k1">K1</span> the speed (in ticks, 6 = a row), <span class="k k2">K2</span> the length, <span class="k k3">K3</span> the step it loops back to after the last one (or none: the last step stays), <span class="k k4">K4</span> on or off. On a step (rows 1 to 16): <span class="k k1">K1</span> the pitch over the note (±24 semitones; on a KIT, the drum's tuning), <span class="k k2">K2</span> the volume (<code>--</code> leaves it as it is), <span class="k k3">K3</span> the trick, <span class="k k4">K4</span> its value. <kbd>ARP</kbd> clears the step. The step playing lights up in the track's colour, and the bars at the bottom draw the pitch of each step.</p></div></li>
       </ol>
       <div class="table"><table>
         <thead><tr><th>Trick</th><th>What it does when its step comes</th></tr></thead>
@@ -535,7 +543,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     <section id="groove">
       <h2><span class="n">15</span>The groove</h2>
       <ol class="steps">
-        <li><figure class="screen"><img src="img/en/64-groove.png" alt="The GROOVE page" width="480" height="480"></figure><div><b>GLO twice</b><p>The groove sets how long each row lasts, in ticks: 6 ticks is a straight sixteenth. Its steps play in turn, one per row: 7 then 5 is a light swing, 8 then 4 a heavy one, 4 4 4 a triplet feel. When it is on, it replaces the swing of the SONG page. <span class="k k1">K1</span> sets the ticks of the chosen step (SELECT or a white key chooses it), <span class="k k2">K2</span> the length, <span class="k k3">K3</span> a preset (it turns the groove on), <span class="k k4">K4</span> on or off.</p><p>The strip under the bars shows one turn as it plays. When the ticks add up to 6 a row (7 + 5), the bar keeps its length; otherwise the count turns red, and the pattern gets shorter or longer. The MIDI clock out sends the ticks as they play: a drum machine follows the groove.</p></div></li>
+        <li><figure class="screen"><img src="img/en/64-groove.png" alt="The GROOVE page" width="480" height="480"></figure><div><b>GLO twice</b><p>The groove sets how long each row lasts, in ticks: 6 ticks is a straight sixteenth. Its steps play in turn, one per row: 7 then 5 is a light swing, 8 then 4 a heavy one, 4 4 4 a triplet feel. When it is on, it replaces the swing of the SONG page. <span class="k k1">K1</span> sets the ticks of the chosen step (<strong>ALGORITHM</strong> or a white key chooses it), <span class="k k2">K2</span> the length, <span class="k k3">K3</span> a preset (it turns the groove on), <span class="k k4">K4</span> on or off.</p><p>The strip under the bars shows one turn as it plays. When the ticks add up to 6 a row (7 + 5), the bar keeps its length; otherwise the count turns red, and the pattern gets shorter or longer. The MIDI clock out sends the ticks as they play: a drum machine follows the groove.</p></div></li>
       </ol>
     </section>
 
@@ -549,7 +557,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
       </ul>
       <h3 id="edit-sample">Edit a sample</h3>
       <ol class="steps">
-        <li><figure class="screen"><img src="img/en/66-sample-edit.png" alt="The SAMPLE EDIT page" width="480" height="480"></figure><div><b>EDIT until SAMPLE EDIT</b><p>On a SAMPLE track, a break or one of your sounds. Nothing is rewritten in the sound: the edit only says how it plays, and it is kept with the project, track by track. SELECT picks the marker: START, END, then the slices 2 to 16 (in SLICES mode). <span class="k k1">K1</span> moves it, <span class="k k2">K2</span> finely (its place shows in milliseconds), and you hear the slice. Move a slice and the others stay where they were; <kbd>ARP</kbd> spreads them evenly again. <span class="k k3">K3</span> NORM brings the loudest point of the edited part to full scale (up to ×16), <span class="k k4">K4</span> plays it backwards.</p></div></li>
+        <li><figure class="screen"><img src="img/en/66-sample-edit.png" alt="The SAMPLE EDIT page" width="480" height="480"></figure><div><b>EDIT until SAMPLE EDIT</b><p>On a SAMPLE track, a break or one of your sounds. Nothing is rewritten in the sound: the edit only says how it plays, and it is kept with the project, track by track. <strong>PRESETS</strong> picks the marker: START, END, then the slices 2 to 16 (in SLICES mode). <span class="k k1">K1</span> moves it, <span class="k k2">K2</span> finely (its place shows in milliseconds), and you hear the slice. Move a slice and the others stay where they were; <kbd>ARP</kbd> spreads them evenly again. <span class="k k3">K3</span> NORM brings the loudest point of the edited part to full scale (up to ×16), <span class="k k4">K4</span> plays it backwards.</p></div></li>
       </ol>
     </section>
 
@@ -558,17 +566,25 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
       <div class="table"><table>
         <thead><tr><th>Gesture</th><th>What it does</th></tr></thead>
         <tbody>
-          <tr><td><kbd>HOME</kbd> held</td><td>The page's help</td></tr>
-          <tr><td><kbd>SAVE</kbd> held + <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Undo / redo</td></tr>
+          <tr><td><kbd>HOME</kbd> held</td><td>The page's help (yellow bar)</td></tr>
+          <tr><td><kbd>SAVE</kbd> held</td><td>The tools: OPTIONS, UNDO, REDO, CLEAR, COPY, PASTE, RANDOM. SELECT picks, it runs when you let go; <span class="k k3">K3</span>: the track or the whole pattern</td></tr>
+          <tr><td><kbd>SAVE</kbd> held + <kbd>OCT−</kbd> / <kbd>OCT+</kbd></td><td>Undo / redo, at once</td></tr>
           <tr><td><kbd>SAVE</kbd> then <kbd>OCT+</kbd></td><td>Save the song again in its slot</td></tr>
+          <tr><td><kbd>SAVE</kbd> (tap), then DEMO</td><td>Load the demo song</td></tr>
+          <tr><td><kbd>FX</kbd> tap, tap again</td><td>SENDS, then LIVE (a third tap: back)</td></tr>
+          <tr><td><kbd>FX</kbd> held + white keys</td><td>Live effects, for as long as you hold <kbd>FX</kbd></td></tr>
+          <tr><td><kbd>SCL</kbd> twice</td><td>MAGIC (SCALE first)</td></tr>
+          <tr><td><kbd>LFO</kbd>, <kbd>LFO</kbd> again</td><td>LFO, then MODULATION</td></tr>
+          <tr><td><kbd>EDIT</kbd> again, or SELECT</td><td>The next page of the sound</td></tr>
+          <tr><td><kbd>ENV</kbd> twice</td><td>MIX and the master effect</td></tr>
+          <tr><td><kbd>GLO</kbd> twice, three times</td><td>The GROOVE, then the OPTIONS (SELECT walks SONG, GROOVE, OPTIONS)</td></tr>
+          <tr><td><kbd>OCT−</kbd> / <kbd>OCT+</kbd> (GRID)</td><td>The pattern's size: 16, 32, 64 steps</td></tr>
           <tr><td><kbd>REC</kbd> held + SELECT</td><td>The cursor step after a note</td></tr>
           <tr><td><kbd>ARP</kbd> held + <span class="k k3">K3</span> <span class="k k4">K4</span> (TRACKS)</td><td>The cell's second effect</td></tr>
           <tr><td><kbd>ARP</kbd> held + SELECT</td><td>Insert / remove a row in the track</td></tr>
           <tr><td><kbd>ARP</kbd> held + ALGORITHM</td><td>Insert / remove a row in the whole pattern</td></tr>
+          <tr><td><kbd>ARP</kbd> held + PRESETS (SOUND)</td><td>The next / previous engine</td></tr>
           <tr><td><kbd>ARP</kbd> held + black key (MIX)</td><td>Solo the track</td></tr>
-          <tr><td><kbd>FX</kbd> held + white keys</td><td>Live effects</td></tr>
-          <tr><td><kbd>GLO</kbd> twice, three times</td><td>The GROOVE, then the OPTIONS</td></tr>
-          <tr><td><kbd>ENV</kbd> twice</td><td>MIX and the master effect</td></tr>
         </tbody>
       </table></div>
       <p>In the emulator: Ctrl+Z undo, Ctrl+Y redo, Ctrl+S save, Space PLAY, Enter REC, Shift held FX, the arrow keys for the row and the track.</p>
@@ -577,7 +593,8 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     <section id="options">
       <h2><span class="n">18</span>Options</h2>
       <ol class="steps">
-        <li><figure class="screen"><img src="img/en/62-options.png" alt="The OPTIONS page" width="480" height="480"></figure><div><b>Theme, language, clock, font</b><p><kbd>GLO</kbd> three times. <span class="k k1">K1</span> picks the theme (KAWA, GAME BOY, BONBON), <span class="k k2">K2</span> the language of the screen (English, French, Spanish), <span class="k k4">K4</span> the font of the screen: SMOOTH (the default), BASIC (KAWA's first), CLEAR (made for reading) or 8-BIT (arcade); each one is shown written in itself. <span class="k k3">K3</span> sets the MIDI clock over USB:</p><ul><li><strong>OUT:</strong> KAWA sends start, stop and the tempo (the groove's ticks too), to sync a drum machine or a program on your computer.</li><li><strong>IN:</strong> KAWA follows another machine. Its START starts the song where PLAY would, its STOP stops it, its tempo leads (it shows in green, measured over four beats); each row waits for its ticks or catches up, and starts a few milliseconds after its tick. With IN and no clock, PLAY waits for one, and says so.</li></ul><p>The settings are kept when you switch off.</p><p>The CPU line tells you how much of the processing time the sound uses. Above 70%, KAWA lightens the sound by itself, reverb first, rather than crackle.</p></div></li>
+        <li><figure class="screen"><img src="img/en/62-options.png" alt="The OPTIONS page" width="480" height="480"></figure><div><b>Theme, language, clock, font</b><p><kbd>GLO</kbd> three times (<strong>SELECT</strong> also walks from SONG to GROOVE to OPTIONS), or hold <kbd>SAVE</kbd> and let go on OPTIONS, the first tool. <span class="k k1">K1</span> picks the theme (KAWA, GAME BOY, BONBON), <span class="k k2">K2</span> the language of the screen (English, French, Spanish), <span class="k k4">K4</span> the font of the screen: SMOOTH (the default), BASIC (KAWA's first), CLEAR (made for reading) or 8-BIT (arcade); each one is shown written in itself. <span class="k k3">K3</span> sets the MIDI clock over USB:</p><ul><li><strong>OUT:</strong> KAWA sends start, stop and the tempo (the groove's ticks too), to sync a drum machine or a program on your computer.</li><li><strong>IN:</strong> KAWA follows another machine. Its START starts the song where PLAY would, its STOP stops it, its tempo leads (it shows in green, measured over four beats); each row waits for its ticks or catches up, and starts a few milliseconds after its tick. With IN and no clock, PLAY waits for one, and says so.</li></ul><p>The settings are kept when you switch off.</p><p>The CPU line tells you how much of the processing time the sound uses. Above 70%, KAWA lightens the sound by itself, reverb first, rather than crackle.</p></div></li>
+        <li><figure class="screen"><img src="img/en/73-tools-options.png" alt="The OPTIONS page opened from the SAVE tools, with the METRONOME set to OFF and its VOLUME to MED" width="480" height="480"></figure><div><b>The metronome</b><p>On the same page, <strong>ALGORITHM</strong> sets the <strong>METRONOME</strong>: OFF, ON, or REC (the click only plays while <kbd>REC</kbd> is on and the song plays). <strong>PRESETS</strong> sets its <strong>VOLUME</strong>: LOW, MED or HIGH; you hear a click when you change it.</p><p>The click plays on every beat (four rows) while the song plays, higher on the first beat of a bar. It comes after the master effects, so they do not touch it. By default the metronome is OFF and the volume MED. Both are kept with the other settings.</p></div></li>
       </ol>
     </section>
 
@@ -587,7 +604,10 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
         <li><strong>I forgot what a knob does:</strong> look at the bottom line, or hold <kbd>HOME</kbd>.</li>
         <li><strong>No sound:</strong> turn up MASTER; on MIX, check that no track is muted (a red M); check the note's volume with <span class="k k2">K2</span>.</li>
         <li><strong>“FM: ONE TRACK ONLY”:</strong> another track already has FM; change its engine first.</li>
-        <li><strong>A change went wrong:</strong> <kbd>SAVE</kbd> held + <kbd>OCT−</kbd>.</li>
+        <li><strong>A change went wrong:</strong> <kbd>SAVE</kbd> held + <kbd>OCT−</kbd>, or hold <kbd>SAVE</kbd> and pick UNDO.</li>
+        <li><strong>KAWA starts empty:</strong> that is how 0.5 starts when nothing was saved. The demo is in <kbd>SAVE</kbd>, DEMO.</li>
+        <li><strong>PRESETS does not change my sound:</strong> a sound you edited (a star after its name) needs a second turn within 2.5 seconds. On the other pages, PRESETS moves the page's cursor.</li>
+        <li><strong>I cannot find MAGIC or the LFO:</strong> MAGIC is on <kbd>SCL</kbd> pressed twice; the LFO and MODULATION are on the <kbd>LFO</kbd> button.</li>
         <li><strong>KAWA no longer starts:</strong> hold <kbd>OCT−</kbd> while you switch on (the USB rescue), then reinstall KAWA or the official firmware.</li>
       </ul>
     </section>
@@ -601,7 +621,7 @@ footer { color: var(--muted); font-size: 14px; max-width: var(--measure); }
     </section>
 
     <footer>
-      <p>KAWA 0.4 beta, Pocket Tracker by Omnipotard. Free software (GPL-3.0), built on Dinghy, Felucca (Hügelton Instruments) and SLOOP, the open platform of the FM-1 community. The FM engine comes from msfa (Dexed, Apache-2.0). The breaks and the kits are fully synthesised. M-VAVE and FM-1 are trademarks of their owners; KAWA is not an M-VAVE product.</p>
+      <p>KAWA 0.5 beta, Pocket Tracker by Omnipotard. Free software (GPL-3.0), built on Dinghy, Felucca (Hügelton Instruments) and SLOOP, the open platform of the FM-1 community. The FM engine comes from msfa (Dexed, Apache-2.0). The breaks and the kits are fully synthesised. M-VAVE and FM-1 are trademarks of their owners; KAWA is not an M-VAVE product.</p>
     </footer>
   </main>
 </div>

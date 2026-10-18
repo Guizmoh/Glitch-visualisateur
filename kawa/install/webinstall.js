@@ -35,7 +35,7 @@ const DELAY = { open: 300, start: 2000, reply: 10, loader: 3000, reboot: 3000, r
                 poll: 1000, hs: 1000, idle_check: 8000, idle_write: 180000,
                 wait_loader: 30000, wait_reboot: 40000,
                 portopen: 5000,       // a Web MIDI open() that never answers (port taken by another program)
-                refresh: 4000 };      // at most every 4 s, ask the browser for its port list again while waiting
+                refresh: 10000 };     // waiting for the FM-1 to come back: no plug event for 10 s, ask the browser for its ports again
 
 class InstallError extends Error {
     constructor(code, msg) {
@@ -336,10 +336,15 @@ class WebMidiLink {
 
 class WebMidiBackend {
     constructor(access, nav) {
-        this.access = access;
         this.nav = nav;
         this.problem = null;
-        this.asked = now();
+        this._set(access);
+    }
+
+    _set(access) {
+        this.access = access;
+        this.asked = now();                                    // (a plug event counts as news from the browser too)
+        access.onstatechange = () => { this.asked = now(); };
     }
 
     _list(map) {
@@ -349,10 +354,12 @@ class WebMidiBackend {
     inputNames() { return ports(this, () => this._list(this.access.inputs).map(p => p.name || p.id)); }
     outputNames() { return ports(this, () => this._list(this.access.outputs).map(p => p.name || p.id)); }
 
-    async refresh() {                     // Chrome keeps the maps up to date; asking again guards against a stale list
-        if (now() - this.asked < DELAY.refresh) return;
+    // Chrome keeps the port maps up to date and tells (statechange). If it has said nothing for DELAY.refresh since a wait
+    // began, ask for the access again: a new MIDIAccess has the current list (the permission is already granted, no prompt)
+    async refresh(since) {
+        if (now() - Math.max(this.asked, since) < DELAY.refresh) return;
         this.asked = now();
-        try { this.access = await this.nav.requestMIDIAccess({ sysex: true }); } catch (e) { /* keep the old one */ }
+        try { this._set(await this.nav.requestMIDIAccess({ sysex: true })); } catch (e) { /* keep the old one */ }
     }
 
     async open(inName, outName) {         // (by name, as the Python tool: duplicates were merged by ports())
@@ -443,9 +450,9 @@ class Updater {
     }
 
     async waitFor(want, ms) {             // (the device re-enumerates: its ports go and come back, maybe under another name)
-        const end = now() + ms;
+        const start = now(), end = start + ms;
         while (now() < end) {
-            if (this.backend.refresh) await this.backend.refresh();
+            if (this.backend.refresh) await this.backend.refresh(start);
             const dev = await this.find(want, false);
             if (dev) return dev;
             await sleep(DELAY.retry);

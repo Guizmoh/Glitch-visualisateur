@@ -88,8 +88,8 @@ sounds on it and send them to your FM-1 over USB.
   yellow header says where you are ("49-64/64").
 - **A yellow bar** fills at the bottom of the screen when holding a button is about to open something (HOME: the
   help, FX: LIVE, SAVE: the tools). A short tap shows nothing.
-- **Pages by button.** LFO opens the LFO and MODULATION pages, **MAGIC moved to SCL** (SCALE, MAGIC, TRACKS),
-  and SELECT turns the pages of EDIT, LFO, ENV, FX and GLO.
+- **Pages by button.** The LFO button holds the LFO and MODULATION pages, **MAGIC moved to SCL** (SCALE,
+  MAGIC, TRACKS), and SELECT turns the pages of EDIT, LFO, ENV, FX and GLO.
 - **No sound changed by mistake.** A sound you edited shows a `*` after its name: turning PRESETS on it only
   says "EDITED: TURN AGAIN", and one more turn within 2.5 seconds replaces it.
 

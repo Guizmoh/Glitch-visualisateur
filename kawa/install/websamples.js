@@ -103,7 +103,7 @@ function messageOf(code, d) {
     case "decode":
         return "This file could not be read as a sound" + (d.why ? " (" + d.why + ")" : "") + ".";
     case "badslot":
-        return `There is no slot ${d.slot === undefined ? "" : d.slot + 1}on this FM-1.`.replace("  ", " ");
+        return d.slot === undefined ? "There is no such slot on this FM-1." : `There is no slot ${slotName(d.slot)} on this FM-1.`;
     case "badargs":
         return "Refused before sending: " + (d.why || "invalid sample") + ".";
     case "cancelled":
@@ -379,7 +379,8 @@ function stream(src, rate) {
 function prepare(src, o) {
     const rate = (o && o.rate) || RATE, cap = Math.min((o && o.cap) || CAP, CAP);
     if (!RATES.includes(rate)) throw new KawaError("badargs", { why: "the rate must be 22050 or 11025 Hz" });
-    if (!src || !(src.length >= 1) || !(src.rate >= 1)) throw new KawaError("decode", { why: "no sound in it" });
+    if (!src || !(src.rate >= 1)) throw new KawaError("decode", { why: "no sound in it" });
+    if (!(src.length >= 1)) throw new KawaError("short");
     const st = stream(src, rate);
     let first = -1;
     for (let i = 0; i < st.count; i++) {
@@ -412,7 +413,7 @@ function prepare(src, o) {
 
 /* a name the FM-1 can show: upper case, A-Z 0-9 space _ - . ! + #, 11 characters at most (may be empty) */
 function cleanName(s) {
-    return String(s === undefined || s === null ? "" : s).normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase()
+    return String(s === undefined || s === null ? "" : s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase()
         .replace(/[^A-Z0-9 _\-.!+#]/g, " ").replace(/\s+/g, " ").trim().slice(0, NAME_MAX).trim();
 }
 function nameFromFile(fileName) { return cleanName(String(fileName || "").replace(/\.[^.]*$/, "")) || "SAMPLE"; }
@@ -452,7 +453,7 @@ class Link {
     _rx(d) {
         if (!d || !d.length) return;
         if (d[0] === 0xF0) this.buf = [];              // a new SysEx (an unfinished one is dropped)
-        else if (!this.buf || d[0] >= 0x80) return;    // not inside a SysEx: clock, active sensing, notes
+        else if (!this.buf || (d[0] >= 0x80 && d[0] !== 0xF7)) return;   // not inside a SysEx: clock, sensing, notes
         for (let i = 0; i < d.length; i++) {
             if (d[i] >= 0xF8) continue;                // (a realtime byte in the middle of a SysEx)
             this.buf.push(d[i]);
@@ -529,6 +530,7 @@ function findPorts(access, want) {
 }
 
 const ascii = b => Array.from(b, c => (c >= 32 && c < 127 ? String.fromCharCode(c) : "?")).join("");
+const nameText = b => { const z = b.indexOf(0); return ascii(z < 0 ? b : b.subarray(0, z)); };   // (a LIST name: up to the NUL)
 function parseInfo(b) {                               // rc, "KAWA", version (4 chars), slots, capacity (3 B LE)
     if (!b || b.length < 5 || b[0] !== 0 || ascii(b.subarray(1, 5)) !== "KAWA") return null;
     return {
@@ -541,8 +543,7 @@ function parseList(b, slots) {                        // rc, then per slot: used
     const n = Math.min(slots, Math.floor((b.length - 1) / 18)), out = [];
     for (let k = 0; k < n; k++) {
         const q = b.subarray(1 + 18 * k, 19 + 18 * k);
-        let nm = "";
-        for (let i = 6; i < 18 && q[i]; i++) nm += q[i] >= 32 && q[i] < 127 ? String.fromCharCode(q[i]) : "?";
+        const nm = nameText(q.subarray(6, 18));
         const rate = q[1] | q[2] << 8, len = q[3] | q[4] << 8 | q[5] << 16;
         out.push({ slot: k, used: q[0] !== 0, rate, len, name: nm, seconds: q[0] && rate ? len / rate : 0 });
     }
@@ -618,17 +619,18 @@ class Fm1 {
                     /* the first END may have been taken and its answer lost: the second finds no session (code 5).
                      * The slot says what happened. */
                     const l = parseList(rcCheck(await link.ask(CMD.LIST, [], DELAY.list), "LIST"), this.info.slots)[slot];
-                    const want = headerName(name);
-                    const ok = l && l.used && l.len === n && l.rate === rate && l.name === ascii(want.subarray(0, want.indexOf(0) < 0 ? 12 : want.indexOf(0)));
-                    if (!ok) rcCheck(end, "END");
+                    if (!(l && l.used && l.len === n && l.rate === rate && l.name === nameText(headerName(name)))) rcCheck(end, "END");
                 } else rcCheck(end, "END");
             } catch (e) {
                 if (e instanceof KawaError) {
-                    // before BEGIN went through: a refusal changed nothing; no answer at all: who knows
-                    const refused = !begun && e.rc !== undefined;
-                    const cancelledEarly = !begun && e.code === "cancelled";
-                    e.withSlot(slot, begun ? (e.step === "END" && (e.code === "timeout" || e.code === "lost") ? "unknown" : "empty")
-                                           : refused || cancelledEarly || e.step === undefined ? "unchanged" : "unknown");
+                    /* what is on the FM-1 now: before BEGIN went through, a refusal (busy, bad arguments) or a cancel
+                     * changed nothing, no answer at all leaves it open; after BEGIN the header is gone (empty) until
+                     * END is acknowledged, and an END whose answer never came may have gone through */
+                    let state;
+                    if (!begun) state = e.code === "cancelled" || e.rc === 1 || e.rc === 2 ? "unchanged" : "unknown";
+                    else if (e.step === "END" && (e.code === "timeout" || e.code === "lost")) state = "unknown";
+                    else state = "empty";
+                    e.withSlot(slot, state);
                 }
                 throw e;
             }

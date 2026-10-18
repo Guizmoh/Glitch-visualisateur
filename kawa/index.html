@@ -44,7 +44,7 @@ code, kbd { white-space: nowrap; font-family: var(--mono); font-size: .92em; bac
 .hero h1 { font-size: clamp(1.55rem, 4.6vw, 2.35rem); margin: 1.1rem 0 .4rem; letter-spacing: -.01em; }
 .hero h1 b { color: var(--gold); }
 .lead { font-size: 1.12rem; color: var(--muted); max-width: 52rem; margin: 0; }
-.tagline { margin: .7rem 0 0; font: 600 .95rem/1.4 var(--mono); color: var(--gold); letter-spacing: .01em; }
+.tagline { margin: .7rem 0 0; font: 600 .86rem/1.45 var(--mono); color: var(--gold); }
 
 /* cards */
 .card { background: var(--panel); border: 1px solid var(--rule); border-radius: 16px; padding: 18px 20px; margin-top: 18px; }
@@ -94,12 +94,13 @@ body.writing .adv, body.writing .steps { opacity: .5; }
 .pair h2 { font-size: 1.05rem; }
 .pair p { font-size: .96rem; color: var(--muted); }
 .official { border-color: #2f6b8a; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 18px; }
-.tile { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; }
+.grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 18px; }   /* 3 + 2 tiles */
+.tile { grid-column: span 2; background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; }
+.tile:nth-child(n+4) { grid-column: span 3; }
 .tile h2 { font-size: 1.05rem; margin: 0 0 .3rem; }
 .tile p { margin: 0; color: var(--muted); font-size: .94rem; flex: 1; }
-.acts { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; }
-.acts a { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem 1rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--panel-2); color: var(--ink); text-decoration: none; font-weight: 600; }
+.acts { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
+.acts a { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem .7rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--panel-2); color: var(--ink); text-decoration: none; font-weight: 600; }
 .acts a:hover { border-color: var(--cyan); color: var(--gold); }
 footer { margin-top: 28px; color: var(--muted); font-size: .88rem; }
 
@@ -114,6 +115,8 @@ dialog .yes:hover { color: #1c0a30; filter: brightness(1.08); }
 
 @media (max-width: 720px) {
   .pair { grid-template-columns: 1fr; gap: 0; }
+  .grid { grid-template-columns: 1fr; }
+  .tile, .tile:nth-child(n+4) { grid-column: auto; }
   .big { width: 100%; font-size: 1.25rem; padding: 1rem; }
   .actions .btn, .actions button:not(.big) { flex: 1 1 auto; }
   .card { padding: 16px; }

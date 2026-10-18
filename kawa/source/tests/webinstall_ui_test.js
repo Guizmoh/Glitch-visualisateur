@@ -60,6 +60,7 @@ async function open(o = {}, url) {
     page.on("request", r => { seen.requests.push(r.url()); if (!/^(http:\/\/127\.0\.0\.1|file:|data:|blob:|about:)/.test(r.url())) seen.external.push(r.url()); });
     page.on("console", m => { if (m.type() === "error") seen.errors.push(m.text()); });
     page.on("pageerror", e => seen.errors.push(String(e)));
+    if (o.before) await o.before(page);
     await page.goto(url || base + "/index.html");
     await page.evaluate(f => Object.assign(window.KawaInstall.DELAY, f), FAST);
     return { ctx, page, seen };
@@ -174,6 +175,23 @@ test("closing the tab while writing: the browser asks first (the real beforeunlo
     await page.evaluate(() => { window.KawaInstall.DELAY.reply = 0; });
     await page.waitForSelector("#done:not([hidden])", { timeout: 60000 });
     assert.equal(await appOk(page), true);
+    await ctx.close();
+});
+
+test("a newer package named in install/SHA256SUMS (0.5) is the one the page shows, downloads and installs: no version in the page", async () => {
+    const hash = require("node:crypto").createHash("sha256").update(PKG).digest("hex");
+    const { ctx, page, seen } = await open({ before: async pg => {
+        await pg.route("**/install/SHA256SUMS", r => r.fulfill({ contentType: "text/plain", body: `${hash}  kawa-0.5.fwsc\n${"c".repeat(64)}  kawa-0.4.fwsc\n${"d".repeat(64)}  older/kawa-0.3.fwsc\n` }));
+        await pg.route("**/install/kawa-0.5.fwsc", r => r.fulfill({ contentType: "application/octet-stream", body: PKG }));
+    } });
+    assert.equal(await text(page, "#pkg"), "Package: kawa-0.5.fwsc");
+    await page.click("#go");
+    await page.waitForFunction(() => document.getElementById("dlg").open);
+    assert.match(await text(page, "#dlg-info"), /\(kawa-0\.5\.fwsc\)/);
+    await page.click("#dlg-yes");
+    await page.waitForSelector("#done:not([hidden])", { timeout: 60000 });
+    assert.equal(await text(page, "#done"), "Done: the FM-1 runs KAWA (FM-1_954).");
+    assert.ok(seen.requests.some(u => u.endsWith("/install/kawa-0.5.fwsc")) && !seen.requests.some(u => u.endsWith("/install/kawa-0.4.fwsc")));
     await ctx.close();
 });
 

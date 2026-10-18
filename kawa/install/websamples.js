@@ -482,7 +482,7 @@ class Link {
     get gone() { return this.inp.state === "disconnected" || this.out.state === "disconnected"; }
     _once(cmd, f, ms, match, step) {
         return new Promise((res, rej) => {
-            const w = { cmd, match, res, timer: 0 };
+            const w = { cmd, match, res, rej, step, timer: 0 };
             w.timer = setTimeout(() => {
                 if (this.wait === w) this.wait = null;
                 rej(new KawaError(this.gone ? "lost" : "timeout", { step }));
@@ -516,7 +516,8 @@ class Link {
     }
     async close() {
         this.inp.onmidimessage = null;
-        if (this.wait) { clearTimeout(this.wait.timer); this.wait = null; }
+        const w = this.wait;                               // a request still waiting fails now: it must never hang
+        if (w) { clearTimeout(w.timer); this.wait = null; w.rej(new KawaError("lost", { step: w.step })); }
         for (const p of [this.inp, this.out]) {
             try { await within(Promise.resolve(p.close && p.close()), DELAY.portopen, "portbusy"); } catch (e) { /* gone */ }
         }

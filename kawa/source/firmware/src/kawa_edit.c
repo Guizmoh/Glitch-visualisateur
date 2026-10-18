@@ -234,7 +234,7 @@ static void prj_new(void)
     memset(&prj, 0, sizeof prj);
     prj.magic = PRJ_MAGIC;
     prj.version = PRJ_VERSION;
-    prj.bpm = 160;
+    prj.bpm = 100;
     prj.swing = 50;
     prj.root = 9;                               /* A */
     prj.scale = 2;                              /* MINOR */
@@ -307,6 +307,7 @@ static void prj_demo(void)
 {
     uint32_t p, r;
     prj_new();
+    prj.bpm = 160;                              /* (the demo is written for 160; a new song starts at 100) */
     memcpy(prj.name, "KAWA QUEST", 11);
     prj.root = 0;                               /* C major (the dungeon and the boss are A minor: the same notes) */
     prj.scale = 1;
@@ -783,6 +784,7 @@ static const char *mg_clone(uint32_t pi, uint32_t song_at)
         return TR("PLUS DE PLACE", "NO ROOM", "SIN ESPACIO");
     undo_push(q);
     prj.pat[q] = prj.pat[pi];
+    prj.pat[q].pad[0] = 0;                      /* (a copy goes on into nothing) */
     if (song_at >= prj.song_len || prj.song[song_at].pat != pi) {
         int f = song_find(pi);
         song_at = f < 0 ? prj.song_len : (uint32_t)f;
@@ -823,7 +825,7 @@ static const char *magic_run(uint32_t tool, uint32_t pi, uint32_t t, uint32_t sc
         return "MAX 32";
     undo_push(pi);                              /* each tool its own undo step */
     if (tool == MG_PASTE) {
-        if (clip_kind == 2) *p = clip_pat;
+        if (clip_kind == 2) { uint8_t lk = p->pad[0]; *p = clip_pat; p->pad[0] = lk; }   /* (its own link stays) */
         else
             for (k = 0; k < NROW; k++) p->c[k][t] = clip_lane[k];
         return TR("COLLE", "PASTED", "PEGADO");
@@ -1022,6 +1024,7 @@ static void prj_sanitize(void)                  /* a loaded project: nothing out
     for (t = 0; t < NTRK; t++) {
         sound_t *s = &prj.snd[t];
         if (s->engine >= E_N) s->engine = E_PULSE;
+        if (s->sat > 15u) s->sat = 0;           /* (0.5: the SAT send, in what 0.4 kept as padding) */
         for (i = 0; i < NPARAM; i++) {
             const pdesc_t *d = &PDESC[s->engine][i];
             if (d->name[0]) s->p[i] = (int8_t)clampi(s->p[i], d->lo, d->hi);
@@ -1031,6 +1034,7 @@ static void prj_sanitize(void)                  /* a loaded project: nothing out
     for (k = 0; k < NPAT; k++) {
         uint32_t r;
         if (!prj.pat[k].len || prj.pat[k].len > NROW) prj.pat[k].len = 16;
+        prj.pat[k].pad[0] &= 1u;                /* (0.5: a 64-step pattern goes on into the next one; 0.4's pad is 0) */
         for (r = 0; r < NROW; r++)
             for (t = 0; t < NTRK; t++) {
                 cell_t *c = &prj.pat[k].c[r][t];

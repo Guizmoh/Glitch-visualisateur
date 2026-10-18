@@ -409,6 +409,14 @@ function prepare(src, o) {
     return { data, rate, cut: st.count - start > cap, silent, start, total: st.count, kept: n, peak };
 }
 
+/* what the page may send: a sound with nothing above 0.003 anywhere is refused (the Python tool would send it, and
+ * amplify the noise floor to full scale); to empty a slot there is erase() */
+function assertSendable(prep) {
+    if (!prep || !(prep.data instanceof Uint8Array)) throw new KawaError("badargs", { why: "no converted sound" });
+    if (prep.silent) throw new KawaError("silent");
+    return prep;
+}
+
 // ------------------------------------------------------------------ names ---
 
 /* a name the FM-1 can show: upper case, A-Z 0-9 space _ - . ! + #, 11 characters at most (may be empty) */
@@ -698,7 +706,7 @@ return {
     USR_SIZE, USR_DATA, CAP, MAGIC, RATE, RATES, NSLOTS, NAME_MAX, PACKET, MIN_LEN, HEADER_LEN, SILENCE, PEAK, FADE,
     CMD, CMD_NAME, RC, DELAY, PORT_RE, KawaError, ULAW,
     pack7, unpack7, frame, parseReply, crc32, headerName, header, uploadFrames, validateUpload,
-    mulawByte, mulawToFloat, fromChannels, readWav, decodeWithBrowser, prepare, cleanName, nameFromFile,
+    mulawByte, mulawToFloat, fromChannels, readWav, decodeWithBrowser, prepare, assertSendable, cleanName, nameFromFile,
     Link, Fm1, findPorts, parseInfo, parseList, connect, sendAll,
 };
 });

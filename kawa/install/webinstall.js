@@ -640,30 +640,36 @@ function newestInSums(text) {             // install/SHA256SUMS -> the newest "k
     return best && { name: best.name, sha256: best.sha256 };
 }
 
-/* the package of the site, by relative URLs: the newest kawa-*.fwsc named in install/SHA256SUMS (else `fallback`),
- * checked against its SHA-256 when the sums are there. -> {bytes, name, sha256}  */
-async function fetchLatest(fetchFn, fallback = "install/kawa-0.4.fwsc", dir = "install/") {
-    let url = fallback, name = fallback.split("/").pop(), want = null;
+/* the package of the site, by relative URLs: the newest kawa-*.fwsc that install/SHA256SUMS names (no version is written
+ * anywhere else), checked against its SHA-256. -> {bytes, name, sha256}. Without the sums (a page opened from a file,
+ * offline) there is no way to know which package is the newest: it says so, and the local file picker is the way. */
+async function fetchLatest(fetchFn, dir = "install/") {
+    let latest = null, why = "";
     try {
         const r = await fetchFn(dir + "SHA256SUMS", { cache: "no-cache" });
-        if (r.ok) {
-            const latest = newestInSums(await r.text());
-            if (latest) { name = latest.name; url = dir + name; want = latest.sha256; }
-        }
-    } catch (e) { /* no sums: the package's own CRCs still apply */ }
+        if (r.ok) latest = newestInSums(await r.text());
+        else why = `HTTP ${r.status}`;
+        if (r.ok && !latest) why = "no kawa-*.fwsc in it";
+    } catch (e) {
+        why = (e && e.message) || "network error";
+    }
+    if (!latest)
+        throw new InstallError("download", `cannot read ${dir}SHA256SUMS to find the newest package (${why}); ` +
+                               "opened from a file, or offline? Choose the .fwsc file from the install folder instead");
+    const name = latest.name, url = dir + name;
     let r;
     try {
         r = await fetchFn(url, { cache: "no-cache" });
     } catch (e) {
         throw new InstallError("download", `cannot download ${url} (${(e && e.message) || "network error"}); ` +
-                               "opened from a file, or offline? Choose the .fwsc file from the install folder instead");
+                               "choose the .fwsc file from the install folder instead");
     }
     if (!r.ok) throw new InstallError("download", `cannot download ${url} (HTTP ${r.status}); choose the .fwsc file yourself instead`);
     const bytes = new Uint8Array(await r.arrayBuffer());
-    const got = want && await sha256hex(bytes);
-    if (got && got !== want)
+    const got = await sha256hex(bytes);                   // (null where the browser has no SubtleCrypto: the package's CRCs still apply)
+    if (got && got !== latest.sha256)
         throw new InstallError("download", `${name}: the download does not match install/SHA256SUMS; nothing was written. Download it again.`);
-    return { bytes, name, sha256: got || null };
+    return { bytes, name, sha256: got };
 }
 
 return { HS_QUERY, UPGRADE, FINISH_CHECK, FINISH_WRITE, MAXDATA, LOADER_MARK, PORT_RE, DELAY, STEP_TEXT,

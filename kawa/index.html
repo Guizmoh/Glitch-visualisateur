@@ -44,6 +44,7 @@ code, kbd { white-space: nowrap; font-family: var(--mono); font-size: .92em; bac
 .hero h1 { font-size: clamp(1.55rem, 4.6vw, 2.35rem); margin: 1.1rem 0 .4rem; letter-spacing: -.01em; }
 .hero h1 b { color: var(--gold); }
 .lead { font-size: 1.12rem; color: var(--muted); max-width: 52rem; margin: 0; }
+.tagline { margin: .7rem 0 0; font: 600 .95rem/1.4 var(--mono); color: var(--gold); letter-spacing: .01em; }
 
 /* cards */
 .card { background: var(--panel); border: 1px solid var(--rule); border-radius: 16px; padding: 18px 20px; margin-top: 18px; }
@@ -93,10 +94,13 @@ body.writing .adv, body.writing .steps { opacity: .5; }
 .pair h2 { font-size: 1.05rem; }
 .pair p { font-size: .96rem; color: var(--muted); }
 .official { border-color: #2f6b8a; }
-.links { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 18px; }
-.links a { display: inline-flex; align-items: center; min-height: 44px; padding: .55rem 1rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--panel); color: var(--ink); text-decoration: none; font-weight: 600; }
-.links a:hover { border-color: var(--cyan); color: var(--gold); }
-.links a small { color: var(--muted); font-weight: 400; margin-left: .35rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 18px; }
+.tile { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; }
+.tile h2 { font-size: 1.05rem; margin: 0 0 .3rem; }
+.tile p { margin: 0; color: var(--muted); font-size: .94rem; flex: 1; }
+.acts { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; }
+.acts a { display: inline-flex; align-items: center; min-height: 44px; padding: .5rem 1rem; border: 1px solid var(--rule); border-radius: 999px; background: var(--panel-2); color: var(--ink); text-decoration: none; font-weight: 600; }
+.acts a:hover { border-color: var(--cyan); color: var(--gold); }
 footer { margin-top: 28px; color: var(--muted); font-size: .88rem; }
 
 /* the confirm dialog */
@@ -129,6 +133,7 @@ dialog .yes:hover { color: #1c0a30; filter: brightness(1.08); }
        alt="KAWA on the M-VAVE FM-1: the tracks, the FM sound, the live effects and the envelope screens">
   <h1>KAWA — Pocket Tracker for the M-VAVE FM-1</h1>
   <p class="lead">A free tracker firmware for the M-VAVE FM-1. Write patterns on six tracks (FM, chiptune, drums, breaks, samples), chain them into a song, and play live effects. Beta, GPL-3.0.</p>
+  <p class="tagline">Made for chiptune and IDM: breakbeat slicing, rolls, stutter, glitch effects, FM and 4-bit waves, 6 tracks</p>
 </header>
 
 <section class="card warn" role="note" aria-label="Beta warning">
@@ -189,14 +194,33 @@ dialog .yes:hover { color: #1c0a30; filter: brightness(1.08); }
   </section>
 </div>
 
-<nav class="links" aria-label="More">
-  <a href="manual/index.html">Manual<small>English</small></a>
-  <a href="manual/fr.html">Manuel<small>Français</small></a>
-  <a href="manual/es.html">Manual<small>Español</small></a>
-  <a href="emulator/index.html">Web emulator</a>
-  <a href="https://github.com/Guizmoh/Kawa-Tracker-Fm1">Source on GitHub</a>
-  <a href="https://github.com/Guizmoh/Kawa-Tracker-Fm1#readme">README</a>
-</nav>
+<section class="grid" aria-label="More">
+  <article class="tile">
+    <h2>Samples</h2>
+    <p>Put your own sounds into KAWA's four user slots, from your browser.</p>
+    <div class="acts"><a href="samples.html">Open the sample importer</a></div>
+  </article>
+  <article class="tile">
+    <h2>Manual</h2>
+    <p>Illustrated tutorials: a new song, a pattern, the chain, saving.</p>
+    <div class="acts"><a href="manual/index.html">English</a><a href="manual/fr.html">Français</a><a href="manual/es.html">Español</a></div>
+  </article>
+  <article class="tile">
+    <h2>Web emulator</h2>
+    <p>Try KAWA in your browser, no FM-1 needed.</p>
+    <div class="acts"><a href="emulator/index.html">Open the emulator</a></div>
+  </article>
+  <article class="tile">
+    <h2>Source</h2>
+    <p>The firmware, the tools and the tests. Free software, GPL-3.0.</p>
+    <div class="acts"><a href="https://github.com/Guizmoh/Kawa-Tracker-Fm1">Source on GitHub</a></div>
+  </article>
+  <article class="tile">
+    <h2>README</h2>
+    <p>Install by hand, build it, safety, credits.</p>
+    <div class="acts"><a href="https://github.com/Guizmoh/Kawa-Tracker-Fm1#readme">Read the README</a></div>
+  </article>
+</section>
 
 <footer>
   <p>KAWA by Omnipotard, GPL-3.0-only. It builds on Felucca by Leo Kuroshita (Hügelton Instruments) and SLOOP. Not made or endorsed by M-VAVE.
@@ -225,8 +249,7 @@ dialog .yes:hover { color: #1c0a30; filter: brightness(1.08); }
 (function () {
 "use strict";
 var K = window.KawaInstall;
-// Used when install/SHA256SUMS cannot be read; normally the newest kawa-*.fwsc that file names is the one installed.
-var DEFAULT_PACKAGE = "install/kawa-0.4.fwsc";
+// No version is written here: the package is the newest kawa-*.fwsc that install/SHA256SUMS names (see fetchLatest).
 var $ = function (id) { return document.getElementById(id); };
 var go = $("go"), pick = $("pick"), file = $("file"), probe = $("probe"), port = $("port");
 var busy = false, writing = false, wake = null;
@@ -308,7 +331,7 @@ async function install(src) {
         } else {
             status("Downloading the package…");
             bar(null);
-            pkg = await K.fetchLatest(function (u, o) { return fetch(u, o); }, DEFAULT_PACKAGE);
+            pkg = await K.fetchLatest(function (u, o) { return fetch(u, o); });
             pkg.site = true;
         }
         status("Checking the package…");

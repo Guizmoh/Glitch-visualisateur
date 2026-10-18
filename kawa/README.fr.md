@@ -106,21 +106,21 @@ démo « KAWA QUEST », appuie sur **SAVE**, choisis DEMO dans le menu PROJETS (
 | --- | --- |
 | **HOME** | Les pistes. Tenu : l'aide de la page où tu es |
 | **SEQ** | La grille de pas, 16 pas par page (encore : retour aux pistes). **OCT− / OCT+** y règlent la taille du motif : 16, 32 ou 64 pas |
-| **EDIT** | SON, SON 2, puis OPERATEUR et ENV OPERAT (piste FM) ou SAMPLE (piste sample), EFFET, TABLE. Appuie encore : page suivante |
+| **EDIT** | SON, SON 2, puis OPÉRATEUR et ENV OPÉRAT (piste FM) ou SAMPLE (piste sample), EFFET, TABLE. Appuie encore : page suivante |
 | **LFO** | LFO, puis MODULATION |
 | **ENV** | ENVELOPPE, puis MIX |
 | **FX** | ENVOIS (saturation, écho, réverb par piste), puis LIVE (les 32 effets en direct), puis retour. Tenu : LIVE tant que tu le tiens |
 | **SCL** | GAMME, puis MAGIE (beats, mélodies, découpes de break), puis retour aux pistes |
-| **GLO** | CHAINE, puis GROOVE, puis OPTIONS (thème, langue, horloge MIDI, police, métronome) |
+| **GLO** | CHAÎNE, puis GROOVE, puis OPTIONS (thème, langue, horloge MIDI, police, métronome) |
 | **SAVE** | Le menu PROJETS. Tenu (la barre jaune se remplit) : les outils. **OCT− / OCT+** pendant qu'il est tenu : annuler / refaire |
 | **OCT− / OCT+** | L'octave des touches. Sur LIVE : la banque. Sur la chaîne : ajouter / retirer une case. Dans PROJETS : OK / retour |
 | **PLAY**, **REC** | Jouer / arrêter ; enregistrer (les touches écrivent au curseur). REC tenu + SELECT : de combien de lignes saute une note |
-| **ARP** | Pas un arpégiateur : le bouton **effacer / Maj** de KAWA. Un appui sur PISTES efface la case. Tenu : + SELECT insère ou supprime une ligne (+ ALGORITHM : dans tout le motif), + KNOB 3 / 4 règle le deuxième effet de la case, + une touche noire sur MIX met une piste en solo, + PRESETS sur SON choisit le moteur suivant. Il efface aussi un pas de la grille, un pas de table ou la voie LIVE, égalise les tranches dans SAMPLE et bascule BOUCLE / CHAINE sur la chaîne |
+| **ARP** | Pas un arpégiateur : le bouton **effacer / Maj** de KAWA. Un appui sur PISTES efface la case. Tenu : + SELECT insère ou supprime une ligne (+ ALGORITHM : dans tout le motif), + KNOB 3 / 4 règle le deuxième effet de la case, + une touche noire sur MIX met une piste en solo, + PRESETS sur SON choisit le moteur suivant. Il efface aussi un pas de la grille, un pas de table ou la voie LIVE, égalise les tranches dans SAMPLE et bascule BOUCLE / CHAÎNE sur la chaîne |
 
 | Encodeur | Ce qu'il fait |
 | --- | --- |
 | **SELECT** | Sur EDIT, LFO, ENV / MIX, FX et GLO : tourne les pages du groupe du bouton. Ailleurs : la ligne (PISTES), la page de 16 pas (grille), le menu (PROJETS) |
-| **ALGORITHM** | La piste (sur MIX, jusqu'au master). Sur CHAINE la case de la chaîne, sur GROOVE le pas, sur OPTIONS le mode du métronome |
+| **ALGORITHM** | La piste (sur MIX, jusqu'au master). Sur CHAÎNE la case de la chaîne, sur GROOVE le pas, sur OPTIONS le mode du métronome |
 | **PRESETS** | Sur la première page SON : le son d'usine (un son modifié demande un deuxième cran). Sur les autres pages EDIT : le curseur de la page (opérateur, ligne de table, tranche). Ailleurs : le motif ; sur OPTIONS, le volume du métronome |
 | **KNOB 1 à 4** | Rouge, jaune, vert, bleu, sur toutes les pages. La ligne du bas dit ce que fait chacun |
 

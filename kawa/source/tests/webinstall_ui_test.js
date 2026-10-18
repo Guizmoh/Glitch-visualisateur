@@ -27,7 +27,7 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", "
 const FAST = { open: 5, start: 20, reply: 0, loader: 20, reboot: 20, retry: 20, poll: 30, hs: 100, idle_check: 400, idle_write: 600, wait_loader: 3000, wait_reboot: 3000, portopen: 500, refresh: 50 };
 
 const sums = fs.readFileSync(path.join(ROOT, "install", "SHA256SUMS"), "utf8");
-const PKGNAME = /([0-9a-f]{64}) {2}(kawa-[\d.]+\.fwsc)\n/.exec(sums)[2];
+const PKGNAME = require(path.join(ROOT, "install", "webinstall.js")).newestInSums(sums).name;      // the package the page installs
 const PKG = fs.readFileSync(path.join(ROOT, "install", PKGNAME));
 
 const server = http.createServer((req, res) => {                     // a static server of the repository root
@@ -87,7 +87,7 @@ test("the page: content, image, links, no network, no console error", async () =
     assert.equal(await page.$eval("#official a", a => a.getAttribute("href")), "https://github.com/Guizmoh/Kawa-Tracker-Fm1#back-to-the-official-firmware");
     assert.equal(await page.$eval(".hero img", i => [i.getAttribute("src"), i.complete && i.naturalWidth]).then(x => x.join(" ")), "manual/img/kawa-preview.png 1280");
     const hrefs = await page.$$eval("a[href]", a => a.map(x => x.getAttribute("href")));
-    for (const h of ["manual/index.html", "manual/fr.html", "manual/es.html", "emulator/index.html", "https://github.com/Guizmoh/Kawa-Tracker-Fm1"]) assert.ok(hrefs.includes(h), h);
+    for (const h of ["manual/index.html", "manual/fr.html", "manual/es.html", "emulator/index.html", "samples.html", "https://github.com/Guizmoh/Kawa-Tracker-Fm1", "https://github.com/Guizmoh/Kawa-Tracker-Fm1#readme"]) assert.ok(hrefs.includes(h), h);
     assert.equal(await page.$eval("#go", b => b.textContent.trim() + "|" + b.disabled), "Install KAWA|false");
     assert.equal(await text(page, "#status"), "Ready.");
     assert.match(await text(page, "#pkg"), /^Package: kawa-/);
@@ -254,7 +254,7 @@ test("from file://: the page works, the download cannot, a local file installs",
     assert.equal(await page.$eval(".hero img", i => i.complete && i.naturalWidth), 1280);
     await page.click("#go");
     await page.waitForFunction(() => !document.getElementById("error").hidden);
-    assert.match(await text(page, "#error"), /^Error: cannot download install\/kawa-[\d.]+\.fwsc \(.*\); opened from a file, or offline\? Choose the \.fwsc file from the install folder instead$/);
+    assert.match(await text(page, "#error"), /^Error: cannot read install\/SHA256SUMS to find the newest package \(.*\); opened from a file, or offline\? Choose the \.fwsc file from the install folder instead$/);
     assert.equal(await page.evaluate(() => window.__midi.requests), 0);
     await page.setInputFiles("#file", { name: PKGNAME, mimeType: "application/octet-stream", buffer: PKG });
     await page.waitForFunction(() => document.getElementById("dlg").open);

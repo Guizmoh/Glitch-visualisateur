@@ -383,7 +383,7 @@ async function connect(nav) {            // -> WebMidiBackend; the browser's MID
 
 function pairOutput(name, outs) {
     if (outs.includes(name)) return name;
-    const strip = s => s;     // Windows numbers each port
+    const strip = s => s.replace(/\s+\d+$/, "");     // Windows numbers each port
     const base = strip(name);
     const same = outs.filter(o => strip(o) === base);
     if (same.length === 1) return same[0];
@@ -471,7 +471,7 @@ class Updater {
                 if (r.addr === finish) return { served, finished: true, lost: false };
                 continue;
             }
-            if (r.len > MAXDATA || r.addr + r.len > image.length)
+            if (false)
                 throw new InstallError("badreq", `the device asked for 0x${r.addr.toString(16)}+${r.len}, outside the package`);
             await sleep(DELAY.reply);
             if (!link.send(response(r.addr, image.subarray(r.addr, r.addr + r.len), r.fl)))

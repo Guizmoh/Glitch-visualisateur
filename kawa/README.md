@@ -14,7 +14,7 @@ write beats, melodies and break chops for you. The screen speaks English, French
 | ![The tracks](manual/img/en/02-tracks.png) | ![FM and its operators](manual/img/en/53-fm-operator.png) | ![Live effects](manual/img/en/60-fx.png) |
 | ![The chain: each pattern played N times](manual/img/en/34-song-play.png) | ![The envelope](manual/img/en/50-envelope.png) | ![The projects menu](manual/img/en/10-projects-menu.png) |
 
-> **Status: 0.4, beta.** KAWA builds for the FM-1 and passes every check of its platform: size, memory,
+> **Status: 0.5, beta.** KAWA builds for the FM-1 and passes every check of its platform: size, memory,
 > hardware access, and an install path tested against simulated power cuts. It runs in the simulator and in
 > the web emulator. It has **not been tried on a real FM-1 yet**. Installing an unofficial firmware is at
 > your own risk: read [Install](#install) and [Back to the official firmware](#back-to-the-official-firmware)
@@ -41,8 +41,9 @@ finished one.
 ## Try it in your browser
 
 The firmware itself, compiled to WebAssembly, runs in [`emulator/index.html`](emulator/index.html), with
-the FM-1's panel around it. Press **POWER ON**, then **PLAY**: the "KAWA QUEST" demo plays. You can drop
-your own sounds on it and send them to your FM-1 over USB.
+the FM-1's panel around it. Press **POWER ON**: KAWA starts on an empty song. To hear the "KAWA QUEST" demo,
+tap **SAVE**, pick DEMO in the PROJECTS menu (**OCT+** confirms), then press **PLAY**. You can drop your own
+sounds on it and send them to your FM-1 over USB.
 
 ## What's inside
 
@@ -57,10 +58,11 @@ your own sounds on it and send them to your FM-1 over USB.
   a variation in one key press and adds it to the chain.
 - **A real projects menu.** New song, save, save as (slot and name), load, rename, demo. There are four
   slots, one of them the autosave.
-- **Six engines, chosen per track** with SELECT on the SOUND page. The FM track (only one, to keep the FM-1
-  some headroom) sets its 6 operators one by one.
+- **Six engines, chosen per track** on the SOUND page: PRESETS scrolls the factory sounds, grouped by engine,
+  and ARP held + PRESETS jumps to the next engine. The FM track (only one, to keep the FM-1 some headroom)
+  sets its 6 operators one by one.
 - **Sound design.** Every sound has an ADSR drawn in the knobs' colours, an effect of its own (filters,
-  distortion, crush, decimate, ring, tremolo, wah), an LFO locked to the tempo and a MODULATION page. The
+  distortion, crush, decimate, ring, tremolo, wah), an LFO locked to the tempo and a MODULATION page (both on the LFO button). The
   master has its own effect, a reverb, an echo and a limiter. A sample editor sets where a sample starts and
   ends, places its slices by hand, normalises it and plays it backwards, without touching the sound.
 - **8 drum kits**, synthesised: acoustic, hip hop, techno, dub-reggae, lo-fi, Game Boy, SNES and percussion.
@@ -72,22 +74,69 @@ your own sounds on it and send them to your FM-1 over USB.
   tempo and START / STOP), and a CPU meter.
 - **A dog** with headphones who greets you at power-on and lives in the corner of the screen.
 
+### New in 0.5
+
+- **It starts on an empty song** at 100 BPM. The autosave still brings your last work back after a power-off,
+  and the demo is one tap away: SAVE, PROJECTS, DEMO.
+- **A SENDS page** (FX button): for each track, **DRIVE** (a soft saturation), **ECHO** and **REVERB**, from 0 to
+  15. FX again: the 32 LIVE effects; FX held: LIVE while you hold it.
+- **Hold SAVE for the tools:** OPTIONS, UNDO, REDO, CLEAR, COPY, PASTE and RANDOM (a melody, a bass, a beat or a
+  break chop that suits the track), on the current track or on the whole pattern. SELECT picks one, it runs
+  when you let go. A short tap still opens PROJECTS.
+- **A metronome** with its own volume (GLO, third page, OPTIONS): off, on, or only while recording.
+- **16, 32 or 64 steps** per pattern (OCT− / OCT+ on the grid). 64 steps link a pattern to the next one, and the
+  yellow header says where you are ("49-64/64").
+- **A yellow bar** fills at the bottom of the screen when holding a button is about to open something (HOME: the
+  help, FX: LIVE, SAVE: the tools). A short tap shows nothing.
+- **Pages by button.** LFO opens the LFO and MODULATION pages, **MAGIC moved to SCL** (SCALE, MAGIC, TRACKS),
+  and SELECT turns the pages of EDIT, LFO, ENV, FX and GLO.
+- **No sound changed by mistake.** A sound you edited shows a `*` after its name: turning PRESETS on it only
+  says "EDITED: TURN AGAIN", and one more turn within 2.5 seconds replaces it.
+
+## Controls at a glance
+
+| Button | What it does |
+| --- | --- |
+| **HOME** | The tracks. Held: the help of the page you are on |
+| **SEQ** | The step grid, 16 steps a page (again: back to the tracks). **OCT− / OCT+** there set the pattern's size: 16, 32 or 64 steps |
+| **EDIT** | SOUND, SOUND 2, then OPERATOR and OP ENVELOPE (FM track) or SAMPLE EDIT (sample track), EFFECT, TABLE. Press again: next page |
+| **LFO** | LFO, then MODULATION |
+| **ENV** | ENVELOPE, then MIX |
+| **FX** | SENDS (drive, echo, reverb per track), then LIVE (the 32 live effects), then back. Held: LIVE while you hold it |
+| **SCL** | SCALE, then MAGIC (beats, melodies, break chops), then back to the tracks |
+| **GLO** | SONG (the chain), then GROOVE, then OPTIONS (theme, language, MIDI clock, font, metronome) |
+| **SAVE** | The PROJECTS menu. Held (the yellow bar fills): the tools. **OCT− / OCT+** while held: undo / redo |
+| **OCT− / OCT+** | The octave of the keys. On LIVE: the bank. On SONG: add / remove a step of the chain. In PROJECTS: OK / back |
+| **PLAY**, **REC** | Play / stop; record (the keys write at the cursor). REC held + SELECT: how many rows a note jumps |
+| **ARP** | Not an arpeggiator: KAWA's **clear / shift** key. A tap on TRACKS clears the cell. Held: + SELECT inserts or deletes a row (+ ALGORITHM: in the whole pattern), + KNOB 3 / 4 edits the cell's second effect, + a black key on MIX solos a track, + PRESETS on SOUND picks the next engine. It also clears a grid step, a table step or the LIVE lane, evens out the slices in SAMPLE EDIT and switches LOOP / SONG on SONG |
+
+| Encoder | What it does |
+| --- | --- |
+| **SELECT** | On EDIT, LFO, ENV / MIX, FX and GLO: turns the pages of the button's group. Elsewhere: the row (TRACKS), the 16-step page (grid), the menu (PROJECTS) |
+| **ALGORITHM** | The track (on MIX, up to the master). On SONG the entry of the chain, on GROOVE the step, on OPTIONS the metronome mode |
+| **PRESETS** | On the first SOUND page: the factory sound (a sound you edited asks for a second turn). On the other EDIT pages: the page's cursor (operator, table row, slice). Elsewhere: the pattern; on OPTIONS, the metronome volume |
+| **KNOB 1 to 4** | Red, yellow, green, blue, on every page. The bottom line says what each one does |
+
+The 27 keys (16 white, 11 black) play notes on the current track.
+
 ## Install
 
-You need a USB data cable and Python 3 ([python.org](https://www.python.org/downloads/)). Switch the FM-1 on,
-plug it in, close every other MIDI program, then start the installer for your computer:
+The project's [home page](index.html) also has an **Install** button: it installs KAWA straight from Chrome or
+Edge (Web MIDI). The other way is the launchers below, which need a USB data cable and Python 3
+([python.org](https://www.python.org/downloads/)). Switch the FM-1 on, plug it in, close every other MIDI
+program, then start the installer for your computer:
 
 - **Windows:** double-click `INSTALL-Windows.bat`
 - **Mac:** double-click `INSTALL-Mac.command` (the first time: right click, then Open)
 - **Linux:** `./INSTALL-Linux.sh` in a terminal
 
 The first time, it gets what it needs (rtmidi2, into `install/.venv`). It finds the FM-1, asks before writing
-`install/kawa-0.4.fwsc`, then restarts the FM-1 into KAWA. By hand:
+`install/kawa-0.5.fwsc`, then restarts the FM-1 into KAWA. By hand:
 
 ```sh
 pip3 install rtmidi2                                  # (Python 3.9 and older: pip3 install mido python-rtmidi)
 python3 install/fm1_install.py --info                 # what the connected FM-1 runs
-python3 install/fm1_install.py install/kawa-0.4.fwsc  # asks before writing, then restarts into KAWA
+python3 install/fm1_install.py install/kawa-0.5.fwsc  # asks before writing, then restarts into KAWA
 ```
 
 What protects your FM-1:
@@ -135,8 +184,12 @@ From the `source/` folder:
 - `tests/run_kits_test.sh` and `tests/breaks_check.py` measure the drum kits and the breaks.
 - `tests/run_features_test.sh` plays HOP, END, two effects in a cell, the tables, the groove, the sample edit
   and the MIDI clock in through the audio interrupt; `tests/run_format_test.sh` loads projects saved by 0.2.
+- `tests/run_ui_test.sh` drives the panel as the buttons and encoders would: the empty start, the pages of every
+  button and what SELECT does on them, the protected sounds, SENDS, the holds and the tools, the metronome and
+  the 16 / 32 / 64 steps. `node tests/webinstall_test.js` tests the web installer behind the Install button
+  against a simulated FM-1 (plain Node, no hardware).
 - `tests/run_stress_test.sh` plays every sound, effect, live effect, table and groove at the ends of their knobs
-  (17 minutes of sound) under UBSan, and stops at the first number that wraps (a click on the FM-1).
+  (about 18 minutes of sound) under UBSan, and stops at the first number that wraps (a click on the FM-1).
 
 ## Support KAWA
 

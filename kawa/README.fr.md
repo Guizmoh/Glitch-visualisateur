@@ -15,7 +15,7 @@ ta place. L'écran parle français, anglais ou espagnol.
 | ![Les pistes](manual/img/fr/02-tracks.png) | ![La FM et ses opérateurs](manual/img/fr/53-fm-operator.png) | ![Les effets live](manual/img/fr/60-fx.png) |
 | ![La chaîne : chaque motif joué N fois](manual/img/fr/34-song-play.png) | ![L'enveloppe](manual/img/fr/50-envelope.png) | ![Le menu des projets](manual/img/fr/10-projects-menu.png) |
 
-> **État : 0.4, bêta.** KAWA compile pour le FM-1 et passe toutes les vérifications de sa plateforme :
+> **État : 0.5, bêta.** KAWA compile pour le FM-1 et passe toutes les vérifications de sa plateforme :
 > taille, mémoire, accès au matériel, chemin d'installation testé avec des coupures de courant simulées.
 > Il tourne dans le simulateur et dans l'émulateur web. Il n'a **pas encore été essayé sur un vrai FM-1**.
 > Installer un firmware non officiel se fait à tes risques : lis [Installer](#installer) et
@@ -44,8 +44,9 @@ complet.
 ## L'essayer dans le navigateur
 
 Le firmware lui-même, compilé en WebAssembly, tourne dans [`emulator/index.html`](emulator/index.html),
-avec le panneau du FM-1 autour. Appuie sur **ALLUMER**, puis sur **PLAY** : la démo « KAWA QUEST » joue. Tu
-peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
+avec le panneau du FM-1 autour. Appuie sur **ALLUMER** : KAWA démarre sur un morceau vide. Pour entendre la
+démo « KAWA QUEST », appuie sur **SAVE**, choisis DEMO dans le menu PROJETS (**OCT+** valide), puis appuie sur
+**PLAY**. Tu peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
 
 ## Ce qu'il y a dedans
 
@@ -61,11 +62,12 @@ peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
   CLONER fait une variation en une touche et l'ajoute à la chaîne.
 - **Un vrai menu de projets.** Nouveau morceau, sauver, sauver sous (emplacement et nom), charger,
   renommer, démo. Il y a quatre emplacements, dont un de sauvegarde automatique.
-- **Six moteurs au choix par piste.** Ils se choisissent avec SELECT sur la page SON. La piste FM (une
-  seule, pour garder de la marge au FM-1) règle ses 6 opérateurs un par un.
+- **Six moteurs au choix par piste,** sur la page SON : PRESETS fait défiler les sons d'usine, rangés par
+  moteur, et ARP tenu + PRESETS saute au moteur suivant. La piste FM (une seule, pour garder de la marge au
+  FM-1) règle ses 6 opérateurs un par un.
 - **Du sound design.** Chaque son a une ADSR dessinée dans les couleurs des potards, un effet rien qu'à
   lui (filtres, disto, écrase, décime, anneau, trémolo, wah), un LFO calé sur le tempo et une page
-  MODULATION. Le master a son effet, une réverb, un écho et un limiteur. Un éditeur de sample règle où un
+  MODULATION (tous deux sur le bouton LFO). Le master a son effet, une réverb, un écho et un limiteur. Un éditeur de sample règle où un
   sample commence et finit, place ses tranches à la main, le normalise et le joue à l'envers, sans toucher
   au son.
 - **8 kits de batterie** synthétisés : acoustique, hip hop, techno, dub-reggae, lo-fi, Game Boy, SNES et
@@ -78,22 +80,70 @@ peux y glisser tes propres sons et les envoyer à ton FM-1 par USB.
   et le START / STOP d'une autre machine), et un indicateur CPU.
 - **Un chien** à casque qui t'accueille au démarrage et vit dans le coin de l'écran.
 
+### Nouveautés de la 0.5
+
+- **Elle démarre sur un morceau vide** à 100 BPM. La sauvegarde automatique te rend ton dernier travail après
+  une coupure, et la démo est à une touche : SAVE, PROJETS, DEMO.
+- **Une page ENVOIS** (bouton FX) : pour chaque piste, **SATURE** (une saturation douce), **ECHO** et
+  **REVERB**, de 0 à 15. FX encore : les 32 effets LIVE ; FX tenu : LIVE tant que tu le tiens.
+- **SAVE tenu ouvre les outils :** OPTIONS, ANNULER, REFAIRE, EFFACER, COPIER, COLLER et HASARD (une mélodie,
+  une basse, un beat ou une découpe de break qui va à la piste), sur la piste en cours ou sur tout le motif.
+  SELECT en choisit un, il se lance quand tu relâches. Un appui court ouvre toujours PROJETS.
+- **Un métronome** avec son volume (GLO, troisième page, OPTIONS) : non, oui, ou seulement pendant
+  l'enregistrement.
+- **16, 32 ou 64 pas** par motif (OCT− / OCT+ sur la grille). 64 pas relient un motif au suivant, et l'en-tête
+  jaune dit où tu es (« 49-64/64 »).
+- **Une barre jaune** se remplit en bas de l'écran quand tenir un bouton va ouvrir quelque chose (HOME : l'aide,
+  FX : LIVE, SAVE : les outils). Un appui court n'affiche rien.
+- **Les pages par bouton.** LFO ouvre les pages LFO et MODULATION, **MAGIE passe sur SCL** (GAMME, MAGIE,
+  PISTES), et SELECT tourne les pages de EDIT, LFO, ENV, FX et GLO.
+- **Pas de son changé par erreur.** Un son modifié porte une `*` après son nom : tourner PRESETS dessus affiche
+  seulement « MODIFIE: ENCORE UN CRAN », et un cran de plus dans les 2,5 secondes le remplace.
+
+## Les commandes d'un coup d'œil
+
+| Bouton | Ce qu'il fait |
+| --- | --- |
+| **HOME** | Les pistes. Tenu : l'aide de la page où tu es |
+| **SEQ** | La grille de pas, 16 pas par page (encore : retour aux pistes). **OCT− / OCT+** y règlent la taille du motif : 16, 32 ou 64 pas |
+| **EDIT** | SON, SON 2, puis OPERATEUR et ENV OPERAT (piste FM) ou SAMPLE (piste sample), EFFET, TABLE. Appuie encore : page suivante |
+| **LFO** | LFO, puis MODULATION |
+| **ENV** | ENVELOPPE, puis MIX |
+| **FX** | ENVOIS (saturation, écho, réverb par piste), puis LIVE (les 32 effets en direct), puis retour. Tenu : LIVE tant que tu le tiens |
+| **SCL** | GAMME, puis MAGIE (beats, mélodies, découpes de break), puis retour aux pistes |
+| **GLO** | CHAINE, puis GROOVE, puis OPTIONS (thème, langue, horloge MIDI, police, métronome) |
+| **SAVE** | Le menu PROJETS. Tenu (la barre jaune se remplit) : les outils. **OCT− / OCT+** pendant qu'il est tenu : annuler / refaire |
+| **OCT− / OCT+** | L'octave des touches. Sur LIVE : la banque. Sur la chaîne : ajouter / retirer une case. Dans PROJETS : OK / retour |
+| **PLAY**, **REC** | Jouer / arrêter ; enregistrer (les touches écrivent au curseur). REC tenu + SELECT : de combien de lignes saute une note |
+| **ARP** | Pas un arpégiateur : le bouton **effacer / Maj** de KAWA. Un appui sur PISTES efface la case. Tenu : + SELECT insère ou supprime une ligne (+ ALGORITHM : dans tout le motif), + KNOB 3 / 4 règle le deuxième effet de la case, + une touche noire sur MIX met une piste en solo, + PRESETS sur SON choisit le moteur suivant. Il efface aussi un pas de la grille, un pas de table ou la voie LIVE, égalise les tranches dans SAMPLE et bascule BOUCLE / CHAINE sur la chaîne |
+
+| Encodeur | Ce qu'il fait |
+| --- | --- |
+| **SELECT** | Sur EDIT, LFO, ENV / MIX, FX et GLO : tourne les pages du groupe du bouton. Ailleurs : la ligne (PISTES), la page de 16 pas (grille), le menu (PROJETS) |
+| **ALGORITHM** | La piste (sur MIX, jusqu'au master). Sur CHAINE la case de la chaîne, sur GROOVE le pas, sur OPTIONS le mode du métronome |
+| **PRESETS** | Sur la première page SON : le son d'usine (un son modifié demande un deuxième cran). Sur les autres pages EDIT : le curseur de la page (opérateur, ligne de table, tranche). Ailleurs : le motif ; sur OPTIONS, le volume du métronome |
+| **KNOB 1 à 4** | Rouge, jaune, vert, bleu, sur toutes les pages. La ligne du bas dit ce que fait chacun |
+
+Les 27 touches (16 blanches, 11 noires) jouent des notes sur la piste en cours.
+
 ## Installer
 
-Il te faut un câble USB de données et Python 3 ([python.org](https://www.python.org/downloads/)). Allume le
-FM-1, branche-le, ferme tous les autres programmes MIDI, puis lance l'installateur de ton ordinateur :
+La [page d'accueil](index.html) du projet a aussi un bouton **Install** : il installe KAWA directement depuis
+Chrome ou Edge (Web MIDI). L'autre façon, ce sont les lanceurs ci-dessous, qui demandent un câble USB de
+données et Python 3 ([python.org](https://www.python.org/downloads/)). Allume le FM-1, branche-le, ferme tous
+les autres programmes MIDI, puis lance l'installateur de ton ordinateur :
 
 - **Windows :** double-clic sur `INSTALL-Windows.bat`
 - **Mac :** double-clic sur `INSTALL-Mac.command` (la première fois : clic droit, puis Ouvrir)
 - **Linux :** `./INSTALL-Linux.sh` dans un terminal
 
 La première fois, il récupère ce qu'il lui faut (rtmidi2, dans `install/.venv`). Il trouve le FM-1, demande
-avant d'écrire `install/kawa-0.4.fwsc`, puis redémarre le FM-1 sur KAWA. À la main :
+avant d'écrire `install/kawa-0.5.fwsc`, puis redémarre le FM-1 sur KAWA. À la main :
 
 ```sh
 pip3 install rtmidi2                                  # (Python 3.9 et avant : pip3 install mido python-rtmidi)
 python3 install/fm1_install.py --info                 # ce que tourne le FM-1 branché
-python3 install/fm1_install.py install/kawa-0.4.fwsc  # demande avant d'écrire, puis redémarre sur KAWA
+python3 install/fm1_install.py install/kawa-0.5.fwsc  # demande avant d'écrire, puis redémarre sur KAWA
 ```
 
 Ce qui protège ton FM-1 :
@@ -144,8 +194,12 @@ Depuis le dossier `source/` :
 - `tests/run_features_test.sh` joue le saut, la fin de motif, deux effets dans une case, les tables, le groove,
   l'édition de sample et l'horloge MIDI en entrée dans l'interruption audio ; `tests/run_format_test.sh`
   charge des projets sauvés par la 0.2.
+- `tests/run_ui_test.sh` pilote le panneau comme le feraient les boutons et les encodeurs : le départ à vide, les
+  pages de chaque bouton et ce que fait SELECT dessus, les sons protégés, ENVOIS, les appuis tenus et les
+  outils, le métronome et les 16 / 32 / 64 pas. `node tests/webinstall_test.js` teste l'installateur web
+  derrière le bouton Install contre un FM-1 simulé (Node tout simple, sans matériel).
 - `tests/run_stress_test.sh` joue chaque son, effet, effet live, table et groove aux bouts de leurs potards
-  (17 minutes de son) sous UBSan, et s'arrête au premier nombre qui déborde (un clic sur le FM-1).
+  (environ 18 minutes de son) sous UBSan, et s'arrête au premier nombre qui déborde (un clic sur le FM-1).
 
 ## Soutenir KAWA
 

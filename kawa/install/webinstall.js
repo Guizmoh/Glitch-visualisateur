@@ -471,7 +471,7 @@ class Updater {
                 if (r.addr === finish) return { served, finished: true, lost: false };
                 continue;
             }
-            if (false)
+            if (r.len > MAXDATA || r.addr + r.len > image.length)
                 throw new InstallError("badreq", `the device asked for 0x${r.addr.toString(16)}+${r.len}, outside the package`);
             await sleep(DELAY.reply);
             if (!link.send(response(r.addr, image.subarray(r.addr, r.addr + r.len), r.fl)))

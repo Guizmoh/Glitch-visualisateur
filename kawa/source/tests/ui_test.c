@@ -56,6 +56,27 @@ int main(void)
             for (t = 0; t < NTRK; t++) n += prj.pat[k].c[i][t].note != 0;
     CHECK(n == 0 && prj.bpm == 100 && lang == LANG_EN, "1. first start: %u notes, %u BPM, language %u (want 0, 100, English)", n, prj.bpm, lang);
     set_page(PG_TRACK);
+    /* 1b. the boot screen stays until something is touched (a minute: still there); that touch is only that */
+    page = PG_BOOT;
+    fm1_ms += 60000u;
+    ui_input();
+    CHECK(page == PG_BOOT, "1b. the boot screen is still there after a minute");
+    host_pressed |= 1u << BTN_EDIT;
+    ui_input();
+    CHECK(page == PG_TRACK, "1b. a button dismisses it");
+    page = PG_BOOT;
+    host_enc[ENC_KNOB1] = 1;
+    ui_input();
+    CHECK(page == PG_TRACK, "1b. a knob dismisses it");
+    page = PG_BOOT;
+    fm1_in.notes = 1u << 3;
+    ui_input();
+    fm1_in.notes = 0;
+    CHECK(page == PG_TRACK, "1b. a key dismisses it");
+    page = PG_BOOT;
+    host_pressed |= 1u << BTN_PLAY;
+    ui_input();
+    CHECK(page == PG_TRACK && !sq_play && sq_req == 0, "1b. the touch is not also a command (PLAY did nothing)");
 
     /* 2. EDIT goes round its pages without LFO and MODULATION; LFO has those two; SELECT goes along the group and stops at its ends */
     for (t = 0; t < 3u; t++) {                  /* a pulse, the FM track, a sample track */
@@ -106,15 +127,34 @@ int main(void)
     prj.snd[0].p[P_S0] = (int8_t)(prj.snd[0].p[P_S0] ^ 1);   /* edited */
     CHECK(!sound_is_preset(0), "3. the sound is edited");
     enc(ENC_PRESETS, 1);
-    CHECK(prj.snd[0].preset == k && !sound_is_preset(0), "3. the first turn on an edited sound only warns");
+    CHECK(prj.snd[0].preset == k && !sound_is_preset(0) && pre_cand != 0xFF, "3. an edited sound: PRESETS only shows the next factory sound (candidate %u)", pre_cand);
+    n = pre_cand;
     enc(ENC_PRESETS, 1);
-    CHECK(prj.snd[0].preset != k && sound_is_preset(0), "3. the next turn replaces it");
-    prj.snd[0].p[P_S0] = (int8_t)(prj.snd[0].p[P_S0] ^ 1);
-    enc(ENC_PRESETS, -1);                       /* warns */
-    fm1_ms += 3000u;                            /* too late: it asks again */
+    CHECK(pre_cand != n && prj.snd[0].preset == k && !sound_is_preset(0), "3. ... and goes on browsing without touching the sound");
+    tap(BTN_OCT_UP);
+    CHECK(pre_cand == 0xFF && sound_is_preset(0) && prj.snd[0].preset != k, "3. OCT+ loads the factory sound shown");
+    k = (uint32_t)undo_pop();
+    CHECK(k == 0x100u && !sound_is_preset(0) && prj.snd[0].p[P_S0] != 0xFF, "3. UNDO brings the edited sound back (%x)", k);
+    redo_pop();
+    CHECK(sound_is_preset(0), "3. REDO loads the factory sound again");
+    undo_pop();
     k = prj.snd[0].preset;
+    enc(ENC_PRESETS, -1);                       /* shows */
+    tap(BTN_OCT_DOWN);
+    CHECK(pre_cand == 0xFF && prj.snd[0].preset == k && !sound_is_preset(0), "3. OCT- keeps the sound");
     enc(ENC_PRESETS, -1);
-    CHECK(prj.snd[0].preset == k, "3. after 3 s the warning is asked again");
+    knob(0, 1);                                 /* a knob drops what is shown */
+    CHECK(pre_cand == 0xFF, "3. a knob drops the factory sound shown");
+    enc(ENC_PRESETS, -1);
+    fm1_ms += 9000u;
+    ui_tick();
+    CHECK(pre_cand == 0xFF, "3. after 8 s it is dropped");
+    enc(ENC_PRESETS, -1);
+    tap(BTN_ENV);
+    CHECK(pre_cand == 0xFF || page != PG_SOUND, "3. leaving the page drops it");
+    ui_tick();
+    CHECK(pre_cand == 0xFF, "3. (and it is gone)");
+    tap(BTN_EDIT);
     sound_preset(0, prj.snd[0].preset);
     tap(BTN_ENV);                               /* ENV: no sound change */
     k = prj.snd[0].preset;
@@ -391,6 +431,213 @@ int main(void)
     prj.crc = 0;
     prj_sanitize();
     CHECK(prj.pat[3].pad[0] == 1 && prj.snd[2].sat == 0, "11. a damaged link byte or SAT is brought back (%u, %u)", prj.pat[3].pad[0], prj.snd[2].sat);
+
+    /* 12. UNDO and REDO cover the sounds: a knob burst is one step, a preset change by mistake comes back, the screen says which track */
+    fresh();
+    sound_preset(2, preset_first(E_PULSE));
+    hist_clear();
+    k = (uint32_t)prj.snd[2].p[P_S0];
+    knob_ms[0] = fm1_ms;
+    cur_trk = 2;
+    set_page(PG_SOUND);
+    snd_page = 0;
+    for (i = 0; i < 4u; i++) { knob(0, 1); fm1_ms += 100u; }
+    n = (uint32_t)prj.snd[2].p[P_S0];
+    CHECK(n != k, "12. a knob turned: the shape changes (%u -> %u)", k, n);
+    CHECK(undo_h.n == 1, "12. four turns in a burst are one UNDO step (%u)", undo_h.n);
+    cur_trk = 0;
+    undo_do(0);
+    CHECK(prj.snd[2].p[P_S0] == (int8_t)k && cur_trk == 2, "12. UNDO puts the sound back and shows its track (shape %d, track %u)", prj.snd[2].p[P_S0], cur_trk + 1u);
+    undo_do(1);
+    CHECK(prj.snd[2].p[P_S0] == (int8_t)n, "12. REDO");
+    fm1_ms += 2000u;
+    prj.snd[2].p[P_ATT] = 3;                    /* the design is done */
+    fm1_ms += 2000u;
+    cur_trk = 2;
+    snd_page = 0;
+    k = prj.snd[2].preset;
+    n = (uint32_t)prj.snd[2].p[P_ATT];
+    knob(0, 1);                                 /* edited */
+    undo_h.n = 0;
+    enc(ENC_PRESETS, 1);
+    tap(BTN_OCT_UP);                            /* loaded by mistake... */
+    CHECK(prj.snd[2].preset != k, "12. the factory sound was loaded");
+    undo_do(0);
+    CHECK(prj.snd[2].preset == k && prj.snd[2].p[P_ATT] == (int8_t)n && !sound_is_preset(2), "12. UNDO: the designed sound is back (preset %u, attack %d)", prj.snd[2].preset, prj.snd[2].p[P_ATT]);
+    fm1_ms += 3000u;                            /* browsing untouched sounds: one step for the burst */
+    sound_preset(2, preset_first(E_PULSE));
+    hist_clear();
+    k = prj.snd[2].preset;
+    for (i = 0; i < 5u; i++) { enc(ENC_PRESETS, 1); fm1_ms += 100u; }
+    CHECK(prj.snd[2].preset != k && undo_h.n == 1, "12. five factory sounds in a burst: one step (%u)", undo_h.n);
+    undo_do(0);
+    CHECK(prj.snd[2].preset == k, "12. UNDO: the sound from before the browsing");
+    prj.snd[2].sat = 3;                         /* SENDS, patterns and sounds in one history */
+    hist_clear();
+    set_page(PG_SEND);
+    cur_trk = 2;
+    knob(0, 2);
+    prj.pat[0].c[1][0].note = 60;
+    undo_push(0);
+    prj.pat[0].c[1][0].note = 62;
+    undo_do(0);
+    CHECK(prj.pat[0].c[1][0].note == 60 && prj.snd[2].sat == 5, "12. the pattern comes back first (%u), the send after", prj.pat[0].c[1][0].note);
+    undo_do(0);
+    CHECK(prj.snd[2].sat == 3, "12. then the send (%u)", prj.snd[2].sat);
+    undo_do(0);
+    CHECK(undo_h.n == 0, "12. nothing left");
+    /* 12b. an FM sound does not come back onto a second FM track */
+    fresh();
+    cur_trk = 1;
+    prj.snd[1].engine = E_FM;
+    sound_build(1);
+    hist_clear();
+    undo_push_snd(1, 0);
+    prj.snd[1].engine = E_PULSE;
+    prj.snd[3].engine = E_FM;
+    k = (uint32_t)(undo_pop() + 3);
+    CHECK(k == 1u && prj.snd[1].engine == E_PULSE && undo_h.n == 1, "12. FM: refused when another track plays it (%d), the step stays", (int)k - 3);
+
+    /* 13. the first-start hint, the SAVE LED, HOME + PLAY (panic), the last pattern's message */
+    fresh();
+    fm1_ms += 2000u;
+    ui_tick();
+    CHECK(song_empty, "13. an empty song is seen (the hint)");
+    prj.pat[5].c[3][2].note = 60;
+    fm1_ms += 2000u;
+    ui_tick();
+    CHECK(!song_empty, "13. a note anywhere: no hint");
+    dirty = 1;
+    ui_leds();
+    CHECK(host_led_state[0] || 1, "13. leds flush");
+    prj.pat[5].c[3][2].note = 0;
+    sq_start_pat = 0; sq_start_pos = 0; sq_req = 1;
+    block();
+    CHECK(sq_play, "13. playing");
+    button_down(BTN_HOME);
+    button_down(BTN_PLAY);
+    block();
+    CHECK(!sq_play && home_did, "13. HOME + PLAY: everything stops");
+    fm1_ms += 800u;
+    ui_input();
+    CHECK(page != PG_HELP, "13. and HOME held after it does not open the help");
+    button_up(BTN_PLAY);
+    button_up(BTN_HOME);
+    CHECK(!home_did && page != PG_HELP, "13. HOME's release after the panic does nothing");
+    fresh();
+    set_page(PG_GRID);
+    ui_pat = 31;
+    P()->len = 32;
+    toast_s[0] = 0;
+    button_down(BTN_OCT_UP); button_up(BTN_OCT_UP);
+    CHECK(!strcmp(toast_s, "LAST PATTERN"), "13. the last pattern says so (%s)", toast_s);
+
+    /* 14. 64-step pairs and the review's findings: a live take, CLONE, browsing, sanitising, a stale grid page */
+    fresh();
+    ui_pat = 0;
+    P()->len = 32; P()->pad[0] = 1;
+    prj.pat[1].len = 32;
+    prj.pat[0].c[0][0].note = 48; prj.pat[0].c[0][0].vol = 12;        /* something to play */
+    prj.mode = 0; sq_next = 0xFF;
+    sq_start_pat = 0; sq_start_pos = 0; sq_req = 1;
+    for (n = 0; n < 4000u && !(sq_play && sq_pat == 1 && sq_row >= 4 && sq_row < 20); n++) block();
+    CHECK(sq_pat == 1 && sq_head == 0, "14. the second half plays and the sequencer says whose it is (pat %u, head %u)", sq_pat, sq_head);
+    page = PG_TRACK;
+    ui_pat = 0;                                 /* the screen stays on the first half */
+    rec = 1;
+    cur_trk = 1;
+    for (i = 0; i < NROW; i++) prj.pat[1].c[i][1].note = 0;
+    prj.pat[0].c[0][1].note = 0;
+    key_down(7);
+    for (n = 0, i = 0; i < NROW; i++) n += prj.pat[1].c[i][1].note != 0;
+    CHECK(n == 1 && prj.pat[0].c[0][1].note == 0, "14. REC on the first half's screen while the second plays: the note is in the second half (%u there, %u in the first's row 1)", n, prj.pat[0].c[0][1].note);
+    key_up(7);
+    ev_push(EV_KILL, NTRK, 0, 0, 0, 0);
+    for (n = 0; n < 6000u && !(sq_pat == 1 && sq_row == 31 && sq_frac > 0x80000000u); n++) block();
+    CHECK(n < 6000u, "14. (the last half row of the second half was reached)");
+    CHECK(next_pat() == 0, "14. after the second half: the first (next_pat %u)", next_pat());
+    for (n = 0; n < 6000u && !(sq_pat == 0 && sq_row == 31 && sq_frac > 0x80000000u); n++) block();
+    CHECK(next_pat() == 1, "14. after the first half: the second (next_pat %u)", next_pat());
+    ui_pat = 1;                                 /* browsing to the second half while it loops: the pair keeps looping */
+    pat_select(0);
+    CHECK(sq_next == 0xFF, "14. the other half of the playing pair is not queued (%u)", sq_next);
+    ui_pat = 5;
+    pat_select(0);
+    CHECK(sq_next == 5, "14. another pattern is queued (%u)", sq_next);
+    P()->pad[0] = 0;
+    prj.pat[6].pad[0] = 1; prj.pat[6].len = 32;
+    ui_pat = 7;
+    pat_select(0);
+    CHECK(sq_next == 6, "14. browsing to a second half queues its first half (%u)", sq_next);
+    rec = 0;
+    sq_req = 2; block();
+    sq_next = 0xFF;
+    /* CLONE keeps off the pairs */
+    fresh();
+    prj.pat[0].pad[0] = 1; prj.pat[0].len = 32; prj.pat[1].len = 32;
+    prj.pat[0].c[0][0].note = 60;
+    prj.pat[2].c[0][0].note = 62;
+    k = 0;
+    { const char *r = magic_run(MG_CLONE, 0, 0, 0, 8, 1, 0); k = !strcmp(r, "LINKED"); }
+    CHECK(k && pat_empty(&prj.pat[1]) && prj.pat[1].len == 32, "14. CLONE of a pair is refused and its second half stays");
+    mg_clone_to = 0xFF;
+    magic_run(MG_CLONE, 2, 0, 0, 8, 1, 0);
+    CHECK(mg_clone_to != 1 && mg_clone_to != 0 && mg_clone_to < NPAT && pat_linked(0), "14. CLONE of another pattern does not take the empty second half (went to %u)", mg_clone_to);
+    /* a chain of links and a link out of the last pattern are broken at load */
+    fresh();
+    prj.pat[3].pad[0] = 1; prj.pat[4].pad[0] = 1; prj.pat[5].pad[0] = 1;
+    prj.pat[31].pad[0] = 1;
+    prj_sanitize();
+    CHECK(pat_linked(3) && !pat_linked(4) && pat_linked(5) && !(prj.pat[31].pad[0] & 1), "14. a chain of links is broken (3 %d, 4 %d, 5 %d, 31 %d)", pat_linked(3), pat_linked(4), pat_linked(5), prj.pat[31].pad[0]);
+    /* a stale grid page cannot reach pattern 32 */
+    fresh();
+    ui_pat = 31;
+    grid_page = 3;
+    CHECK(gpat(3) == 31 && grow(3) == 0, "14. a stale grid page stays in range (pattern %u row %u)", gpat(3), grow(3));
+    /* SELECT on the grid lets go of a held step; a key at once with FX held is a live effect; the tools are modal for ARP and keys */
+    fresh();
+    set_page(PG_GRID);
+    P()->len = 32;
+    grid_key(2, 1);
+    CHECK(grid_held == 2, "14. a step is held");
+    enc(ENC_SELECT, 1);
+    CHECK(grid_held == -1 && grid_page == 1, "14. SELECT: the step is let go with its page");
+    fresh();
+    button_down(BTN_FX);
+    host_note_edges = 1u << 4; fm1_in.notes = 1u << 4;
+    keys_input();
+    CHECK(page == PG_FX && (lfx_keys != 0), "14. FX held and a key at once: a live effect (page %u, keys %x)", page, lfx_keys);
+    fm1_in.notes = 0; keys_input();
+    button_up(BTN_FX);
+    fresh();
+    tools_open = 1;
+    k = evq_w;
+    host_note_edges = 1u << 5; fm1_in.notes = 1u << 5;
+    keys_input();
+    CHECK(evq_w == k, "14. the tools are open: a key does not play");
+    fm1_in.notes = 0; keys_input();
+    tools_open = 0;
+    arp_held = 0;
+    tools_open = 1; button_down(BTN_ARP); tools_open = 0;
+    CHECK(!arp_held, "14. ARP is ignored while the tools are open");
+    /* FX: the sticky state survives the help */
+    fresh();
+    button_down(BTN_FX); button_up(BTN_FX);
+    CHECK(page == PG_SEND && fx_sticky, "14. SENDS is sticky");
+    button_down(BTN_HOME); fm1_ms += 600u; ui_input();
+    CHECK(page == PG_HELP, "14. HOME held: the help");
+    button_up(BTN_HOME);
+    CHECK(page == PG_SEND && fx_sticky, "14. the help goes back to SENDS, still sticky");
+    enc(ENC_SELECT, 1);
+    CHECK(page == PG_FX, "14. and SELECT still goes on to LIVE");
+    /* a chord with HOME is not a tap */
+    fresh();
+    set_page(PG_SOUND);
+    button_down(BTN_HOME);
+    host_pressed |= 1u << BTN_ENV;
+    ui_input();
+    button_up(BTN_HOME);
+    CHECK(page == PG_ENV, "14. HOME + ENV goes to ENV; HOME's release does not send it to TRACKS (page %u)", page);
     printf("ui_test: %s\n", fails ? "FAILED" : "passed");
     return fails != 0;
 }

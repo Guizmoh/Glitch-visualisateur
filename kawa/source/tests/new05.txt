@@ -1,4 +1,5 @@
 # KAWA 0.5's pages: an empty start, EDIT and LFO, SENDS and LIVE, the yellow bar and the tools of SAVE, OPTIONS, 64 steps
+2500 btn 8
 2600 shot t01-empty
 2700 btn 6
 2900 shot t02-edit

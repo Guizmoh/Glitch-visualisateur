@@ -1,16 +1,15 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* KAWA: the pages, the panel, the main loop.
  *
- *   HOME   TRACKS     the tracker: 16 rows, eight tracks, the track under the cursor wide (HOME held: help)
- *   SEQ    GRID       the track's 16 steps on the 16 white keys, as a Pocket Operator
- *   EDIT   SOUND      the track's engine and sound; EDIT again: SOUND 2, (FM: OPERATOR, OP ENV), EFFECT, LFO
+ *   HOME   TRACKS     the tracker: 16 rows, six tracks, the track under the cursor wide (HOME held: help; HOME + PLAY: panic)
+ *   SEQ    GRID       the track's 16 steps on the 16 white keys, as a Pocket Operator (OCT-/OCT+: 16, 32, 64 steps)
+ *   EDIT   SOUND      the track's engine and sound; EDIT again: SOUND 2, (FM: OPERATOR, OP ENV), EFFECT, TABLE
+ *   LFO    LFO        the track's LFO; again: MODULATION
  *   ENV    ENVELOPE   the ADSR, drawn in the knobs' colours; ENV again: MIX (the tracks, the master)
- *   LFO    MAGIC      16 tools on the white keys: chop the break, a beat, a melody in the scale, clone...
- *   SCL    SCALE      root (a key), scale, lock, the cursor's step
- *   GLO    SONG       tempo, swing; the song list: patterns, each played N times; GLO again: OPTIONS (theme,
- *                     language)
- *   SAVE   PROJECTS   four slots; SAVE held: undo
- *   FX     EFFECTS    held: the live effects on the white keys (tap: the page stays), on the master or a track
+ *   SCL    SCALE      root (a key), scale, lock, the cursor's step; SCL again: MAGIC (16 tools on the white keys)
+ *   GLO    SONG       tempo, swing; the song list; GLO again: GROOVE, then OPTIONS (theme, language, clock, font, metronome)
+ *   SAVE   PROJECTS   four slots; SAVE held: the tools (OPTIONS, UNDO, REDO, CLEAR, COPY, PASTE, RANDOM)
+ *   FX     SENDS      a tap: each track's DRIVE, ECHO, REVERB; again: the live effects; held: them while it is held
  *
  * One knob, one colour: KNOB 1 red, 2 yellow, 3 green, 4 blue on every page (the cards, the bottom line,
  * the emulator's rings). On EDIT, LFO, ENV, FX and GLO, SELECT turns the pages; elsewhere the row (or the cursor); ALGORITHM
@@ -34,6 +33,11 @@ static uint8_t arp_held, arp_turned;
 static uint8_t brush_vol[NTRK] = {12, 12, 12, 12, 12, 12}, brush_fx[NTRK], brush_fxv[NTRK];
 static uint32_t fx_down_ms, home_down_ms, save_down_ms, boot_ms, last_input_ms;
 static uint8_t home_held, save_held, save_did, fx_down;
+static void preset_commit(void);
+static uint8_t pre_cand = 0xFF, pre_cand_t;     /* an edited sound: the factory sound PRESETS is showing, OCT+ loads it */
+static uint32_t pre_cand_ms;
+static uint8_t song_empty;                      /* nothing written anywhere (the first-start hint) */
+static uint8_t home_did;                        /* HOME + PLAY (panic) happened: its release does nothing */
 static uint8_t tools_open, tools_sel;              /* SAVE held: the tools (OPTIONS, UNDO, REDO, CLEAR, COPY, PASTE, RANDOM) */
 #define HOLD_HOME_MS 450u                       /* a hold that opens something: the yellow bar fills to this */
 #define HOLD_SAVE_MS 450u
@@ -97,8 +101,17 @@ static uint32_t grid_pages(void)
     if (pat_linked(ui_pat)) n += (plen_of(ui_pat + 1u) + 15u) / 16u;
     return n > 4u ? 4u : n;
 }
-static uint32_t gpat(uint32_t pg) { return pg < (plen() + 15u) / 16u ? ui_pat : ui_pat + 1u; }   /* the page's pattern */
-static uint32_t grow(uint32_t pg) { uint32_t h = (plen() + 15u) / 16u; return (pg < h ? pg : pg - h) * 16u; }   /* its first row */
+static uint32_t gpat(uint32_t pg)               /* the page's pattern (a page past the end: the first) */
+{
+    if (pg >= grid_pages()) pg = 0;
+    return pg < (plen() + 15u) / 16u ? ui_pat : ui_pat + 1u;
+}
+static uint32_t grow(uint32_t pg)               /* its first row */
+{
+    uint32_t h = (plen() + 15u) / 16u;
+    if (pg >= grid_pages()) pg = 0;
+    return (pg < h ? pg : pg - h) * 16u;
+}
 static uint32_t trk(void) { return cur_trk < NTRK ? cur_trk : NTRK - 1u; }   /* the track (MIX may be on the master) */
 static cell_t *CUR(void) { return &P()->c[cur_row][trk()]; }
 static uint32_t ENG(uint32_t t) { return prj.snd[t].engine; }
@@ -1017,9 +1030,17 @@ static void draw_sound(void)
         trk_name(t, s);
         g_text(16, 22, s, C_INK, T_CROP | T_BOLD);
         s[0] = 0;
-        str_cat(str_cat(s, PRESETS[prj.snd[t].preset % NPRESET].name[lang]), sound_is_preset(t) ? "" : "*");
-        s[15] = 0;                              /* (14 letters and the '*': up to x = 210) */
-        g_text(90, 22, s, C_TXT, T_CROP);
+        if (pre_cand != 0xFF && pre_cand_t == t) {   /* an edited sound: the next factory sound, to load with OCT+ */
+            str_cat(s, PRESETS[pre_cand % NPRESET].name[lang]);
+            s[11] = 0;
+            str_cat(s, "?");
+            g_text(90, 22, s, C_GOLD, T_CROP | T_BOLD);
+            g_text(90 + g_text_w(s) + 6, 22, "OCT+", KNOB_COL[3], T_CROP | T_BOLD);
+        } else {
+            str_cat(str_cat(s, PRESETS[prj.snd[t].preset % NPRESET].name[lang]), sound_is_preset(t) ? "" : "*");
+            s[15] = 0;                          /* (14 letters and the '*': up to x = 210) */
+            g_text(90, 22, s, C_TXT, T_CROP);
+        }
     }
     if (g_vis(40, 102)) {
         g_rect(0, 40, 240, 104, C_BG);           /* (to the cards at 144: no row left unpainted) */
@@ -1453,13 +1474,27 @@ static void draw_tools(void)
     else trk_name(trk(), s + str_len(s));
     g_text_c(120, 190, s, KNOB_COL[2], T_CROP);
 }
+static void draw_first(void)                    /* an empty song on TRACKS: three steps, until the first note */
+{
+    static const char *const L[LANG_N][4] = {
+        {"KAWA - MORCEAU VIDE", "1. REC  2. JOUE LES TOUCHES", "3. PLAY POUR ECOUTER", "HOME TENU: AIDE"},
+        {"KAWA - EMPTY SONG", "1. REC  2. PLAY THE KEYS", "3. PLAY TO LISTEN", "HOME HELD: HELP"},
+        {"KAWA - CANCION VACIA", "1. REC  2. TOCA LAS TECLAS", "3. PLAY PARA ESCUCHAR", "HOME PULSADO: AYUDA"}};
+    uint32_t i;
+    if (page != PG_TRACK || !song_empty || rec || sq_play || tools_open || !g_vis(70, 92)) return;
+    g_rrect(8, 72, 224, 88, C_GOLD);
+    g_rrect(9, 73, 222, 86, C_BG2);
+    for (i = 0; i < 4u; i++)
+        g_text_c(120, 80 + (int32_t)i * 18, L[lang][i], i == 0u ? C_GOLD : i == 3u ? C_MID : C_TXT, T_CROP | (i == 0u ? T_BOLD : 0u));
+}
 static void draw_hold(void)
 {
     uint32_t since = 0, need = 0;
     if (home_held && page != PG_HELP) { since = fm1_ms - home_down_ms; need = HOLD_HOME_MS; }
     else if (fx_down && page == PG_SEND) { since = fm1_ms - fx_down_ms; need = HOLD_FX_MS; }
     else if (save_held && !tools_open && !save_did) { since = fm1_ms - save_down_ms; need = HOLD_SAVE_MS; }
-    if (!need || since < 100u || since >= need || !g_vis(204, 12)) return;
+    if (!need || since < 100u || since >= need || !g_vis(190, 26)) return;
+    g_text_c(120, 190, need == HOLD_FX_MS ? "LIVE" : home_held ? TR("AIDE", "HELP", "AYUDA") : TR("OUTILS", "TOOLS", "HERRAM."), C_GOLD, T_CROP | T_BOLD);
     g_rrect(66, 205, 108, 10, C_BG);
     g_frame(67, 206, 106, 8, C_GOLD);
     g_rect(69, 208, (int32_t)(102u * since / need), 4, C_GOLD);
@@ -1835,7 +1870,7 @@ typedef struct { const char *e[3], *l[3]; } help_t;
 static const help_t HELP[LANG_N][PG_HELP] = {
     {{{"LIGNE", "PISTE", "MOTIF"}, {"REC+SEL: SAUT  ARP+SEL: LIGNE", "SAVE TENU: LES OUTILS", "ARP + K3 K4: LE 2E EFFET"}},
      {{"PAGE DE 16 PAS", "PISTE", "MOTIF"}, {"BLANCHES: PAS OUI/NON", "NOIRES: LA PISTE", "OCT-/OCT+: 16, 32, 64 PAS"}},
-     {{"PAGE SUIVANTE", "PISTE", "SON D'USINE"}, {"EDIT ENCORE: PAGE SUIVANTE", "ARP+PRESETS: LE MOTEUR", "AILLEURS PRESETS: CURSEUR"}},
+     {{"PAGE SUIVANTE", "PISTE", "SON D'USINE"}, {"MODIFIE: PRESETS PUIS OCT+", "ARP+PRESETS: LE MOTEUR", "ANNULER: SAVE+OCT- LE RAMENE"}},
      {{"ENV / MIX", "PISTE", "-"}, {"ENV ENCORE: LE MIX", "TOUCHES: ECOUTER"}},
      {{"ENV / MIX", "PISTE / MASTER", "-"}, {"NOIRES: MUET  ARP+NOIRE: SOLO", "APRES LA 6: LE MASTER"}},
      {{"-", "PISTE", "MOTIF"}, {"BLANCHE: UN OUTIL", "SCL: GAMME, PUIS MAGIE", "SAVE TENU: LES OUTILS"}},
@@ -1846,7 +1881,7 @@ static const help_t HELP[LANG_N][PG_HELP] = {
      {{"ENVOIS / LIVE", "PISTE", "MOTIF"}, {"FX TENU + BLANCHES", "OCT: BANQUE  NOIRES: MUETS"}}},
     {{{"ROW", "TRACK", "PATTERN"}, {"REC+SEL: STEP  ARP+SEL: ROW", "SAVE HELD: THE TOOLS", "ARP + K3 K4: THE 2ND FX"}},
      {{"16 STEPS PAGE", "TRACK", "PATTERN"}, {"WHITE KEYS: STEPS ON/OFF", "BLACK KEYS: THE TRACK", "OCT-/OCT+: 16, 32, 64 STEPS"}},
-     {{"NEXT PAGE", "TRACK", "FACTORY SOUND"}, {"EDIT AGAIN: NEXT PAGE", "ARP+PRESETS: THE ENGINE", "ELSEWHERE PRESETS: CURSOR"}},
+     {{"NEXT PAGE", "TRACK", "FACTORY SOUND"}, {"EDITED: PRESETS, THEN OCT+", "ARP+PRESETS: THE ENGINE", "UNDO: SAVE+OCT- BRINGS IT BACK"}},
      {{"ENV / MIX", "TRACK", "-"}, {"ENV AGAIN: THE MIX", "KEYS: LISTEN"}},
      {{"ENV / MIX", "TRACK / MASTER", "-"}, {"BLACK: MUTE  ARP+BLACK: SOLO", "PAST TRACK 6: MASTER"}},
      {{"-", "TRACK", "PATTERN"}, {"WHITE KEY: A TOOL", "SCL: SCALE, THEN MAGIC", "SAVE HELD: THE TOOLS"}},
@@ -1857,7 +1892,7 @@ static const help_t HELP[LANG_N][PG_HELP] = {
      {{"SENDS / LIVE", "TRACK", "PATTERN"}, {"HOLD FX + WHITE KEYS", "OCT: BANK  BLACK: MUTES"}}},
     {{{"FILA", "PISTA", "PATRON"}, {"REC+SEL: SALTO  ARP+SEL: FILA", "SAVE PULSADO: HERRAMIENTAS", "ARP + K3 K4: EL 2O EFECTO"}},
      {{"PAGINA DE 16", "PISTA", "PATRON"}, {"BLANCAS: PASOS SI/NO", "NEGRAS: LA PISTA", "OCT-/OCT+: 16, 32, 64 PASOS"}},
-     {{"PAG. SIGUIENTE", "PISTA", "SONIDO FABRICA"}, {"EDIT OTRA VEZ: SIGUIENTE", "ARP+PRESETS: EL MOTOR", "OTRAS: PRESETS = CURSOR"}},
+     {{"PAG. SIGUIENTE", "PISTA", "SONIDO FABRICA"}, {"EDITADO: PRESETS Y OCT+", "ARP+PRESETS: EL MOTOR", "DESHACER: SAVE+OCT- LO VUELVE"}},
      {{"ENV / MEZCLA", "PISTA", "-"}, {"ENV OTRA VEZ: LA MEZCLA", "TECLAS: ESCUCHAR"}},
      {{"ENV / MEZCLA", "PISTA / MASTER", "-"}, {"NEGRAS: MUTE  ARP+NEGRA: SOLO", "TRAS LA 6: EL MASTER"}},
      {{"-", "PISTA", "PATRON"}, {"BLANCA: UNA HERRAMIENTA", "SCL: ESCALA, LUEGO MAGIA", "SAVE PULSADO: HERRAMIENTAS"}},
@@ -1974,6 +2009,10 @@ static void draw_boot(void)
     g_rrect(4, 224, 44, 14, C_REC);
     g_text(8, 224, "BETA", C_WHITE, T_CROP | T_BOLD);
     g_text_sh(236 - g_text_w("V" APP_VER), 226, "V" APP_VER, C_TXT, T_CROP);
+    if (t > 600u && ((t / 550u) & 1u)) {        /* it waits for you: a key, a button or a knob */
+        const char *m = TR("APPUIE SUR UNE TOUCHE", "PRESS ANY KEY", "PULSA UNA TECLA");
+        g_text_sh(120 - g_text_w(m) / 2, 204, m, C_WHITE, T_CROP | T_BOLD);
+    }
 }
 
 static void draw_all(void)
@@ -1996,6 +2035,7 @@ static void draw_all(void)
     case PG_SEND: draw_send(); break;
     case PG_HELP: draw_help(); break;
     }
+    draw_first();
     draw_tools();
     draw_hold();
     draw_toast();
@@ -2008,7 +2048,7 @@ static void set_page(uint32_t p)
         lfx_keys = 0;                           /* leaving the effects: they all stop */
         rec_live = 0;
     }
-    if (p != PG_FX && p != PG_SEND) fx_sticky = 0;
+    if (p != PG_FX && p != PG_SEND && p != PG_HELP && p != PG_PROJ) fx_sticky = 0;
     if (p == PG_PROJ) {
         slots_scan();
         pm_state = PMS_MENU;
@@ -2113,15 +2153,17 @@ static void try_note_ends(void)
 }
 
 /* the pattern that plays after this one ends (a live take on its first row) */
-static uint32_t next_pat(void)
+static uint32_t next_pat(void)                  /* the pattern after the one playing, by the sequencer's own rule at the end of a pattern */
 {
+    if (pat_linked(sq_pat)) return sq_pat + 1u;  /* 64 steps: on into the second half */
     if (prj.mode && prj.song_len) {
         uint32_t pos = sq_songpos;
         if (pos >= prj.song_len) pos = 0;
         else if (sq_rep + 1u >= song_rep(pos)) pos = (pos + 1u) % prj.song_len;
         return prj.song[pos].pat < NPAT ? prj.song[pos].pat : 0u;
     }
-    return sq_next < NPAT ? sq_next : sq_pat;
+    if (sq_next < NPAT) return sq_next;
+    return sq_head < NPAT ? sq_head : sq_pat;    /* (the loop of a 64-step pair: back to its first half) */
 }
 
 static void key_down(uint32_t k)
@@ -2139,7 +2181,7 @@ static void key_down(uint32_t k)
     ev_push(EV_ON, t, note, vol, fx, fxv);
     if (!rec || (page != PG_TRACK && page != PG_GRID && page != PG_SOUND && page != PG_ENV))
         return;
-    if (sq_play && sq_pat == ui_pat) {          /* live take: on the nearest row */
+    if (sq_play && pat_same(sq_pat, ui_pat)) {  /* live take (either half of a 64-step pair): on the nearest row */
         uint32_t pi = sq_pat, r = sq_row, len = prj.pat[pi].len ? prj.pat[pi].len : 16u;
         if (sq_frac > 0x80000000u) {            /* the second half of the row: the next one */
             if (++r >= len) {
@@ -2238,8 +2280,12 @@ static void cell_turn(cell_t *c, uint32_t pi, uint32_t t, uint32_t knob, int32_t
 static void param_turn(uint32_t t, uint32_t k, int32_t d)
 {
     const pdesc_t *pd = &PDESC[ENG(t)][k];
+    int32_t nv;
     if (!pd->name[0]) return;
-    prj.snd[t].p[k] = (int8_t)clampi(prj.snd[t].p[k] + d, pd->lo, pd->hi);
+    nv = clampi(prj.snd[t].p[k] + d, pd->lo, pd->hi);
+    if (nv == prj.snd[t].p[k]) return;
+    undo_push_snd(t, 1);
+    prj.snd[t].p[k] = (int8_t)nv;
     if (k <= P_S7) sound_build(t);
     if (k == P_SRC || k == P_SMODE) brush_note[t] = lane_base(t);
     if (k == P_FMPAT && ENG(t) == E_FM) { fm_patch_load(t); sound_build(t); }
@@ -2343,10 +2389,12 @@ static void knob(uint32_t i, int32_t d)
         break;
     case PG_SOUND: {
         uint32_t sp = sp_at(t, snd_page);
-        if (sp == SP_TABLE) { table_turn(t, i, d); break; }
-        if (sp == SP_SMP) { smp_edit_turn(t, i, d); break; }
+        pre_cand = 0xFF;                        /* (a knob: the factory sound shown is dropped, the sound stays) */
+        if (sp == SP_TABLE) { undo_push_snd(t, 1); table_turn(t, i, d); break; }
+        if (sp == SP_SMP) { undo_push_snd(t, 1); smp_edit_turn(t, i, d); break; }
         if (sp == SP_OP || sp == SP_OPENV) {    /* an operator of the FM track */
             uint32_t k = (sp == SP_OP ? OPK_LEVEL : OPK_ATT) + i;
+            undo_push_snd(t, 1);
             op_set(fm_op, k, op_get(fm_op, k) + d);
             sound_build(t);
             touched();
@@ -2422,7 +2470,10 @@ static void knob(uint32_t i, int32_t d)
         break;
     }
     case PG_SEND:
-        if (i == 0u) { prj.snd[t].sat = (uint8_t)clampi((int32_t)prj.snd[t].sat + d, 0, 15); touched(); }
+        if (i == 0u) {
+            int32_t ns = clampi((int32_t)prj.snd[t].sat + d, 0, 15);
+            if (ns != prj.snd[t].sat) { undo_push_snd(t, 1); prj.snd[t].sat = (uint8_t)ns; touched(); }
+        }
         else if (i == 1u) param_turn(t, P_ECHO, d);
         else if (i == 2u) param_turn(t, P_VERB, d);
         break;
@@ -2438,8 +2489,8 @@ static void pat_select(int32_t d)
 {
     ui_pat = (uint8_t)clampi(ui_pat + d, 0, NPAT - 1);
     if (cur_row >= plen()) cur_row = 0;
-    follow = (uint8_t)(sq_play && ui_pat == sq_pat);   /* browsing while it plays: the screen stays here */
-    if (sq_play && !prj.mode) sq_next = ui_pat == sq_pat ? 0xFF : ui_pat;   /* at the end of the one playing */
+    follow = (uint8_t)(sq_play && pat_same(ui_pat, sq_pat));   /* browsing while it plays: the screen stays here */
+    if (sq_play && !prj.mode) sq_next = pat_same(ui_pat, sq_pat) ? 0xFF : (uint8_t)pat_head(ui_pat);   /* at the end of the one playing (a pair: from its first half) */
 }
 
 static void song_fresh(const char *msg)       /* after a new song, a load, the demo: the screen from the top */
@@ -2543,12 +2594,15 @@ static void steps_turn(int32_t d)
     char s[24];
     if (n < 16u || n > 64u) return;
     if (n == 64u) {
-        if (pi + 1u >= NPAT || pat_linked(pi + 1u) || (pi && pat_linked(pi - 1u))) {
+        if (pi + 1u >= NPAT) {
+            toast(TR("DERNIER MOTIF", "LAST PATTERN", "ULTIMO PATRON"));
+            return;
+        }
+        if (pat_linked(pi + 1u) || (pi && pat_linked(pi - 1u))) {
             toast(TR("MOTIF DEJA LIE", "PATTERN ALREADY LINKED", "PATRON YA ENLAZADO"));
             return;
         }
-        undo_push(pi + 1u);
-        prj.pat[pi + 1u].len = 32;
+        prj.pat[pi + 1u].len = 32;              /* (the second half's length is not an undo step of its own: one UNDO takes the link back) */
     }
     undo_push(pi);
     P()->len = (uint8_t)(n == 64u ? 32u : n);
@@ -2563,6 +2617,27 @@ static void steps_turn(int32_t d)
 
 /* ---- SAVE held: the tools. SELECT picks one, it runs when SAVE is let go (OCT- / OCT+ still undo / redo at once).
  * CLEAR, COPY, PASTE, RANDOM act on the track of the pattern on the screen, or on the whole pattern (K3 in the list) */
+static void undo_do(int redo)                   /* UNDO or REDO: a pattern or a sound comes back; the screen says which */
+{
+    int p = redo ? redo_pop() : undo_pop();
+    char s[24];
+    if (p >= 0x100) {                           /* a sound: its track is shown */
+        uint32_t t = (uint32_t)p & 7u;
+        cur_trk = (uint8_t)t;
+        if (snd_page >= sp_n(t)) snd_page = 0;
+        pre_cand = 0xFF;
+        s[0] = 0;
+        fmt_u(str_cat(s, redo ? TR("REFAIT: SON ", "REDONE: SOUND ", "REHECHO: SONIDO ")
+                              : TR("ANNULE: SON ", "UNDONE: SOUND ", "DESHECHO: SONIDO ")), t + 1u, 0);
+        toast(s);
+        return;
+    }
+    if (p >= 0) { ui_pat = (uint8_t)p; if (cur_row >= plen()) cur_row = 0; }
+    toast(p == -2 ? TR("FM: UNE SEULE PISTE", "FM: ONE TRACK ONLY", "FM: UNA SOLA PISTA")
+          : p < 0 ? (redo ? TR("RIEN A REFAIRE", "NOTHING TO REDO", "NADA QUE REHACER")
+                          : TR("RIEN A ANNULER", "NOTHING TO UNDO", "NADA QUE DESHACER"))
+                  : (redo ? TR("REFAIT", "REDONE", "REHECHO") : TR("ANNULE", "UNDONE", "DESHECHO")));
+}
 static void tools_run(uint32_t k)
 {
     char s[24];
@@ -2573,11 +2648,7 @@ static void tools_run(uint32_t k)
         return;
     }
     if (k <= 2u) {
-        int p = k == 1u ? undo_pop() : redo_pop();
-        if (p >= 0) { ui_pat = (uint8_t)p; if (cur_row >= plen()) cur_row = 0; }
-        toast(p < 0 ? (k == 1u ? TR("RIEN A ANNULER", "NOTHING TO UNDO", "NADA QUE DESHACER")
-                               : TR("RIEN A REFAIRE", "NOTHING TO REDO", "NADA QUE REHACER"))
-                    : (k == 1u ? TR("ANNULE", "UNDONE", "DESHECHO") : TR("REFAIT", "REDONE", "REHECHO")));
+        undo_do(k == 2u);
         return;
     }
     if (k == 3u) tool = MG_CLEAR;
@@ -2621,7 +2692,16 @@ static void page_button(uint32_t p)             /* a page's button: open it, or 
 static void button_down(uint32_t b)
 {
     switch (b) {
-    case BTN_PLAY: play_toggle(); break;
+    case BTN_PLAY:
+        if (home_held) {                        /* HOME + PLAY: panic, everything stops and goes quiet */
+            home_did = 1;
+            sq_req = 2;
+            lfx_keys = 0;
+            ev_push(EV_KILL, NTRK, 0, 0, 0, 0);
+            toast("PANIC");
+        } else
+            play_toggle();
+        break;
     case BTN_REC: rec_held = 1; rec_turned = 0; break;   /* REC: on its release (held + SELECT: the jump) */
     case BTN_FX:                                /* SENDS, then LIVE, then back; held from another page: LIVE while held */
         fx_down = 0;
@@ -2642,6 +2722,7 @@ static void button_down(uint32_t b)
     case BTN_GLO: page_button(PG_SONG); break;      /* SONG, again OPTIONS */
     case BTN_SAVE: save_down_ms = fm1_ms; save_held = 1; save_did = 0; break;
     case BTN_ARP:
+        if (tools_open) break;
         arp_held = 1;
         arp_turned = 0;
         if (page == PG_TRACK) {
@@ -2670,12 +2751,11 @@ static void button_down(uint32_t b)
     case BTN_OCT_UP: {
         int32_t d = b == BTN_OCT_UP ? 1 : -1;
         if (save_held) {                        /* SAVE held: OCT- undo, OCT+ redo */
-            int p = d < 0 ? undo_pop() : redo_pop();
             save_did = 1;
-            if (p >= 0) { ui_pat = (uint8_t)p; if (cur_row >= plen()) cur_row = 0; }
-            toast(p < 0 ? (d < 0 ? TR("RIEN A ANNULER", "NOTHING TO UNDO", "NADA QUE DESHACER")
-                                 : TR("RIEN A REFAIRE", "NOTHING TO REDO", "NADA QUE REHACER"))
-                        : (d < 0 ? TR("ANNULE", "UNDONE", "DESHECHO") : TR("REFAIT", "REDONE", "REHECHO")));
+            undo_do(d > 0);
+        } else if (page == PG_SOUND && pre_cand != 0xFF) {   /* a factory sound is shown: OCT+ loads it, OCT- keeps the sound */
+            if (d > 0) preset_commit();
+            else { pre_cand = 0xFF; toast(TR("GARDE", "KEPT", "CONSERVADO")); }
         } else if (page == PG_FX) { fx_bank = d > 0; lfx_keys = 0; }
         else if (page == PG_GRID) steps_turn(d);
         else if (page == PG_PROJ) { if (d > 0) pm_ok(); else pm_back(); }
@@ -2711,7 +2791,8 @@ static void button_up(uint32_t b)
         break;
     case BTN_HOME:
         home_held = 0;
-        if (page == PG_HELP) set_page(help_pg);  /* the help goes, the page stays */
+        if (home_did) home_did = 0;              /* (HOME + PLAY: the panic was it) */
+        else if (page == PG_HELP) set_page(help_pg);  /* the help goes, the page stays */
         else set_page(PG_TRACK);                 /* a tap: the tracks */
         break;
     case BTN_SAVE:
@@ -2770,6 +2851,8 @@ static void keys_input(void)
         int32_t w = WHITE_OF_KEY[k], bl = BLACK_OF_KEY[k];
         uint32_t dn = pass == 0u ? down >> k & 1u : 0u, u = pass == 1u ? up >> k & 1u : 0u;
         if (!dn && !u) continue;
+        if (dn && tools_open) continue;         /* (the tools are open: the keys wait) */
+        if (dn && page == PG_SEND && fx_down) set_page(PG_FX);   /* FX held and a key at once: that key is a live effect */
         if (u && (keys_played >> k & 1u)) {    /* a note played: it ends, on whatever page */
             keys_played &= ~(1u << k);
             key_up(k);
@@ -2843,8 +2926,6 @@ static void keys_input(void)
     }
 }
 
-/* the factory sounds (SOUND, PRESETS). A sound that was edited ('*') is not replaced by a turn by mistake: the first
- * turn only says so, the next ones (within 2.5 s) do it. ARP held: the next engine (its first sound) */
 /* SELECT along the pages of a button (GLO: SONG, GROOVE, OPTIONS; ENV: ENV, MIX; FX: SENDS, LIVE): d pages, stopping at the ends */
 static void page_walk(const uint8_t *l, uint32_t n, int32_t d)
 {
@@ -2854,39 +2935,58 @@ static void page_walk(const uint8_t *l, uint32_t n, int32_t d)
     d = clampi((int32_t)at + d, 0, (int32_t)n - 1);
     if ((uint32_t)d != at) set_page(l[d]);
 }
-static uint32_t pre_arm_ms;
-static uint8_t pre_arm_t = 0xFF;
-static void preset_turn(int32_t d)
+/* the factory sounds (SOUND, PRESETS). A sound nobody touched changes at once; every change is a step of UNDO (browsing is one
+ * step: SAVE+OCT- brings back the sound you had before). A sound that was edited ('*') is never replaced by a turn: PRESETS only shows
+ * the next factory sound (gold, with a '?'), OCT+ loads it, OCT- or a knob or leaving keeps the sound as it is. ARP held: the next
+ * engine (its first sound) */
+static void preset_load(uint32_t t, uint32_t k, int own_step)
 {
-    uint32_t t = trk(), k, e;
-    if (!sound_is_preset(t) && !(pre_arm_t == t && fm1_ms - pre_arm_ms < 2500u)) {
-        pre_arm_t = (uint8_t)t;
-        pre_arm_ms = fm1_ms;
-        toast(TR("MODIFIE: ENCORE UN CRAN", "EDITED: TURN AGAIN", "EDITADO: GIRA OTRA VEZ"));
-        return;
-    }
-    pre_arm_t = 0xFF;                           /* (the warning is used up: an edit after it asks again) */
-    if (arp_held) {                             /* the engine */
-        int32_t ne = (int32_t)ENG(t) + (d > 0 ? 1 : -1);
-        arp_turned = 1;
-        if (ne == E_FM && !fm_free(t)) ne += d > 0 ? 1 : -1;   /* FM: one track only */
-        e = (uint32_t)clampi(ne, 0, E_N - 1);
-        if (e == E_FM && !fm_free(t)) { toast(TR("FM: UNE SEULE PISTE", "FM: ONE TRACK ONLY", "FM: UNA SOLA PISTA")); return; }
-        if (e == ENG(t)) return;
-        k = preset_first(e);
-        snd_page = 0;
-    } else {
-        uint32_t guard = NPRESET;
-        k = prj.snd[t].preset;
-        do                                      /* the next factory sound (FM: only if no other track has it) */
-            k = (uint32_t)(((int32_t)k + (d > 0 ? 1 : -1) + (int32_t)NPRESET) % (int32_t)NPRESET);
-        while (--guard && PRESETS[k].engine == E_FM && !fm_free(t));
-        if (PRESETS[k].engine != ENG(t)) snd_page = 0;
-    }
+    undo_push_snd(t, own_step ? 0 : 1);
+    if (PRESETS[k].engine != ENG(t)) snd_page = 0;
     sound_preset(t, k);
     brush_note[t] = lane_base(t);
     touched();
     if (!sq_play) try_note(t, brush_note[t], 12, 0, 0);
+}
+static void preset_commit(void)
+{
+    uint32_t t = pre_cand_t;
+    if (pre_cand == 0xFF || t >= NTRK) return;
+    if (PRESETS[pre_cand].engine == E_FM && !fm_free(t)) { toast(TR("FM: UNE SEULE PISTE", "FM: ONE TRACK ONLY", "FM: UNA SOLA PISTA")); pre_cand = 0xFF; return; }
+    preset_load(t, pre_cand, 1);
+    pre_cand = 0xFF;
+    toast(TR("CHARGE", "LOADED", "CARGADO"));
+}
+static void preset_turn(int32_t d)
+{
+    uint32_t t = trk(), k, from;
+    int showing = pre_cand != 0xFF && pre_cand_t == t;
+    from = showing ? pre_cand : prj.snd[t].preset;
+    if (arp_held) {                             /* the engine */
+        int32_t ne = (int32_t)PRESETS[from % NPRESET].engine + (d > 0 ? 1 : -1);
+        uint32_t e;
+        arp_turned = 1;
+        if (ne == E_FM && !fm_free(t)) ne += d > 0 ? 1 : -1;   /* FM: one track only */
+        e = (uint32_t)clampi(ne, 0, E_N - 1);
+        if (e == E_FM && !fm_free(t)) { toast(TR("FM: UNE SEULE PISTE", "FM: ONE TRACK ONLY", "FM: UNA SOLA PISTA")); return; }
+        if (e == PRESETS[from % NPRESET].engine) return;
+        k = preset_first(e);
+    } else {
+        uint32_t guard = NPRESET;
+        k = from % NPRESET;
+        do                                      /* the next factory sound (FM: only if no other track has it) */
+            k = (uint32_t)(((int32_t)k + (d > 0 ? 1 : -1) + (int32_t)NPRESET) % (int32_t)NPRESET);
+        while (--guard && PRESETS[k].engine == E_FM && !fm_free(t));
+    }
+    if (!sound_is_preset(t)) {                  /* edited: only shown */
+        if (!showing) toast(TR("OCT+: CHARGER", "OCT+: LOAD IT", "OCT+: CARGAR"));
+        pre_cand = (uint8_t)k;
+        pre_cand_t = (uint8_t)t;
+        pre_cand_ms = fm1_ms;
+        return;
+    }
+    pre_cand = 0xFF;
+    preset_load(t, k, 0);
 }
 
 static void ui_input(void)
@@ -2895,14 +2995,18 @@ static void ui_input(void)
     int32_t d;
     if (b | rel) last_input_ms = fm1_ms;
     if (page == PG_BOOT) {
-        if (b || fm1_ms - boot_ms > 2400u || fm1_in.notes) set_page(PG_TRACK);
+        uint32_t e, moved = 0;
+        for (e = 0; e < 7u; e++)
+            if (fm1_enc_take(e) != 0) moved = 1;
+        if (b || moved || fm1_in.notes) set_page(PG_TRACK);   /* (the screen stays until something is touched: that touch is only this) */
         return;
     }
     for (i = 0; i < 14u; i++) {
+        if ((b >> i & 1u) && home_held && i != BTN_HOME) home_did = 1;   /* HOME + a button: a chord, not a tap */
         if (b >> i & 1u) button_down(i);
         if (rel >> i & 1u) button_up(i);
     }
-    if (home_held && page != PG_HELP && fm1_ms - home_down_ms > HOLD_HOME_MS) set_page(PG_HELP);
+    if (home_held && !home_did && page != PG_HELP && fm1_ms - home_down_ms > HOLD_HOME_MS) set_page(PG_HELP);
     if (fx_down && page == PG_SEND && fm1_ms - fx_down_ms > HOLD_FX_MS) set_page(PG_FX);   /* held: LIVE, while it is */
     if (save_held && !tools_open && !save_did && fm1_ms - save_down_ms > HOLD_SAVE_MS) { tools_open = 1; tools_sel = 0; }
 
@@ -2931,7 +3035,7 @@ static void ui_input(void)
     if (d != 0) {                               /* SELECT: on EDIT, LFO, ENV, FX and GLO the page; elsewhere the cursor */
         last_input_ms = fm1_ms;
         switch (page) {
-        case PG_GRID: grid_page = (uint8_t)clampi((int32_t)grid_page + d, 0, (int32_t)grid_pages() - 1); break;
+        case PG_GRID: grid_page = (uint8_t)clampi((int32_t)grid_page + d, 0, (int32_t)grid_pages() - 1); grid_held = -1; break;
         case PG_SONG: case PG_GROOVE: case PG_OPT: {
             static const uint8_t L[3] = {PG_SONG, PG_GROOVE, PG_OPT};
             page_walk(L, 3, d);
@@ -3034,6 +3138,7 @@ static void ui_leds(void)
     for (i = 2; i < 12u; i++) led_want[i] = 1;   /* the page buttons glow, the one open is lit */
     if (page < PG_N && PAGE_BTN[page] < 14u) led(page == PG_SOUND && sg_lfo(t, snd_page) ? BTN_LFO : PAGE_BTN[page], 2);
     led(BTN_PLAY, sq_play ? 2u : 1u);
+    if (dirty && page != PG_PROJ) led(BTN_SAVE, (fm1_ms / 500u) & 1u ? 2u : 1u);   /* unsaved changes: SAVE blinks */
     led(BTN_REC, rec ? ((fm1_ms / 300u) & 1u ? 2u : 1u) : 1u);
     led(BTN_OCT_DOWN, oct_ofs < 0 ? 2u : 1u);
     led(BTN_OCT_UP, oct_ofs > 0 ? 2u : 1u);
@@ -3221,6 +3326,19 @@ static void app_init(void)
     g_force = 1;
 }
 
+static void ui_tick(void)                       /* what the panel keeps up with, apart from the keys and the screen */
+{
+    static uint32_t scan_ms;
+    if (pre_cand != 0xFF && (page != PG_SOUND || sp_at(trk(), snd_page) != SP_SON1 || trk() != pre_cand_t || fm1_ms - pre_cand_ms > 8000u))
+        pre_cand = 0xFF;                        /* (the factory sound shown: dropped when the page, the track or the time moves on) */
+    if (fm1_ms - scan_ms > 700u) {              /* (the first-start hint: nothing written anywhere) */
+        uint32_t k;
+        scan_ms = fm1_ms;
+        for (k = 0; k < NPAT && pat_empty(&prj.pat[k]); k++) {}
+        song_empty = (uint8_t)(k >= NPAT);
+    }
+}
+
 static void app_step(void)
 {
     ui_input();
@@ -3239,6 +3357,7 @@ static void app_step(void)
     if (grid_page >= grid_pages())
         grid_page = 0;
     try_note_ends();
+    ui_tick();
     met_mode = set.metro;                       /* (the audio interrupt reads them) */
     met_vol = set.mvol;
     met_rec = rec;

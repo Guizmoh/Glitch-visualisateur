@@ -176,6 +176,7 @@ static void seq_start(void)
     }
     s_row = 0;
     s_head = 0xFF;
+    sq_head = 0xFF;
     s_step = 0;
     s_gi = 0;
     sq_gstep = 0;
@@ -256,6 +257,7 @@ static void seq_next_row(void)
         sq_songpos = s_pos;
         sq_rep = s_rep;
     }
+    sq_head = s_head;
     sq_pat = s_pat;
     sq_row = s_row;
     if (rec_live && lfx_keys) {                 /* recording the live effects into the LIVE lane */
@@ -443,7 +445,7 @@ static void app_audio(int32_t *out, uint32_t n)
             for (i = 0; i < CHUNK; i++)
                 mono[i] = 0;
             track_chunk(t, mono);
-            if (prj.snd[t].sat && cpu_shed < 2u)
+            if (prj.snd[t].sat)
                 sat_chunk(mono, prj.snd[t].sat & 15u);
             for (i = 0; i < CHUNK; i++) {
                 int32_t m = mono[i], a = m < 0 ? -m : m;

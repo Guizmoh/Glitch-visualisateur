@@ -20,7 +20,7 @@ WHITE = [0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26]
 # ("hold", k) ("up",) ("wait", ms)
 STEPS = [
     ("01-boot", [("wait", 0)]),
-    ("02-tracks", [("wait", 2400), ("btn", 9), ("enc", 0, 4), ("btn", 1), ("wait", 700)]),   # (KAWA starts empty: the demo, from PROJECTS)
+    ("02-tracks", [("btn", 8), ("wait", 600), ("btn", 9), ("enc", 0, 4), ("btn", 1), ("wait", 700)]),   # (KAWA starts empty: the demo, from PROJECTS)
     ("03-play", [("btn", 12), ("wait", 1500)]),
     ("04-help", [("press", 8), ("wait", 700)]),
     ("05-tracks-stop", [("release", 8), ("btn", 12)]),

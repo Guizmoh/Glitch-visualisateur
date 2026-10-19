@@ -19,8 +19,9 @@ WHITE = [0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26]
 # (name, actions) - an action: ("btn", id) ("press", id) ("release", id) ("enc", id, steps) ("key", k) (a tap)
 # ("hold", k) ("up",) ("wait", ms)
 STEPS = [
-    ("01-boot", [("wait", 0)]),
-    ("02-tracks", [("btn", 8), ("wait", 600), ("btn", 9), ("enc", 0, 4), ("btn", 1), ("wait", 700)]),   # (KAWA starts empty: the demo, from PROJECTS)
+    ("01-boot", [("wait", 700)]),
+    ("08-first-start", [("btn", 8), ("wait", 900)]),   # (the boot screen waits for a key; an empty song shows how to start)
+    ("02-tracks", [("btn", 9), ("enc", 0, 4), ("btn", 1), ("wait", 700)]),   # (KAWA starts empty: the demo, from PROJECTS)
     ("03-play", [("btn", 12), ("wait", 1500)]),
     ("04-help", [("press", 8), ("wait", 700)]),
     ("05-tracks-stop", [("release", 8), ("btn", 12)]),
@@ -83,6 +84,10 @@ STEPS = [
     ("72-tools", [("wait", 300), ("enc", 0, 3)]),
     ("73-tools-options", [("enc", 0, -3), ("release", 9)]),
     ("74-grid-64", [("btn", 8), ("btn", 11), ("btn", 1), ("btn", 1), ("wait", 100), ("enc", 0, 3)]),
+    # 0.5: an edited sound is not replaced by PRESETS (shown, then OCT+), and UNDO brings a sound back
+    ("75-preset-browse", [("btn", 8), ("enc", 1, -10), ("btn", 6), ("enc", 2, 1), ("wait", 200), ("enc", 6, 1)]),
+    ("76-preset-loaded", [("wait", 1200), ("btn", 1)]),
+    ("77-undo-sound", [("wait", 1200), ("press", 9), ("btn", 0), ("release", 9)]),
 ]
 
 def script(lang):

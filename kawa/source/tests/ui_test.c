@@ -638,6 +638,69 @@ int main(void)
     ui_input();
     button_up(BTN_HOME);
     CHECK(page == PG_ENV, "14. HOME + ENV goes to ENV; HOME's release does not send it to TRACKS (page %u)", page);
+
+    /* 15. the second round of the review: the boot touch is only that, the help goes with HOME, FX's own way back, the grid's tools,
+     * PLAY on a second half, PRESETS on SENDS */
+    fresh();
+    page = PG_BOOT;
+    host_pressed |= 1u << BTN_REC; fm1_in.buttons |= 1u << BTN_REC;
+    ui_input();
+    host_released |= 1u << BTN_REC; fm1_in.buttons &= ~(1u << BTN_REC);
+    ui_input();
+    CHECK(page == PG_TRACK && !rec, "15. the touch that closes the boot screen: its release does nothing (REC %u)", rec);
+    page = PG_BOOT;
+    fm1_in.notes = 1u << 7;
+    ui_input();
+    k = evq_w;
+    keys_input();
+    CHECK(evq_w == k, "15. a key held through the boot screen does not play when the page comes");
+    fm1_in.notes = 0; keys_input();
+    fresh();
+    set_page(PG_TRACK);
+    button_down(BTN_HOME); fm1_ms += 600u; ui_input();
+    CHECK(page == PG_HELP, "15. HOME held: the help");
+    host_pressed |= 1u << BTN_REC;
+    ui_input();
+    button_up(BTN_HOME);
+    CHECK(page == PG_TRACK, "15. the help goes when HOME is let go, even after another button (page %u)", page);
+    CHECK(!home_did, "15. (and the chord flag is clear)");
+    fresh();
+    set_page(PG_SOUND);
+    button_down(BTN_FX); button_up(BTN_FX);
+    button_down(BTN_SAVE); button_up(BTN_SAVE);        /* PROJECTS over SENDS */
+    CHECK(page == PG_PROJ, "15. PROJECTS");
+    set_page(PG_SEND);
+    button_down(BTN_FX); button_up(BTN_FX);            /* LIVE */
+    button_down(BTN_FX); button_up(BTN_FX);            /* and back */
+    CHECK(page == PG_SOUND, "15. FX goes back where it came from, whatever PROJECTS did (page %u)", page);
+    fresh();
+    set_page(PG_GRID);
+    P()->len = 32; P()->pad[0] = 1; prj.pat[1].len = 32;
+    grid_page = 3;
+    prj.pat[1].c[20][0].note = 60;
+    tools_run(3);                                       /* CLEAR on the second half's page */
+    CHECK(prj.pat[1].c[20][0].note == 0, "15. the tools act on the half the grid shows");
+    fresh();
+    P()->len = 32; P()->pad[0] = 1; prj.pat[1].len = 32;
+    ui_pat = 1;
+    play_from_cursor();
+    CHECK(sq_start_pat == 0, "15. PLAY with the cursor on a second half starts the pair (%u)", sq_start_pat);
+    fresh();
+    set_page(PG_SEND);
+    ui_pat = 3;
+    enc(ENC_PRESETS, 1);
+    CHECK(ui_pat == 3, "15. PRESETS on SENDS leaves the pattern alone");
+    fresh();
+    prj.snd[1].engine = E_FM; sound_build(1);
+    cur_trk = 1; fm_op = 1;
+    set_page(PG_SOUND);
+    while (sp_at(1, snd_page) != SP_OP && snd_page < 7) snd_page++;
+    prj.fmp[0] = 0;
+    hist_clear();
+    op_set(1, OPK_LEVEL, 99);
+    n = undo_h.n;
+    knob(0, 5);                                         /* LEVEL is already at its end */
+    CHECK(undo_h.n == n, "15. an operator knob at its end is not an undo step");
     printf("ui_test: %s\n", fails ? "FAILED" : "passed");
     return fails != 0;
 }

@@ -478,8 +478,8 @@ static void app_audio(int32_t *out, uint32_t n)
                 int32_t v = (int32_t)(((int64_t)sine(met_ph) * met_env) >> 15);
                 met_ph += met_inc;
                 met_env = met_env > met_dec ? met_env - met_dec : 0;
-                L[i] += v;
-                R[i] += v;
+                L[i] = clampi(L[i] + v, -32767, 32767);   /* (after the limiter: kept in Q15) */
+                R[i] = clampi(R[i] + v, -32767, 32767);
             }
         for (i = 0; i < CHUNK; i++) {
             int32_t a = L[i] < 0 ? -L[i] : L[i];

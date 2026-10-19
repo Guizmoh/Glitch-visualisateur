@@ -77,7 +77,7 @@ async function goodInstall(name, o = {}) {
     const dev = r.dev;
     assert.equal(r.err, undefined, r.err && r.err.message);
     assert.deepEqual(r.res, { done: true, id: PRODUCT });
-    assert.equal(PRODUCT, "FM-1_954");
+    assert.equal(PRODUCT, "FM-1_955");
     // the Python tool's sequence: start, check..., loader, write 0..100, reboot, done
     const k = kinds(r), ks = [...new Set(k)];
     assert.deepEqual(ks, ["start", "check", "loader", "write", "reboot", "done"]);
@@ -87,7 +87,7 @@ async function goodInstall(name, o = {}) {
     assert.equal(w[0], 0); assert.equal(w[w.length - 1], 100);
     assert.ok(w.slice(0, -1).every(x => x <= 99), "write % stays under 100 until the end");
     assert.ok(w.every((x, i) => i === 0 || x >= w[i - 1]), "write % never goes back");
-    assert.equal(W.STEP_TEXT.done(PRODUCT), "done: the FM-1 runs FM-1_954");
+    assert.equal(W.STEP_TEXT.done(PRODUCT), "done: the FM-1 runs FM-1_955");
     // the chip: the app area is the package's, the flash head and the user's data were never written
     assert.ok(Buffer.from(dev.appArea()).equals(Buffer.from(dev.expectedApp(PKG))), "app area differs from the package's flash.bin");
     assert.ok(dev.appChanged() && dev.untouched());
@@ -96,13 +96,13 @@ async function goodInstall(name, o = {}) {
     assert.deepEqual([dev.stats.step1Fails, dev.stats.loaderFails], [[], []]);
     assert.equal(dev.stats.stray, 0); assert.equal(dev.stats.junk, 0);
     assert.equal(dev.stats.upgrades, 2, "UPGRADE once per step");
-    assert.equal(dev.appId, "FM-1_954"); assert.equal(dev.mode, "app");
+    assert.equal(dev.appId, "FM-1_955"); assert.equal(dev.mode, "app");
     assert.deepEqual(dev.events.filter(e => e.startsWith("plug")), ["plug:app", "plug:loader", "plug:app"]);
     assert.deepEqual(r.busy, [true, false]);
     assert.deepEqual(r.midi.sysexAsked, r.midi.sysexAsked.map(() => true), "SysEx must be asked for");
     assert.ok(r.midi.sysexAsked.length >= 1);
     assert.equal(r.asked.length, 1); assert.equal(r.asked[0].product, PRODUCT); assert.equal(r.asked[0].resume, false);
-    assert.match(r.lines[0], /^package: FM-1_954 {2}\(kawa-\d/);
+    assert.match(r.lines[0], /^package: FM-1_955 {2}\(kawa-\d/);
     assert.equal(r.lines[1], `device:  ${o.dev && o.dev.appId || "FM-1_015"}  (FM-1)`);
     assert.equal(dev.inPort.connection, "closed"); assert.equal(dev.outPort.connection, "closed");   // no port left open
     quiet(dev);
@@ -180,8 +180,8 @@ function refused(code, text, o) {
 }
 test("wrong model refused: the device is an FM-2", refused("model", `the device is FM-2_015, the package is for ${PRODUCT}`,
                                                                 { dev: { appId: "FM-2_015" } }));
-test("wrong model refused: the package is for an FM-2", refused("model", "the device is FM-1_015, the package is for FM-2_954",
-                                                                { bytes: withProduct(PKG, "FM-2_954") }));
+test("wrong model refused: the package is for an FM-2", refused("model", "the device is FM-1_015, the package is for FM-2_955",
+                                                                { bytes: withProduct(PKG, "FM-2_955") }));
 test("wrong model refused: an FM-2 in update mode", refused("model", `the device is ota-FM-2_900, the package is for ${PRODUCT}`,
                                                               { dev: { mode: "loader", loaderId: "ota-FM-2_900" } }));
 test("another firmware's update mode refused (ota-FM-1_015: M-UPGRADE's)", refused("foreign",
@@ -531,7 +531,7 @@ test(hasPython ? "parity with install/fm1_install.py: constants, delays, wire fo
     }
     reqs.push(hex(W.HS_QUERY), hex(W.UPGRADE), "", "f0", "f7f0");
     const idents = [];
-    for (const t of ["FM-1_015", "ota-FM-1_900", "FM-1_954", "x", "FM-1", "A_B_1", "FM-1_", "FM-1_9a", "FM-\xE91_001", "OTA-FM-1_9", "_1", "ota-_5"]) {
+    for (const t of ["FM-1_015", "ota-FM-1_900", "FM-1_955", "x", "FM-1", "A_B_1", "FM-1_", "FM-1_9a", "FM-\xE91_001", "OTA-FM-1_9", "_1", "ota-_5"]) {
         const body = new Uint8Array(27); body.set(Uint8Array.from(t, c => c.charCodeAt(0)));
         idents.push(hex(M.msgFrame(0x11, body)));
     }
@@ -539,10 +539,10 @@ test(hasPython ? "parity with install/fm1_install.py: constants, delays, wire fo
     const crcs = [0, 1, 5, 64, 80, 1000, 4096].map(n => hex(rb(n)));
     const pair = [["FM-1", ["X", "FM-1"]], ["FM-1 2", ["FM-1 3", "Other"]], ["FM-1 2", ["FM-1 3", "FM-1 4"]], ["A", ["B"]], ["A", ["B", "C"]], ["A", []],
                   ["MIDIIN2 (FM-1)", ["MIDIOUT2 (FM-1)"]], ["FM-1  7", ["FM-1 9"]], ["USB MIDI 12 34", ["USB MIDI 12 99", "x"]]];
-    const model = ["FM-1_954", "ota-FM-1_900", "ota-FM-2_1", "FM-1", "ota-", "x_y_z", "OTA-FM-1_9"];
+    const model = ["FM-1_955", "ota-FM-1_900", "ota-FM-2_1", "FM-1", "ota-", "x_y_z", "OTA-FM-1_9"];
     // every variant of the package: the same verdict and the same message (the file name is the path, as in Python)
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kawa-webinstall-"));
-    const variants = { good: PKG, other_model: withProduct(PKG, "FM-2_954"), long_product: withProduct(PKG, "FM-1_954_x"), no_product: withProduct(PKG, "") };
+    const variants = { good: PKG, other_model: withProduct(PKG, "FM-2_955"), long_product: withProduct(PKG, "FM-1_955_x"), no_product: withProduct(PKG, "") };
     for (const [w, f] of Object.entries(BAD)) { const r = Uint8Array.from(PKG), c = f(r); variants[w.replace(/\W+/g, "_")] = c ? Uint8Array.from(c) : r; }
     for (const i of [0, 7, 0x3F, 0x45, 0x3FF, 0x401, 123456, 0x93500]) variants["flip_" + i] = mutate(PKG, r => { r[rawIndex(Math.min(i, 610245))] ^= 0x10; });
     variants.empty = new Uint8Array(0); variants.header_only = PKG.subarray(0, 600); variants.short_body = PKG.subarray(0, 1000);

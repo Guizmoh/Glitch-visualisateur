@@ -37,7 +37,9 @@ static void preset_commit(void);
 static uint8_t pre_cand = 0xFF, pre_cand_t;     /* an edited sound: the factory sound PRESETS is showing, OCT+ loads it */
 static uint32_t pre_cand_ms;
 static uint8_t song_empty;                      /* nothing written anywhere (the first-start hint) */
-static uint8_t home_did;                        /* HOME + PLAY (panic) happened: its release does nothing */
+static uint8_t home_did;
+static uint32_t boot_eat;                       /* buttons that closed the boot screen: their release does nothing */
+static uint8_t fx_back = PG_TRACK;              /* where FX goes back to (its own: PROJECTS and the help keep page_back) */                        /* HOME + PLAY (panic) happened: its release does nothing */
 static uint8_t tools_open, tools_sel;              /* SAVE held: the tools (OPTIONS, UNDO, REDO, CLEAR, COPY, PASTE, RANDOM) */
 #define HOLD_HOME_MS 450u                       /* a hold that opens something: the yellow bar fills to this */
 #define HOLD_SAVE_MS 450u
@@ -1490,11 +1492,12 @@ static void draw_first(void)                    /* an empty song on TRACKS: thre
 static void draw_hold(void)
 {
     uint32_t since = 0, need = 0;
-    if (home_held && page != PG_HELP) { since = fm1_ms - home_down_ms; need = HOLD_HOME_MS; }
-    else if (fx_down && page == PG_SEND) { since = fm1_ms - fx_down_ms; need = HOLD_FX_MS; }
-    else if (save_held && !tools_open && !save_did) { since = fm1_ms - save_down_ms; need = HOLD_SAVE_MS; }
+    const char *what = "";
+    if (home_held && !home_did && page != PG_HELP) { since = fm1_ms - home_down_ms; need = HOLD_HOME_MS; what = TR("AIDE", "HELP", "AYUDA"); }
+    else if (fx_down && page == PG_SEND) { since = fm1_ms - fx_down_ms; need = HOLD_FX_MS; what = "LIVE"; }
+    else if (save_held && !tools_open && !save_did) { since = fm1_ms - save_down_ms; need = HOLD_SAVE_MS; what = TR("OUTILS", "TOOLS", "HERRAM."); }
     if (!need || since < 100u || since >= need || !g_vis(190, 26)) return;
-    g_text_c(120, 190, need == HOLD_FX_MS ? "LIVE" : home_held ? TR("AIDE", "HELP", "AYUDA") : TR("OUTILS", "TOOLS", "HERRAM."), C_GOLD, T_CROP | T_BOLD);
+    g_text_c(120, 190, what, C_GOLD, T_CROP | T_BOLD);
     g_rrect(66, 205, 108, 10, C_BG);
     g_frame(67, 206, 106, 8, C_GOLD);
     g_rect(69, 208, (int32_t)(102u * since / need), 4, C_GOLD);
@@ -1870,7 +1873,7 @@ typedef struct { const char *e[3], *l[3]; } help_t;
 static const help_t HELP[LANG_N][PG_HELP] = {
     {{{"LIGNE", "PISTE", "MOTIF"}, {"REC+SEL: SAUT  ARP+SEL: LIGNE", "SAVE TENU: LES OUTILS", "ARP + K3 K4: LE 2E EFFET"}},
      {{"PAGE DE 16 PAS", "PISTE", "MOTIF"}, {"BLANCHES: PAS OUI/NON", "NOIRES: LA PISTE", "OCT-/OCT+: 16, 32, 64 PAS"}},
-     {{"PAGE SUIVANTE", "PISTE", "SON D'USINE"}, {"MODIFIE: PRESETS PUIS OCT+", "ARP+PRESETS: LE MOTEUR", "ANNULER: SAVE+OCT- LE RAMENE"}},
+     {{"PAGE SUIVANTE", "PISTE", "USINE / CURSEUR"}, {"MODIFIE: PRESETS PUIS OCT+", "ARP+PRESETS: LE MOTEUR", "ANNULER: SAVE+OCT- LE RAMENE"}},
      {{"ENV / MIX", "PISTE", "-"}, {"ENV ENCORE: LE MIX", "TOUCHES: ECOUTER"}},
      {{"ENV / MIX", "PISTE / MASTER", "-"}, {"NOIRES: MUET  ARP+NOIRE: SOLO", "APRES LA 6: LE MASTER"}},
      {{"-", "PISTE", "MOTIF"}, {"BLANCHE: UN OUTIL", "SCL: GAMME, PUIS MAGIE", "SAVE TENU: LES OUTILS"}},
@@ -1881,7 +1884,7 @@ static const help_t HELP[LANG_N][PG_HELP] = {
      {{"ENVOIS / LIVE", "PISTE", "MOTIF"}, {"FX TENU + BLANCHES", "OCT: BANQUE  NOIRES: MUETS"}}},
     {{{"ROW", "TRACK", "PATTERN"}, {"REC+SEL: STEP  ARP+SEL: ROW", "SAVE HELD: THE TOOLS", "ARP + K3 K4: THE 2ND FX"}},
      {{"16 STEPS PAGE", "TRACK", "PATTERN"}, {"WHITE KEYS: STEPS ON/OFF", "BLACK KEYS: THE TRACK", "OCT-/OCT+: 16, 32, 64 STEPS"}},
-     {{"NEXT PAGE", "TRACK", "FACTORY SOUND"}, {"EDITED: PRESETS, THEN OCT+", "ARP+PRESETS: THE ENGINE", "UNDO: SAVE+OCT- BRINGS IT BACK"}},
+     {{"NEXT PAGE", "TRACK", "FACTORY / CURSOR"}, {"EDITED: PRESETS, THEN OCT+", "ARP+PRESETS: THE ENGINE", "UNDO: SAVE+OCT- BRINGS IT BACK"}},
      {{"ENV / MIX", "TRACK", "-"}, {"ENV AGAIN: THE MIX", "KEYS: LISTEN"}},
      {{"ENV / MIX", "TRACK / MASTER", "-"}, {"BLACK: MUTE  ARP+BLACK: SOLO", "PAST TRACK 6: MASTER"}},
      {{"-", "TRACK", "PATTERN"}, {"WHITE KEY: A TOOL", "SCL: SCALE, THEN MAGIC", "SAVE HELD: THE TOOLS"}},
@@ -1892,7 +1895,7 @@ static const help_t HELP[LANG_N][PG_HELP] = {
      {{"SENDS / LIVE", "TRACK", "PATTERN"}, {"HOLD FX + WHITE KEYS", "OCT: BANK  BLACK: MUTES"}}},
     {{{"FILA", "PISTA", "PATRON"}, {"REC+SEL: SALTO  ARP+SEL: FILA", "SAVE PULSADO: HERRAMIENTAS", "ARP + K3 K4: EL 2O EFECTO"}},
      {{"PAGINA DE 16", "PISTA", "PATRON"}, {"BLANCAS: PASOS SI/NO", "NEGRAS: LA PISTA", "OCT-/OCT+: 16, 32, 64 PASOS"}},
-     {{"PAG. SIGUIENTE", "PISTA", "SONIDO FABRICA"}, {"EDITADO: PRESETS Y OCT+", "ARP+PRESETS: EL MOTOR", "DESHACER: SAVE+OCT- LO VUELVE"}},
+     {{"PAG. SIGUIENTE", "PISTA", "FABRICA / CURSOR"}, {"EDITADO: PRESETS Y OCT+", "ARP+PRESETS: EL MOTOR", "DESHACER: SAVE+OCT- LO VUELVE"}},
      {{"ENV / MEZCLA", "PISTA", "-"}, {"ENV OTRA VEZ: LA MEZCLA", "TECLAS: ESCUCHAR"}},
      {{"ENV / MEZCLA", "PISTA / MASTER", "-"}, {"NEGRAS: MUTE  ARP+NEGRA: SOLO", "TRAS LA 6: EL MASTER"}},
      {{"-", "PISTA", "PATRON"}, {"BLANCA: UNA HERRAMIENTA", "SCL: ESCALA, LUEGO MAGIA", "SAVE PULSADO: HERRAMIENTAS"}},
@@ -2069,10 +2072,10 @@ static void set_page(uint32_t p)
 
 static void play_from_cursor(void)               /* PLAY: the pattern on the screen, or the song from its entry */
 {
-    sq_start_pat = ui_pat;
+    sq_start_pat = (uint8_t)pat_head(ui_pat);   /* (a 64-step pair: from its first half) */
     sq_start_pos = 0;
     if (prj.mode) {                             /* the song: from the cursor's entry, else from where the pattern is */
-        int f = song_find(ui_pat);
+        int f = song_find(pat_head(ui_pat));
         sq_start_pos = song_cur < prj.song_len ? song_cur : 0u;
         if (page != PG_SONG && f >= 0) sq_start_pos = (uint8_t)f;
     }
@@ -2394,6 +2397,7 @@ static void knob(uint32_t i, int32_t d)
         if (sp == SP_SMP) { undo_push_snd(t, 1); smp_edit_turn(t, i, d); break; }
         if (sp == SP_OP || sp == SP_OPENV) {    /* an operator of the FM track */
             uint32_t k = (sp == SP_OP ? OPK_LEVEL : OPK_ATT) + i;
+            if (clampi(op_get(fm_op, k) + d, OPK_LO[k], OPK_HI[k]) == op_get(fm_op, k)) break;   /* (at its end: nothing to undo) */
             undo_push_snd(t, 1);
             op_set(fm_op, k, op_get(fm_op, k) + d);
             sound_build(t);
@@ -2658,7 +2662,8 @@ static void tools_run(uint32_t k)
         tool = IS_TONAL(t) && ENG(t) != E_NOISE ? (is_bass(t) ? MG_BASS : MG_MELO) : note_mode(t) == NM_SLICE ? MG_CHOP : MG_BEAT;
     if (k == 6u && mg_scope) tool = MG_MELO;
     s[0] = 0;
-    str_cat(str_cat(str_cat(s, TOOL_NAMES[lang][k]), " "), magic_run(tool, ui_pat, t, mg_scope, mg_inten, mg_seed, song_cur));
+    str_cat(str_cat(str_cat(s, TOOL_NAMES[lang][k]), " "),
+            magic_run(tool, page == PG_GRID ? gpat(grid_page) : ui_pat, t, mg_scope, mg_inten, mg_seed, song_cur));   /* (the grid: the half it shows) */
     toast(s);
     mg_seed = (uint8_t)((mg_seed + 1u) % 100u);
 }
@@ -2706,8 +2711,11 @@ static void button_down(uint32_t b)
     case BTN_FX:                                /* SENDS, then LIVE, then back; held from another page: LIVE while held */
         fx_down = 0;
         if (page == PG_SEND) { set_page(PG_FX); break; }
-        if (page == PG_FX && fx_sticky) { set_page(page_back); fx_sticky = 0; break; }
-        if (page != PG_FX) page_back = page == PG_HELP ? help_pg : page;
+        if (page == PG_FX && fx_sticky) { set_page(fx_back); fx_sticky = 0; break; }
+        if (page != PG_FX) {                    /* (from the help: the page it was on; from PROJECTS: TRACKS) */
+            uint32_t from = page == PG_HELP ? help_pg : page;
+            if (from != PG_SEND && from != PG_FX) fx_back = (uint8_t)(from == PG_PROJ || from == PG_HELP ? PG_TRACK : from);
+        }
         set_page(PG_SEND);
         fx_sticky = 0;
         fx_down = 1;
@@ -2738,9 +2746,11 @@ static void button_down(uint32_t b)
             write_cell(gpat(grid_page), grow(grid_page) + (uint32_t)grid_held, trk(), 0, 0, 0, 0, 0);
             grid_edit = 1;
         } else if (page == PG_SOUND && sp_at(trk(), snd_page) == SP_TABLE && tb_cur) {
+            undo_push_snd(trk(), 0);
             memset(&prj.tbl[trk()].s[(tb_cur - 1u) % NTSTEP], 0, sizeof(tstep_t));   /* the step cleared */
             touched();
         } else if (page == PG_SOUND && sp_at(trk(), snd_page) == SP_SMP) {
+            undo_push_snd(trk(), 0);
             smp_even(&prj.sed[trk()]);
             sed_normalise(trk());
             touched();
@@ -2785,15 +2795,16 @@ static void button_up(uint32_t b)
     case BTN_FX:
         if (fx_down) {
             fx_down = 0;
-            if (page == PG_FX && !fx_sticky) set_page(page_back);   /* it was held: LIVE only while it is */
+            if (page == PG_FX && !fx_sticky) set_page(fx_back);   /* it was held: LIVE only while it is */
             else if (page == PG_SEND) fx_sticky = 1;                /* a tap: the page stays */
         }
         break;
     case BTN_HOME:
         home_held = 0;
-        if (home_did) home_did = 0;              /* (HOME + PLAY: the panic was it) */
-        else if (page == PG_HELP) set_page(help_pg);  /* the help goes, the page stays */
+        if (page == PG_HELP) set_page(help_pg);  /* the help goes, the page stays */
+        else if (home_did) {}                   /* (HOME + a button: a chord, not a tap) */
         else set_page(PG_TRACK);                 /* a tap: the tracks */
+        home_did = 0;
         break;
     case BTN_SAVE:
         save_held = 0;
@@ -2998,12 +3009,18 @@ static void ui_input(void)
         uint32_t e, moved = 0;
         for (e = 0; e < 7u; e++)
             if (fm1_enc_take(e) != 0) moved = 1;
-        if (b || moved || fm1_in.notes) set_page(PG_TRACK);   /* (the screen stays until something is touched: that touch is only this) */
+        if (b || moved || fm1_in.notes) {      /* (the screen stays until something is touched: that touch is only this) */
+            boot_eat = b | fm1_in.buttons;
+            prev_keys = fm1_in.notes;           /* (a key held: not a note when the page comes) */
+            (void)fm1_input_note_edges();
+            set_page(PG_TRACK);
+        }
         return;
     }
     for (i = 0; i < 14u; i++) {
         if ((b >> i & 1u) && home_held && i != BTN_HOME) home_did = 1;   /* HOME + a button: a chord, not a tap */
         if (b >> i & 1u) button_down(i);
+        if ((rel >> i & 1u) && (boot_eat >> i & 1u)) { boot_eat &= ~(1u << i); continue; }
         if (rel >> i & 1u) button_up(i);
     }
     if (home_held && !home_did && page != PG_HELP && fm1_ms - home_down_ms > HOLD_HOME_MS) set_page(PG_HELP);
@@ -3118,7 +3135,7 @@ static void ui_input(void)
             set_changed();
             met_vol = set.mvol;
             met_trig = 2;
-        } else if (page != PG_ENV && page != PG_MIX && page != PG_GROOVE && page != PG_PROJ)
+        } else if (page != PG_ENV && page != PG_MIX && page != PG_GROOVE && page != PG_PROJ && page != PG_SEND)
             pat_select(d);
     }
     for (i = 0; i < 4u; i++)
